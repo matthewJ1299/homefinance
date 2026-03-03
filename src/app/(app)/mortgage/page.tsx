@@ -4,11 +4,10 @@ import { MortgageService } from "@/lib/services/mortgage.service";
 import { fromMinorUnits } from "@/lib/utils/currency";
 import { MortgageSetupForm } from "@/components/mortgage/mortgage-setup-form";
 import { MortgageSummaryCard } from "@/components/mortgage/mortgage-summary-card";
-import { AmortisationTable } from "@/components/mortgage/amortisation-table";
 import { EquitySplitChart } from "@/components/mortgage/equity-split-chart";
 import { ExtraPaymentForm } from "@/components/mortgage/extra-payment-form";
-import { PayoffProjection } from "@/components/mortgage/payoff-projection";
-import { MortgageUpdateSection } from "@/components/mortgage/mortgage-update-section";
+import { MortgageDetailsSection } from "@/components/mortgage/mortgage-details-section";
+import { MortgagePaymentsList } from "@/components/mortgage/mortgage-payments-list";
 
 export default async function MortgagePage() {
   const service = new MortgageService();
@@ -27,7 +26,10 @@ export default async function MortgagePage() {
     );
   }
 
-  const schedule = await service.getSchedule();
+  const [schedule, payments] = await Promise.all([
+    service.getSchedule(),
+    service.getPayments(config.id),
+  ]);
   if (!schedule) {
     return (
       <div className="p-4">
@@ -37,6 +39,7 @@ export default async function MortgagePage() {
     );
   }
 
+  const userNameById = new Map(usersForForm.map((u) => [u.id, u.name]));
   const currentBalance =
     schedule.schedule.length > 0
       ? schedule.schedule[schedule.schedule.length - 1].closingBalance
@@ -78,28 +81,28 @@ export default async function MortgagePage() {
         projectedPayoffDate={schedule.projectedPayoffDate}
         equitySummary={schedule.equitySummary}
         currentBalance={currentBalance}
-      />
-      <PayoffProjection
-        projectedPayoffDate={schedule.projectedPayoffDate}
         projectedMonths={schedule.projectedMonths}
         originalTermMonths={config.loanTermMonths}
       />
+      <MortgagePaymentsList payments={payments} userNameById={userNameById} />
+      <ExtraPaymentForm />
       <section>
-        <h2 className="font-semibold mb-2">Equity over time</h2>
+        <h2 className="font-semibold mb-1">How your shares change over time</h2>
+        <p className="text-sm text-muted-foreground mb-2">
+          This shows how each person&apos;s share of the home grows as you pay.
+        </p>
         <EquitySplitChart
           schedule={schedule.schedule}
           userAName={schedule.equitySummary.userA.name}
           userBName={schedule.equitySummary.userB.name}
         />
       </section>
-      <ExtraPaymentForm />
-      {mortgageInitialValues && (
-        <MortgageUpdateSection users={usersForForm} initialValues={mortgageInitialValues} />
-      )}
-      <AmortisationTable
+      <MortgageDetailsSection
         schedule={schedule.schedule}
         userAName={schedule.equitySummary.userA.name}
         userBName={schedule.equitySummary.userB.name}
+        users={usersForForm}
+        initialValues={mortgageInitialValues}
       />
     </div>
   );

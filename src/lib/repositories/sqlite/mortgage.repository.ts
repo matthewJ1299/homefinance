@@ -49,6 +49,7 @@ export class MortgageRepository implements IMortgageRepository {
     annualInterestRate: number;
     loanTermMonths: number;
     startDate: string;
+    targetEquityUserAPct?: number | null;
   }) {
     const existing = await this.getActiveConfig();
     if (existing) {
@@ -158,6 +159,17 @@ export class MortgageRepository implements IMortgageRepository {
       })
       .returning({ id: mortgagePayments.id });
     return inserted!.id;
+  }
+
+  async updatePaymentPrincipalInterest(
+    paymentId: number,
+    principalPortion: number,
+    interestPortion: number
+  ) {
+    await db
+      .update(mortgagePayments)
+      .set({ principalPortion, interestPortion })
+      .where(eq(mortgagePayments.id, paymentId));
   }
 
   async saveSnapshot(data: {

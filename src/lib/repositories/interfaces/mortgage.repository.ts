@@ -58,6 +58,11 @@ export interface IMortgageRepository {
     isExtraPayment: boolean;
     note?: string | null;
   }): Promise<number>;
+  updatePaymentPrincipalInterest(
+    paymentId: number,
+    principalPortion: number,
+    interestPortion: number
+  ): Promise<void>;
   saveSnapshot(data: {
     mortgageId: number;
     triggerEvent: string;

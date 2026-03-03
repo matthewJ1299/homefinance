@@ -25,13 +25,13 @@ export function MortgageUpdateSection({ users, initialValues }: MortgageUpdateSe
         className="flex w-full items-center justify-between p-4 text-left font-semibold hover:bg-muted/50 transition-colors rounded-lg"
         aria-expanded={open}
       >
-        <span>Update mortgage</span>
+        <span>Change loan or who pays what</span>
         {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
       </button>
       {open && (
         <div className="border-t p-4">
           <p className="text-sm text-muted-foreground mb-4">
-            Change interest rate, loan term, or each person&apos;s max monthly payment (cap).
+            Update interest rate, loan term, property or loan amount, or each person&apos;s share and maximum monthly payment.
           </p>
           <MortgageSetupForm users={users} initialValues={initialValues} />
         </div>

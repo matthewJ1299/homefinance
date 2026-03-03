@@ -109,6 +109,20 @@ export function calculateTopUp(
     params.userB.monthlyCap ?? Infinity
   );
 
+  const resultAtZero = simulateSchedule(params, M, userBBase, 0, startDate);
+  const totalContribZero =
+    params.userA.deposit +
+    params.userB.deposit +
+    resultAtZero.userATotalPayments +
+    resultAtZero.userBTotalPayments;
+  const userAEquityAtZero =
+    totalContribZero > 0
+      ? (params.userA.deposit + resultAtZero.userATotalPayments) / totalContribZero
+      : 0.5;
+  if (userAEquityAtZero >= targetEquityUserA - 0.001) {
+    return 0;
+  }
+
   let lo = 0;
   let hi = M * 5;
 
@@ -202,4 +216,106 @@ export function checkConvergenceFeasibility(
       ? (params.userA.deposit + result.userATotalPayments) / totalContrib
       : 0.5;
   return { feasible: bestPct >= 0.5, bestAchievablePct: bestPct };
+}
+
+export interface ProjectFromBalanceOptions {
+  params: MortgageParams;
+  startBalance: number;
+  startMonth: number;
+  startDate: string;
+  M: number;
+  userBBase: number;
+  topUp: number;
+  initialUserATotal: number;
+  initialUserBTotal: number;
+  getExtraPayment?: (monthNumber: number) => number;
+  maxMonths?: number;
+}
+
+/**
+ * Projects the amortisation schedule from a given balance and month onward.
+ * Used when past months are taken from actual payments; only future months are simulated.
+ */
+export function projectScheduleFromBalance(
+  options: ProjectFromBalanceOptions
+): { schedule: AmortisationRow[]; userATotalPayments: number; userBTotalPayments: number; months: number } {
+  const {
+    params,
+    startBalance,
+    startMonth,
+    startDate,
+    M,
+    userBBase,
+    topUp,
+    initialUserATotal,
+    initialUserBTotal,
+    getExtraPayment,
+    maxMonths = params.termMonths * 2,
+  } = options;
+
+  let balance = startBalance;
+  let userATotalPayments = initialUserATotal;
+  let userBTotalPayments = initialUserBTotal;
+  const schedule: AmortisationRow[] = [];
+  const [startYear, startMonthNum] = startDate.slice(0, 7).split("-").map(Number);
+  let currentDate = new Date(startYear, startMonthNum - 1, 1);
+  currentDate = addMonths(currentDate, startMonth - 1);
+  let month = startMonth - 1;
+  const maxMonth = startMonth + maxMonths;
+
+  while (balance > 0.5 && month < maxMonth) {
+    month++;
+    const openingBalance = balance;
+    const interest = Math.round(balance * params.monthlyRate);
+
+    const extra = getExtraPayment ? getExtraPayment(month) : 0;
+    let totalPayment = M + topUp + extra;
+    if (totalPayment > balance + interest) {
+      totalPayment = balance + interest;
+    }
+
+    let userBPay = Math.min(userBBase, totalPayment);
+    const userAPay = totalPayment - userBPay;
+
+    const principal = totalPayment - interest;
+    balance = openingBalance - principal;
+
+    userATotalPayments += userAPay;
+    userBTotalPayments += userBPay;
+
+    const totalContrib =
+      params.userA.deposit +
+      params.userB.deposit +
+      userATotalPayments +
+      userBTotalPayments;
+
+    schedule.push({
+      month,
+      date: format(currentDate, "yyyy-MM"),
+      openingBalance,
+      interest,
+      principal,
+      totalPayment,
+      userAPayment: userAPay,
+      userBPayment: userBPay,
+      userACumulativeEquityPct:
+        totalContrib > 0
+          ? (params.userA.deposit + userATotalPayments) / totalContrib
+          : 0.5,
+      userBCumulativeEquityPct:
+        totalContrib > 0
+          ? (params.userB.deposit + userBTotalPayments) / totalContrib
+          : 0.5,
+      closingBalance: Math.max(0, Math.round(balance)),
+    });
+
+    currentDate = addMonths(currentDate, 1);
+  }
+
+  return {
+    schedule,
+    userATotalPayments,
+    userBTotalPayments,
+    months: month,
+  };
 }

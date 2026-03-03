@@ -48,7 +48,7 @@ export function ExtraPaymentForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <h3 className="font-medium">Extra payment</h3>
+      <h2 className="font-semibold text-base">Pay a bit extra</h2>
       <div>
         <Label>Amount (R)</Label>
         <Input type="text" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" required />

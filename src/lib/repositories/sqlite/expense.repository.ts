@@ -1,6 +1,6 @@
-import { eq, inArray, sum, desc, count, and } from "drizzle-orm";
+import { eq, inArray, sum, desc, count, and, isNotNull } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { expenses, users, categories } from "@/lib/db/schema";
+import { expenses, users, categories, splitAllocations } from "@/lib/db/schema";
 import type { ExpenseWithDetails } from "@/lib/types";
 import type {
   IExpenseRepository,
@@ -26,6 +26,8 @@ export class ExpenseRepository implements IExpenseRepository {
         note: expenses.note,
         date: expenses.date,
         createdAt: expenses.createdAt,
+        splitGroupId: expenses.splitGroupId,
+        paidByUserId: expenses.paidByUserId,
       })
       .from(expenses)
       .innerJoin(users, eq(expenses.userId, users.id))
@@ -52,6 +54,8 @@ export class ExpenseRepository implements IExpenseRepository {
         note: expenses.note,
         date: expenses.date,
         createdAt: expenses.createdAt,
+        splitGroupId: expenses.splitGroupId,
+        paidByUserId: expenses.paidByUserId,
       })
       .from(expenses)
       .innerJoin(users, eq(expenses.userId, users.id))
@@ -102,6 +106,8 @@ export class ExpenseRepository implements IExpenseRepository {
         note: expenses.note,
         date: expenses.date,
         createdAt: expenses.createdAt,
+        splitGroupId: expenses.splitGroupId,
+        paidByUserId: expenses.paidByUserId,
       })
       .from(expenses)
       .innerJoin(users, eq(expenses.userId, users.id))
@@ -121,6 +127,8 @@ export class ExpenseRepository implements IExpenseRepository {
         note: data.note ?? null,
         date: data.date,
         month: data.month,
+        splitGroupId: data.splitGroupId ?? null,
+        paidByUserId: data.paidByUserId ?? null,
       })
       .returning({ id: expenses.id });
     return { id: inserted!.id };
@@ -141,5 +149,39 @@ export class ExpenseRepository implements IExpenseRepository {
 
   async delete(id: number): Promise<void> {
     await db.delete(expenses).where(eq(expenses.id, id));
+  }
+
+  async deleteBySplitGroupId(splitGroupId: string): Promise<void> {
+    const [row] = await db
+      .select({ id: expenses.id })
+      .from(expenses)
+      .where(eq(expenses.splitGroupId, splitGroupId))
+      .limit(1);
+    if (!row) return;
+    await db.delete(splitAllocations).where(eq(splitAllocations.expenseId, row.id));
+    await db.delete(expenses).where(eq(expenses.id, row.id));
+  }
+
+  async findSplitExpenses(): Promise<ExpenseWithDetails[]> {
+    const rows = await db
+      .select({
+        id: expenses.id,
+        userId: expenses.userId,
+        userName: users.name,
+        categoryId: expenses.categoryId,
+        categoryName: categories.name,
+        amount: expenses.amount,
+        note: expenses.note,
+        date: expenses.date,
+        createdAt: expenses.createdAt,
+        splitGroupId: expenses.splitGroupId,
+        paidByUserId: expenses.paidByUserId,
+      })
+      .from(expenses)
+      .innerJoin(users, eq(expenses.userId, users.id))
+      .innerJoin(categories, eq(expenses.categoryId, categories.id))
+      .where(isNotNull(expenses.splitGroupId))
+      .orderBy(desc(expenses.date), desc(expenses.createdAt));
+    return rows as ExpenseWithDetails[];
   }
 }

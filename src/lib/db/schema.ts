@@ -4,6 +4,7 @@ import {
   text,
   integer,
   real,
+  unique,
 } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
@@ -65,22 +66,61 @@ export const expenses = sqliteTable("expenses", {
     .notNull()
     .default(sql`(datetime('now'))`),
   synced: integer("synced", { mode: "boolean" }).notNull().default(true),
+  splitGroupId: text("split_group_id"),
+  paidByUserId: integer("paid_by_user_id").references(() => users.id),
 });
 
-export const budgets = sqliteTable("budgets", {
+export const splitAllocations = sqliteTable(
+  "split_allocations",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    expenseId: integer("expense_id")
+      .notNull()
+      .references(() => expenses.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    amount: integer("amount").notNull(),
+  },
+);
+
+export const splitSettlements = sqliteTable("split_settlements", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  categoryId: integer("category_id")
+  payerUserId: integer("payer_user_id")
     .notNull()
-    .references(() => categories.id),
-  month: text("month").notNull(),
-  allocatedAmount: integer("allocated_amount").notNull(),
+    .references(() => users.id),
+  recipientUserId: integer("recipient_user_id")
+    .notNull()
+    .references(() => users.id),
+  amount: integer("amount").notNull(),
+  date: text("date").notNull(),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(datetime('now'))`),
-  updatedAt: text("updated_at")
-    .notNull()
-    .default(sql`(datetime('now'))`),
+  expenseId: integer("expense_id").references(() => expenses.id),
+  incomeId: integer("income_id").references(() => income.id),
 });
+
+export const budgets = sqliteTable(
+  "budgets",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    categoryId: integer("category_id")
+      .notNull()
+      .references(() => categories.id),
+    month: text("month").notNull(),
+    allocatedAmount: integer("allocated_amount").notNull(),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (t) => ({
+    categoryMonthUnique: unique().on(t.categoryId, t.month),
+  })
+);
 
 export const budgetTransfers = sqliteTable(
   "budget_transfers",
@@ -118,18 +158,24 @@ export const mortgageConfigs = sqliteTable("mortgage_configs", {
     .default(sql`(datetime('now'))`),
 });
 
-export const mortgageUserConfigs = sqliteTable("mortgage_user_configs", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  mortgageId: integer("mortgage_id")
-    .notNull()
-    .references(() => mortgageConfigs.id, { onDelete: "cascade" }),
-  userId: integer("user_id")
-    .notNull()
-    .references(() => users.id),
-  initialDeposit: integer("initial_deposit").notNull().default(0),
-  baseSplitPct: real("base_split_pct").notNull(),
-  monthlyCap: integer("monthly_cap"),
-});
+export const mortgageUserConfigs = sqliteTable(
+  "mortgage_user_configs",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    mortgageId: integer("mortgage_id")
+      .notNull()
+      .references(() => mortgageConfigs.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    initialDeposit: integer("initial_deposit").notNull().default(0),
+    baseSplitPct: real("base_split_pct").notNull(),
+    monthlyCap: integer("monthly_cap"),
+  },
+  (t) => ({
+    mortgageUserUnique: unique().on(t.mortgageId, t.userId),
+  })
+);
 
 export const mortgagePayments = sqliteTable(
   "mortgage_payments",

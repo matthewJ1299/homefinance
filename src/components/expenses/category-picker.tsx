@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo } from "react";
 import type { Category } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -29,14 +29,10 @@ function pushRecentCategoryId(id: number) {
   }
 }
 
-/** Variable categories first, then fixed; within each by group and name. */
-function sortVariableFirstThenGroupAndName(categories: Category[]): Category[] {
-  return [...categories].sort((a, b) => {
-    const variableFirst =
-      (a.costType === "variable" ? 0 : 1) - (b.costType === "variable" ? 0 : 1);
-    if (variableFirst !== 0) return variableFirst;
-    return a.groupName.localeCompare(b.groupName) || a.name.localeCompare(b.name);
-  });
+function sortByGroupAndName(categories: Category[]): Category[] {
+  return [...categories].sort(
+    (a, b) => a.groupName.localeCompare(b.groupName) || a.name.localeCompare(b.name)
+  );
 }
 
 interface CategoryPickerProps {
@@ -46,23 +42,54 @@ interface CategoryPickerProps {
   className?: string;
 }
 
-export function CategoryPicker({ categories, value, onChange, className }: CategoryPickerProps) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+function PillSection({
+  label,
+  categories,
+  value,
+  onSelect,
+  className,
+}: {
+  label: string;
+  categories: Category[];
+  value: number | null;
+  onSelect: (id: number) => void;
+  className?: string;
+}) {
+  if (categories.length === 0) return null;
+  return (
+    <div className={className}>
+      <p className="text-xs text-muted-foreground mb-1.5 font-medium">{label}</p>
+      <div className="flex flex-wrap gap-2">
+        {categories.map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            onClick={() => onSelect(c.id)}
+            className={cn(
+              "rounded-full px-3 py-1.5 text-sm font-medium transition-colors border",
+              value === c.id
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background border-input hover:bg-accent"
+            )}
+          >
+            {c.name}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-  const sorted = useMemo(() => {
-    const variableFirst = sortVariableFirstThenGroupAndName(categories);
-    if (!mounted) return variableFirst;
-    const recent = getRecentCategoryIds();
-    return [...variableFirst].sort((a, b) => {
-      const ai = recent.indexOf(a.id);
-      const bi = recent.indexOf(b.id);
-      if (ai !== -1 && bi !== -1) return ai - bi;
-      if (ai !== -1) return -1;
-      if (bi !== -1) return 1;
-      return 0;
-    });
-  }, [categories, mounted]);
+export function CategoryPicker({ categories, value, onChange, className }: CategoryPickerProps) {
+  const { variable, fixed } = useMemo(() => {
+    const variableList = sortByGroupAndName(
+      categories.filter((c) => c.costType === "variable")
+    );
+    const fixedList = sortByGroupAndName(
+      categories.filter((c) => c.costType === "fixed")
+    );
+    return { variable: variableList, fixed: fixedList };
+  }, [categories]);
 
   const handleSelect = (id: number) => {
     pushRecentCategoryId(id);
@@ -70,22 +97,19 @@ export function CategoryPicker({ categories, value, onChange, className }: Categ
   };
 
   return (
-    <div className={cn("flex flex-wrap gap-2 pb-2", className)}>
-      {sorted.map((c) => (
-        <button
-          key={c.id}
-          type="button"
-          onClick={() => handleSelect(c.id)}
-          className={cn(
-            "rounded-full px-3 py-1.5 text-sm font-medium transition-colors border",
-            value === c.id
-              ? "bg-primary text-primary-foreground border-primary"
-              : "bg-background border-input hover:bg-accent"
-          )}
-        >
-          {c.name}
-        </button>
-      ))}
+    <div className={cn("space-y-4 pb-2", className)}>
+      <PillSection
+        label="Variable costs"
+        categories={variable}
+        value={value}
+        onSelect={handleSelect}
+      />
+      <PillSection
+        label="Fixed costs"
+        categories={fixed}
+        value={value}
+        onSelect={handleSelect}
+      />
     </div>
   );
 }

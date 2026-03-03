@@ -27,10 +27,12 @@ export function AmortisationTable({
         className="flex w-full items-center justify-between rounded-lg border p-3 text-left font-semibold hover:bg-muted/50 transition-colors"
         aria-expanded={open}
       >
-        <span>Amortisation schedule</span>
+        <span>Month-by-month breakdown</span>
         {open ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
       </button>
       {open && (
+      <>
+        <p className="text-xs text-muted-foreground mb-2">Interest, principal and balance each month.</p>
       <div className="h-[400px] overflow-auto rounded border">
         <table className="w-full border-collapse text-sm">
           <thead className="sticky top-0 bg-background z-10">
@@ -68,6 +70,7 @@ export function AmortisationTable({
           </tbody>
         </table>
       </div>
+      </>
       )}
     </div>
   );

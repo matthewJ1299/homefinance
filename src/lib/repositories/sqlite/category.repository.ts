@@ -56,6 +56,23 @@ export class CategoryRepository implements ICategoryRepository {
     return (row as Category) ?? null;
   }
 
+  async findByName(name: string): Promise<Category | null> {
+    const [row] = await db
+      .select({
+        id: categories.id,
+        name: categories.name,
+        groupName: categories.groupName,
+        icon: categories.icon,
+        sortOrder: categories.sortOrder,
+        costType: categories.costType,
+        defaultAmount: categories.defaultAmount,
+      })
+      .from(categories)
+      .where(eq(categories.name, name))
+      .limit(1);
+    return (row as Category) ?? null;
+  }
+
   async create(data: {
     name: string;
     groupName: string;

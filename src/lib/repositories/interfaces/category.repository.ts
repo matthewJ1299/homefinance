@@ -4,6 +4,7 @@ export interface ICategoryRepository {
   findAll(): Promise<Category[]>;
   findAllIncludingInactive(): Promise<CategoryWithActive[]>;
   findById(id: number): Promise<Category | null>;
+  findByName(name: string): Promise<Category | null>;
   create(data: {
     name: string;
     groupName: string;

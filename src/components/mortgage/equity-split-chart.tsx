@@ -33,7 +33,7 @@ export function EquitySplitChart({ schedule, userAName, userBName }: EquitySplit
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis dataKey="month" tick={{ fontSize: 12 }} />
           <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} tickFormatter={(v) => `${v}%`} />
-          <Tooltip formatter={(value: number) => [`${value}%`, ""]} />
+          <Tooltip formatter={(value: number, name: string) => [`${value}%`, name]} />
           <ReferenceLine y={50} stroke="var(--muted-foreground)" strokeDasharray="3 3" />
           <Area type="monotone" dataKey="userA" name={userAName} stroke="var(--primary)" fill="var(--primary)" fillOpacity={0.4} />
           <Area type="monotone" dataKey="userB" name={userBName} stroke="#94a3b8" fill="#94a3b8" fillOpacity={0.4} />

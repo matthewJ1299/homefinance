@@ -139,7 +139,7 @@ export function MortgageSetupForm({ users, initialValues, submitLabel }: Mortgag
           <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
         </div>
         <div>
-          <Label>Target equity – higher-split person (%)</Label>
+          <Label>Target share of the home – person who pays the extra (%)</Label>
           <Input
             type="number"
             min={0}
@@ -149,7 +149,7 @@ export function MortgageSetupForm({ users, initialValues, submitLabel }: Mortgag
             placeholder="50 for 50/50"
           />
           <p className="text-xs text-muted-foreground mt-1">
-            Desired final equity share for the person who pays the top-up (e.g. 50 for 50/50).
+            The share of the home you want that person to end up with (e.g. 50 for 50/50).
           </p>
         </div>
       </div>
@@ -161,11 +161,12 @@ export function MortgageSetupForm({ users, initialValues, submitLabel }: Mortgag
           <Input type="text" inputMode="decimal" value={user1Deposit} onChange={(e) => setUser1Deposit(e.target.value)} placeholder="0" />
         </div>
         <div>
-          <Label>Base split %</Label>
+          <Label>Share of the minimum payment (%)</Label>
           <Input type="number" min={0} max={100} value={user1Split} onChange={(e) => setUser1Split(e.target.value)} />
+          <p className="text-xs text-muted-foreground mt-1">This person pays this % of the minimum monthly amount.</p>
         </div>
         <div>
-          <Label>Monthly cap (R, optional)</Label>
+          <Label>Maximum this person pays per month (R, optional)</Label>
           <Input type="text" inputMode="decimal" value={user1Cap} onChange={(e) => setUser1Cap(e.target.value)} placeholder="Optional" />
         </div>
       </div>
@@ -177,11 +178,12 @@ export function MortgageSetupForm({ users, initialValues, submitLabel }: Mortgag
           <Input type="text" inputMode="decimal" value={user2Deposit} onChange={(e) => setUser2Deposit(e.target.value)} placeholder="500000" />
         </div>
         <div>
-          <Label>Base split %</Label>
+          <Label>Share of the minimum payment (%)</Label>
           <Input type="number" min={0} max={100} value={user2Split} onChange={(e) => setUser2Split(e.target.value)} />
+          <p className="text-xs text-muted-foreground mt-1">This person pays this % of the minimum monthly amount.</p>
         </div>
         <div>
-          <Label>Monthly cap (R, optional)</Label>
+          <Label>Maximum this person pays per month (R, optional)</Label>
           <Input type="text" inputMode="decimal" value={user2Cap} onChange={(e) => setUser2Cap(e.target.value)} placeholder="Optional" />
         </div>
       </div>

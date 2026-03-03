@@ -55,6 +55,7 @@ export function ExpensesPageClient({
   );
   const expenseTotal = useMemo(() => sumAmount(filteredExpenses), [filteredExpenses]);
   const incomeTotal = useMemo(() => sumAmount(filteredIncome), [filteredIncome]);
+  const balance = incomeTotal - expenseTotal;
 
   return (
     <div className="flex flex-col gap-6">
@@ -74,6 +75,14 @@ export function ExpensesPageClient({
           <span>
             <span className="text-muted-foreground">Expenses: </span>
             <span className="font-medium">{formatRand(expenseTotal)}</span>
+          </span>
+          <span>
+            <span className="text-muted-foreground">Balance: </span>
+            <span
+              className={`font-medium ${balance >= 0 ? "text-foreground" : "text-destructive"}`}
+            >
+              {formatRand(balance)}
+            </span>
           </span>
         </div>
       </div>

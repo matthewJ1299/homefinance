@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+const paginationButtonClass =
+  "inline-flex items-center justify-center rounded-md font-medium h-9 px-3 border border-input bg-background hover:bg-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
 
 interface ExpenseListPaginationProps {
   month: string;
@@ -33,26 +36,23 @@ export function ExpenseListPagination({
         {start}&ndash;{end} of {total}
       </p>
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" asChild disabled={page <= 1}>
-          <Link href={page <= 1 ? "#" : `${baseHref}&page=${page - 1}`}>
-            Previous
-          </Link>
-        </Button>
+        <Link
+          href={page <= 1 ? "#" : `${baseHref}&page=${page - 1}`}
+          className={cn(paginationButtonClass, page <= 1 && "opacity-50 pointer-events-none")}
+          aria-disabled={page <= 1}
+        >
+          Previous
+        </Link>
         <span className="text-sm text-muted-foreground px-1">
           Page {page} of {totalPages}
         </span>
-        <Button
-          variant="outline"
-          size="sm"
-          asChild
-          disabled={page >= totalPages}
+        <Link
+          href={page >= totalPages ? "#" : `${baseHref}&page=${page + 1}`}
+          className={cn(paginationButtonClass, page >= totalPages && "opacity-50 pointer-events-none")}
+          aria-disabled={page >= totalPages}
         >
-          <Link
-            href={page >= totalPages ? "#" : `${baseHref}&page=${page + 1}`}
-          >
-            Next
-          </Link>
-        </Button>
+          Next
+        </Link>
       </div>
     </nav>
   );

@@ -9,6 +9,8 @@ import {
   categories,
   income,
   expenses,
+  splitAllocations,
+  splitSettlements,
   budgets,
   budgetTransfers,
   mortgageConfigs,
@@ -17,33 +19,14 @@ import {
   mortgageScheduleSnapshots,
 } from "./schema";
 import bcrypt from "bcryptjs";
+import { defaultCategories } from "./seed-data";
 
 const DEFAULT_PASSWORD = process.env.SEED_USER_PASSWORD ?? "ChangeMe123!";
 
-/** costType: fixed = same amount each month (auto-populated); variable = varies by month. defaultAmount in cents (for fixed only). */
-const defaultCategories: Array<{
-  name: string;
-  groupName: string;
-  sortOrder: number;
-  costType: "fixed" | "variable";
-  defaultAmount: number | null;
-}> = [
-  { name: "Groceries", groupName: "Living", sortOrder: 0, costType: "variable", defaultAmount: null },
-  { name: "Transport", groupName: "Living", sortOrder: 1, costType: "variable", defaultAmount: null },
-  { name: "Dining Out", groupName: "Living", sortOrder: 2, costType: "variable", defaultAmount: null },
-  { name: "Utilities", groupName: "Bills", sortOrder: 3, costType: "fixed", defaultAmount: 12000 },
-  { name: "Entertainment", groupName: "Lifestyle", sortOrder: 4, costType: "variable", defaultAmount: null },
-  { name: "Healthcare", groupName: "Bills", sortOrder: 5, costType: "variable", defaultAmount: null },
-  { name: "Insurance", groupName: "Bills", sortOrder: 6, costType: "fixed", defaultAmount: 5800 },
-  { name: "Savings", groupName: "Goals", sortOrder: 7, costType: "fixed", defaultAmount: 15000 },
-  { name: "Clothing", groupName: "Lifestyle", sortOrder: 8, costType: "variable", defaultAmount: null },
-  { name: "Education", groupName: "Goals", sortOrder: 9, costType: "variable", defaultAmount: null },
-  { name: "Home", groupName: "Living", sortOrder: 10, costType: "variable", defaultAmount: null },
-  { name: "Other", groupName: "Other", sortOrder: 11, costType: "variable", defaultAmount: null },
-];
-
 async function seed() {
   console.log("Clearing existing data...");
+  await db.delete(splitSettlements).where(sql`1=1`);
+  await db.delete(splitAllocations).where(sql`1=1`);
   await db.delete(budgetTransfers).where(sql`1=1`);
   await db.delete(budgets).where(sql`1=1`);
   await db.delete(expenses).where(sql`1=1`);
@@ -91,7 +74,88 @@ async function seed() {
     insertedCategories.map((r) => r.id)
   );
 
+  await seedSplitExpenses(
+    [insertedUsers[0]!.id, insertedUsers[1]!.id],
+    insertedCategories.map((r) => r.id)
+  );
+
   console.log("Seed complete. Default password for both:", DEFAULT_PASSWORD);
+}
+
+/** Sample split expenses for the current month: who paid, total, and who owes what. */
+async function seedSplitExpenses(
+  userIds: [number, number],
+  categoryIdsByOrder: number[]
+) {
+  const [userIdMatt, userIdSydney] = userIds;
+  const now = new Date();
+  const month = format(now, "yyyy-MM");
+  const categoryIds = {
+    groceries: categoryIdsByOrder[0]!,
+    diningOut: categoryIdsByOrder[2]!,
+    utilities: categoryIdsByOrder[3]!,
+  };
+
+  const splitExpenses: Array<{
+    paidByUserId: number;
+    totalCents: number;
+    categoryId: number;
+    note: string;
+    date: string;
+    otherUserId: number;
+    otherOwesCents: number;
+  }> = [
+    {
+      paidByUserId: userIdMatt,
+      totalCents: 50000,
+      categoryId: categoryIds.groceries,
+      note: "Groceries split equally",
+      date: format(now, "yyyy-MM-dd"),
+      otherUserId: userIdSydney,
+      otherOwesCents: 25000,
+    },
+    {
+      paidByUserId: userIdSydney,
+      totalCents: 30000,
+      categoryId: categoryIds.diningOut,
+      note: "Dinner split equally",
+      date: format(now, "yyyy-MM-dd"),
+      otherUserId: userIdMatt,
+      otherOwesCents: 15000,
+    },
+    {
+      paidByUserId: userIdMatt,
+      totalCents: 100000,
+      categoryId: categoryIds.utilities,
+      note: "Electricity – I am owed the full amount",
+      date: format(now, "yyyy-MM-dd"),
+      otherUserId: userIdSydney,
+      otherOwesCents: 100000,
+    },
+  ];
+
+  for (const s of splitExpenses) {
+    const splitGroupId = `split-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const [expense] = await db
+      .insert(expenses)
+      .values({
+        userId: s.paidByUserId,
+        categoryId: s.categoryId,
+        amount: s.totalCents,
+        note: s.note,
+        date: s.date,
+        month,
+        splitGroupId,
+        paidByUserId: s.paidByUserId,
+      })
+      .returning({ id: expenses.id });
+    await db.insert(splitAllocations).values({
+      expenseId: expense!.id,
+      userId: s.otherUserId,
+      amount: s.otherOwesCents,
+    });
+  }
+  console.log(`Created ${splitExpenses.length} split expenses.`);
 }
 
 /** 3 months of income and expenses for both users. */

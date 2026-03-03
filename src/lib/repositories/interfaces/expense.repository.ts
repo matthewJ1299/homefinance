@@ -7,6 +7,8 @@ export interface CreateExpenseInput {
   note?: string | null;
   date: string;
   month: string;
+  splitGroupId?: string | null;
+  paidByUserId?: number | null;
 }
 
 export interface UpdateExpenseInput {
@@ -31,4 +33,6 @@ export interface IExpenseRepository {
   create(data: CreateExpenseInput): Promise<{ id: number }>;
   update(id: number, data: UpdateExpenseInput): Promise<void>;
   delete(id: number): Promise<void>;
+  deleteBySplitGroupId(splitGroupId: string): Promise<void>;
+  findSplitExpenses(): Promise<ExpenseWithDetails[]>;
 }

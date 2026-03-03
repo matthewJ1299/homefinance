@@ -1,15 +1,18 @@
 import { auth } from "@/lib/auth";
-import { getCategoryRepository } from "@/lib/repositories";
+import { getCategoryRepository, getUserRepository } from "@/lib/repositories";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { IncomeService } from "@/lib/services/income.service";
+import { SplitService } from "@/lib/services/split.service";
 import { getCurrentMonth } from "@/lib/utils/date";
 import { MonthNavigator } from "@/components/layout/month-navigator";
 import { QuickAddForm } from "@/components/expenses/quick-add-form";
 import { ExpenseList } from "@/components/expenses/expense-list";
 import { ExpenseListPagination } from "@/components/expenses/expense-list-pagination";
 import { IncomeQuickAdd } from "@/components/income/income-quick-add";
+import { IncomeList } from "@/components/income/income-list";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { formatRand } from "@/lib/utils/currency";
+import Link from "next/link";
 
 const EXPENSE_PAGE_SIZE = 15;
 
@@ -26,20 +29,37 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const page = Math.max(1, parseInt(String(pageParam ?? "1"), 10) || 1);
 
   const categoryRepo = getCategoryRepository();
+  const userRepo = getUserRepository();
   const expenseService = new ExpenseService();
   const incomeService = new IncomeService();
-  const [categories, expensePage, incomeResult] = await Promise.all([
+  const [categories, otherUsers, expensePage, incomeResult, splitBalance] = await Promise.all([
     categoryRepo.findAll(),
+    userRepo.findAllExcept(userId),
     expenseService.getByMonthPaginated(month, page, EXPENSE_PAGE_SIZE, userId),
     incomeService.getByMonth(month),
+    new SplitService().getBalance(userId),
   ]);
+  const otherUserName = otherUsers[0]?.name;
 
   return (
     <div className="p-4 space-y-6">
       <MonthNavigator />
+      {splitBalance.net !== 0 && (
+        <section>
+          <Link
+            href="/splits"
+            className="block rounded-lg border bg-card p-3 text-sm text-card-foreground shadow-sm hover:bg-accent/50"
+          >
+            <span className="text-muted-foreground">Split balance: </span>
+            {splitBalance.net > 0
+              ? `You are owed ${formatRand(splitBalance.net)}`
+              : `You owe ${formatRand(-splitBalance.net)}`}
+          </Link>
+        </section>
+      )}
       <section>
         <h2 className="sr-only">Quick add expense</h2>
-        <QuickAddForm categories={categories} userId={userId} />
+        <QuickAddForm categories={categories} userId={userId} otherUserName={otherUserName} />
       </section>
       <CollapsibleSection title="Recent expenses" defaultOpen>
         <ExpenseList expenses={expensePage.expenses} />
@@ -55,7 +75,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <p className="text-xs text-muted-foreground mb-2">
           Total: {formatRand(incomeResult.totals.overall)}. Add income below to budget it.
         </p>
-        <IncomeQuickAdd month={month} />
+        <div className="space-y-4">
+          <IncomeList
+            entries={[...incomeResult.entries].sort((a, b) => b.date.localeCompare(a.date))}
+          />
+          <IncomeQuickAdd month={month} />
+        </div>
       </CollapsibleSection>
     </div>
   );
