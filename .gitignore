@@ -13,10 +13,6 @@ out/
 public/sw*
 public/swe-worker*
 
-# Production
-build
-dist
-
 # Misc
 .DS_Store
 *.pem
@@ -36,12 +32,6 @@ yarn-error.log*
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
-
-# Database
-*.db
-*.db-journal
-*.db-wal
-*.db-shm
 
 # IDE
 .idea

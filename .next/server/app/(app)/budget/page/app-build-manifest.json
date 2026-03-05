@@ -1,0 +1,27 @@
+{
+  "pages": {
+    "/(app)/budget/page": [
+      "static/chunks/[root-of-the-server]__0f0ba101._.css",
+      "static/chunks/node_modules_9dde4a5b._.js",
+      "static/chunks/src_components_providers_47901c8c._.js",
+      "static/chunks/src_app_layout_tsx_0a548d63._.js",
+      "static/chunks/node_modules_next_dist_client_components_builtin_global-error_fa01ac1b.js",
+      "static/chunks/node_modules_6f5f0737._.js",
+      "static/chunks/src_85f630a0._.js",
+      "static/chunks/src_app_(app)_layout_tsx_fa01ac1b._.js",
+      "static/chunks/src_93129f3f._.js",
+      "static/chunks/src_app_(app)_error_tsx_79f8de2c._.js",
+      "static/chunks/_06ba6b5e._.js",
+      "static/chunks/src_app_(app)_budget_page_tsx_79f8de2c._.js",
+      "static/chunks/[turbopack]_browser_dev_hmr-client_hmr-client_ts_57d40746._.js",
+      "static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js",
+      "static/chunks/node_modules_next_dist_compiled_next-devtools_index_a9cb0712.js",
+      "static/chunks/node_modules_next_dist_compiled_5150ccfd._.js",
+      "static/chunks/node_modules_next_dist_client_cf1d9188._.js",
+      "static/chunks/node_modules_next_dist_b0daae9a._.js",
+      "static/chunks/node_modules_@swc_helpers_cjs_b3dc30d6._.js",
+      "static/chunks/_a0ff3932._.js",
+      "static/chunks/turbopack-_cdba956c._.js"
+    ]
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "node": {
+    "00b01c9369bedf31201292072164b5c2535c7a203f": {
+      "workers": {
+        "app/(app)/dashboard/page": {
+          "moduleId": "[project]/.next-internal/server/app/(app)/dashboard/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/components/layout/header.tsx [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/src/lib/actions/expense.actions.ts [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/src/lib/actions/income.actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "$$RSC_SERVER_ACTION_0",
+          "filename": "src/components/layout/header.tsx"
+        }
+      },
+      "layer": {
+        "app/(app)/dashboard/page": "rsc"
+      },
+      "exportedName": "$$RSC_SERVER_ACTION_0",
+      "filename": "src/components/layout/header.tsx"
+    },
+    "40c822db22e7d87ae8a699269570099aa430a6dd07": {
+      "workers": {
+        "app/(app)/dashboard/page": {
+          "moduleId": "[project]/.next-internal/server/app/(app)/dashboard/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/components/layout/header.tsx [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/src/lib/actions/expense.actions.ts [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/src/lib/actions/income.actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "addExpense",
+          "filename": "src/lib/actions/expense.actions.ts"
+        }
+      },
+      "layer": {
+        "app/(app)/dashboard/page": "action-browser"
+      },
+      "exportedName": "addExpense",
+      "filename": "src/lib/actions/expense.actions.ts"
+    },
+    "4062349d4b4f45421215db29d2fc0d2dd804bf3108": {
+      "workers": {
+        "app/(app)/dashboard/page": {
+          "moduleId": "[project]/.next-internal/server/app/(app)/dashboard/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/components/layout/header.tsx [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/src/lib/actions/expense.actions.ts [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/src/lib/actions/income.actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "addSplitExpense",
+          "filename": "src/lib/actions/expense.actions.ts"
+        }
+      },
+      "layer": {
+        "app/(app)/dashboard/page": "action-browser"
+      },
+      "exportedName": "addSplitExpense",
+      "filename": "src/lib/actions/expense.actions.ts"
+    },
+    "409fa4df5a2b1f2535740a5211bce0525eef992953": {
+      "workers": {
+        "app/(app)/dashboard/page": {
+          "moduleId": "[project]/.next-internal/server/app/(app)/dashboard/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/components/layout/header.tsx [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/src/lib/actions/expense.actions.ts [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/src/lib/actions/income.actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "addIncome",
+          "filename": "src/lib/actions/income.actions.ts"
+        }
+      },
+      "layer": {
+        "app/(app)/dashboard/page": "action-browser"
+      },
+      "exportedName": "addIncome",
+      "filename": "src/lib/actions/income.actions.ts"
+    }
+  },
+  "edge": {}
+}
