@@ -30,6 +30,7 @@ Use this for initial deploy and for every code update. You do **not** need to ru
    **Exclude:** `node_modules/`, `.env` / `.env.local`, `.git/`, `*.db`.
 
 3. **In cPanel (Setup Node.js App):**
+   - Set **Node.js version** to **18** or **20** (required; the app will not run on Node 10 or 12).
    - Set **Application root** to the folder where `server.js` and `package.json` live.
    - Set **Application startup file** to **`startup.cjs`** (this launcher runs `npx tsx server.js` from the app directory; use this when the host only has a startup file and no start-command field).
    - Click **Run NPM Install** (once per deploy, or only when dependencies change).
@@ -73,6 +74,7 @@ After this one-time setup, normal deploys do not require terminal access.
 |--------|--------|
 | **Application root** | Folder containing `server.js` and `package.json` (e.g. `homefinance`) |
 | **Application startup file** | **`startup.cjs`** (launcher that runs `npx tsx server.js` from the app dir) |
+| **Node.js version** | **18 or 20** (required; do not use Node 10 or 12) |
 
 Routine steps: **Run NPM Install** (when deps change) then **Restart**. No manual `npm ci` on the server.
 
@@ -132,6 +134,13 @@ The host is running **plain `node server.js`** and Node is loading the file as C
 
 - **Fix:** Set **Application startup file** to **`startup.cjs`** (not `server.js`). The launcher runs `npx tsx server.js` from the app directory so the real server runs under tsx. Ensure **Application root** is the folder that contains `package.json` and `node_modules`.
 
+### "Cannot find module 'node:fs'" or npm install fails with Node 10
+
+The **Node.js version** for this application is set to **Node 10** (or 12). This app requires **Node 18 or 20**. The `node:fs` built-in exists only in Node 14.18+; Next.js 15 and the rest of the stack require Node 18+.
+
+- **Fix:** In cPanel **Setup Node.js App**, change the **Node.js version** for this application to **18** or **20**. The version is chosen when you create or edit the application (e.g. a dropdown or selector). After changing it, run **Run NPM Install** again from the app root so dependencies are installed with the correct Node, then **Restart**.
+- **Git deploy note:** `.cpanel.yml` uses Node 24 in the **repository** for `npm install` and `npm run build`. The **running application** (Setup Node.js App) has its own Node version; that must be 18 or 20, not 10. If the app is currently tied to Node 10, edit the application and select Node 18 or 20, then re-run NPM Install in the **deploy path** (e.g. `finance`).
+
 ### "Cannot find module 'next'" (LiteSpeed / lsnode / generic Node hosts)
 
 Node resolves `require('next')` from the **current working directory** of the process. If the app is started from another directory (e.g. LiteSpeed’s `fcgi-bin`), `node_modules` in your app folder is never used.
@@ -162,7 +171,7 @@ Node resolves `require('next')` from the **current working directory** of the pr
 |------|--------|--------|
 | 1 | Your PC | `npm ci && npm run build` |
 | 2 | Your PC | FTP project (no `node_modules`, no `.env`) |
-| 3 | cPanel | Set Application root, startup file **`startup.cjs`**; set `AUTH_SECRET`, `NEXTAUTH_URL`, `DB_PATH`; edit `.htaccess` port if needed |
+| 3 | cPanel | Set **Node version 18 or 20**, Application root, startup file **`startup.cjs`**; set `AUTH_SECRET`, `NEXTAUTH_URL`, `DB_PATH`; edit `.htaccess` port if needed |
 | 4 | cPanel | **Run NPM Install**, then **Start** or **Restart** |
 | 5 | Server (one-time) | Terminal/SSH: create DB directory, then in app dir run `npm run db:push` and optionally `npm run db:seed` |
 
@@ -184,4 +193,4 @@ To use cPanel **Git Version Control** with push deployment:
    cPanel will not deploy if the **server's** copy of the repo has uncommitted changes. Ensure you have not edited files inside the repo directory (`repositories/homefinance`). If the server's branch was changed or is behind, use **Update from Remote** in cPanel **Git Version Control** (Pull or Deploy tab) so the checked-out branch matches the remote; then use **Deploy HEAD Commit** or push to trigger deployment.
 
 3. **Setup Node.js App**  
-   In cPanel **Setup Node.js App**, set **Application root** to the **deploy path** (e.g. `finance`), not the repository path. The deployment script copies built files into that directory; the Node app runs from there.
+   In cPanel **Setup Node.js App**, set **Node.js version** to **18** or **20** (not 10 or 12). Set **Application root** to the **deploy path** (e.g. `finance`), not the repository path. Set **Application startup file** to **`startup.cjs`**. The deployment script copies built files into the deploy directory; the Node app runs from there.
