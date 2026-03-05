@@ -163,3 +163,18 @@ Node resolves `require('next')` from the **current working directory** of the pr
 | 5 | Server (one-time) | Terminal/SSH: create DB directory, then in app dir run `npm run db:push` and optionally `npm run db:seed` |
 
 You do **not** need to run `npm ci` manually on the server; cPanel’s **Run NPM Install** installs dependencies. Build locally and upload `.next/` so the server only runs the app.
+
+---
+
+## Git push deployment
+
+To use cPanel **Git Version Control** with push deployment:
+
+1. **Valid `.cpanel.yml`**  
+   A `.cpanel.yml` file must exist in the **root** of the repository and be **committed**. It must be valid YAML. The repo includes one that sets `DEPLOYPATH`, activates the Node venv, and runs `npm install` and `npm run build` in the app directory. Edit the paths in `.cpanel.yml` to match your cPanel account (user, app path, nodevenv path).
+
+2. **Clean working tree on the server**  
+   cPanel will not deploy if the **server's** copy of the repo has uncommitted changes. Ensure you have not edited files inside the repo directory on the server. If the server's branch was changed or is behind, use **Update from Remote** in cPanel **Git Version Control** (Pull or Deploy tab) so the checked-out branch matches the remote; then use **Deploy HEAD Commit** or push to trigger deployment.
+
+3. **Clone and app root**  
+   When creating the Git repo in cPanel, set the clone path to your **Application root** (the same directory as `server.js` and `package.json`) so deployment runs in the right place.
