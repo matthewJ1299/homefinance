@@ -58,3 +58,14 @@ See [DEPLOY.md](./DEPLOY.md) for building in WSL2, uploading via FTP (without `n
 - `npm run start:server` – Start the custom Node server (initDb + persist loop); use for cPanel. See DEPLOY.md.
 
 The app uses **sql.js** (pure JavaScript SQLite) and raw SQL; no ORM. Schema is applied via migration SQL in `drizzle/0000_init.sql` when you run `db:push`.
+
+## Troubleshooting
+
+- **Module type warning**: If you see `MODULE_TYPELESS_PACKAGE_JSON` when running `tsx` scripts (e.g. `db:push`, `db:seed`), the project is already set up with `"type": "module"` in `package.json` so Node treats the project as ESM. If the warning persists, ensure you are on a recent Node 18+ and that no other tool is forcing CommonJS for this package.
+
+- **DEP0169 `url.parse()` deprecation**: The custom server (`server.js`) uses the WHATWG URL API instead of `url.parse()`. If you still see this warning, it is coming from a dependency (e.g. next-auth); upgrade dependencies when newer versions that use the WHATWG API are available.
+
+- **Rayon thread pool panic** (`The global thread pool has not been initialized`, `Resource temporarily unavailable`): This comes from a Rust-based component (often in the Node/Next toolchain, e.g. SWC) when the process cannot create enough threads. Common causes: low memory or thread limits in containers, or many concurrent Node/tsx processes. Mitigations:
+  - Run DB scripts one at a time (e.g. do not run `db:reset` and `db:seed` in parallel).
+  - In Docker or cPanel, increase memory/CPU limits if possible.
+  - On Linux, check `ulimit -u` (max user processes) and raise if needed; avoid running several heavy Node processes at once.
