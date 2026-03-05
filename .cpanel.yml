@@ -10,6 +10,6 @@ deployment:
     - /bin/cp -R public $DEPLOYPATH
     - /bin/cp -R src $DEPLOYPATH
     - /bin/cp -R drizzle $DEPLOYPATH
-    - /bin/cp server.js package.json package-lock.json next.config.ts tsconfig.json postcss.config.mjs $DEPLOYPATH
+    - /bin/cp server.js startup.cjs package.json package-lock.json next.config.ts tsconfig.json postcss.config.mjs $DEPLOYPATH
     - test -f tailwind.config.ts && /bin/cp tailwind.config.ts $DEPLOYPATH || true
     - test -f tailwind.config.js && /bin/cp tailwind.config.js $DEPLOYPATH || true

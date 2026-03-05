@@ -1,11 +1,12 @@
 /**
  * Custom Node server for cPanel and other hosts that require an application startup file.
- * Run with: node server.js or tsx server.js
+ * Use: npx tsx server.js (or npm run start:server). Plain "node server.js" runs this file
+ * but the DB module is TypeScript, so tsx is required in production.
  * Set PORT in the environment (cPanel often provides it).
  * Uses sql.js (no native bindings); DB is initialized asynchronously before listening.
  */
-import next from "next";
-import http from "http";
+const next = require("next");
+const http = require("http");
 
 const dev = process.env.NODE_ENV === "development";
 const hostname = "0.0.0.0";

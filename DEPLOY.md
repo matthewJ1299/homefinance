@@ -25,14 +25,13 @@ Use this for initial deploy and for every code update. You do **not** need to ru
 
 2. **Upload via FTP** into the directory that will be the **Application root** in cPanel (e.g. `homefinance` or `public_html/homefinance`).
 
-   **Include:** `.next/`, `server.js`, `run.sh` (optional), `.htaccess`, `public/`, `src/`, `package.json`, `package-lock.json`, `next.config.ts`, `tsconfig.json`, `drizzle/`, `postcss.config.mjs` / `tailwind.config.*` if present, and any other root config files.
+   **Include:** `.next/`, `server.js`, **`startup.cjs`** (startup launcher), `run.sh` (optional), `.htaccess`, `public/`, `src/`, `package.json`, `package-lock.json`, `next.config.ts`, `tsconfig.json`, `drizzle/`, `postcss.config.mjs` / `tailwind.config.*` if present, and any other root config files.
 
    **Exclude:** `node_modules/`, `.env` / `.env.local`, `.git/`, `*.db`.
 
 3. **In cPanel (Setup Node.js App):**
    - Set **Application root** to the folder where `server.js` and `package.json` live.
-   - Set **Application startup file** to `server.js`.
-   - Set the **start command** to `npx tsx server.js` or `npm run start:server`.
+   - Set **Application startup file** to **`startup.cjs`** (this launcher runs `npx tsx server.js` from the app directory; use this when the host only has a startup file and no start-command field).
    - Click **Run NPM Install** (once per deploy, or only when dependencies change).
    - Click **Start** or **Restart**.
 
@@ -73,8 +72,7 @@ After this one-time setup, normal deploys do not require terminal access.
 | Setting | Value |
 |--------|--------|
 | **Application root** | Folder containing `server.js` and `package.json` (e.g. `homefinance`) |
-| **Application startup file** | `server.js` |
-| **Start command** | `npx tsx server.js` or `npm run start:server` |
+| **Application startup file** | **`startup.cjs`** (launcher that runs `npx tsx server.js` from the app dir) |
 
 Routine steps: **Run NPM Install** (when deps change) then **Restart**. No manual `npm ci` on the server.
 
@@ -85,8 +83,9 @@ Routine steps: **Run NPM Install** (when deps change) then **Restart**. No manua
 **Include:**
 
 - `.next/` (entire folder – built output)
-- `server.js` (application startup file)
-- `run.sh` (optional: wrapper that sets working directory before starting; use if the host cannot run from app root)
+- `server.js` (custom Next server)
+- `startup.cjs` (application startup file for cPanel: launcher that runs `npx tsx server.js`)
+- `run.sh` (optional: alternative wrapper if the host cannot run from app root)
 - `.htaccess` (proxies Apache to the Node app; edit the port after upload)
 - `public/`, `src/`, `package.json`, `package-lock.json`
 - `next.config.ts` (or `next.config.js` / `next.config.mjs` if you use one), `tsconfig.json`
@@ -114,8 +113,7 @@ That response is **not** from this Next.js app. This app serves:
 If you see JSON with `availableEndpoints` and `"login":"POST /auth/login"`, the request is being handled by a **different** application (e.g. a separate auth REST API). Fix it as follows:
 
 1. **Confirm which app cPanel is running**
-   - In **Setup Node.js App**, check **Application startup file**. It must be **`server.js`** (this repo’s custom server).
-   - Check **Run script / Start command**. It should be **`npx tsx server.js`** or **`npm run start:server`**, not another repo’s or another app’s start script.
+   - In **Setup Node.js App**, check **Application startup file**. It must be **`startup.cjs`** (this repo’s launcher, which runs `npx tsx server.js`), not another app’s entry file.
 
 2. **Confirm Apache proxies to the correct port**
    - In **Setup Node.js App**, note the **port** (e.g. 3000, 3001).
@@ -127,6 +125,12 @@ If you see JSON with `availableEndpoints` and `"login":"POST /auth/login"`, the 
 
 4. **Quick check**
    - Visiting **https://yourdomain.com/** or **https://yourdomain.com/login** should return **HTML** (the Next.js page), not JSON. If you get JSON with `availableEndpoints`, the wrong backend is still in front.
+
+### "SyntaxError: Unexpected identifier" on `import next from "next"` (LiteSpeed / lsnode)
+
+The host is running **plain `node server.js`** and Node is loading the file as CommonJS, so `import` is invalid.
+
+- **Fix:** Set **Application startup file** to **`startup.cjs`** (not `server.js`). The launcher runs `npx tsx server.js` from the app directory so the real server runs under tsx. Ensure **Application root** is the folder that contains `package.json` and `node_modules`.
 
 ### "Cannot find module 'next'" (LiteSpeed / lsnode / generic Node hosts)
 
@@ -158,7 +162,7 @@ Node resolves `require('next')` from the **current working directory** of the pr
 |------|--------|--------|
 | 1 | Your PC | `npm ci && npm run build` |
 | 2 | Your PC | FTP project (no `node_modules`, no `.env`) |
-| 3 | cPanel | Set Application root, startup file `server.js`, start command `npx tsx server.js` or `npm run start:server`; set `AUTH_SECRET`, `NEXTAUTH_URL`, `DB_PATH`; edit `.htaccess` port if needed |
+| 3 | cPanel | Set Application root, startup file **`startup.cjs`**; set `AUTH_SECRET`, `NEXTAUTH_URL`, `DB_PATH`; edit `.htaccess` port if needed |
 | 4 | cPanel | **Run NPM Install**, then **Start** or **Restart** |
 | 5 | Server (one-time) | Terminal/SSH: create DB directory, then in app dir run `npm run db:push` and optionally `npm run db:seed` |
 
@@ -174,7 +178,7 @@ To use cPanel **Git Version Control** with push deployment:
    A `.cpanel.yml` file must exist in the **root** of the repository and be **committed**. It must be valid YAML. The repo includes one configured for:
    - **Repository path:** `/home/triadtec/repositories/homefinance` (branch `master`)
    - **Deploy path (Application root):** `/home/triadtec/finance/`  
-   Tasks run in the repo directory: `npm install`, `npm run build`, then copy `.next/`, `public/`, `src/`, `drizzle/`, `server.js`, and config files into the deploy path. Edit `REPOPATH`, `DEPLOYPATH`, and the nodevenv path in `.cpanel.yml` if your account or app names differ.
+   Tasks run in the repo directory: `npm install`, `npm run build`, then copy `.next/`, `public/`, `src/`, `drizzle/`, `server.js`, `startup.cjs`, and config files into the deploy path. Edit `REPOPATH`, `DEPLOYPATH`, and the nodevenv path in `.cpanel.yml` if your account or app names differ.
 
 2. **Clean working tree on the server**  
    cPanel will not deploy if the **server's** copy of the repo has uncommitted changes. Ensure you have not edited files inside the repo directory (`repositories/homefinance`). If the server's branch was changed or is behind, use **Update from Remote** in cPanel **Git Version Control** (Pull or Deploy tab) so the checked-out branch matches the remote; then use **Deploy HEAD Commit** or push to trigger deployment.
