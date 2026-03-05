@@ -1,9 +1,7 @@
 import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import { db } from "./db";
-import { users } from "./db/schema";
-import { eq } from "drizzle-orm";
+import { getUserRepository } from "@/lib/repositories";
 
 export const authConfig: NextAuthConfig = {
   pages: {
@@ -53,11 +51,10 @@ export const authConfig: NextAuthConfig = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
-        const [user] = await db
-          .select()
-          .from(users)
-          .where(eq(users.email, credentials.email as string))
-          .limit(1);
+        const { initDb } = await import("@/lib/db");
+        await initDb();
+        const userRepo = getUserRepository();
+        const user = await userRepo.findByEmailForAuth(credentials.email as string);
         if (!user) return null;
         const match = await bcrypt.compare(
           credentials.password as string,

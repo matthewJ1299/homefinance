@@ -22,6 +22,6 @@ export async function POST(request: NextRequest) {
   if (!result.success) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
-  const overview = await service.getOverview(parsed.data.month);
+  const overview = await service.getOverview(parsed.data.month, userId);
   return NextResponse.json(overview);
 }

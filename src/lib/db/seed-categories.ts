@@ -4,8 +4,7 @@
  */
 import { loadEnvConfig } from "@next/env";
 import bcrypt from "bcryptjs";
-import { db } from "./index";
-import { categories, users } from "./schema";
+import { initDb, saveDb, run, lastInsertId } from "./index";
 import { defaultCategories } from "./seed-data";
 
 loadEnvConfig(process.cwd());
@@ -19,28 +18,33 @@ async function seedMinimal() {
   const user1Name = process.env.SEED_USER1_NAME ?? "Matt";
   const user2Name = process.env.SEED_USER2_NAME ?? "Sydney";
 
-  await db.insert(users).values([
-    { name: user1Name, email: user1Email, passwordHash },
-    { name: user2Name, email: user2Email, passwordHash },
+  run("INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)", [
+    user1Name,
+    user1Email,
+    passwordHash,
+  ]);
+  run("INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)", [
+    user2Name,
+    user2Email,
+    passwordHash,
   ]);
   console.log("Created 2 users:", user1Name + ",", user2Name + ".");
 
-  await db
-    .insert(categories)
-    .values(
-      defaultCategories.map((c) => ({
-        name: c.name,
-        groupName: c.groupName,
-        sortOrder: c.sortOrder,
-        costType: c.costType,
-        defaultAmount: c.defaultAmount,
-      }))
+  for (const c of defaultCategories) {
+    run(
+      "INSERT INTO categories (name, group_name, icon, sort_order, is_active, cost_type, default_amount) VALUES (?, ?, ?, ?, 1, ?, ?)",
+      [c.name, c.groupName, null, c.sortOrder, c.costType, c.defaultAmount ?? null]
     );
+  }
   console.log(`Seeded ${defaultCategories.length} default categories.`);
   console.log("Default password for both:", DEFAULT_PASSWORD);
 }
 
-seedMinimal().catch((e) => {
+(async () => {
+  await initDb();
+  await seedMinimal();
+  saveDb();
+})().catch((e) => {
   console.error(e);
   process.exit(1);
 });

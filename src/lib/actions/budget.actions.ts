@@ -19,7 +19,7 @@ export async function setBudgetAllocation(
   const parsed = allocateSchema.safeParse({ categoryId, month, amount });
   if (!parsed.success) return { success: false, error: parsed.error.message };
   const service = new BudgetService();
-  await service.setAllocation(categoryId, month, amount);
+  await service.setAllocation(categoryId, month, amount, Number(session.user.id));
   revalidatePath("/budget");
   return { success: true };
 }
@@ -33,7 +33,7 @@ export async function autoAllocateBudget(month: string): Promise<
   const parsed = allocateSchema.pick({ month: true }).safeParse({ month });
   if (!parsed.success) return { success: false, error: parsed.error.message };
   const service = new BudgetService();
-  const result = await service.autoAllocate(parsed.data.month);
+  const result = await service.autoAllocate(parsed.data.month, Number(session.user.id));
   if (result.success) revalidatePath("/budget");
   return result;
 }

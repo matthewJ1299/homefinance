@@ -1,3 +1,4 @@
+import { auth } from "@/lib/auth";
 import { BudgetService } from "@/lib/services/budget.service";
 import { getCurrentMonth } from "@/lib/utils/date";
 import { MonthNavigator } from "@/components/layout/month-navigator";
@@ -8,11 +9,14 @@ interface BudgetPageProps {
 }
 
 export default async function BudgetPage({ searchParams }: BudgetPageProps) {
+  const session = await auth();
+  if (!session?.user?.id) return null;
+  const userId = Number(session.user.id);
   const { month: monthParam } = await searchParams;
   const month = monthParam ?? getCurrentMonth();
 
   const service = new BudgetService();
-  const overview = await service.getOverview(month);
+  const overview = await service.getOverview(month, userId);
 
   return (
     <div className="p-4 space-y-6">

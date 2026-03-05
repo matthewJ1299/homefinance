@@ -15,8 +15,8 @@ export interface ExpensesByMonthResult {
 export class ExpenseService {
   constructor(private repo = getExpenseRepository()) {}
 
-  async getSpendingByCategoryForMonths(months: string[]): Promise<Record<number, number>> {
-    return this.repo.getSpendingByCategoryForMonths(months);
+  async getSpendingByCategoryForMonths(months: string[], userId?: number): Promise<Record<number, number>> {
+    return this.repo.getSpendingByCategoryForMonths(months, userId);
   }
 
   async getByMonthPaginated(

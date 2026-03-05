@@ -1,0 +1,9 @@
+# Proxy requests to the Node.js app (Next.js).
+# Replace 3000 with the port cPanel assigns to your Node.js application
+# (shown in Setup Node.js App after creating/editing the app).
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^(.*)$ http://127.0.0.1:3000/$1 [P,L]
+</IfModule>

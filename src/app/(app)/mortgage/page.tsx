@@ -1,5 +1,4 @@
-import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { getUserRepository } from "@/lib/repositories";
 import { MortgageService } from "@/lib/services/mortgage.service";
 import { fromMinorUnits } from "@/lib/utils/currency";
 import { MortgageSetupForm } from "@/components/mortgage/mortgage-setup-form";
@@ -13,7 +12,8 @@ export default async function MortgagePage() {
   const service = new MortgageService();
   const { config, userConfigs } = await service.getConfig();
 
-  const userRows = await db.select({ id: users.id, name: users.name }).from(users);
+  const userRepo = getUserRepository();
+  const userRows = await userRepo.findAll();
   const usersForForm = userRows.map((u) => ({ id: u.id, name: u.name }));
 
   if (!config) {

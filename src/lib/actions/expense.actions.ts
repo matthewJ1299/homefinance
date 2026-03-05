@@ -1,10 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { users, categories } from "@/lib/db/schema";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { SplitService } from "@/lib/services/split.service";
 import { MortgageService } from "@/lib/services/mortgage.service";
@@ -39,7 +36,8 @@ export async function addExpense(formData: {
     return { success: false, error: parsed.error.message };
   }
 
-  const [userRow] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
+  const userRepo = getUserRepository();
+  const userRow = await userRepo.findById(userId);
   if (!userRow) {
     return { success: false, error: "Session expired. Please sign in again." };
   }
@@ -53,7 +51,6 @@ export async function addExpense(formData: {
   if (isSplitsSettlement) {
     const splitService = new SplitService();
     const balance = await splitService.getBalance(userId);
-    const userRepo = getUserRepository();
     const otherUsers = await userRepo.findAllExcept(userId);
     if (otherUsers.length === 0) {
       return { success: false, error: "No other user to settle with." };
@@ -195,15 +192,13 @@ export async function addSplitExpense(formData: {
     return { success: false, error: parsed.error.message };
   }
   const userId = Number(session.user.id);
-  const [userRow] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
+  const userRepo = getUserRepository();
+  const userRow = await userRepo.findById(userId);
   if (!userRow) {
     return { success: false, error: "Session expired. Please sign in again." };
   }
-  const [categoryRow] = await db
-    .select({ id: categories.id, name: categories.name })
-    .from(categories)
-    .where(eq(categories.id, parsed.data.categoryId))
-    .limit(1);
+  const categoryRepo = getCategoryRepository();
+  const categoryRow = await categoryRepo.findById(parsed.data.categoryId);
   if (!categoryRow) {
     return { success: false, error: "Invalid category. Please refresh the page." };
   }

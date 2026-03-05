@@ -19,11 +19,11 @@ export interface BudgetAllocationWithMonth extends BudgetAllocation {
 }
 
 export interface IBudgetRepository {
-  getAllocationsForMonth(month: string): Promise<BudgetAllocation[]>;
+  getAllocationsForMonth(month: string, userId: number): Promise<BudgetAllocation[]>;
   /** Allocations for any of the given months (for carry-over resolution). */
-  getAllocationsForMonths(months: string[]): Promise<BudgetAllocationWithMonth[]>;
-  upsertAllocation(categoryId: number, month: string, amount: number): Promise<void>;
-  getTransfersForMonth(month: string): Promise<BudgetTransferRecord[]>;
+  getAllocationsForMonths(months: string[], userId: number): Promise<BudgetAllocationWithMonth[]>;
+  upsertAllocation(categoryId: number, month: string, amount: number, userId: number): Promise<void>;
+  getTransfersForMonth(month: string, userId: number): Promise<BudgetTransferRecord[]>;
   createTransfer(data: {
     fromCategoryId: number;
     toCategoryId: number;

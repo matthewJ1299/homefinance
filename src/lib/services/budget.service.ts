@@ -51,7 +51,7 @@ export class BudgetService {
     private categoryRepo = getCategoryRepository()
   ) {}
 
-  async getOverview(month: string): Promise<BudgetOverviewResult> {
+  async getOverview(month: string, userId: number): Promise<BudgetOverviewResult> {
     const monthsToLoad = [month];
     let m = month;
     for (let i = 0; i < CARRY_OVER_MONTHS; i++) {
@@ -61,10 +61,10 @@ export class BudgetService {
 
     const [incomeResult, expenseResult, allocationsForMonths, transfers, categories] =
       await Promise.all([
-        this.incomeService.getByMonth(month),
-        this.expenseService.getByMonth(month),
-        this.budgetRepo.getAllocationsForMonths(monthsToLoad),
-        this.budgetRepo.getTransfersForMonth(month),
+        this.incomeService.getByMonth(month, userId),
+        this.expenseService.getByMonth(month, userId),
+        this.budgetRepo.getAllocationsForMonths(monthsToLoad, userId),
+        this.budgetRepo.getTransfersForMonth(month, userId),
         this.categoryRepo.findAll(),
       ]);
 
@@ -79,7 +79,7 @@ export class BudgetService {
       categories
     );
 
-    await this.persistMissingAllocationsForMonth(month, allocationMap, categories);
+    await this.persistMissingAllocationsForMonth(month, allocationMap, categories, userId);
     const spentByCategory = expenseResult.totals.byCategory;
     const categoryMeta = new Map(categories.map((c) => [c.id, c]));
 
@@ -183,34 +183,34 @@ export class BudgetService {
   private async persistMissingAllocationsForMonth(
     month: string,
     allocationMap: Map<number, number>,
-    categories: Category[]
+    categories: Category[],
+    userId: number
   ): Promise<void> {
-    const existing = await this.budgetRepo.getAllocationsForMonth(month);
+    const existing = await this.budgetRepo.getAllocationsForMonth(month, userId);
     const existingCategoryIds = new Set(existing.map((a) => a.categoryId));
     for (const cat of categories) {
       const amount = allocationMap.get(cat.id) ?? 0;
       if (amount > 0 && !existingCategoryIds.has(cat.id)) {
-        await this.budgetRepo.upsertAllocation(cat.id, month, amount);
+        await this.budgetRepo.upsertAllocation(cat.id, month, amount, userId);
       }
     }
   }
 
   private async getUserNamesForTransfers(userIds: number[]): Promise<string[]> {
-    const { db } = await import("@/lib/db");
-    const { users } = await import("@/lib/db/schema");
-    const { inArray } = await import("drizzle-orm");
+    const { all } = await import("@/lib/db");
     const unique = [...new Set(userIds)];
     if (unique.length === 0) return [];
-    const rows = await db
-      .select({ id: users.id, name: users.name })
-      .from(users)
-      .where(inArray(users.id, unique));
+    const placeholders = unique.map(() => "?").join(",");
+    const rows = all<{ id: number; name: string }>(
+      `SELECT id, name FROM users WHERE id IN (${placeholders})`,
+      unique
+    );
     const map = new Map(rows.map((r) => [r.id, r.name]));
     return userIds.map((id) => map.get(id) ?? "?");
   }
 
-  async setAllocation(categoryId: number, month: string, amount: number): Promise<void> {
-    await this.budgetRepo.upsertAllocation(categoryId, month, amount);
+  async setAllocation(categoryId: number, month: string, amount: number, userId: number): Promise<void> {
+    await this.budgetRepo.upsertAllocation(categoryId, month, amount, userId);
   }
 
   /** Number of past months to use for historical spending weights. */
@@ -220,11 +220,11 @@ export class BudgetService {
    * Distributes the unallocated remainder across categories that already have an allocation.
    * If historical spending data exists, uses those proportions; otherwise splits evenly.
    */
-  async autoAllocate(month: string): Promise<
+  async autoAllocate(month: string, userId: number): Promise<
     | { success: true; updated: number }
     | { success: false; error: string }
   > {
-    const overview = await this.getOverview(month);
+    const overview = await this.getOverview(month, userId);
     const remainder = overview.unallocated;
     if (remainder <= 0) {
       return { success: true, updated: 0 };
@@ -247,7 +247,8 @@ export class BudgetService {
       historicalMonths.push(m);
     }
     const historicalByCategory = await this.expenseService.getSpendingByCategoryForMonths(
-      historicalMonths
+      historicalMonths,
+      userId
     );
     const totalHistorical = recipients.reduce(
       (sum, c) => sum + (historicalByCategory[c.categoryId] ?? 0),
@@ -282,7 +283,7 @@ export class BudgetService {
       const inc = increments.get(cat.categoryId) ?? 0;
       if (inc > 0) {
         const newAmount = cat.allocated + inc;
-        await this.budgetRepo.upsertAllocation(cat.categoryId, month, newAmount);
+        await this.budgetRepo.upsertAllocation(cat.categoryId, month, newAmount, userId);
       }
     }
 
@@ -296,8 +297,8 @@ export class BudgetService {
     amount: number;
     userId: number;
     reason?: string | null;
-  }): Promise<{ success: true } | { success: false; error: string }> {
-    const overview = await this.getOverview(data.month);
+  }  ): Promise<{ success: true } | { success: false; error: string }> {
+    const overview = await this.getOverview(data.month, data.userId);
     const fromRow = overview.categories.find((c) => c.categoryId === data.fromCategoryId);
     const toRow = overview.categories.find((c) => c.categoryId === data.toCategoryId);
     if (!fromRow || !toRow) return { success: false, error: "Category not found" };
@@ -306,8 +307,8 @@ export class BudgetService {
     }
     const newFromAllocated = fromRow.allocated - data.amount;
     const newToAllocated = toRow.allocated + data.amount;
-    await this.budgetRepo.upsertAllocation(data.fromCategoryId, data.month, newFromAllocated);
-    await this.budgetRepo.upsertAllocation(data.toCategoryId, data.month, newToAllocated);
+    await this.budgetRepo.upsertAllocation(data.fromCategoryId, data.month, newFromAllocated, data.userId);
+    await this.budgetRepo.upsertAllocation(data.toCategoryId, data.month, newToAllocated, data.userId);
     await this.budgetRepo.createTransfer(data);
     return { success: true };
   }

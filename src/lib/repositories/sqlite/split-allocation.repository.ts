@@ -1,71 +1,65 @@
-import { eq, isNotNull } from "drizzle-orm";
-import { db } from "@/lib/db";
-import { splitAllocations, users, expenses } from "@/lib/db/schema";
+import { all, run, lastInsertId, get } from "@/lib/db";
 import type {
-  ISplitAllocationRepository,
   SplitAllocationWithUser,
   SplitAllocationBalanceRow,
 } from "../interfaces/split-allocation.repository";
 
-export class SplitAllocationRepository implements ISplitAllocationRepository {
+interface RowWithUser {
+  id: number;
+  expense_id: number;
+  user_id: number;
+  amount: number;
+  name: string;
+}
+
+export class SplitAllocationRepository {
   async create(expenseId: number, userId: number, amount: number): Promise<{ id: number }> {
-    const [inserted] = await db
-      .insert(splitAllocations)
-      .values({ expenseId, userId, amount })
-      .returning({ id: splitAllocations.id });
-    return { id: inserted!.id };
+    run("INSERT INTO split_allocations (expense_id, user_id, amount) VALUES (?, ?, ?)", [
+      expenseId,
+      userId,
+      amount,
+    ]);
+    return { id: lastInsertId() };
   }
 
   async findByExpenseId(expenseId: number): Promise<SplitAllocationWithUser[]> {
-    const rows = await db
-      .select({
-        id: splitAllocations.id,
-        expenseId: splitAllocations.expenseId,
-        userId: splitAllocations.userId,
-        amount: splitAllocations.amount,
-        userName: users.name,
-      })
-      .from(splitAllocations)
-      .innerJoin(users, eq(splitAllocations.userId, users.id))
-      .where(eq(splitAllocations.expenseId, expenseId));
-    return rows as SplitAllocationWithUser[];
+    const rows = all<RowWithUser>(
+      "SELECT sa.id, sa.expense_id AS expense_id, sa.user_id AS user_id, sa.amount, u.name FROM split_allocations sa INNER JOIN users u ON sa.user_id = u.id WHERE sa.expense_id = ?",
+      [expenseId]
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      expenseId: r.expense_id,
+      userId: r.user_id,
+      amount: r.amount,
+      userName: r.name,
+    }));
   }
 
   async findAllForBalance(): Promise<SplitAllocationBalanceRow[]> {
-    const rows = await db
-      .select({
-        amount: splitAllocations.amount,
-        paidByUserId: expenses.paidByUserId,
-        allocationUserId: splitAllocations.userId,
-      })
-      .from(splitAllocations)
-      .innerJoin(expenses, eq(splitAllocations.expenseId, expenses.id))
-      .where(isNotNull(expenses.paidByUserId));
-    const withNames: SplitAllocationBalanceRow[] = [];
+    const rows = all<{
+      amount: number;
+      paid_by_user_id: number;
+      allocation_user_id: number;
+    }>(
+      "SELECT sa.amount, e.paid_by_user_id, sa.user_id AS allocation_user_id FROM split_allocations sa INNER JOIN expenses e ON sa.expense_id = e.id WHERE e.paid_by_user_id IS NOT NULL"
+    );
+    const result: SplitAllocationBalanceRow[] = [];
     for (const r of rows) {
-      if (r.paidByUserId == null) continue;
-      const [payer] = await db
-        .select({ name: users.name })
-        .from(users)
-        .where(eq(users.id, r.paidByUserId))
-        .limit(1);
-      const [allocUser] = await db
-        .select({ name: users.name })
-        .from(users)
-        .where(eq(users.id, r.allocationUserId))
-        .limit(1);
-      withNames.push({
+      const payer = get<{ name: string }>("SELECT name FROM users WHERE id = ?", [r.paid_by_user_id]);
+      const allocUser = get<{ name: string }>("SELECT name FROM users WHERE id = ?", [r.allocation_user_id]);
+      result.push({
         amount: r.amount,
-        paidByUserId: r.paidByUserId,
+        paidByUserId: r.paid_by_user_id,
         paidByUserName: payer?.name ?? "?",
-        allocationUserId: r.allocationUserId,
+        allocationUserId: r.allocation_user_id,
         allocationUserName: allocUser?.name ?? "?",
       });
     }
-    return withNames;
+    return result;
   }
 
   async deleteByExpenseId(expenseId: number): Promise<void> {
-    await db.delete(splitAllocations).where(eq(splitAllocations.expenseId, expenseId));
+    run("DELETE FROM split_allocations WHERE expense_id = ?", [expenseId]);
   }
 }

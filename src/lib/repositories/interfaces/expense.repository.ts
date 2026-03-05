@@ -29,7 +29,7 @@ export interface IExpenseRepository {
   ): Promise<ExpenseWithDetails[]>;
   countByMonth(month: string, userId?: number): Promise<number>;
   findById(id: number): Promise<ExpenseWithDetails | null>;
-  getSpendingByCategoryForMonths(months: string[]): Promise<Record<number, number>>;
+  getSpendingByCategoryForMonths(months: string[], userId?: number): Promise<Record<number, number>>;
   create(data: CreateExpenseInput): Promise<{ id: number }>;
   update(id: number, data: UpdateExpenseInput): Promise<void>;
   delete(id: number): Promise<void>;

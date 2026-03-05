@@ -1,6 +1,4 @@
-import { eq, and } from "drizzle-orm";
-import { db } from "@/lib/db";
-import { income, users } from "@/lib/db/schema";
+import { all, get, run, lastInsertId } from "@/lib/db";
 import type { IncomeEntry } from "../interfaces/income.repository";
 import type {
   IIncomeRepository,
@@ -8,74 +6,93 @@ import type {
   UpdateIncomeInput,
 } from "../interfaces/income.repository";
 
+const SELECT_INCOME_ENTRY = `
+  SELECT i.id, i.user_id AS userId, u.name AS userName, i.amount, i.type, i.description, i.date
+  FROM income i
+  INNER JOIN users u ON i.user_id = u.id
+`;
+
+interface IncomeEntryRow {
+  id: number;
+  userId: number;
+  userName: string;
+  amount: number;
+  type: string;
+  description: string | null;
+  date: string;
+}
+
+function toIncomeEntry(r: IncomeEntryRow): IncomeEntry {
+  return {
+    id: r.id,
+    userId: r.userId,
+    userName: r.userName,
+    amount: r.amount,
+    type: r.type as "salary" | "ad_hoc",
+    description: r.description,
+    date: r.date,
+  };
+}
+
 export class IncomeRepository implements IIncomeRepository {
   async findByMonth(month: string, userId?: number): Promise<IncomeEntry[]> {
-    const monthEq = eq(income.month, month);
-    const where = userId != null ? and(monthEq, eq(income.userId, userId)) : monthEq;
-    const rows = await db
-      .select({
-        id: income.id,
-        userId: income.userId,
-        userName: users.name,
-        amount: income.amount,
-        type: income.type,
-        description: income.description,
-        date: income.date,
-      })
-      .from(income)
-      .innerJoin(users, eq(income.userId, users.id))
-      .where(where)
-      .orderBy(income.date);
-    return rows as IncomeEntry[];
+    const sql = userId != null
+      ? `${SELECT_INCOME_ENTRY} WHERE i.month = ? AND i.user_id = ? ORDER BY i.date`
+      : `${SELECT_INCOME_ENTRY} WHERE i.month = ? ORDER BY i.date`;
+    const params = userId != null ? [month, userId] : [month];
+    const rows = all<IncomeEntryRow>(sql, params);
+    return rows.map(toIncomeEntry);
   }
 
   async findById(id: number): Promise<IncomeEntry | null> {
-    const [row] = await db
-      .select({
-        id: income.id,
-        userId: income.userId,
-        userName: users.name,
-        amount: income.amount,
-        type: income.type,
-        description: income.description,
-        date: income.date,
-      })
-      .from(income)
-      .innerJoin(users, eq(income.userId, users.id))
-      .where(eq(income.id, id))
-      .limit(1);
-    return (row as IncomeEntry) ?? null;
+    const row = get<IncomeEntryRow>(`${SELECT_INCOME_ENTRY} WHERE i.id = ?`, [id]);
+    return row ? toIncomeEntry(row) : null;
   }
 
   async create(data: CreateIncomeInput): Promise<{ id: number }> {
-    const [inserted] = await db
-      .insert(income)
-      .values({
-        userId: data.userId,
-        amount: data.amount,
-        type: data.type,
-        description: data.description ?? null,
-        date: data.date,
-        month: data.month,
-      })
-      .returning({ id: income.id });
-    return { id: inserted!.id };
+    run(
+      "INSERT INTO income (user_id, amount, type, description, date, month) VALUES (?, ?, ?, ?, ?, ?)",
+      [
+        data.userId,
+        data.amount,
+        data.type,
+        data.description ?? null,
+        data.date,
+        data.month,
+      ]
+    );
+    return { id: lastInsertId() };
   }
 
   async update(id: number, data: UpdateIncomeInput): Promise<void> {
-    await db
-      .update(income)
-      .set({
-        ...(data.amount != null && { amount: data.amount }),
-        ...(data.type != null && { type: data.type }),
-        ...(data.description !== undefined && { description: data.description }),
-        ...(data.date != null && { date: data.date }),
-        ...(data.month != null && { month: data.month }),
-      })
-      .where(eq(income.id, id));
+    const updates: string[] = [];
+    const params: (string | number | null)[] = [];
+    if (data.amount != null) {
+      updates.push("amount = ?");
+      params.push(data.amount);
+    }
+    if (data.type != null) {
+      updates.push("type = ?");
+      params.push(data.type);
+    }
+    if (data.description !== undefined) {
+      updates.push("description = ?");
+      params.push(data.description);
+    }
+    if (data.date != null) {
+      updates.push("date = ?");
+      params.push(data.date);
+    }
+    if (data.month != null) {
+      updates.push("month = ?");
+      params.push(data.month);
+    }
+    if (updates.length === 0) return;
+    params.push(id);
+    run(`UPDATE income SET ${updates.join(", ")} WHERE id = ?`, params);
   }
 
   async delete(id: number): Promise<void> {
-    await db.delete(income).where(eq(income.id, id));
+    run("DELETE FROM income WHERE id = ?", [id]);
   }
 }

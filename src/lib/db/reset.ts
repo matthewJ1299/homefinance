@@ -8,8 +8,7 @@ import path from "path";
 import fs from "fs";
 
 const dbPath =
-  process.env.DB_PATH ??
-  path.join(process.cwd(), "data", "sqlite.db");
+  process.env.DB_PATH ?? path.join(process.cwd(), "data", "sqlite.db");
 
 const dir = path.dirname(dbPath);
 if (!fs.existsSync(dir)) {

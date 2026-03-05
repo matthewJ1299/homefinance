@@ -2,27 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
 import { formatRand } from "@/lib/utils/currency";
-import { SortableBudgetCategoryCard } from "./sortable-budget-category-card";
+import { BudgetCategoryCard } from "./budget-category-card";
 import { UnallocatedBanner } from "./unallocated-banner";
 import { TransferDialog } from "./transfer-dialog";
 import { autoAllocateBudget } from "@/lib/actions/budget.actions";
-import { reorderCategories } from "@/lib/actions/category.actions";
 import { Button } from "@/components/ui/button";
 import type { BudgetOverviewResult } from "@/lib/services/budget.service";
 
@@ -34,7 +18,6 @@ export function BudgetOverview({ data }: BudgetOverviewProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [autoAllocateError, setAutoAllocateError] = useState<string | null>(null);
-  const [reorderError, setReorderError] = useState<string | null>(null);
   const [transferTarget, setTransferTarget] = useState<{
     categoryId: number;
     categoryName: string;
@@ -46,30 +29,6 @@ export function BudgetOverview({ data }: BudgetOverviewProps) {
     categoryName: c.categoryName,
     remaining: c.remaining,
   }));
-
-  const categoryIds = data.categories.map((c) => c.categoryId);
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  );
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (over == null || active.id === over.id) return;
-    const oldIndex = categoryIds.indexOf(active.id as number);
-    const newIndex = categoryIds.indexOf(over.id as number);
-    if (oldIndex === -1 || newIndex === -1) return;
-    const newOrder = arrayMove(categoryIds, oldIndex, newIndex);
-    setReorderError(null);
-    startTransition(async () => {
-      const result = await reorderCategories(newOrder);
-      if (result.success) {
-        router.refresh();
-      } else {
-        setReorderError(result.error);
-      }
-    });
-  };
 
   return (
     <div className="space-y-6">
@@ -136,42 +95,33 @@ export function BudgetOverview({ data }: BudgetOverviewProps) {
       </div>
 
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <h2 className="font-semibold">Categories</h2>
-          {reorderError && (
-            <p className="text-sm text-destructive" role="alert">
-              {reorderError}
-            </p>
-          )}
-        </div>
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={categoryIds}
-            strategy={verticalListSortingStrategy}
-          >
-            <div className="space-y-4">
-              {data.categories.map((cat) => (
-                <SortableBudgetCategoryCard
-                  key={cat.categoryId}
-                  cat={cat}
-                  totalIncome={data.totalIncome}
-                  month={data.month}
-                  onTransfer={() =>
-                    setTransferTarget({
-                      categoryId: cat.categoryId,
-                      categoryName: cat.categoryName,
-                      overspentAmount: -cat.remaining,
-                    })
-                  }
-                />
-              ))}
+        <h2 className="font-semibold">Categories</h2>
+        <div className="space-y-4">
+          {data.categories.map((cat) => (
+            <div
+              key={cat.categoryId}
+              className="rounded-lg border border-border bg-card overflow-hidden"
+            >
+              <BudgetCategoryCard
+                categoryId={cat.categoryId}
+                categoryName={cat.categoryName}
+                groupName={cat.groupName}
+                costType={cat.costType}
+                allocated={cat.allocated}
+                spent={cat.spent}
+                totalIncome={data.totalIncome}
+                month={data.month}
+                onTransfer={() =>
+                  setTransferTarget({
+                    categoryId: cat.categoryId,
+                    categoryName: cat.categoryName,
+                    overspentAmount: -cat.remaining,
+                  })
+                }
+              />
             </div>
-          </SortableContext>
-        </DndContext>
+          ))}
+        </div>
       </div>
 
       {data.transfers.length > 0 && (

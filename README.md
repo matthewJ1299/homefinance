@@ -11,7 +11,7 @@ Personal finance app for tracking income, expenses, and budgets.
 - **Categories**: Each category is either **Fixed** or **Variable** cost.
   - **Fixed**: Same amount each month (e.g. Utilities, Insurance). You can set a default amount (R) in Manage categories; that amount is auto-allocated for new months until you change it.
   - **Variable**: Amount varies by month (e.g. Groceries, Dining out).
-- **Budget**: Allocate income to categories per month. Category order can be changed by **drag and drop** (grip handle on the left of each category card); the order is saved and used app-wide (e.g. Manage categories, category pickers). Allocations **carry over**: if a month has no allocation set for a category, the last set allocation from a previous month is used. So you only need to change an allocation when you want it to differ from the previous month.
+- **Budget**: **Per-user**: each signed-in user has their own budget. You see only your income, your expenses, your category allocations, and your transfers. Allocate income to categories per month. Category order can be changed by **drag and drop** (grip handle on the left of each category card); the order is saved and used app-wide (e.g. Manage categories, category pickers). Allocations **carry over**: if a month has no allocation set for a category, the last set allocation from a previous month is used. So you only need to change an allocation when you want it to differ from the previous month.
   - When there is unallocated income, use **Auto-allocate** to distribute the remainder:
     - If you have already set amounts for some categories, the remainder is added to those categories only.
     - If historical expense data exists (past 6 months), the remainder is split in proportion to past spending.
@@ -19,7 +19,7 @@ Personal finance app for tracking income, expenses, and budgets.
   - Opening the budget for a new month automatically fills in carried-over allocations and, for fixed-cost categories with a default amount, that default.
 - **Transfers**: Move budget between categories within a month.
 - **Splits**: Track shared expenses and who owes whom. On the Splits page you see per-person balances (owed to you / you owe). You can settle in two ways: (1) On the **Splits** page use **Settle** and enter the amount (capped at what you owe) and optional date; (2) On the **dashboard**, add an expense with category **Splits** and the amount you paid. In both cases a Splits expense is recorded for you and ad-hoc income for the recipient; the balance is reduced and the settlement appears in **Split history** (e.g. "You paid [name] R X"). The amount you enter when settling from the dashboard cannot exceed what you currently owe.
-- **Summary**: View spending by category and budget adherence.
+- **Summary**: Per-user monthly snapshot (your income, expenses, and budget adherence) and household trends.
 - **Mortgage**: Optional mortgage tracking. The page uses plain-language labels and a single at-a-glance summary (what you owe, total per month, when you will be done paying, each person’s share of the home). The amortisation table and form to change the loan or who pays what are in a collapsible **More details** section below.
   - **Past vs future**: Months in which you have recorded payments show **actual** amounts paid (e.g. 10k one month, 5k another). When you change the interest rate or payment (config or user shares), only **future** months are recalculated; past months stay as paid. The projection runs from the current remaining balance, so payoff date and equity reflect the new rate and payment from “today” onward.
 
@@ -28,7 +28,7 @@ Personal finance app for tracking income, expenses, and budgets.
 1. Install dependencies: `npm install`
 2. Copy `.env.example` to `.env.local` and set `AUTH_SECRET` (and optionally `DB_PATH`, seed overrides).
 3. Create the database and seed: `npm run db:fresh` (recreates the DB from scratch from the schema, then seeds), or:
-   - Reset and create tables: `npm run db:reset` (deletes the DB file, then runs `drizzle-kit push` to create tables from the schema)
+   - Reset and create tables: `npm run db:reset` (deletes the DB file, runs schema push, then seeds minimal categories and users)
    - Seed: `npm run db:seed` (clears all data, then inserts users, categories, 3 months of income/expenses, and sample split expenses)
 
 ## Seed data
@@ -38,16 +38,23 @@ Seed always creates:
 - Two users (see `.env.example` for `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, etc.).
 - Default categories (fixed/variable and default amounts where applicable).
 - **3 months** of income and expenses for **both users**: current month and the two previous months. Income includes monthly salary per user plus ad-hoc entries; expenses are spread across categories and both users.
+- **Per-user budget allocations** for the same 3 months: each user gets allocation rows for the main categories (groceries, transport, utilities, savings, etc.) and one sample **budget transfer** (savings to groceries) so the Budget page shows meaningful data for each user.
 - **Split expenses** (current month): e.g. groceries split equally, dinner split equally, and a full-amount-owed utility expense, so the Splits page shows who owes whom. A **Splits** category is included for settlement expenses.
 
 Amounts use the same integer format as the app (e.g. cents). To start with an empty transaction history, you would need to change the seed script or clear income/expenses after seeding.
+
+## Deploy
+
+See [DEPLOY.md](./DEPLOY.md) for building in WSL2, uploading via FTP (without `node_modules`), and running the app on cPanel.
 
 ## Scripts
 
 - `npm run dev` – Start dev server (Turbopack)
 - `npm run build` / `npm run start` – Production build and start
-- `npm run db:push` – Push schema to the database (create/update tables from `src/lib/db/schema.ts`)
+- `npm run db:push` – Apply schema to the database (runs migration SQL; uses sql.js, no native bindings)
 - `npm run db:reset` – Recreate DB from scratch (delete file, then push schema). Do not run while the app is using the DB.
 - `npm run db:seed` – Clear all data, then seed users, categories, 3 months of income/expenses, and sample split expenses
 - `npm run db:fresh` – Reset DB then seed (recreate from scratch and seed in one go)
-- `npm run db:studio` – Open Drizzle Studio
+- `npm run start:server` – Start the custom Node server (initDb + persist loop); use for cPanel. See DEPLOY.md.
+
+The app uses **sql.js** (pure JavaScript SQLite) and raw SQL; no ORM. Schema is applied via migration SQL in `drizzle/0000_init.sql` when you run `db:push`.

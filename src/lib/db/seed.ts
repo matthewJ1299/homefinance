@@ -1,42 +1,27 @@
 import { loadEnvConfig } from "@next/env";
-import { sql } from "drizzle-orm";
 import { subMonths, format } from "date-fns";
-import { db } from "./index";
-
-loadEnvConfig(process.cwd());
-import {
-  users,
-  categories,
-  income,
-  expenses,
-  splitAllocations,
-  splitSettlements,
-  budgets,
-  budgetTransfers,
-  mortgageConfigs,
-  mortgageUserConfigs,
-  mortgagePayments,
-  mortgageScheduleSnapshots,
-} from "./schema";
+import { initDb, saveDb, run, lastInsertId } from "./index";
 import bcrypt from "bcryptjs";
 import { defaultCategories } from "./seed-data";
+
+loadEnvConfig(process.cwd());
 
 const DEFAULT_PASSWORD = process.env.SEED_USER_PASSWORD ?? "ChangeMe123!";
 
 async function seed() {
   console.log("Clearing existing data...");
-  await db.delete(splitSettlements).where(sql`1=1`);
-  await db.delete(splitAllocations).where(sql`1=1`);
-  await db.delete(budgetTransfers).where(sql`1=1`);
-  await db.delete(budgets).where(sql`1=1`);
-  await db.delete(expenses).where(sql`1=1`);
-  await db.delete(income).where(sql`1=1`);
-  await db.delete(mortgageScheduleSnapshots).where(sql`1=1`);
-  await db.delete(mortgagePayments).where(sql`1=1`);
-  await db.delete(mortgageUserConfigs).where(sql`1=1`);
-  await db.delete(mortgageConfigs).where(sql`1=1`);
-  await db.delete(categories).where(sql`1=1`);
-  await db.delete(users).where(sql`1=1`);
+  run("DELETE FROM split_settlements");
+  run("DELETE FROM split_allocations");
+  run("DELETE FROM budget_transfers");
+  run("DELETE FROM budgets");
+  run("DELETE FROM expenses");
+  run("DELETE FROM income");
+  run("DELETE FROM mortgage_schedule_snapshots");
+  run("DELETE FROM mortgage_payments");
+  run("DELETE FROM mortgage_user_configs");
+  run("DELETE FROM mortgage_configs");
+  run("DELETE FROM categories");
+  run("DELETE FROM users");
   console.log("Cleared. Seeding...");
 
   const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
@@ -46,43 +31,95 @@ async function seed() {
   const user1Name = process.env.SEED_USER1_NAME ?? "Matt";
   const user2Name = process.env.SEED_USER2_NAME ?? "Sydney";
 
-  const insertedUsers = await db
-    .insert(users)
-    .values([
-      { name: user1Name, email: user1Email, passwordHash },
-      { name: user2Name, email: user2Email, passwordHash },
-    ])
-    .returning({ id: users.id });
+  run("INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)", [
+    user1Name,
+    user1Email,
+    passwordHash,
+  ]);
+  const user1Id = lastInsertId();
+  run("INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)", [
+    user2Name,
+    user2Email,
+    passwordHash,
+  ]);
+  const user2Id = lastInsertId();
   console.log("Created 2 users: Matt, Sydney.");
 
-  const insertedCategories = await db
-    .insert(categories)
-    .values(
-      defaultCategories.map((c) => ({
-        name: c.name,
-        groupName: c.groupName,
-        sortOrder: c.sortOrder,
-        costType: c.costType,
-        defaultAmount: c.defaultAmount,
-      }))
-    )
-    .returning({ id: categories.id });
+  const insertedCategoryIds: number[] = [];
+  for (const c of defaultCategories) {
+    run(
+      "INSERT INTO categories (name, group_name, icon, sort_order, is_active, cost_type, default_amount) VALUES (?, ?, ?, ?, 1, ?, ?)",
+      [c.name, c.groupName, null, c.sortOrder, c.costType, c.defaultAmount ?? null]
+    );
+    insertedCategoryIds.push(lastInsertId());
+  }
   console.log("Created default categories.");
 
   await seedSampleTransactionsAndIncome(
-    [insertedUsers[0]!.id, insertedUsers[1]!.id],
-    insertedCategories.map((r) => r.id)
+    [user1Id, user2Id],
+    insertedCategoryIds
   );
 
-  await seedSplitExpenses(
-    [insertedUsers[0]!.id, insertedUsers[1]!.id],
-    insertedCategories.map((r) => r.id)
-  );
+  await seedBudgets([user1Id, user2Id], insertedCategoryIds);
+
+  await seedSplitExpenses([user1Id, user2Id], insertedCategoryIds);
+
+  await seedMortgage([user1Id, user2Id]);
 
   console.log("Seed complete. Default password for both:", DEFAULT_PASSWORD);
 }
 
-/** Sample split expenses for the current month: who paid, total, and who owes what. */
+const MORTGAGE_PAYMENT_COUNT = 15;
+
+/** Seed one mortgage config, two user configs, and about 15 payments. */
+async function seedMortgage(userIds: [number, number]) {
+  const [user1Id, user2Id] = userIds;
+  const startDate = format(subMonths(new Date(), MORTGAGE_PAYMENT_COUNT), "yyyy-MM-dd");
+  const propertyValue = 2_500_000_00; // R2.5m in cents
+  const loanAmount = 2_000_000_00; // R2m in cents
+  const annualRate = 0.11;
+  const loanTermMonths = 240;
+  const monthlyPayment = 1_700_000; // R17,000 in cents (simplified; real calc would use PMT)
+
+  run(
+    "INSERT INTO mortgage_configs (property_value, loan_amount, annual_interest_rate, loan_term_months, start_date, target_equity_user_a_pct, is_active) VALUES (?, ?, ?, ?, ?, 0.5, 1)",
+    [propertyValue, loanAmount, annualRate, loanTermMonths, startDate]
+  );
+  const mortgageId = lastInsertId();
+
+  run(
+    "INSERT INTO mortgage_user_configs (mortgage_id, user_id, initial_deposit, base_split_pct, monthly_cap) VALUES (?, ?, 0, 0.5, NULL)",
+    [mortgageId, user1Id]
+  );
+  run(
+    "INSERT INTO mortgage_user_configs (mortgage_id, user_id, initial_deposit, base_split_pct, monthly_cap) VALUES (?, ?, 0, 0.5, NULL)",
+    [mortgageId, user2Id]
+  );
+
+  for (let monthNum = 1; monthNum <= MORTGAGE_PAYMENT_COUNT; monthNum++) {
+    const paymentDate = format(
+      subMonths(new Date(), MORTGAGE_PAYMENT_COUNT - monthNum),
+      "yyyy-MM-dd"
+    );
+    const interestPortion = Math.round((monthlyPayment * (16 - monthNum)) / 15);
+    const principalPortion = monthlyPayment - interestPortion;
+    const payeeUserId = monthNum % 2 === 1 ? user1Id : user2Id;
+    run(
+      "INSERT INTO mortgage_payments (mortgage_id, user_id, payment_date, month_number, amount, principal_portion, interest_portion, is_extra_payment, note) VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL)",
+      [
+        mortgageId,
+        payeeUserId,
+        paymentDate,
+        monthNum,
+        monthlyPayment,
+        principalPortion,
+        interestPortion,
+      ]
+    );
+  }
+  console.log(`Created mortgage with ${MORTGAGE_PAYMENT_COUNT} payments.`);
+}
+
 async function seedSplitExpenses(
   userIds: [number, number],
   categoryIdsByOrder: number[]
@@ -136,29 +173,29 @@ async function seedSplitExpenses(
 
   for (const s of splitExpenses) {
     const splitGroupId = `split-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const [expense] = await db
-      .insert(expenses)
-      .values({
-        userId: s.paidByUserId,
-        categoryId: s.categoryId,
-        amount: s.totalCents,
-        note: s.note,
-        date: s.date,
+    run(
+      "INSERT INTO expenses (user_id, category_id, amount, note, date, month, split_group_id, paid_by_user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      [
+        s.paidByUserId,
+        s.categoryId,
+        s.totalCents,
+        s.note,
+        s.date,
         month,
         splitGroupId,
-        paidByUserId: s.paidByUserId,
-      })
-      .returning({ id: expenses.id });
-    await db.insert(splitAllocations).values({
-      expenseId: expense!.id,
-      userId: s.otherUserId,
-      amount: s.otherOwesCents,
-    });
+        s.paidByUserId,
+      ]
+    );
+    const expenseId = lastInsertId();
+    run("INSERT INTO split_allocations (expense_id, user_id, amount) VALUES (?, ?, ?)", [
+      expenseId,
+      s.otherUserId,
+      s.otherOwesCents,
+    ]);
   }
   console.log(`Created ${splitExpenses.length} split expenses.`);
 }
 
-/** 3 months of income and expenses for both users. */
 async function seedSampleTransactionsAndIncome(
   userIds: [number, number],
   categoryIdsByOrder: number[]
@@ -189,7 +226,7 @@ async function seedSampleTransactionsAndIncome(
   const incomeRows: Array<{
     userId: number;
     amount: number;
-    type: "salary" | "ad_hoc";
+    type: string;
     description: string | null;
     date: string;
     month: string;
@@ -261,14 +298,108 @@ async function seedSampleTransactionsAndIncome(
     }
   }
 
-  await db.insert(income).values(incomeRows);
-  await db.insert(expenses).values(expenseRows);
+  for (const row of incomeRows) {
+    run(
+      "INSERT INTO income (user_id, amount, type, description, date, month) VALUES (?, ?, ?, ?, ?, ?)",
+      [row.userId, row.amount, row.type, row.description, row.date, row.month]
+    );
+  }
+  for (const row of expenseRows) {
+    run(
+      "INSERT INTO expenses (user_id, category_id, amount, note, date, month) VALUES (?, ?, ?, ?, ?, ?)",
+      [row.userId, row.categoryId, row.amount, row.note, row.date, row.month]
+    );
+  }
   console.log(
     `Sample data: ${incomeRows.length} income entries, ${expenseRows.length} expenses across ${months.length} months (${months.join(", ")}).`
   );
 }
 
-seed().catch((e) => {
+/** Per-user budget allocations and optional transfers for the same months as seed data. */
+async function seedBudgets(
+  userIds: [number, number],
+  categoryIdsByOrder: number[]
+) {
+  const now = new Date();
+  const months = [
+    format(subMonths(now, 2), "yyyy-MM"),
+    format(subMonths(now, 1), "yyyy-MM"),
+    format(now, "yyyy-MM"),
+  ];
+
+  const categoryIds = {
+    groceries: categoryIdsByOrder[0]!,
+    transport: categoryIdsByOrder[1]!,
+    diningOut: categoryIdsByOrder[2]!,
+    utilities: categoryIdsByOrder[3]!,
+    entertainment: categoryIdsByOrder[4]!,
+    healthcare: categoryIdsByOrder[5]!,
+    insurance: categoryIdsByOrder[6]!,
+    savings: categoryIdsByOrder[7]!,
+    clothing: categoryIdsByOrder[8]!,
+    education: categoryIdsByOrder[9]!,
+    home: categoryIdsByOrder[10]!,
+    other: categoryIdsByOrder[11]!,
+  };
+
+  const allocationByCategory: Array<{ categoryId: number; amount: number }> = [
+    { categoryId: categoryIds.groceries, amount: 42000 },
+    { categoryId: categoryIds.transport, amount: 3500 },
+    { categoryId: categoryIds.diningOut, amount: 8000 },
+    { categoryId: categoryIds.utilities, amount: 12000 },
+    { categoryId: categoryIds.entertainment, amount: 4500 },
+    { categoryId: categoryIds.healthcare, amount: 2100 },
+    { categoryId: categoryIds.insurance, amount: 5800 },
+    { categoryId: categoryIds.savings, amount: 15000 },
+    { categoryId: categoryIds.home, amount: 9500 },
+    { categoryId: categoryIds.other, amount: 2400 },
+  ];
+
+  for (const userId of userIds) {
+    for (const month of months) {
+      for (const { categoryId, amount } of allocationByCategory) {
+        run(
+          "INSERT INTO budgets (user_id, category_id, month, allocated_amount) VALUES (?, ?, ?, ?)",
+          [userId, categoryId, month, amount]
+        );
+      }
+    }
+  }
+
+  const currentMonth = format(now, "yyyy-MM");
+  const transferAmount = 5000;
+  for (const userId of userIds) {
+    run(
+      "INSERT INTO budget_transfers (from_category_id, to_category_id, month, amount, user_id, reason) VALUES (?, ?, ?, ?, ?, ?)",
+      [
+        categoryIds.savings,
+        categoryIds.groceries,
+        currentMonth,
+        transferAmount,
+        userId,
+        "Seed transfer",
+      ]
+    );
+    run(
+      "UPDATE budgets SET allocated_amount = allocated_amount - ? WHERE user_id = ? AND category_id = ? AND month = ?",
+      [transferAmount, userId, categoryIds.savings, currentMonth]
+    );
+    run(
+      "UPDATE budgets SET allocated_amount = allocated_amount + ? WHERE user_id = ? AND category_id = ? AND month = ?",
+      [transferAmount, userId, categoryIds.groceries, currentMonth]
+    );
+  }
+
+  console.log(
+    `Seeded per-user budgets for ${userIds.length} users across ${months.length} months and 2 transfers.`
+  );
+}
+
+(async () => {
+  await initDb();
+  await seed();
+  saveDb();
+})().catch((e) => {
   console.error(e);
   process.exit(1);
 });

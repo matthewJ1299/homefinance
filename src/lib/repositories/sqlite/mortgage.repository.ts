@@ -1,46 +1,71 @@
-import { eq } from "drizzle-orm";
-import { db } from "@/lib/db";
-import {
-  mortgageConfigs,
-  mortgageUserConfigs,
-  mortgagePayments,
-  mortgageScheduleSnapshots,
-  users,
-} from "@/lib/db/schema";
+import { all, get, run, lastInsertId } from "@/lib/db";
 import type { IMortgageRepository } from "../interfaces/mortgage.repository";
+
+interface ConfigRow {
+  id: number;
+  property_value: number;
+  loan_amount: number;
+  annual_interest_rate: number;
+  loan_term_months: number;
+  start_date: string;
+  target_equity_user_a_pct: number | null;
+}
+
+interface UserConfigRow {
+  user_id: number;
+  name: string;
+  initial_deposit: number;
+  base_split_pct: number;
+  monthly_cap: number | null;
+}
+
+interface PaymentRow {
+  id: number;
+  mortgage_id: number;
+  user_id: number;
+  payment_date: string;
+  month_number: number;
+  amount: number;
+  principal_portion: number;
+  interest_portion: number;
+  is_extra_payment: number;
+  note: string | null;
+  created_at: string;
+}
+
+function toConfigRow(r: ConfigRow) {
+  return {
+    id: r.id,
+    propertyValue: r.property_value,
+    loanAmount: r.loan_amount,
+    annualInterestRate: r.annual_interest_rate,
+    loanTermMonths: r.loan_term_months,
+    startDate: r.start_date,
+    targetEquityUserAPct: r.target_equity_user_a_pct ?? 0.5,
+  };
+}
 
 export class MortgageRepository implements IMortgageRepository {
   async getActiveConfig() {
-    const [row] = await db
-      .select()
-      .from(mortgageConfigs)
-      .where(eq(mortgageConfigs.isActive, true))
-      .limit(1);
-    if (!row) return null;
-    return {
-      id: row.id,
-      propertyValue: row.propertyValue,
-      loanAmount: row.loanAmount,
-      annualInterestRate: row.annualInterestRate,
-      loanTermMonths: row.loanTermMonths,
-      startDate: row.startDate,
-      targetEquityUserAPct: row.targetEquityUserAPct ?? 0.5,
-    };
+    const row = get<ConfigRow>(
+      "SELECT id, property_value, loan_amount, annual_interest_rate, loan_term_months, start_date, target_equity_user_a_pct FROM mortgage_configs WHERE is_active = 1 LIMIT 1"
+    );
+    return row ? toConfigRow(row) : null;
   }
 
   async getUserConfigs(mortgageId: number) {
-    const rows = await db
-      .select({
-        userId: mortgageUserConfigs.userId,
-        userName: users.name,
-        initialDeposit: mortgageUserConfigs.initialDeposit,
-        baseSplitPct: mortgageUserConfigs.baseSplitPct,
-        monthlyCap: mortgageUserConfigs.monthlyCap,
-      })
-      .from(mortgageUserConfigs)
-      .innerJoin(users, eq(mortgageUserConfigs.userId, users.id))
-      .where(eq(mortgageUserConfigs.mortgageId, mortgageId));
-    return rows;
+    const rows = all<UserConfigRow>(
+      `SELECT muc.user_id, u.name, muc.initial_deposit, muc.base_split_pct, muc.monthly_cap
+       FROM mortgage_user_configs muc INNER JOIN users u ON muc.user_id = u.id WHERE muc.mortgage_id = ?`,
+      [mortgageId]
+    );
+    return rows.map((r) => ({
+      userId: r.user_id,
+      userName: r.name,
+      initialDeposit: r.initial_deposit,
+      baseSplitPct: r.base_split_pct,
+      monthlyCap: r.monthly_cap,
+    }));
   }
 
   async upsertConfig(data: {
@@ -53,39 +78,37 @@ export class MortgageRepository implements IMortgageRepository {
   }) {
     const existing = await this.getActiveConfig();
     if (existing) {
-      const updates: Record<string, unknown> = {
-        propertyValue: data.propertyValue,
-        loanAmount: data.loanAmount,
-        annualInterestRate: data.annualInterestRate,
-        loanTermMonths: data.loanTermMonths,
-        startDate: data.startDate,
-      };
-      if (data.targetEquityUserAPct !== undefined) {
-        updates.targetEquityUserAPct = data.targetEquityUserAPct;
-      }
-      await db.update(mortgageConfigs).set(updates).where(eq(mortgageConfigs.id, existing.id));
+      run(
+        `UPDATE mortgage_configs SET property_value = ?, loan_amount = ?, annual_interest_rate = ?, loan_term_months = ?, start_date = ?, target_equity_user_a_pct = ? WHERE id = ?`,
+        [
+          data.propertyValue,
+          data.loanAmount,
+          data.annualInterestRate,
+          data.loanTermMonths,
+          data.startDate,
+          data.targetEquityUserAPct ?? 0.5,
+          existing.id,
+        ]
+      );
       return { ...existing, ...data };
     }
-    const [inserted] = await db
-      .insert(mortgageConfigs)
-      .values({
-        propertyValue: data.propertyValue,
-        loanAmount: data.loanAmount,
-        annualInterestRate: data.annualInterestRate,
-        loanTermMonths: data.loanTermMonths,
-        startDate: data.startDate,
-        targetEquityUserAPct: data.targetEquityUserAPct ?? 0.5,
-      })
-      .returning();
-    return {
-      id: inserted!.id,
-      propertyValue: inserted!.propertyValue,
-      loanAmount: inserted!.loanAmount,
-      annualInterestRate: inserted!.annualInterestRate,
-      loanTermMonths: inserted!.loanTermMonths,
-      startDate: inserted!.startDate,
-      targetEquityUserAPct: inserted!.targetEquityUserAPct ?? 0.5,
-    };
+    run(
+      `INSERT INTO mortgage_configs (property_value, loan_amount, annual_interest_rate, loan_term_months, start_date, target_equity_user_a_pct) VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        data.propertyValue,
+        data.loanAmount,
+        data.annualInterestRate,
+        data.loanTermMonths,
+        data.startDate,
+        data.targetEquityUserAPct ?? 0.5,
+      ]
+    );
+    const id = lastInsertId();
+    const row = get<ConfigRow>(
+      "SELECT id, property_value, loan_amount, annual_interest_rate, loan_term_months, start_date, target_equity_user_a_pct FROM mortgage_configs WHERE id = ?",
+      [id]
+    )!;
+    return toConfigRow(row);
   }
 
   async upsertUserConfig(
@@ -93,43 +116,30 @@ export class MortgageRepository implements IMortgageRepository {
     userId: number,
     data: { initialDeposit: number; baseSplitPct: number; monthlyCap?: number | null }
   ) {
-    await db
-      .insert(mortgageUserConfigs)
-      .values({
-        mortgageId,
-        userId,
-        initialDeposit: data.initialDeposit,
-        baseSplitPct: data.baseSplitPct,
-        monthlyCap: data.monthlyCap ?? null,
-      })
-      .onConflictDoUpdate({
-        target: [mortgageUserConfigs.mortgageId, mortgageUserConfigs.userId],
-        set: {
-          initialDeposit: data.initialDeposit,
-          baseSplitPct: data.baseSplitPct,
-          monthlyCap: data.monthlyCap ?? null,
-        },
-      });
+    run(
+      `INSERT INTO mortgage_user_configs (mortgage_id, user_id, initial_deposit, base_split_pct, monthly_cap) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT (mortgage_id, user_id) DO UPDATE SET initial_deposit = excluded.initial_deposit, base_split_pct = excluded.base_split_pct, monthly_cap = excluded.monthly_cap`,
+      [mortgageId, userId, data.initialDeposit, data.baseSplitPct, data.monthlyCap ?? null]
+    );
   }
 
   async getPayments(mortgageId: number) {
-    const rows = await db
-      .select()
-      .from(mortgagePayments)
-      .where(eq(mortgagePayments.mortgageId, mortgageId))
-      .orderBy(mortgagePayments.monthNumber);
+    const rows = all<PaymentRow>(
+      "SELECT id, mortgage_id, user_id, payment_date, month_number, amount, principal_portion, interest_portion, is_extra_payment, note, created_at FROM mortgage_payments WHERE mortgage_id = ? ORDER BY month_number",
+      [mortgageId]
+    );
     return rows.map((r) => ({
       id: r.id,
-      mortgageId: r.mortgageId,
-      userId: r.userId,
-      paymentDate: r.paymentDate,
-      monthNumber: r.monthNumber,
+      mortgageId: r.mortgage_id,
+      userId: r.user_id,
+      paymentDate: r.payment_date,
+      monthNumber: r.month_number,
       amount: r.amount,
-      principalPortion: r.principalPortion,
-      interestPortion: r.interestPortion,
-      isExtraPayment: r.isExtraPayment,
+      principalPortion: r.principal_portion,
+      interestPortion: r.interest_portion,
+      isExtraPayment: r.is_extra_payment === 1,
       note: r.note,
-      createdAt: r.createdAt,
+      createdAt: r.created_at,
     }));
   }
 
@@ -144,21 +154,21 @@ export class MortgageRepository implements IMortgageRepository {
     isExtraPayment: boolean;
     note?: string | null;
   }) {
-    const [inserted] = await db
-      .insert(mortgagePayments)
-      .values({
-        mortgageId: data.mortgageId,
-        userId: data.userId,
-        paymentDate: data.paymentDate,
-        monthNumber: data.monthNumber,
-        amount: data.amount,
-        principalPortion: data.principalPortion,
-        interestPortion: data.interestPortion,
-        isExtraPayment: data.isExtraPayment,
-        note: data.note ?? null,
-      })
-      .returning({ id: mortgagePayments.id });
-    return inserted!.id;
+    run(
+      `INSERT INTO mortgage_payments (mortgage_id, user_id, payment_date, month_number, amount, principal_portion, interest_portion, is_extra_payment, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        data.mortgageId,
+        data.userId,
+        data.paymentDate,
+        data.monthNumber,
+        data.amount,
+        data.principalPortion,
+        data.interestPortion,
+        data.isExtraPayment ? 1 : 0,
+        data.note ?? null,
+      ]
+    );
+    return lastInsertId();
   }
 
   async updatePaymentPrincipalInterest(
@@ -166,10 +176,10 @@ export class MortgageRepository implements IMortgageRepository {
     principalPortion: number,
     interestPortion: number
   ) {
-    await db
-      .update(mortgagePayments)
-      .set({ principalPortion, interestPortion })
-      .where(eq(mortgagePayments.id, paymentId));
+    run(
+      "UPDATE mortgage_payments SET principal_portion = ?, interest_portion = ? WHERE id = ?",
+      [principalPortion, interestPortion, paymentId]
+    );
   }
 
   async saveSnapshot(data: {
@@ -183,16 +193,19 @@ export class MortgageRepository implements IMortgageRepository {
     userAFinalEquityPct: number;
     userBFinalEquityPct: number;
   }) {
-    await db.insert(mortgageScheduleSnapshots).values({
-      mortgageId: data.mortgageId,
-      triggerEvent: data.triggerEvent as "initial" | "extra_payment" | "recalculation" | "config_update",
-      triggerPaymentId: data.triggerPaymentId ?? null,
-      scheduleJson: data.scheduleJson,
-      projectedPayoffDate: data.projectedPayoffDate,
-      projectedMonths: data.projectedMonths,
-      monthlyTopup: data.monthlyTopup,
-      userAFinalEquityPct: data.userAFinalEquityPct,
-      userBFinalEquityPct: data.userBFinalEquityPct,
-    });
+    run(
+      `INSERT INTO mortgage_schedule_snapshots (mortgage_id, trigger_event, trigger_payment_id, schedule_json, projected_payoff_date, projected_months, monthly_topup, user_a_final_equity_pct, user_b_final_equity_pct) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        data.mortgageId,
+        data.triggerEvent,
+        data.triggerPaymentId ?? null,
+        data.scheduleJson,
+        data.projectedPayoffDate,
+        data.projectedMonths,
+        data.monthlyTopup,
+        data.userAFinalEquityPct,
+        data.userBFinalEquityPct,
+      ]
+    );
   }
 }

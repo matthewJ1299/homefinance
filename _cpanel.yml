@@ -1,0 +1,8 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/triadtec/public_html/
+    - source /home/triadtec/nodevenv/repositories/HomeFinance/24/bin/activate && cd /home/HomeFinance/
+    - npm install
+    - npm run build
+    - /bin/cp -R dist/* $DEPLOYPATH

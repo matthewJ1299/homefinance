@@ -13,8 +13,9 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid input", issues: parsed.error.issues }, { status: 400 });
   }
+  const userId = Number(session.user.id);
   const service = new BudgetService();
-  await service.setAllocation(parsed.data.categoryId, parsed.data.month, parsed.data.amount);
-  const overview = await service.getOverview(parsed.data.month);
+  await service.setAllocation(parsed.data.categoryId, parsed.data.month, parsed.data.amount, userId);
+  const overview = await service.getOverview(parsed.data.month, userId);
   return NextResponse.json(overview);
 }

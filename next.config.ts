@@ -4,10 +4,7 @@ import withSerwistInit from "@serwist/next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   outputFileTracingRoot: process.cwd(),
-  webpack: (config) => {
-    config.externals = [...(config.externals || []), "better-sqlite3"];
-    return config;
-  },
+  serverExternalPackages: ["sql.js"],
 };
 
 const withSerwist = withSerwistInit({

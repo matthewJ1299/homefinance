@@ -100,7 +100,7 @@ export async function reorderCategory(
 
 /**
  * Persist category order from a drag-and-drop (or other) reorder.
- * orderedCategoryIds must be the full list of active category IDs in the desired order.
+ * orderedCategoryIds must be the full list of category IDs in the desired order (e.g. from Manage categories).
  */
 export async function reorderCategories(
   orderedCategoryIds: number[]
@@ -109,12 +109,12 @@ export async function reorderCategories(
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
   if (orderedCategoryIds.length === 0) return { success: true };
   const repo = getCategoryRepository();
-  const active = await repo.findAll();
-  const activeIds = new Set(active.map((c) => c.id));
+  const all = await repo.findAllIncludingInactive();
+  const allIds = new Set(all.map((c) => c.id));
   const orderedSet = new Set(orderedCategoryIds);
   if (
     orderedSet.size !== orderedCategoryIds.length ||
-    orderedCategoryIds.some((id) => !activeIds.has(id))
+    orderedCategoryIds.some((id) => !allIds.has(id))
   ) {
     return { success: false, error: "Invalid category order" };
   }

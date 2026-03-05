@@ -1,76 +1,63 @@
-import { eq, desc, or } from "drizzle-orm";
-import { db } from "@/lib/db";
-import { categories, expenses, budgets, budgetTransfers } from "@/lib/db/schema";
+import { all, get, run, lastInsertId } from "@/lib/db";
 import type { Category, CategoryWithActive } from "@/lib/types";
 import type { ICategoryRepository } from "../interfaces/category.repository";
 
+interface CategoryRow {
+  id: number;
+  name: string;
+  group_name: string;
+  icon: string | null;
+  sort_order: number;
+  is_active?: number;
+  cost_type: string;
+  default_amount: number | null;
+}
+
+function toCategory(r: CategoryRow, includeIsActive = false): Category | CategoryWithActive {
+  const base = {
+    id: r.id,
+    name: r.name,
+    groupName: r.group_name,
+    icon: r.icon,
+    sortOrder: r.sort_order,
+    costType: r.cost_type as "fixed" | "variable",
+    defaultAmount: r.default_amount,
+  };
+  if (includeIsActive && r.is_active !== undefined) {
+    return { ...base, isActive: r.is_active === 1 };
+  }
+  return base;
+}
+
 export class CategoryRepository implements ICategoryRepository {
   async findAll(): Promise<Category[]> {
-    const rows = await db
-      .select({
-        id: categories.id,
-        name: categories.name,
-        groupName: categories.groupName,
-        icon: categories.icon,
-        sortOrder: categories.sortOrder,
-        costType: categories.costType,
-        defaultAmount: categories.defaultAmount,
-      })
-      .from(categories)
-      .where(eq(categories.isActive, true))
-      .orderBy(desc(categories.costType), categories.sortOrder, categories.name);
-    return rows as Category[];
+    const rows = all<CategoryRow>(
+      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount FROM categories WHERE is_active = 1 ORDER BY cost_type DESC, sort_order, name"
+    );
+    return rows.map((r) => toCategory(r) as Category);
   }
 
   async findAllIncludingInactive(): Promise<CategoryWithActive[]> {
-    const rows = await db
-      .select({
-        id: categories.id,
-        name: categories.name,
-        groupName: categories.groupName,
-        icon: categories.icon,
-        sortOrder: categories.sortOrder,
-        isActive: categories.isActive,
-        costType: categories.costType,
-        defaultAmount: categories.defaultAmount,
-      })
-      .from(categories)
-      .orderBy(desc(categories.isActive), desc(categories.costType), categories.sortOrder, categories.name);
-    return rows as CategoryWithActive[];
+    const rows = all<CategoryRow>(
+      "SELECT id, name, group_name, icon, sort_order, is_active, cost_type, default_amount FROM categories ORDER BY is_active DESC, cost_type DESC, sort_order, name"
+    );
+    return rows.map((r) => toCategory(r, true) as CategoryWithActive);
   }
 
   async findById(id: number): Promise<Category | null> {
-    const [row] = await db
-      .select({
-        id: categories.id,
-        name: categories.name,
-        groupName: categories.groupName,
-        icon: categories.icon,
-        sortOrder: categories.sortOrder,
-        costType: categories.costType,
-        defaultAmount: categories.defaultAmount,
-      })
-      .from(categories)
-      .where(eq(categories.id, id))
-      .limit(1);
-    return (row as Category) ?? null;
+    const row = get<CategoryRow>(
+      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount FROM categories WHERE id = ?",
+      [id]
+    );
+    return row ? (toCategory(row) as Category) : null;
   }
 
   async findByName(name: string): Promise<Category | null> {
-    const [row] = await db
-      .select({
-        id: categories.id,
-        name: categories.name,
-        groupName: categories.groupName,
-        icon: categories.icon,
-        sortOrder: categories.sortOrder,
-        costType: categories.costType,
-        defaultAmount: categories.defaultAmount,
-      })
-      .from(categories)
-      .where(eq(categories.name, name))
-      .limit(1);
-    return (row as Category) ?? null;
+    const row = get<CategoryRow>(
+      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount FROM categories WHERE name = ?",
+      [name]
+    );
+    return row ? (toCategory(row) as Category) : null;
   }
 
   async create(data: {
@@ -81,26 +68,23 @@ export class CategoryRepository implements ICategoryRepository {
     costType?: "fixed" | "variable";
     defaultAmount?: number | null;
   }): Promise<Category> {
-    const [inserted] = await db
-      .insert(categories)
-      .values({
-        name: data.name,
-        groupName: data.groupName,
-        icon: data.icon ?? null,
-        sortOrder: data.sortOrder ?? 0,
-        costType: data.costType ?? "variable",
-        defaultAmount: data.defaultAmount ?? null,
-      })
-      .returning();
-    return {
-      id: inserted!.id,
-      name: inserted!.name,
-      groupName: inserted!.groupName,
-      icon: inserted!.icon,
-      sortOrder: inserted!.sortOrder,
-      costType: inserted!.costType as "fixed" | "variable",
-      defaultAmount: inserted!.defaultAmount,
-    };
+    run(
+      "INSERT INTO categories (name, group_name, icon, sort_order, cost_type, default_amount) VALUES (?, ?, ?, ?, ?, ?)",
+      [
+        data.name,
+        data.groupName,
+        data.icon ?? null,
+        data.sortOrder ?? 0,
+        data.costType ?? "variable",
+        data.defaultAmount ?? null,
+      ]
+    );
+    const id = lastInsertId();
+    const row = get<CategoryRow>(
+      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount FROM categories WHERE id = ?",
+      [id]
+    )!;
+    return toCategory(row) as Category;
   }
 
   async update(
@@ -114,44 +98,50 @@ export class CategoryRepository implements ICategoryRepository {
       defaultAmount?: number | null;
     }
   ): Promise<void> {
-    const updates: Record<string, unknown> = {};
-    if (data.name !== undefined) updates.name = data.name;
-    if (data.groupName !== undefined) updates.groupName = data.groupName;
-    if (data.isActive !== undefined) updates.isActive = data.isActive;
-    if (data.sortOrder !== undefined) updates.sortOrder = data.sortOrder;
-    if (data.costType !== undefined) updates.costType = data.costType;
-    if (data.defaultAmount !== undefined) updates.defaultAmount = data.defaultAmount;
-    if (Object.keys(updates).length === 0) return;
-    await db.update(categories).set(updates).where(eq(categories.id, id));
+    const updates: string[] = [];
+    const params: (string | number | null)[] = [];
+    if (data.name !== undefined) {
+      updates.push("name = ?");
+      params.push(data.name);
+    }
+    if (data.groupName !== undefined) {
+      updates.push("group_name = ?");
+      params.push(data.groupName);
+    }
+    if (data.isActive !== undefined) {
+      updates.push("is_active = ?");
+      params.push(data.isActive ? 1 : 0);
+    }
+    if (data.sortOrder !== undefined) {
+      updates.push("sort_order = ?");
+      params.push(data.sortOrder);
+    }
+    if (data.costType !== undefined) {
+      updates.push("cost_type = ?");
+      params.push(data.costType);
+    }
+    if (data.defaultAmount !== undefined) {
+      updates.push("default_amount = ?");
+      params.push(data.defaultAmount);
+    }
+    if (updates.length === 0) return;
+    params.push(id);
+    run(`UPDATE categories SET ${updates.join(", ")} WHERE id = ?`, params);
   }
 
   async delete(id: number): Promise<void> {
-    await db.delete(categories).where(eq(categories.id, id));
+    run("DELETE FROM categories WHERE id = ?", [id]);
   }
 
   async isInUse(id: number): Promise<boolean> {
-    const [expense] = await db
-      .select({ id: expenses.id })
-      .from(expenses)
-      .where(eq(expenses.categoryId, id))
-      .limit(1);
+    const expense = get<{ id: number }>("SELECT id FROM expenses WHERE category_id = ? LIMIT 1", [id]);
     if (expense) return true;
-    const [budget] = await db
-      .select({ id: budgets.id })
-      .from(budgets)
-      .where(eq(budgets.categoryId, id))
-      .limit(1);
+    const budget = get<{ id: number }>("SELECT id FROM budgets WHERE category_id = ? LIMIT 1", [id]);
     if (budget) return true;
-    const [transfer] = await db
-      .select({ id: budgetTransfers.id })
-      .from(budgetTransfers)
-      .where(
-        or(
-          eq(budgetTransfers.fromCategoryId, id),
-          eq(budgetTransfers.toCategoryId, id)
-        )
-      )
-      .limit(1);
+    const transfer = get<{ id: number }>(
+      "SELECT id FROM budget_transfers WHERE from_category_id = ? OR to_category_id = ? LIMIT 1",
+      [id, id]
+    );
     return !!transfer;
   }
 }

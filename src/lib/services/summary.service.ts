@@ -31,11 +31,11 @@ export class SummaryService {
     private budgetRepo = getBudgetRepository()
   ) {}
 
-  async getMonthlySnapshot(month: string): Promise<MonthlySnapshotResult> {
+  async getMonthlySnapshot(month: string, userId: number): Promise<MonthlySnapshotResult> {
     const [incomeResult, expenseResult, budgetOverview] = await Promise.all([
-      this.incomeRepo.findByMonth(month),
-      this.expenseService.getByMonth(month),
-      this.budgetRepo.getAllocationsForMonth(month),
+      this.incomeRepo.findByMonth(month, userId),
+      this.expenseService.getByMonth(month, userId),
+      this.budgetRepo.getAllocationsForMonth(month, userId),
     ]);
 
     const totalIncome = incomeResult.reduce((s, e) => s + e.amount, 0);

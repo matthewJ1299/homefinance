@@ -1,3 +1,4 @@
+import { auth } from "@/lib/auth";
 import { SummaryService } from "@/lib/services/summary.service";
 import { MortgageService } from "@/lib/services/mortgage.service";
 import { getCurrentMonth } from "@/lib/utils/date";
@@ -8,14 +9,16 @@ import { MonthlySnapshot } from "@/components/summary/monthly-snapshot";
 import { SpendingByCategoryChart } from "@/components/summary/spending-by-category-chart";
 import { IncomeVsExpensesChart } from "@/components/summary/income-vs-expenses-chart";
 import { EquityGrowthChart } from "@/components/summary/equity-growth-chart";
-import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { getUserRepository } from "@/lib/repositories";
 
 interface SummaryPageProps {
   searchParams: Promise<{ month?: string; from?: string; to?: string }>;
 }
 
 export default async function SummaryPage({ searchParams }: SummaryPageProps) {
+  const session = await auth();
+  if (!session?.user?.id) return null;
+  const userId = Number(session.user.id);
   const { month: monthParam, from: fromParam, to: toParam } = await searchParams;
   const month = monthParam ?? getCurrentMonth();
   const to = toParam ?? getCurrentMonth();
@@ -25,11 +28,12 @@ export default async function SummaryPage({ searchParams }: SummaryPageProps) {
 
   const summaryService = new SummaryService();
   const [snapshot, trends] = await Promise.all([
-    summaryService.getMonthlySnapshot(month),
+    summaryService.getMonthlySnapshot(month, userId),
     summaryService.getTrends(from, to),
   ]);
 
-  const userRows = await db.select({ id: users.id, name: users.name }).from(users);
+  const userRepo = getUserRepository();
+  const userRows = await userRepo.findAll();
   const userNames = Object.fromEntries(userRows.map((u) => [u.id, u.name]));
 
   const mortgageService = new MortgageService();

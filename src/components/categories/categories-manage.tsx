@@ -2,11 +2,27 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createCategory, updateCategory, reorderCategory, deleteCategory } from "@/lib/actions/category.actions";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { createCategory, updateCategory, reorderCategory, reorderCategories, deleteCategory } from "@/lib/actions/category.actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ChevronUp, ChevronDown } from "lucide-react";
+import { SortableCategoryRow } from "./sortable-category-row";
 import type { CategoryWithActive } from "@/lib/types";
 
 interface CategoriesManageProps {
@@ -20,6 +36,31 @@ export function CategoriesManage({ categories }: CategoriesManageProps) {
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<"saved" | "error" | null>(null);
   const [errorText, setErrorText] = useState("");
+  const [reorderError, setReorderError] = useState<string | null>(null);
+
+  const categoryIds = categories.map((c) => c.id);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over == null || active.id === over.id) return;
+    const oldIndex = categoryIds.indexOf(active.id as number);
+    const newIndex = categoryIds.indexOf(over.id as number);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const newOrder = arrayMove(categoryIds, oldIndex, newIndex);
+    setReorderError(null);
+    startTransition(async () => {
+      const result = await reorderCategories(newOrder);
+      if (result.success) {
+        router.refresh();
+      } else {
+        setReorderError(result.error ?? "Failed to reorder");
+      }
+    });
+  };
   const [newName, setNewName] = useState("");
   const [newGroup, setNewGroup] = useState("");
   const [newCostType, setNewCostType] = useState<"fixed" | "variable">("variable");
@@ -240,16 +281,27 @@ export function CategoriesManage({ categories }: CategoriesManageProps) {
       </section>
 
       <section>
-        <h2 className="font-medium text-sm text-muted-foreground mb-3">Categories</h2>
-        <ul className="space-y-2">
-          {categories.map((c, index) => (
-            <li
-              key={c.id}
-              className={`flex flex-wrap items-center gap-2 rounded-lg border p-3 ${
-                !c.isActive ? "opacity-60 bg-muted/50" : ""
-              }`}
-            >
-              <div className="flex flex-col shrink-0">
+        <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
+          <h2 className="font-medium text-sm text-muted-foreground">Categories</h2>
+          {reorderError && (
+            <p className="text-sm text-destructive" role="alert">
+              {reorderError}
+            </p>
+          )}
+        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={categoryIds}
+            strategy={verticalListSortingStrategy}
+          >
+            <ul className="space-y-2">
+              {categories.map((c, index) => (
+                <SortableCategoryRow key={c.id} category={c}>
+                  <div className="flex flex-col shrink-0">
                 <Button
                   type="button"
                   size="icon"
@@ -386,9 +438,11 @@ export function CategoriesManage({ categories }: CategoriesManageProps) {
                   </div>
                 </>
               )}
-            </li>
-          ))}
-        </ul>
+                </SortableCategoryRow>
+              ))}
+            </ul>
+          </SortableContext>
+        </DndContext>
       </section>
 
       {message === "saved" && (
