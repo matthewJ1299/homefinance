@@ -4,6 +4,24 @@ Build the app on your machine (Windows or WSL2; the app uses **sql.js**, so no n
 
 ---
 
+## Local build and push to repo (script)
+
+From the project root (Windows PowerShell):
+
+```powershell
+.\scripts\deploy.ps1 -CommitMessage "Your commit message"
+```
+
+Or use the batch launcher (optional commit message in quotes):
+
+```batch
+scripts\deploy.bat "Your commit message"
+```
+
+The script runs **npm ci**, **npm run build**, then (if `-CommitMessage` is set) stages all changes, commits, and pushes. Omit `-CommitMessage` to only install, build, and push existing commits. The script uses **npm ci** for a reproducible install; to use **npm i** instead, edit `scripts\deploy.ps1` and replace the `npm ci` line.
+
+---
+
 ## Prerequisites
 
 - **Node.js 20** (or 18) on your dev machine (Windows or WSL2).
@@ -134,6 +152,30 @@ The host is running **plain `node server.js`** and Node is loading the file as C
 
 - **Fix:** Set **Application startup file** to **`startup.cjs`** (not `server.js`). The launcher runs `npx tsx server.js` from the app directory so the real server runs under tsx. Ensure **Application root** is the folder that contains `package.json` and `node_modules`.
 
+### "Resource temporarily unavailable" / Tokio "can't spawn worker thread" (stderr)
+
+On start, the app may log: **"Failed to load CA certificates off thread: resource temporarily unavailable"** and **"thread 'unnamed' panicked ... OS can't spawn worker thread: Resource temporarily unavailable (os error 11)"**. This comes from cPanel **Shell Fork Bomb Protection**, which limits how many processes/threads your account can create (often around 35). Next.js and its native dependencies (e.g. Rust/SWC) spawn multiple threads; under that limit they fail with errno 11.
+
+**App-side (already applied in this repo):**
+
+- **startup.cjs** sets `NODE_ENV=production`, `UV_THREADPOOL_SIZE=4`, and `NODE_OPTIONS=--max-old-space-size=256` when starting the server. That reduces thread and memory use. If you need a higher memory cap, set **NODE_OPTIONS** in cPanel **Setup Node.js App** > Environment variables (e.g. `--max-old-space-size=384`); do not remove `UV_THREADPOOL_SIZE` unless you know the host allows more processes.
+
+**Host-side (if the error continues):**
+
+1. **Raise the process limit**  
+   On cPanel/WHM, the limit is usually in **Shell Fork Bomb Protection**. A server admin can:
+   - In WHM: **Server Setup** > **Shell Fork Bomb Protection** and either temporarily disable it for your deploy or raise the per-user process limit (e.g. edit `/usr/local/cpanel/etc/login_profile/limits.sh` and related files, then re-enable protection). Many shared hosts will not change this; in that case you may need a VPS or a host with higher limits.
+
+2. **Confirm nothing else is using your quota**  
+   Close other SSH sessions, stop any other Node/scripts under your user, then restart only this app. If the app then starts, another process was consuming the limit.
+
+3. **Run NPM Install and Restart from cPanel**  
+   Do not run long-lived `npm` or `node` commands from SSH in the same account while the app is running; that uses more processes.
+
+If the app still fails after the above, the account’s process limit is likely too low for this stack; the only reliable fix is a higher limit from the host or a different hosting tier.
+
+---
+
 ### "Cannot find module 'node:fs'" or npm install fails with Node 10
 
 The **Node.js version** for this application is set to **Node 10** (or 12). You can confirm this from the error or log path: if it contains **`nodevenv/finance/10`** or **`nodevenv/…/10`**, that app is using Node 10. This project requires **Node 18 or 20**; the `node:fs` built-in and the stack (Next.js 15, etc.) do not support Node 10.
@@ -195,7 +237,7 @@ To use cPanel **Git Version Control** with push deployment:
    A `.cpanel.yml` file must exist in the **root** of the repository and be **committed**. It must be valid YAML. The repo includes one configured for:
    - **Repository path:** `/home/triadtec/repositories/homefinance` (branch `master`)
    - **Deploy path (Application root):** `/home/triadtec/finance/`  
-   Tasks run in the repo directory: `npm install`, `npm run build`, then copy `.next/`, `public/`, `src/`, `drizzle/`, `server.js`, `startup.cjs`, and config files into the deploy path. Edit `REPOPATH`, `DEPLOYPATH`, and the nodevenv path in `.cpanel.yml` if your account or app names differ.
+   Tasks: in the repo directory run `npm install` and `npm run build`; copy build output (`.next/`), `public/`, `src/`, `drizzle/`, `server.js`, `startup.cjs`, and config files (`package.json`, `package-lock.json`, `next.config.ts`, `tsconfig.json`, `postcss.config.mjs`, optional `tailwind.config.*`, `.htaccess`, `run.sh`) into the deploy path; then run `npm install` in the deploy path so the app has `node_modules` at runtime. Edit `REPOPATH`, `DEPLOYPATH`, and the nodevenv path in `.cpanel.yml` if your account or app names differ.
 
 2. **Clean working tree on the server**  
    cPanel will not deploy if the **server's** copy of the repo has uncommitted changes. Ensure you have not edited files inside the repo directory (`repositories/homefinance`). If the server's branch was changed or is behind, use **Update from Remote** in cPanel **Git Version Control** (Pull or Deploy tab) so the checked-out branch matches the remote; then use **Deploy HEAD Commit** or push to trigger deployment.

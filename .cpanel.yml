@@ -1,11 +1,15 @@
 ---
+# cPanel deployment: build in repo, copy artifacts to deploy folder, then npm install in deploy folder.
+# Repo path and deploy path are set per environment (e.g. Git Version Control deploy hook).
 deployment:
   tasks:
     - export REPOPATH=/home/triadtec/repositories/homefinance
     - export DEPLOYPATH=/home/triadtec/finance/
+    - mkdir -p $DEPLOYPATH
     - source /home/triadtec/nodevenv/repositories/homefinance/24/bin/activate && cd $REPOPATH
     - npm install
     - npm run build
+    # Copy build output and app tree from repo to deploy (exclude node_modules, .env, .git, *.db)
     - /bin/cp -R .next $DEPLOYPATH
     - /bin/cp -R public $DEPLOYPATH
     - /bin/cp -R src $DEPLOYPATH
@@ -13,3 +17,7 @@ deployment:
     - /bin/cp server.js startup.cjs package.json package-lock.json next.config.ts tsconfig.json postcss.config.mjs $DEPLOYPATH
     - test -f tailwind.config.ts && /bin/cp tailwind.config.ts $DEPLOYPATH || true
     - test -f tailwind.config.js && /bin/cp tailwind.config.js $DEPLOYPATH || true
+    - test -f .htaccess && /bin/cp .htaccess $DEPLOYPATH || true
+    - test -f run.sh && /bin/cp run.sh $DEPLOYPATH && chmod +x $DEPLOYPATH/run.sh || true
+    # Run npm install in deploy folder so the app has node_modules at runtime
+    - cd $DEPLOYPATH && npm install
