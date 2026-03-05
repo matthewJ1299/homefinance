@@ -136,10 +136,18 @@ The host is running **plain `node server.js`** and Node is loading the file as C
 
 ### "Cannot find module 'node:fs'" or npm install fails with Node 10
 
-The **Node.js version** for this application is set to **Node 10** (or 12). This app requires **Node 18 or 20**. The `node:fs` built-in exists only in Node 14.18+; Next.js 15 and the rest of the stack require Node 18+.
+The **Node.js version** for this application is set to **Node 10** (or 12). You can confirm this from the error or log path: if it contains **`nodevenv/finance/10`** or **`nodevenv/…/10`**, that app is using Node 10. This project requires **Node 18 or 20**; the `node:fs` built-in and the stack (Next.js 15, etc.) do not support Node 10.
 
-- **Fix:** In cPanel **Setup Node.js App**, change the **Node.js version** for this application to **18** or **20**. The version is chosen when you create or edit the application (e.g. a dropdown or selector). After changing it, run **Run NPM Install** again from the app root so dependencies are installed with the correct Node, then **Restart**.
-- **Git deploy note:** `.cpanel.yml` uses Node 24 in the **repository** for `npm install` and `npm run build`. The **running application** (Setup Node.js App) has its own Node version; that must be 18 or 20, not 10. If the app is currently tied to Node 10, edit the application and select Node 18 or 20, then re-run NPM Install in the **deploy path** (e.g. `finance`).
+**Fix (cPanel):**
+
+1. Open **Setup Node.js App** (or **Application Manager**).
+2. Find the application whose **Application root** is your deploy path (e.g. `finance`). Click **Edit** or the application name.
+3. Change **Node.js version** to **18** or **20**. The control is usually a dropdown or version selector on the same screen as Application root and startup file. Save the application.
+4. **Run NPM Install** again (so install runs with the new Node), then **Restart**.
+
+If the version dropdown only lists Node 10 (and no 18/20): your host may not have Node 18/20 enabled for this account. Contact the host and ask for Node 18 or 20 in Setup Node.js App, or create a new Node.js application and choose 18 or 20 at creation time, then point that new app’s Application root to your deploy folder.
+
+**Git deploy:** `.cpanel.yml` uses Node 24 only for the **repository** (build). The **running app** in Setup Node.js App has its own Node version; that app must use 18 or 20. Change that app’s version as above, then run NPM Install in the deploy path.
 
 ### "Cannot find module 'next'" (LiteSpeed / lsnode / generic Node hosts)
 

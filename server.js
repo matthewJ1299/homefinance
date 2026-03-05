@@ -5,8 +5,8 @@
  * Set PORT in the environment (cPanel often provides it).
  * Uses sql.js (no native bindings); DB is initialized asynchronously before listening.
  */
-const next = require("next");
-const http = require("http");
+import next from "next";
+import http from "http";
 
 const dev = process.env.NODE_ENV === "development";
 const hostname = "0.0.0.0";
