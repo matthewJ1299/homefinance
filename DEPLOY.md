@@ -171,10 +171,13 @@ You do **not** need to run `npm ci` manually on the server; cPanel’s **Run NPM
 To use cPanel **Git Version Control** with push deployment:
 
 1. **Valid `.cpanel.yml`**  
-   A `.cpanel.yml` file must exist in the **root** of the repository and be **committed**. It must be valid YAML. The repo includes one that sets `DEPLOYPATH`, activates the Node venv, and runs `npm install` and `npm run build` in the app directory. Edit the paths in `.cpanel.yml` to match your cPanel account (user, app path, nodevenv path).
+   A `.cpanel.yml` file must exist in the **root** of the repository and be **committed**. It must be valid YAML. The repo includes one configured for:
+   - **Repository path:** `/home/triadtec/repositories/homefinance` (branch `master`)
+   - **Deploy path (Application root):** `/home/triadtec/finance/`  
+   Tasks run in the repo directory: `npm install`, `npm run build`, then copy `.next/`, `public/`, `src/`, `drizzle/`, `server.js`, and config files into the deploy path. Edit `REPOPATH`, `DEPLOYPATH`, and the nodevenv path in `.cpanel.yml` if your account or app names differ.
 
 2. **Clean working tree on the server**  
-   cPanel will not deploy if the **server's** copy of the repo has uncommitted changes. Ensure you have not edited files inside the repo directory on the server. If the server's branch was changed or is behind, use **Update from Remote** in cPanel **Git Version Control** (Pull or Deploy tab) so the checked-out branch matches the remote; then use **Deploy HEAD Commit** or push to trigger deployment.
+   cPanel will not deploy if the **server's** copy of the repo has uncommitted changes. Ensure you have not edited files inside the repo directory (`repositories/homefinance`). If the server's branch was changed or is behind, use **Update from Remote** in cPanel **Git Version Control** (Pull or Deploy tab) so the checked-out branch matches the remote; then use **Deploy HEAD Commit** or push to trigger deployment.
 
-3. **Clone and app root**  
-   When creating the Git repo in cPanel, set the clone path to your **Application root** (the same directory as `server.js` and `package.json`) so deployment runs in the right place.
+3. **Setup Node.js App**  
+   In cPanel **Setup Node.js App**, set **Application root** to the **deploy path** (e.g. `finance`), not the repository path. The deployment script copies built files into that directory; the Node app runs from there.

@@ -1,7 +1,15 @@
 ---
 deployment:
   tasks:
+    - export REPOPATH=/home/triadtec/repositories/homefinance
     - export DEPLOYPATH=/home/triadtec/finance/
-    - source /home/triadtec/nodevenv/repositories/homefinance/24/bin/activate && cd $DEPLOYPATH
+    - source /home/triadtec/nodevenv/repositories/homefinance/24/bin/activate && cd $REPOPATH
     - npm install
     - npm run build
+    - /bin/cp -R .next $DEPLOYPATH
+    - /bin/cp -R public $DEPLOYPATH
+    - /bin/cp -R src $DEPLOYPATH
+    - /bin/cp -R drizzle $DEPLOYPATH
+    - /bin/cp server.js package.json package-lock.json next.config.ts tsconfig.json postcss.config.mjs $DEPLOYPATH
+    - test -f tailwind.config.ts && /bin/cp tailwind.config.ts $DEPLOYPATH || true
+    - test -f tailwind.config.js && /bin/cp tailwind.config.js $DEPLOYPATH || true
