@@ -3,7 +3,7 @@ deployment:
   tasks:
     - export REPOPATH=/home/triadtec/repositories/homefinance
     - export DEPLOYPATH=/home/triadtec/finance/
-    - source /home/triadtec/nodevenv/repositories/homefinance/24/bin/activate && cd $REPOPATH
+    - source /home/triadtec/nodevenv/repositories/homefinance/18/bin/activate && cd $REPOPATH
     - npm install
     - npm run build
     - /bin/cp -R .next $DEPLOYPATH
