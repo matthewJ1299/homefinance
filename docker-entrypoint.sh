@@ -1,5 +1,8 @@
 #!/bin/sh
 set -e
-# When a volume is mounted at /app/data, it often has root ownership. Ensure nextjs can write.
+
+# Fix ownership when a Docker/Coolify volume is mounted at /app/data (often root-owned)
 chown -R nextjs:nodejs /app/data
+
+# Drop privileges and exec the CMD (node server.js)
 exec su-exec nextjs "$@"

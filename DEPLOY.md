@@ -1,140 +1,188 @@
-# Deployment Guide
+# Deploying HomeFinance with Coolify
 
-This document describes how to deploy HomeFinance to a VPS using GitHub, Docker, Coolify, and Traefik.
+End-to-end guide for deploying the HomeFinance Next.js application to a VPS managed by **Coolify** (with its built-in **Traefik** proxy).
+
+Target URL: **https://finance.dev.triadtech.co.za**
+
+---
 
 ## Prerequisites
 
-- Git repository pushed to GitHub (public or private).
-- A VPS with Docker, Coolify, and Traefik installed (Coolify typically manages Traefik).
-- **Domain**: This guide uses the VPS at `dev.triadtech.co.za` and the app at **`finance.dev.triadtech.co.za`**. Ensure a DNS **A** record for `finance.dev.triadtech.co.za` points to the same IP as `dev.triadtech.co.za` (your VPS).
+| Requirement | Detail |
+|---|---|
+| **VPS** | Coolify installed and running. Traefik proxy enabled on the server. |
+| **GitHub repo** | `matthewJ1299/homefinance` (public or with GitHub App connected in Coolify). |
+| **DNS** | An **A** record for `finance.dev.triadtech.co.za` pointing to the VPS IP. Verify: `nslookup finance.dev.triadtech.co.za` or `dig finance.dev.triadtech.co.za`. |
+| **Committed files** | `Dockerfile`, `docker-entrypoint.sh`, `.dockerignore`, `.gitattributes`, `package-lock.json` must all be committed and pushed. |
 
-## Project Setup for Deployment
+---
 
-### Build and Run Locally with Docker (optional check)
+## 1. Verify DNS
 
-From the project root:
+Before doing anything in Coolify, confirm the subdomain resolves to your VPS.
 
 ```bash
-docker build -t home-finance .
-docker run -p 3000:3000 -e AUTH_SECRET=your-secret-here -v homefinance_data:/app/data home-finance
+nslookup finance.dev.triadtech.co.za
 ```
 
-Open http://localhost:3000. The SQLite database is stored in the `homefinance_data` volume. To use a bind mount instead: `-v ./data:/app/data`.
+The response must show the same IP as `dev.triadtech.co.za`. If not, add the A record at your DNS provider and wait for propagation.
 
-### Required Environment Variables
+---
 
-Set these in Coolify (or your orchestrator); do not commit real values to the repo.
+## 2. Create the Application in Coolify
 
-| Variable       | Required | Description |
-|----------------|----------|-------------|
-| `AUTH_SECRET`  | Yes      | NextAuth v5 secret. Generate with: `openssl rand -base64 32`. |
-| `DB_PATH`      | No       | SQLite file path. Default inside container: `/app/data/sqlite.db`. Only set if you use a different path. |
+1. Open your Coolify dashboard and navigate to your **Project**.
+2. Click **Add New Resource** (or **Create New Resource**).
+3. Choose **Public Repository** (or **GitHub App** if the repo is private) and enter the repo URL:
+   `https://github.com/matthewJ1299/homefinance`
+4. Select the **master** branch.
 
-### Optional (seeding)
+---
 
-Used only if you run seed scripts; not needed for normal runtime:
+## 3. General Settings
 
-- `SEED_USER_PASSWORD`, `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER1_NAME`, `SEED_USER2_NAME`
+| Field | Value |
+|---|---|
+| **Name** | `HomeFinance` |
+| **Build Pack** | `Dockerfile` |
+| **Base Directory** | `/` |
+| **Dockerfile Location** | `/Dockerfile` |
 
-## Pushing to GitHub
+---
 
-1. Ensure `.gitignore` excludes: `.next/`, `node_modules/`, `data/`, `.env`, `.env.local`, and other env files.
-2. Commit and push:
+## 4. Domain Configuration (Critical)
 
-   ```bash
-   git add .
-   git commit -m "Add Docker and deployment config"
-   git remote add origin https://github.com/YOUR_USERNAME/home-finance.git   # if not already added
-   git push -u origin master
-   ```
+This is the most common source of "404 page not found" errors. Coolify expects a **full URL with protocol** in the Domains field.
 
-3. For reproducible Docker builds, commit `package-lock.json` (run `npm install` once in the project root if it does not exist).
+| Field | Value |
+|---|---|
+| **Domains** | `https://finance.dev.triadtech.co.za` |
+| **Direction** | `Allow www & non-www.` (or your preference) |
 
-## Exact Coolify Setup (finance.dev.triadtech.co.za)
+**Important:** The domain must include the `https://` prefix. If you enter only `finance.dev.triadtech.co.za` without a protocol, Coolify/Traefik may not create a route and all requests will return 404.
 
-Follow these steps in order. The app will be available at **https://finance.dev.triadtech.co.za** once deployed.
+After entering the domain, click **Save**.
 
-### Step 1: DNS
+---
 
-- In your DNS provider, add an **A** record: **`finance.dev.triadtech.co.za`** -> **same IP as `dev.triadtech.co.za`** (your VPS).
-- Wait for propagation (minutes to hours). You can check with `dig finance.dev.triadtech.co.za` or an online DNS lookup.
+## 5. Network Settings
 
-### Step 2: GitHub access in Coolify (if using a private repo)
+| Field | Value |
+|---|---|
+| **Ports Exposes** | `3000` |
+| **Port Mappings** | Leave empty (Traefik handles routing; a direct host mapping like `3000:3000` exposes the port publicly and bypasses the proxy). |
 
-- In Coolify: go to **Settings** (or **Source Control** / **Integrations**).
-- Add **GitHub** via **GitHub App** (recommended) or **Deploy Key**, so Coolify can clone your repo. Skip this if the repo is public.
+**Ports Exposes** tells Traefik which container port to forward traffic to. The app listens on `0.0.0.0:3000` inside the container.
 
-### Step 3: Create a new resource
+---
 
-- Open your **Project** in Coolify.
-- Click **Create New Resource** (or **Add Resource**).
+## 6. Persistent Storage (SQLite)
 
-### Step 4: Choose deployment option
+The app stores its database at `/app/data/sqlite.db` inside the container. Without persistent storage, data is lost on every redeploy.
 
-- **Public repository**: choose “Public Repository” and paste your repo URL (e.g. `https://github.com/YOUR_USERNAME/home-finance`).
-- **Private repository**: choose **GitHub App** or **Deploy Key** and select the repo when prompted.
+1. Go to the **Persistent Storage** (or **Volumes**) section of the resource.
+2. Add a volume:
+   - **Destination Path**: `/app/data`
+   - **Name**: `homefinance_data` (Coolify may append a UUID; that is fine)
 
-### Step 5: Select build pack and paths
+The `docker-entrypoint.sh` script automatically fixes ownership of this directory at startup so the non-root app user can write to it.
 
-- **Build Pack**: open the dropdown (default is Nixpacks) and select **Dockerfile**.
-- **Base Directory**: set to **`/`** (project root; no subfolder).
-- **Branch**: leave as detected (e.g. `master` or `main`) or select the branch you want to deploy.
-- Click **Continue**.
+---
 
-### Step 6: Network and domain
+## 7. Environment Variables
 
-On the next screen (network/configuration):
+Go to the **Environment Variables** tab and add:
 
-- **Domain**: set the **FQDN** to **`finance.dev.triadtech.co.za`** (no `https://` prefix).
-- **Port**: set **Port Exposes** to **`3000`** (the app listens on 3000; this is often the default).
-- **HTTPS**: enable **HTTPS** and use **Let’s Encrypt** so Coolify/Traefik issues a certificate for `finance.dev.triadtech.co.za`. Force HTTPS can stay enabled.
+| Key | Required | Value |
+|---|---|---|
+| `AUTH_SECRET` | Yes | Generate with: `openssl rand -base64 32` |
+| `DB_PATH` | No | Default: `/app/data/sqlite.db`. Only set if using a different path. |
 
-### Step 7: Persistent storage (SQLite)
+Do **not** commit real values to the repository.
 
-The app stores the database in **`/app/data`** inside the container. Add a volume so it survives redeploys:
+---
 
-- Open the resource’s **Configuration** (or **Advanced** / **Persistent Storage**).
-- Add **Persistent Storage**:
-  - **Destination Path** (inside container): **`/app/data`**
-  - **Name**: e.g. **`homefinance_data`** (Coolify may append a UUID; that is fine).
-- If your Coolify version uses **Bind Mount** instead: **Source Path** = path on the host (e.g. `/opt/coolify/data/homefinance`), **Destination Path** = **`/app/data`**.
+## 8. Deploy
 
-### Step 8: Environment variables
+1. Click **Deploy** (or **Start Deployment**).
+2. Coolify will clone the repo, build the Docker image using the Dockerfile, start the container, and register the domain with Traefik.
+3. Monitor the build in the **Deployment Logs** tab.
+4. Once the container logs show `Ready in ...ms`, open **https://finance.dev.triadtech.co.za**.
 
-- Open the **Environment Variables** tab for this resource.
-- Add:
-  - **Key**: `AUTH_SECRET`  
-    **Value**: a long random string. Generate with:  
-    `openssl rand -base64 32`
-- You do not need to set `DB_PATH` unless you use a different path; the default inside the container is `/app/data/sqlite.db`.
+---
 
-### Step 9: Deploy
+## 9. Auto Deploy (Optional)
 
-- Click **Deploy** (or **Start Deployment**). Coolify will clone the repo, run `docker build` using the Dockerfile, start the container, and register **finance.dev.triadtech.co.za** with Traefik.
-- Wait for the build to finish. Check **Logs** if something fails.
-- Open **https://finance.dev.triadtech.co.za** in a browser. You should see the app (login page if no users are seeded).
+In the resource's settings, enable **Auto Deploy** so each push to `master` triggers a new build and deploy automatically. This requires the repo to be connected via a **GitHub App** in Coolify.
 
-### Step 10 (optional): Deploy on push
+---
 
-- In the resource’s **Advanced** (or similar) settings, enable **Auto Deploy** (or **Deploy on push**) so each push to the selected branch triggers a new build and deploy. This is usually available when the repo is connected via GitHub App.
+## How the Docker Setup Works
 
-## Dockerfile Overview
+### Dockerfile (multi-stage)
 
-- **Build stage**: Installs dependencies, runs `next build`. Uses `output: "standalone"` from `next.config.ts` so the build produces a minimal runnable tree under `.next/standalone/`.
-- **Run stage**: Copies standalone output and `.next/static` into a minimal Node image, installs `su-exec`, and uses `docker-entrypoint.sh` so the container starts as root, chowns `/app/data` to the `nextjs` user (fixing volume ownership when a volume is mounted), then runs `node server.js` as `nextjs`. Port 3000 is exposed. The `/app/data` directory is intended to be overwritten or supplemented by a volume for SQLite persistence.
+- **Builder stage**: Installs npm dependencies, runs `next build` with `output: "standalone"` (from `next.config.ts`). This produces a minimal, self-contained server under `.next/standalone/`.
+- **Runner stage**: Copies standalone output, static assets, and the `sql.js` package (whose `.wasm` binary is not traced by standalone). Installs `su-exec` for privilege dropping. Uses `docker-entrypoint.sh` as the entrypoint.
+
+### docker-entrypoint.sh
+
+Runs as root at startup to `chown /app/data` (fixing volume permissions when Coolify mounts a volume owned by root), then drops to the `nextjs` user via `su-exec` before starting the app.
+
+### Instrumentation (src/instrumentation.ts)
+
+Next.js calls `register()` when the server starts. This initializes the sql.js in-memory database from the file at `/app/data/sqlite.db` (or creates a new one) and starts a periodic persist loop that writes the in-memory DB back to disk every 60 seconds.
+
+---
 
 ## Troubleshooting
 
-- **dev.triadtech.co.za shows 404**: The app is only configured for **finance.dev.triadtech.co.za**. Traefik has no route for the bare `dev.triadtech.co.za` hostname, so you get 404. Use **https://finance.dev.triadtech.co.za** to reach the app. To serve something at `dev.triadtech.co.za`, configure a separate Coolify resource or a Traefik redirect for that host.
-- **finance.dev.triadtech.co.za shows "DNS_PROBE_FINISHED_NXDOMAIN" or "check for typos"**: The domain has no DNS record. Add an **A** record at your DNS provider: **Name** = `finance` (or `finance.dev` depending on provider; the full name must resolve to **finance.dev.triadtech.co.za**), **Value** = the same IP as **dev.triadtech.co.za** (your VPS). Wait for propagation (minutes to hours), then try again. Check with `nslookup finance.dev.triadtech.co.za` or `dig finance.dev.triadtech.co.za`.
-- **Build fails with "standalone not found"**: Ensure `next.config.ts` includes `output: "standalone"` and that the build completes without errors (e.g. run `npm run build` locally).
-- **ENOENT sql-wasm.wasm / "Failed to prepare server" / instrumentation hook error**: The app uses `sql.js` (serverExternalPackages). Next.js standalone traces `sql-wasm.js` but not the `.wasm` file. The Dockerfile must copy `node_modules/sql.js` into the runner image (see Dockerfile comment) so the runtime finds `/app/node_modules/sql.js/dist/sql-wasm.wasm`. If you use a custom Dockerfile, add the same `COPY` for `sql.js`.
-- **502 / connection refused** or **"No Available Server"** at https://finance.dev.triadtech.co.za: Confirm **Port Exposes** is **3000** in the resource’s network settings. The container must listen on `0.0.0.0:3000` (the Dockerfile already sets `HOSTNAME="0.0.0.0"`). Check the container’s **Logs** in Coolify; if the container is unhealthy, fix the cause or temporarily disable health checks.
-- **Database reset on redeploy**: Ensure **Persistent Storage** is set with **Destination Path** `/app/data` in the Coolify resource.
-- **EACCES: permission denied, open '/app/data/sqlite.db'**: The app runs as a non-root user; a volume mounted at `/app/data` may be owned by root. The image uses an entrypoint that chowns `/app/data` to the app user at startup. Redeploy so the new image (with `docker-entrypoint.sh`) is used; if the error persists, the host or orchestrator may be remounting the volume with different permissions.
-- **NextAuth errors**: Verify `AUTH_SECRET` is set in the resource’s Environment Variables and that `trustHost: true` is used in auth config (already set in this app for reverse-proxy deployments).
-- **Traefik not routing**: Confirm the resource’s domain is exactly **finance.dev.triadtech.co.za** and HTTPS (e.g. Let’s Encrypt) is enabled so Coolify registers the route with Traefik.
+### 404 "page not found" (Traefik returning 404, app logs show no requests)
 
-## Alternative: Docker Compose and Traefik
+The domain is not routed to the container. Verify:
 
-If you prefer to run the stack yourself (e.g. on the same host as Coolify but outside Coolify’s app UI), you can use Docker Compose and attach Traefik labels so Traefik routes your domain to the container. The Dockerfile remains the same; only the orchestration and Traefik configuration (labels or dynamic config) are defined in your Compose file and Traefik setup.
+1. **Domain field** includes the `https://` protocol prefix: `https://finance.dev.triadtech.co.za`.
+2. **Ports Exposes** is `3000`.
+3. The **Coolify Proxy** (Traefik) is enabled and running on the deployment server.
+4. The container is **Running** and **Healthy** (check in Coolify).
+5. After changing domain or port, **Save** and **Redeploy**.
+
+### DNS_PROBE_FINISHED_NXDOMAIN
+
+No DNS record exists for `finance.dev.triadtech.co.za`. Add an A record pointing to your VPS IP and wait for propagation.
+
+### ENOENT: sql-wasm.wasm
+
+The Dockerfile must copy `node_modules/sql.js` into the runner image. This is already handled; if you modify the Dockerfile, ensure the `COPY ... node_modules/sql.js` line is present.
+
+### EACCES: permission denied on /app/data/sqlite.db
+
+The volume mounted at `/app/data` is owned by root. The `docker-entrypoint.sh` fixes this automatically. If the error persists, confirm the entrypoint is set (`ENTRYPOINT ["/docker-entrypoint.sh"]` in the Dockerfile) and that `docker-entrypoint.sh` is committed with LF line endings (enforced by `.gitattributes`).
+
+### Build fails with "standalone not found"
+
+Ensure `next.config.ts` includes `output: "standalone"` and that `npm run build` completes without errors locally.
+
+### NextAuth errors (CSRF, callback URL)
+
+- Verify `AUTH_SECRET` is set in Coolify environment variables.
+- `trustHost: true` is already configured in `src/lib/auth.ts` for reverse-proxy deployments.
+
+### Database reset on redeploy
+
+Persistent storage is not configured. Add a volume with destination path `/app/data` in Coolify.
+
+---
+
+## Local Docker Testing
+
+Build and run locally to verify the image before deploying:
+
+```bash
+docker build -t home-finance .
+docker run -p 3000:3000 \
+  -e AUTH_SECRET=$(openssl rand -base64 32) \
+  -v homefinance_data:/app/data \
+  home-finance
+```
+
+Open http://localhost:3000. The SQLite database persists in the `homefinance_data` Docker volume.

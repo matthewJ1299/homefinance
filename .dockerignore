@@ -1,25 +1,26 @@
-# Dependencies
+# Dependencies (installed inside the container)
 node_modules
 .pnp
 .pnp.js
 
-# Build output
+# Build output (rebuilt inside the container)
 .next
 out
 
 # Git
 .git
 .gitignore
+.gitattributes
 
 # Env and secrets
 .env
 .env.*
 !.env.example
 
-# Local data (do not bake into image)
+# Local data (must not be baked into the image)
 data
 
-# Debug and logs
+# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -30,7 +31,7 @@ yarn-error.log*
 .vscode
 .DS_Store
 
-# Docs and misc (optional; keep repo smaller)
+# Documentation (not needed in the image)
 *.md
 !README.md
 

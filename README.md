@@ -45,7 +45,7 @@ Amounts use the same integer format as the app (e.g. cents). To start with an em
 
 ## Deploy
 
-See [DEPLOY.md](./DEPLOY.md) for building in WSL2, uploading via FTP (without `node_modules`), and running the app on cPanel.
+See [DEPLOY.md](./DEPLOY.md) for deploying to a VPS with Coolify (Docker + Traefik). The guide covers DNS, Dockerfile, persistent storage, environment variables, and troubleshooting.
 
 ## Scripts
 
