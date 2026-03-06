@@ -126,6 +126,7 @@ The app stores the database in **`/app/data`** inside the container. Add a volum
 ## Troubleshooting
 
 - **Build fails with "standalone not found"**: Ensure `next.config.ts` includes `output: "standalone"` and that the build completes without errors (e.g. run `npm run build` locally).
+- **ENOENT sql-wasm.wasm / "Failed to prepare server" / instrumentation hook error**: The app uses `sql.js` (serverExternalPackages). Next.js standalone traces `sql-wasm.js` but not the `.wasm` file. The Dockerfile must copy `node_modules/sql.js` into the runner image (see Dockerfile comment) so the runtime finds `/app/node_modules/sql.js/dist/sql-wasm.wasm`. If you use a custom Dockerfile, add the same `COPY` for `sql.js`.
 - **502 / connection refused** or **"No Available Server"** at https://finance.dev.triadtech.co.za: Confirm **Port Exposes** is **3000** in the resource’s network settings. The container must listen on `0.0.0.0:3000` (the Dockerfile already sets `HOSTNAME="0.0.0.0"`). Check the container’s **Logs** in Coolify; if the container is unhealthy, fix the cause or temporarily disable health checks.
 - **Database reset on redeploy**: Ensure **Persistent Storage** is set with **Destination Path** `/app/data` in the Coolify resource.
 - **NextAuth errors**: Verify `AUTH_SECRET` is set in the resource’s Environment Variables and that `trustHost: true` is used in auth config (already set in this app for reverse-proxy deployments).

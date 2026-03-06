@@ -30,6 +30,10 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# sql.js is serverExternalPackages; standalone trace includes sql-wasm.js but not sql-wasm.wasm.
+# Copy the package so require("sql.js") finds it and can load the WASM at runtime.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/sql.js /app/node_modules/sql.js
+
 # Persisted at runtime via volume
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 
