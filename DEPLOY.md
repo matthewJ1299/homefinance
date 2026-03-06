@@ -1,246 +1,136 @@
-# Deploy to cPanel (local build, FTP, Node on server)
+# Deployment Guide
 
-Build the app on your machine (Windows or WSL2; the app uses **sql.js**, so no native bindings). Upload the built app **without** `node_modules`. On the server, use cPanel’s **Run NPM Install** button instead of running terminal commands for dependencies. Terminal/SSH is only needed once for database setup.
-
----
-
-## Local build and push to repo (script)
-
-From the project root (Windows PowerShell):
-
-```powershell
-.\scripts\deploy.ps1 -CommitMessage "Your commit message"
-```
-
-Or use the batch launcher (optional commit message in quotes):
-
-```batch
-scripts\deploy.bat "Your commit message"
-```
-
-The script runs **npm ci**, **npm run build**, then (if `-CommitMessage` is set) stages all changes, commits, and pushes. Omit `-CommitMessage` to only install, build, and push existing commits. The script uses **npm ci** for a reproducible install; to use **npm i** instead, edit `scripts\deploy.ps1` and replace the `npm ci` line.
-
----
+This document describes how to deploy HomeFinance to a VPS using GitHub, Docker, Coolify, and Traefik.
 
 ## Prerequisites
 
-- **Node.js 20** (or 18) on your dev machine (Windows or WSL2).
-- **cPanel** hosting with **Setup Node.js App** (or Application Manager) and Node 20/18 available.
-- **FTP** access to the server.
+- Git repository pushed to GitHub (public or private).
+- A VPS with Docker, Coolify, and Traefik installed (Coolify typically manages Traefik).
+- **Domain**: This guide uses the VPS at `dev.triadtech.co.za` and the app at **`finance.dev.triadtech.co.za`**. Ensure a DNS **A** record for `finance.dev.triadtech.co.za` points to the same IP as `dev.triadtech.co.za` (your VPS).
 
----
+## Project Setup for Deployment
 
-## Quick path (no SSH for routine deploys)
+### Build and Run Locally with Docker (optional check)
 
-Use this for initial deploy and for every code update. You do **not** need to run `npm ci` or any terminal commands on the server; cPanel’s **Run NPM Install** button runs the equivalent of `npm install` in the app directory. The docs sometimes mention `npm ci` for reproducible installs; on cPanel the button is sufficient.
+From the project root:
 
-1. **Build locally** (in your project directory, Windows or WSL):
+```bash
+docker build -t home-finance .
+docker run -p 3000:3000 -e AUTH_SECRET=your-secret-here -v homefinance_data:/app/data home-finance
+```
+
+Open http://localhost:3000. The SQLite database is stored in the `homefinance_data` volume. To use a bind mount instead: `-v ./data:/app/data`.
+
+### Required Environment Variables
+
+Set these in Coolify (or your orchestrator); do not commit real values to the repo.
+
+| Variable       | Required | Description |
+|----------------|----------|-------------|
+| `AUTH_SECRET`  | Yes      | NextAuth v5 secret. Generate with: `openssl rand -base64 32`. |
+| `DB_PATH`      | No       | SQLite file path. Default inside container: `/app/data/sqlite.db`. Only set if you use a different path. |
+
+### Optional (seeding)
+
+Used only if you run seed scripts; not needed for normal runtime:
+
+- `SEED_USER_PASSWORD`, `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER1_NAME`, `SEED_USER2_NAME`
+
+## Pushing to GitHub
+
+1. Ensure `.gitignore` excludes: `.next/`, `node_modules/`, `data/`, `.env`, `.env.local`, and other env files.
+2. Commit and push:
+
    ```bash
-   npm ci
-   npm run build
+   git add .
+   git commit -m "Add Docker and deployment config"
+   git remote add origin https://github.com/YOUR_USERNAME/home-finance.git   # if not already added
+   git push -u origin master
    ```
-   Confirm `.next/` exists. Do **not** upload `node_modules`.
 
-2. **Upload via FTP** into the directory that will be the **Application root** in cPanel (e.g. `homefinance` or `public_html/homefinance`).
+3. For reproducible Docker builds, commit `package-lock.json` (run `npm install` once in the project root if it does not exist).
 
-   **Include:** `.next/`, `server.js`, **`startup.cjs`** (startup launcher), `run.sh` (optional), `.htaccess`, `public/`, `src/`, `package.json`, `package-lock.json`, `next.config.ts`, `tsconfig.json`, `drizzle/`, `postcss.config.mjs` / `tailwind.config.*` if present, and any other root config files.
+## Exact Coolify Setup (finance.dev.triadtech.co.za)
 
-   **Exclude:** `node_modules/`, `.env` / `.env.local`, `.git/`, `*.db`.
+Follow these steps in order. The app will be available at **https://finance.dev.triadtech.co.za** once deployed.
 
-3. **In cPanel (Setup Node.js App):**
-   - Set **Node.js version** to **18** or **20** (required; the app will not run on Node 10 or 12).
-   - Set **Application root** to the folder where `server.js` and `package.json` live.
-   - Set **Application startup file** to **`startup.cjs`** (this launcher runs `npx tsx server.js` from the app directory; use this when the host only has a startup file and no start-command field).
-   - Click **Run NPM Install** (once per deploy, or only when dependencies change).
-   - Click **Start** or **Restart**.
+### Step 1: DNS
 
-4. **Environment variables:** In cPanel **Setup Node.js App** > Environment variables (or `.env` on the server if supported), set:
-   - `AUTH_SECRET` – long random string (e.g. `openssl rand -base64 32`).
-   - `NEXTAUTH_URL` – full public URL (e.g. `https://finance.yourdomain.com`).
-   - `DB_PATH` – path to the SQLite file (e.g. `/home/youruser/homefinance/data/app.db`).
+- In your DNS provider, add an **A** record: **`finance.dev.triadtech.co.za`** -> **same IP as `dev.triadtech.co.za`** (your VPS).
+- Wait for propagation (minutes to hours). You can check with `dig finance.dev.triadtech.co.za` or an online DNS lookup.
 
-5. **Apache proxy:** If the app is served via Apache, edit `.htaccess` on the server and replace `3000` in `http://127.0.0.1:3000/` with the **port** shown in Setup Node.js App for your Node app.
+### Step 2: GitHub access in Coolify (if using a private repo)
 
-For **later updates**, repeat: upload changed files (and new `.next/` if you rebuilt) → **Run NPM Install** only if `package.json` or lockfile changed → **Restart**. No SSH required.
+- In Coolify: go to **Settings** (or **Source Control** / **Integrations**).
+- Add **GitHub** via **GitHub App** (recommended) or **Deploy Key**, so Coolify can clone your repo. Skip this if the repo is public.
 
----
+### Step 3: Create a new resource
 
-## One-time DB setup
+- Open your **Project** in Coolify.
+- Click **Create New Resource** (or **Add Resource**).
 
-After the first deploy, do this **once per environment** (e.g. per domain). All later code updates reuse the existing database; you do **not** rerun these unless you change the schema.
+### Step 4: Choose deployment option
 
-1. **Create the database directory** (e.g. outside the web root). Using cPanel **Terminal** or SSH, in your home directory:
-   ```bash
-   mkdir -p ~/homefinance/data
-   ```
-   Ensure `DB_PATH` in cPanel env vars points to a file in this folder (e.g. `~/homefinance/data/app.db`).
+- **Public repository**: choose “Public Repository” and paste your repo URL (e.g. `https://github.com/YOUR_USERNAME/home-finance`).
+- **Private repository**: choose **GitHub App** or **Deploy Key** and select the repo when prompted.
 
-2. **Create the schema and optionally seed:** In the **app directory** (Application root), run:
-   ```bash
-   npm run db:push
-   npm run db:seed
-   ```
-   (`db:seed` is optional; use it only for a fresh install if you want sample data.)
+### Step 5: Select build pack and paths
 
-After this one-time setup, normal deploys do not require terminal access.
+- **Build Pack**: open the dropdown (default is Nixpacks) and select **Dockerfile**.
+- **Base Directory**: set to **`/`** (project root; no subfolder).
+- **Branch**: leave as detected (e.g. `master` or `main`) or select the branch you want to deploy.
+- Click **Continue**.
 
----
+### Step 6: Network and domain
 
-## cPanel configuration summary
+On the next screen (network/configuration):
 
-| Setting | Value |
-|--------|--------|
-| **Application root** | Folder containing `server.js` and `package.json` (e.g. `homefinance`) |
-| **Application startup file** | **`startup.cjs`** (launcher that runs `npx tsx server.js` from the app dir) |
-| **Node.js version** | **18 or 20** (required; do not use Node 10 or 12) |
+- **Domain**: set the **FQDN** to **`finance.dev.triadtech.co.za`** (no `https://` prefix).
+- **Port**: set **Port Exposes** to **`3000`** (the app listens on 3000; this is often the default).
+- **HTTPS**: enable **HTTPS** and use **Let’s Encrypt** so Coolify/Traefik issues a certificate for `finance.dev.triadtech.co.za`. Force HTTPS can stay enabled.
 
-Routine steps: **Run NPM Install** (when deps change) then **Restart**. No manual `npm ci` on the server.
+### Step 7: Persistent storage (SQLite)
 
----
+The app stores the database in **`/app/data`** inside the container. Add a volume so it survives redeploys:
 
-## Detailed upload checklist
+- Open the resource’s **Configuration** (or **Advanced** / **Persistent Storage**).
+- Add **Persistent Storage**:
+  - **Destination Path** (inside container): **`/app/data`**
+  - **Name**: e.g. **`homefinance_data`** (Coolify may append a UUID; that is fine).
+- If your Coolify version uses **Bind Mount** instead: **Source Path** = path on the host (e.g. `/opt/coolify/data/homefinance`), **Destination Path** = **`/app/data`**.
 
-**Include:**
+### Step 8: Environment variables
 
-- `.next/` (entire folder – built output)
-- `server.js` (custom Next server)
-- `startup.cjs` (application startup file for cPanel: launcher that runs `npx tsx server.js`)
-- `run.sh` (optional: alternative wrapper if the host cannot run from app root)
-- `.htaccess` (proxies Apache to the Node app; edit the port after upload)
-- `public/`, `src/`, `package.json`, `package-lock.json`
-- `next.config.ts` (or `next.config.js` / `next.config.mjs` if you use one), `tsconfig.json`
-- `drizzle/` (migration SQL and meta)
-- `postcss.config.mjs` / `tailwind.config.*` (if present)
-- Any other config files at the project root
+- Open the **Environment Variables** tab for this resource.
+- Add:
+  - **Key**: `AUTH_SECRET`  
+    **Value**: a long random string. Generate with:  
+    `openssl rand -base64 32`
+- You do not need to set `DB_PATH` unless you use a different path; the default inside the container is `/app/data/sqlite.db`.
 
-**Exclude:**
+### Step 9: Deploy
 
-- `node_modules/`
-- `.env` / `.env.local` (set env vars in cPanel instead)
-- `.git/`, `*.db`
+- Click **Deploy** (or **Start Deployment**). Coolify will clone the repo, run `docker build` using the Dockerfile, start the container, and register **finance.dev.triadtech.co.za** with Traefik.
+- Wait for the build to finish. Check **Logs** if something fails.
+- Open **https://finance.dev.triadtech.co.za** in a browser. You should see the app (login page if no users are seeded).
 
----
+### Step 10 (optional): Deploy on push
+
+- In the resource’s **Advanced** (or similar) settings, enable **Auto Deploy** (or **Deploy on push**) so each push to the selected branch triggers a new build and deploy. This is usually available when the repo is connected via GitHub App.
+
+## Dockerfile Overview
+
+- **Build stage**: Installs dependencies, runs `next build`. Uses `output: "standalone"` from `next.config.ts` so the build produces a minimal runnable tree under `.next/standalone/`.
+- **Run stage**: Copies standalone output and `.next/static` into a minimal Node image, runs as non-root user, exposes port 3000, and starts with `node server.js`. The `/app/data` directory is intended to be overwritten or supplemented by a volume for SQLite persistence.
 
 ## Troubleshooting
 
-### "Cannot GET /login" with JSON listing `POST /auth/login`, `GET /auth/tenant`, etc.
+- **Build fails with "standalone not found"**: Ensure `next.config.ts` includes `output: "standalone"` and that the build completes without errors (e.g. run `npm run build` locally).
+- **502 / connection refused** or **"No Available Server"** at https://finance.dev.triadtech.co.za: Confirm **Port Exposes** is **3000** in the resource’s network settings. The container must listen on `0.0.0.0:3000` (the Dockerfile already sets `HOSTNAME="0.0.0.0"`). Check the container’s **Logs** in Coolify; if the container is unhealthy, fix the cause or temporarily disable health checks.
+- **Database reset on redeploy**: Ensure **Persistent Storage** is set with **Destination Path** `/app/data` in the Coolify resource.
+- **NextAuth errors**: Verify `AUTH_SECRET` is set in the resource’s Environment Variables and that `trustHost: true` is used in auth config (already set in this app for reverse-proxy deployments).
+- **Traefik not routing**: Confirm the resource’s domain is exactly **finance.dev.triadtech.co.za** and HTTPS (e.g. Let’s Encrypt) is enabled so Coolify registers the route with Traefik.
 
-That response is **not** from this Next.js app. This app serves:
+## Alternative: Docker Compose and Traefik
 
-- **GET /login** – HTML login page
-- **/api/auth/[...nextauth]** – NextAuth (credentials) API
-
-If you see JSON with `availableEndpoints` and `"login":"POST /auth/login"`, the request is being handled by a **different** application (e.g. a separate auth REST API). Fix it as follows:
-
-1. **Confirm which app cPanel is running**
-   - In **Setup Node.js App**, check **Application startup file**. It must be **`startup.cjs`** (this repo’s launcher, which runs `npx tsx server.js`), not another app’s entry file.
-
-2. **Confirm Apache proxies to the correct port**
-   - In **Setup Node.js App**, note the **port** (e.g. 3000, 3001).
-   - In **.htaccess** on the server, the `RewriteRule` must proxy to that port, e.g. `http://127.0.0.1:3000/$1` (replace 3000 if cPanel uses a different port).
-   - If another app (e.g. an auth API) is bound to that port, stop it or move it to another port so only this Node.js app uses the port cPanel expects.
-
-3. **Only one process per port**
-   - Ensure no other Node/Python/etc. app is listening on the same port. Restart the Node.js app from cPanel after stopping any other service that might have taken the port.
-
-4. **Quick check**
-   - Visiting **https://yourdomain.com/** or **https://yourdomain.com/login** should return **HTML** (the Next.js page), not JSON. If you get JSON with `availableEndpoints`, the wrong backend is still in front.
-
-### "SyntaxError: Unexpected identifier" on `import next from "next"` (LiteSpeed / lsnode)
-
-The host is running **plain `node server.js`** and Node is loading the file as CommonJS, so `import` is invalid.
-
-- **Fix:** Set **Application startup file** to **`startup.cjs`** (not `server.js`). The launcher runs `npx tsx server.js` from the app directory so the real server runs under tsx. Ensure **Application root** is the folder that contains `package.json` and `node_modules`.
-
-### "Resource temporarily unavailable" / Tokio "can't spawn worker thread" (stderr)
-
-On start, the app may log: **"Failed to load CA certificates off thread: resource temporarily unavailable"** and **"thread 'unnamed' panicked ... OS can't spawn worker thread: Resource temporarily unavailable (os error 11)"**. This comes from cPanel **Shell Fork Bomb Protection**, which limits how many processes/threads your account can create (often around 35). Next.js and its native dependencies (e.g. Rust/SWC) spawn multiple threads; under that limit they fail with errno 11.
-
-**App-side (already applied in this repo):**
-
-- **startup.cjs** sets `NODE_ENV=production`, `UV_THREADPOOL_SIZE=4`, and `NODE_OPTIONS=--max-old-space-size=256` when starting the server. That reduces thread and memory use. If you need a higher memory cap, set **NODE_OPTIONS** in cPanel **Setup Node.js App** > Environment variables (e.g. `--max-old-space-size=384`); do not remove `UV_THREADPOOL_SIZE` unless you know the host allows more processes.
-
-**Host-side (if the error continues):**
-
-1. **Raise the process limit**  
-   On cPanel/WHM, the limit is usually in **Shell Fork Bomb Protection**. A server admin can:
-   - In WHM: **Server Setup** > **Shell Fork Bomb Protection** and either temporarily disable it for your deploy or raise the per-user process limit (e.g. edit `/usr/local/cpanel/etc/login_profile/limits.sh` and related files, then re-enable protection). Many shared hosts will not change this; in that case you may need a VPS or a host with higher limits.
-
-2. **Confirm nothing else is using your quota**  
-   Close other SSH sessions, stop any other Node/scripts under your user, then restart only this app. If the app then starts, another process was consuming the limit.
-
-3. **Run NPM Install and Restart from cPanel**  
-   Do not run long-lived `npm` or `node` commands from SSH in the same account while the app is running; that uses more processes.
-
-If the app still fails after the above, the account’s process limit is likely too low for this stack; the only reliable fix is a higher limit from the host or a different hosting tier.
-
----
-
-### "Cannot find module 'node:fs'" or npm install fails with Node 10
-
-The **Node.js version** for this application is set to **Node 10** (or 12). You can confirm this from the error or log path: if it contains **`nodevenv/finance/10`** or **`nodevenv/…/10`**, that app is using Node 10. This project requires **Node 18 or 20**; the `node:fs` built-in and the stack (Next.js 15, etc.) do not support Node 10.
-
-**Fix (cPanel):**
-
-1. Open **Setup Node.js App** (or **Application Manager**).
-2. Find the application whose **Application root** is your deploy path (e.g. `finance`). Click **Edit** or the application name.
-3. Change **Node.js version** to **18** or **20**. The control is usually a dropdown or version selector on the same screen as Application root and startup file. Save the application.
-4. **Run NPM Install** again (so install runs with the new Node), then **Restart**.
-
-If the version dropdown only lists Node 10 (and no 18/20): your host may not have Node 18/20 enabled for this account. Contact the host and ask for Node 18 or 20 in Setup Node.js App, or create a new Node.js application and choose 18 or 20 at creation time, then point that new app’s Application root to your deploy folder.
-
-**Git deploy:** `.cpanel.yml` uses Node 24 only for the **repository** (build). The **running app** in Setup Node.js App has its own Node version; that app must use 18 or 20. Change that app’s version as above, then run NPM Install in the deploy path.
-
-### "Cannot find module 'next'" (LiteSpeed / lsnode / generic Node hosts)
-
-Node resolves `require('next')` from the **current working directory** of the process. If the app is started from another directory (e.g. LiteSpeed’s `fcgi-bin`), `node_modules` in your app folder is never used.
-
-1. **Install dependencies in the app directory**
-   - In cPanel, use **Run NPM Install** for this app. If you must use terminal: `cd` to the app root and run `npm install` (or `npm ci`). Confirm `node_modules/next` exists.
-
-2. **Run the app with working directory = app root**
-   The process that runs `server.js` must have its **current working directory** set to the application root (where `package.json` and `node_modules` live).
-
-   - **LiteSpeed (lsnode):** Set the **application root** or **working directory** to your app path. Or use a wrapper script that `cd`s into the app root and then runs `npx tsx server.js`.
-   - **Generic:** From SSH, verify: `cd /path/to/app && npx tsx server.js`. If that works, the host’s Node runner must use the same working directory.
-
-3. **Optional wrapper script**
-   If the host cannot set the working directory, use `run.sh` in the app root:
-   ```bash
-   #!/bin/sh
-   cd "$(dirname "$0")"
-   exec npx tsx server.js
-   ```
-   Make it executable: `chmod +x run.sh`. Configure the host to run `./run.sh` (with app root as the execution directory).
-
----
-
-## Summary
-
-| Step | Where | Action |
-|------|--------|--------|
-| 1 | Your PC | `npm ci && npm run build` |
-| 2 | Your PC | FTP project (no `node_modules`, no `.env`) |
-| 3 | cPanel | Set **Node version 18 or 20**, Application root, startup file **`startup.cjs`**; set `AUTH_SECRET`, `NEXTAUTH_URL`, `DB_PATH`; edit `.htaccess` port if needed |
-| 4 | cPanel | **Run NPM Install**, then **Start** or **Restart** |
-| 5 | Server (one-time) | Terminal/SSH: create DB directory, then in app dir run `npm run db:push` and optionally `npm run db:seed` |
-
-You do **not** need to run `npm ci` manually on the server; cPanel’s **Run NPM Install** installs dependencies. Build locally and upload `.next/` so the server only runs the app.
-
----
-
-## Git push deployment
-
-To use cPanel **Git Version Control** with push deployment:
-
-1. **Valid `.cpanel.yml`**  
-   A `.cpanel.yml` file must exist in the **root** of the repository and be **committed**. It must be valid YAML. The repo includes one configured for:
-   - **Repository path:** `/home/triadtec/repositories/homefinance` (branch `master`)
-   - **Deploy path (Application root):** `/home/triadtec/finance/`  
-   Tasks: in the repo directory run `npm install` and `npm run build`; copy build output (`.next/`), `public/`, `src/`, `drizzle/`, `server.js`, `startup.cjs`, and config files (`package.json`, `package-lock.json`, `next.config.ts`, `tsconfig.json`, `postcss.config.mjs`, optional `tailwind.config.*`, `.htaccess`, `run.sh`) into the deploy path; then run `npm install` in the deploy path so the app has `node_modules` at runtime. Edit `REPOPATH`, `DEPLOYPATH`, and the nodevenv path in `.cpanel.yml` if your account or app names differ.
-
-2. **Clean working tree on the server**  
-   cPanel will not deploy if the **server's** copy of the repo has uncommitted changes. Ensure you have not edited files inside the repo directory (`repositories/homefinance`). If the server's branch was changed or is behind, use **Update from Remote** in cPanel **Git Version Control** (Pull or Deploy tab) so the checked-out branch matches the remote; then use **Deploy HEAD Commit** or push to trigger deployment.
-
-3. **Setup Node.js App**  
-   In cPanel **Setup Node.js App**, set **Node.js version** to **18** or **20** (not 10 or 12). Set **Application root** to the **deploy path** (e.g. `finance`), not the repository path. Set **Application startup file** to **`startup.cjs`**. The deployment script copies built files into the deploy directory; the Node app runs from there.
+If you prefer to run the stack yourself (e.g. on the same host as Coolify but outside Coolify’s app UI), you can use Docker Compose and attach Traefik labels so Traefik routes your domain to the container. The Dockerfile remains the same; only the orchestration and Traefik configuration (labels or dynamic config) are defined in your Compose file and Traefik setup.

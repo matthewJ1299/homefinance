@@ -3,6 +3,7 @@ import withSerwistInit from "@serwist/next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  output: "standalone",
   outputFileTracingRoot: process.cwd(),
   serverExternalPackages: ["sql.js"],
 };

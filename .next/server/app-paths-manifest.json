@@ -1,9 +1,10 @@
 {
   "/(app)/budget/page": "app/(app)/budget/page.js",
+  "/(app)/categories/page": "app/(app)/categories/page.js",
   "/(app)/dashboard/page": "app/(app)/dashboard/page.js",
   "/(app)/expenses/page": "app/(app)/expenses/page.js",
-  "/(app)/mortgage/page": "app/(app)/mortgage/page.js",
   "/(app)/splits/page": "app/(app)/splits/page.js",
+  "/(app)/summary/page": "app/(app)/summary/page.js",
   "/_not-found/page": "app/_not-found/page.js",
   "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
   "/manifest.webmanifest/route": "app/manifest.webmanifest/route.js",

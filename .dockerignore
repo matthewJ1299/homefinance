@@ -1,0 +1,44 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build output
+.next
+out
+
+# Git
+.git
+.gitignore
+
+# Env and secrets
+.env
+.env.*
+!.env.example
+
+# Local data (do not bake into image)
+data
+
+# Debug and logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# IDE and OS
+.idea
+.vscode
+.DS_Store
+
+# Docs and misc (optional; keep repo smaller)
+*.md
+!README.md
+
+# Testing
+coverage
+*.test.*
+*.spec.*
+
+# TypeScript build info
+*.tsbuildinfo
+next-env.d.ts

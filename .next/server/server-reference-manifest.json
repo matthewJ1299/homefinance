@@ -8,6 +8,12 @@
           "exportedName": "$$RSC_SERVER_ACTION_0",
           "filename": "src/components/layout/header.tsx"
         },
+        "app/(app)/categories/page": {
+          "moduleId": "[project]/.next-internal/server/app/(app)/categories/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/components/layout/header.tsx [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/src/lib/actions/category.actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "$$RSC_SERVER_ACTION_0",
+          "filename": "src/components/layout/header.tsx"
+        },
         "app/(app)/dashboard/page": {
           "moduleId": "[project]/.next-internal/server/app/(app)/dashboard/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/components/layout/header.tsx [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/src/lib/actions/expense.actions.ts [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/src/lib/actions/income.actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
           "async": false,
@@ -20,14 +26,14 @@
           "exportedName": "$$RSC_SERVER_ACTION_0",
           "filename": "src/components/layout/header.tsx"
         },
-        "app/(app)/mortgage/page": {
-          "moduleId": "[project]/.next-internal/server/app/(app)/mortgage/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/components/layout/header.tsx [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/src/lib/actions/mortgage.actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+        "app/(app)/splits/page": {
+          "moduleId": "[project]/.next-internal/server/app/(app)/splits/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/components/layout/header.tsx [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/src/lib/actions/expense.actions.ts [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/src/lib/actions/split.actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
           "async": false,
           "exportedName": "$$RSC_SERVER_ACTION_0",
           "filename": "src/components/layout/header.tsx"
         },
-        "app/(app)/splits/page": {
-          "moduleId": "[project]/.next-internal/server/app/(app)/splits/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/components/layout/header.tsx [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/src/lib/actions/expense.actions.ts [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/src/lib/actions/split.actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+        "app/(app)/summary/page": {
+          "moduleId": "[project]/.next-internal/server/app/(app)/summary/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/components/layout/header.tsx [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
           "async": false,
           "exportedName": "$$RSC_SERVER_ACTION_0",
           "filename": "src/components/layout/header.tsx"
@@ -35,10 +41,11 @@
       },
       "layer": {
         "app/(app)/budget/page": "rsc",
+        "app/(app)/categories/page": "rsc",
         "app/(app)/dashboard/page": "rsc",
         "app/(app)/expenses/page": "rsc",
-        "app/(app)/mortgage/page": "rsc",
-        "app/(app)/splits/page": "rsc"
+        "app/(app)/splits/page": "rsc",
+        "app/(app)/summary/page": "rsc"
       },
       "filename": "src/components/layout/header.tsx",
       "exportedName": "$$RSC_SERVER_ACTION_0"
@@ -177,35 +184,80 @@
       "filename": "src/lib/actions/budget.actions.ts",
       "exportedName": "transferBudgetFunds"
     },
-    "40be10abcd9ca97cfa3594f6b5f473e1804a99c37d": {
+    "40d583512b877c77429771d9f25a3b40d237041c73": {
       "workers": {
-        "app/(app)/mortgage/page": {
-          "moduleId": "[project]/.next-internal/server/app/(app)/mortgage/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/components/layout/header.tsx [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/src/lib/actions/mortgage.actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+        "app/(app)/categories/page": {
+          "moduleId": "[project]/.next-internal/server/app/(app)/categories/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/components/layout/header.tsx [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/src/lib/actions/category.actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
           "async": false,
-          "exportedName": "saveMortgageConfig",
-          "filename": "src/lib/actions/mortgage.actions.ts"
+          "exportedName": "createCategory",
+          "filename": "src/lib/actions/category.actions.ts"
         }
       },
       "layer": {
-        "app/(app)/mortgage/page": "action-browser"
+        "app/(app)/categories/page": "action-browser"
       },
-      "filename": "src/lib/actions/mortgage.actions.ts",
-      "exportedName": "saveMortgageConfig"
+      "filename": "src/lib/actions/category.actions.ts",
+      "exportedName": "createCategory"
     },
-    "403918708e199bb4ab212e31ca0d7a4b5396593893": {
+    "60e0721da719f03d918b9a8bd02eb7865625b04e84": {
       "workers": {
-        "app/(app)/mortgage/page": {
-          "moduleId": "[project]/.next-internal/server/app/(app)/mortgage/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/components/layout/header.tsx [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/src/lib/actions/mortgage.actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+        "app/(app)/categories/page": {
+          "moduleId": "[project]/.next-internal/server/app/(app)/categories/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/components/layout/header.tsx [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/src/lib/actions/category.actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
           "async": false,
-          "exportedName": "recordExtraPayment",
-          "filename": "src/lib/actions/mortgage.actions.ts"
+          "exportedName": "updateCategory",
+          "filename": "src/lib/actions/category.actions.ts"
         }
       },
       "layer": {
-        "app/(app)/mortgage/page": "action-browser"
+        "app/(app)/categories/page": "action-browser"
       },
-      "filename": "src/lib/actions/mortgage.actions.ts",
-      "exportedName": "recordExtraPayment"
+      "filename": "src/lib/actions/category.actions.ts",
+      "exportedName": "updateCategory"
+    },
+    "603828e3644086e92e1021b137e2891c229add4828": {
+      "workers": {
+        "app/(app)/categories/page": {
+          "moduleId": "[project]/.next-internal/server/app/(app)/categories/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/components/layout/header.tsx [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/src/lib/actions/category.actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "reorderCategory",
+          "filename": "src/lib/actions/category.actions.ts"
+        }
+      },
+      "layer": {
+        "app/(app)/categories/page": "action-browser"
+      },
+      "filename": "src/lib/actions/category.actions.ts",
+      "exportedName": "reorderCategory"
+    },
+    "4054517b267babc5949dddbd0ce6faf315ddecee54": {
+      "workers": {
+        "app/(app)/categories/page": {
+          "moduleId": "[project]/.next-internal/server/app/(app)/categories/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/components/layout/header.tsx [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/src/lib/actions/category.actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "reorderCategories",
+          "filename": "src/lib/actions/category.actions.ts"
+        }
+      },
+      "layer": {
+        "app/(app)/categories/page": "action-browser"
+      },
+      "filename": "src/lib/actions/category.actions.ts",
+      "exportedName": "reorderCategories"
+    },
+    "40ae0585524bdbe0b4ad0d83ea8f46f366545a4b8a": {
+      "workers": {
+        "app/(app)/categories/page": {
+          "moduleId": "[project]/.next-internal/server/app/(app)/categories/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/components/layout/header.tsx [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/src/lib/actions/category.actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "deleteCategory",
+          "filename": "src/lib/actions/category.actions.ts"
+        }
+      },
+      "layer": {
+        "app/(app)/categories/page": "action-browser"
+      },
+      "filename": "src/lib/actions/category.actions.ts",
+      "exportedName": "deleteCategory"
     }
   },
   "edge": {},
