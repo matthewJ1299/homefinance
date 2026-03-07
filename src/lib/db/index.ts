@@ -7,6 +7,10 @@ const dbPath =
   process.env.DB_PATH ?? path.join(process.cwd(), "data", "sqlite.db");
 
 let sqlJsDb: SqlJsDatabase | null = null;
+/** Used to create new DB instances when reloading from file (e.g. after another process wrote). */
+let sqlJsModule: Awaited<ReturnType<typeof initSqlJs>> | null = null;
+/** File mtime when we last loaded so we can reload when another process/worker has written. */
+let lastLoadMtimeMs = 0;
 
 const dir = path.dirname(dbPath);
 if (!fs.existsSync(dir)) {
@@ -45,10 +49,12 @@ export async function initDb(): Promise<void> {
   if (sqlJsDb) return;
 
   const SQL = await initSqlJs();
+  sqlJsModule = SQL;
 
   if (fs.existsSync(dbPath)) {
     const buf = fs.readFileSync(dbPath);
     sqlJsDb = new SQL.Database(new Uint8Array(buf));
+    lastLoadMtimeMs = fs.statSync(dbPath).mtimeMs;
   } else {
     sqlJsDb = new SQL.Database();
   }
@@ -70,11 +76,29 @@ export function saveDb(): void {
 }
 
 /**
+ * If the DB file on disk is newer than our last load, reload so we see writes from other processes/workers.
+ */
+function reloadFromFileIfNewer(): void {
+  if (!sqlJsDb || !sqlJsModule || !fs.existsSync(dbPath)) return;
+  const stat = fs.statSync(dbPath);
+  if (stat.mtimeMs <= lastLoadMtimeMs) return;
+
+  const buf = fs.readFileSync(dbPath);
+  const next = new sqlJsModule!.Database(new Uint8Array(buf));
+  next.run("PRAGMA foreign_keys = ON;");
+  next.run("PRAGMA journal_mode = WAL;");
+  sqlJsDb = next;
+  lastLoadMtimeMs = stat.mtimeMs;
+  applyMigrationIfNeeded();
+}
+
+/**
  * Raw database instance. Initializes the DB if needed (for this worker/process).
- * Use this or the run/all/get/lastInsertId helpers; they all ensure init.
+ * Before returning, reloads from file if another process/worker has written so reads see latest data.
  */
 export async function getDb(): Promise<SqlJsDatabase> {
   await initDb();
+  reloadFromFileIfNewer();
   return sqlJsDb!;
 }
 
@@ -140,6 +164,7 @@ function logDbCall(
 
 /**
  * Run a parameterized statement (INSERT/UPDATE/DELETE). Initializes DB if needed.
+ * Persists to file immediately so other processes/workers see the write.
  */
 export async function run(
   sql: string,
@@ -148,6 +173,8 @@ export async function run(
   logDbCall("run", sql, params);
   const db = await getDb();
   db.run(sql, params);
+  saveDb();
+  if (fs.existsSync(dbPath)) lastLoadMtimeMs = fs.statSync(dbPath).mtimeMs;
 }
 
 /**

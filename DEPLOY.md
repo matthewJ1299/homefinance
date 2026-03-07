@@ -134,6 +134,10 @@ Runs as root at startup to `chown /app/data` (fixing volume permissions when Coo
 
 Next.js calls `register()` when the server starts. This initializes the sql.js in-memory database from the file at `/app/data/sqlite.db` (or creates a new one) and starts a periodic persist loop that writes the in-memory DB back to disk every 60 seconds.
 
+### Why transactions show locally but not on the server
+
+The app uses an in-memory SQLite (sql.js) that is loaded from and saved to a single file. In production, Next.js or the platform may use multiple workers or processes; each has its own in-memory copy. A write in one worker was not visible to reads in another. The DB layer now (1) persists to file immediately after every write (`run()`), and (2) before every read (`getDb()`), reloads from file if the file is newer than the current in-memory load. That way all workers see each other’s writes. Keep exactly one replica in Coolify when using the default SQLite setup.
+
 ---
 
 ## Troubleshooting
