@@ -162,23 +162,6 @@ export async function lastInsertId(): Promise<number> {
   return row.id;
 }
 
-/** Log a read (get) - no params logged for brevity unless small. */
-function logDbGet(sql: string, params: (string | number | null)[]): void {
-  const when = new Date().toISOString();
-  const ctx = getRequestContext();
-  const who = ctx?.userId
-    ? `user:${ctx.userId}${ctx.userName ? ` (${ctx.userName})` : ""}`
-    : "system";
-  const what = describeSql(sql);
-  const paramPart =
-    params.length > 0 && params.length <= 4
-      ? ` | params: [${params.join(", ")}]`
-      : params.length > 4
-        ? ` | params: [${params.length} items]`
-        : "";
-  console.log(`[DB] ${when} | ${who} | get ${what}${paramPart}`);
-}
-
 /**
  * Run a parameterized SELECT and return the first row as an object, or null. Initializes DB if needed.
  */
@@ -186,7 +169,6 @@ export async function get<T = Record<string, unknown>>(
   sql: string,
   params: (string | number | null)[] = []
 ): Promise<T | null> {
-  logDbGet(sql, params);
   const db = await getDb();
   const stmt = db.prepare(sql);
   stmt.bind(params);
@@ -203,19 +185,6 @@ export async function all<T = Record<string, unknown>>(
   sql: string,
   params: (string | number | null)[] = []
 ): Promise<T[]> {
-  const when = new Date().toISOString();
-  const ctx = getRequestContext();
-  const who = ctx?.userId
-    ? `user:${ctx.userId}${ctx.userName ? ` (${ctx.userName})` : ""}`
-    : "system";
-  const what = describeSql(sql);
-  const paramPart =
-    params.length > 0 && params.length <= 4
-      ? ` | params: [${params.join(", ")}]`
-      : params.length > 4
-        ? ` | params: [${params.length} items]`
-        : "";
-  console.log(`[DB] ${when} | ${who} | all ${what}${paramPart}`);
   const db = await getDb();
   const stmt = db.prepare(sql);
   stmt.bind(params);
