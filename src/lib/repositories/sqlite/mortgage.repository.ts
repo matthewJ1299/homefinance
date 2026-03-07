@@ -103,11 +103,14 @@ export class MortgageRepository implements IMortgageRepository {
         data.targetEquityUserAPct ?? 0.5,
       ]
     );
-    const id = await lastInsertId();
-    const row = (await get<ConfigRow>(
-      "SELECT id, property_value, loan_amount, annual_interest_rate, loan_term_months, start_date, target_equity_user_a_pct FROM mortgage_configs WHERE id = ?",
-      [id]
-    ))!;
+    // Use ORDER BY id DESC LIMIT 1 so we get the row we just inserted even if getDb()
+    // reloaded from file between run() and get() (which would make lastInsertId() stale).
+    const row = await get<ConfigRow>(
+      "SELECT id, property_value, loan_amount, annual_interest_rate, loan_term_months, start_date, target_equity_user_a_pct FROM mortgage_configs ORDER BY id DESC LIMIT 1"
+    );
+    if (!row) {
+      throw new Error("Mortgage config INSERT succeeded but no config row found");
+    }
     return toConfigRow(row);
   }
 
