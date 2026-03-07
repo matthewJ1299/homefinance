@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
+import { setRequestContext } from "@/lib/db/request-context";
 import { IncomeService } from "@/lib/services/income.service";
 import { createIncomeSchema, updateIncomeSchema } from "@/lib/validators/income.schema";
 import type { IncomeType } from "@/lib/types";
@@ -18,6 +19,7 @@ export async function addIncome(formData: {
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
+  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   const parsed = createIncomeSchema.safeParse(formData);
   if (!parsed.success) {
     return { success: false, error: parsed.error.message };
@@ -39,6 +41,7 @@ export async function updateIncome(
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
+  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   const parsed = updateIncomeSchema.safeParse(formData);
   if (!parsed.success) {
     return { success: false, error: parsed.error.message };
@@ -55,6 +58,7 @@ export async function deleteIncome(id: number): Promise<IncomeActionResult> {
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
+  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   const service = new IncomeService();
   await service.delete(id);
   revalidatePath("/income");

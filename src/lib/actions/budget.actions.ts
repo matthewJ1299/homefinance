@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
+import { setRequestContext } from "@/lib/db/request-context";
 import { BudgetService } from "@/lib/services/budget.service";
 import { allocateSchema, transferSchema } from "@/lib/validators/budget.schema";
 
@@ -16,6 +17,7 @@ export async function setBudgetAllocation(
 ): Promise<BudgetActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   const parsed = allocateSchema.safeParse({ categoryId, month, amount });
   if (!parsed.success) return { success: false, error: parsed.error.message };
   const service = new BudgetService();
@@ -30,6 +32,7 @@ export async function autoAllocateBudget(month: string): Promise<
 > {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   const parsed = allocateSchema.pick({ month: true }).safeParse({ month });
   if (!parsed.success) return { success: false, error: parsed.error.message };
   const service = new BudgetService();
@@ -47,6 +50,7 @@ export async function transferBudgetFunds(data: {
 }): Promise<BudgetActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   const parsed = transferSchema.safeParse(data);
   if (!parsed.success) return { success: false, error: parsed.error.message };
   const service = new BudgetService();

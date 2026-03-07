@@ -201,7 +201,7 @@ export class BudgetService {
     const unique = [...new Set(userIds)];
     if (unique.length === 0) return [];
     const placeholders = unique.map(() => "?").join(",");
-    const rows = all<{ id: number; name: string }>(
+    const rows = await all<{ id: number; name: string }>(
       `SELECT id, name FROM users WHERE id IN (${placeholders})`,
       unique
     );

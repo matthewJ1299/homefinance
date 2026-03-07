@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///D:/Private/HomeFinance/src/instrumentation.ts"],"sourcesContent":["/**\r\n * Runs when the Next.js server starts (next dev / next start).\r\n * Initializes the sql.js database so getDb() works on the first request.\r\n */\r\nexport async function register() {\r\n  if (process.env.NEXT_RUNTIME === \"nodejs\") {\r\n    const { initDb, startPersistLoop } = await import(\"@/lib/db\");\r\n    await initDb();\r\n    startPersistLoop(60_000);\r\n  }\r\n}\r\n"],"names":[],"mappings":"AAAA;;;CAGC;;;;AACM,eAAe;IACpB,wCAA2C;QACzC,MAAM,EAAE,MAAM,EAAE,gBAAgB,EAAE,GAAG;QACrC,MAAM;QACN,iBAAiB;IACnB;AACF","debugId":null}}]
-}

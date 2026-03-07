@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
+import { setRequestContext } from "@/lib/db/request-context";
 import { getCategoryRepository } from "@/lib/repositories";
 import { createCategorySchema, updateCategorySchema } from "@/lib/validators/category.schema";
 
@@ -17,6 +18,7 @@ export async function createCategory(formData: {
 }): Promise<CategoryActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   const parsed = createCategorySchema.safeParse(formData);
   if (!parsed.success) return { success: false, error: parsed.error.message };
   const repo = getCategoryRepository();
@@ -49,6 +51,7 @@ export async function updateCategory(
 ): Promise<CategoryActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   const parsed = updateCategorySchema.safeParse(formData);
   if (!parsed.success) return { success: false, error: parsed.error.message };
   const updates = parsed.data;
@@ -76,6 +79,7 @@ export async function reorderCategory(
 ): Promise<CategoryActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   const repo = getCategoryRepository();
   const list = await repo.findAllIncludingInactive();
   const index = list.findIndex((c) => c.id === id);
@@ -107,6 +111,7 @@ export async function reorderCategories(
 ): Promise<CategoryActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   if (orderedCategoryIds.length === 0) return { success: true };
   const repo = getCategoryRepository();
   const all = await repo.findAllIncludingInactive();
@@ -140,6 +145,7 @@ export async function reorderCategories(
 export async function deleteCategory(id: number): Promise<CategoryActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   const repo = getCategoryRepository();
   const exists = await repo.findById(id);
   if (!exists) return { success: false, error: "Category not found" };

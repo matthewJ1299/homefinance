@@ -1,6 +1,7 @@
 import initSqlJs, { type Database as SqlJsDatabase } from "sql.js";
 import path from "path";
 import fs from "fs";
+import { getRequestContext } from "./request-context";
 
 const dbPath =
   process.env.DB_PATH ?? path.join(process.cwd(), "data", "sqlite.db");
@@ -78,12 +79,73 @@ export async function getDb(): Promise<SqlJsDatabase> {
 }
 
 /**
+ * Derive a short "what" description from SQL (e.g. "INSERT expenses", "SELECT users").
+ */
+function describeSql(sql: string): string {
+  const normalized = sql.replace(/\s+/g, " ").trim();
+  if (/^INSERT\s+INTO\s+/i.test(normalized)) {
+    const table = normalized.replace(/^INSERT\s+INTO\s+(\S+).*$/i, "$1");
+    return `INSERT ${table}`;
+  }
+  if (/^UPDATE\s+\S+/i.test(normalized)) {
+    const table = normalized.replace(/^UPDATE\s+(\S+).*$/i, "$1");
+    return `UPDATE ${table}`;
+  }
+  if (/^DELETE\s+FROM\s+/i.test(normalized)) {
+    const table = normalized.replace(/^DELETE\s+FROM\s+(\S+).*$/i, "$1");
+    return `DELETE ${table}`;
+  }
+  if (/^SELECT\s+/i.test(normalized)) {
+    const fromMatch = normalized.match(/\bFROM\s+(\S+)/i);
+    const table = fromMatch ? fromMatch[1] : "?";
+    return `SELECT ${table}`;
+  }
+  return normalized.slice(0, 50);
+}
+
+/**
+ * Try to get a numeric amount from params (common for expenses, income, budget).
+ * Looks for a param that looks like cents (positive integer).
+ */
+function amountFromParams(
+  _sql: string,
+  params: (string | number | null)[]
+): number | undefined {
+  const num = params.find(
+    (p) => typeof p === "number" && Number.isInteger(p) && p > 0
+  );
+  return typeof num === "number" ? num : undefined;
+}
+
+function logDbCall(
+  op: "run" | "get" | "all",
+  sql: string,
+  params: (string | number | null)[]
+): void {
+  const when = new Date().toISOString();
+  const ctx = getRequestContext();
+  const who = ctx?.userId
+    ? `user:${ctx.userId}${ctx.userName ? ` (${ctx.userName})` : ""}`
+    : "system";
+  const what = describeSql(sql);
+  const amount = op === "run" ? amountFromParams(sql, params) : undefined;
+  const parts = [`[DB] ${when} | ${who} | ${op} ${what}`];
+  if (amount != null) parts.push(`| amount: ${amount}`);
+  if (params.length > 0 && params.length <= 8)
+    parts.push(`| params: [${params.join(", ")}]`);
+  else if (params.length > 8)
+    parts.push(`| params: [${params.slice(0, 4).join(", ")}... (+${params.length - 4} more)]`);
+  console.log(parts.join(" "));
+}
+
+/**
  * Run a parameterized statement (INSERT/UPDATE/DELETE). Initializes DB if needed.
  */
 export async function run(
   sql: string,
   params: (string | number | null)[] = []
 ): Promise<void> {
+  logDbCall("run", sql, params);
   const db = await getDb();
   db.run(sql, params);
 }
@@ -100,6 +162,23 @@ export async function lastInsertId(): Promise<number> {
   return row.id;
 }
 
+/** Log a read (get) - no params logged for brevity unless small. */
+function logDbGet(sql: string, params: (string | number | null)[]): void {
+  const when = new Date().toISOString();
+  const ctx = getRequestContext();
+  const who = ctx?.userId
+    ? `user:${ctx.userId}${ctx.userName ? ` (${ctx.userName})` : ""}`
+    : "system";
+  const what = describeSql(sql);
+  const paramPart =
+    params.length > 0 && params.length <= 4
+      ? ` | params: [${params.join(", ")}]`
+      : params.length > 4
+        ? ` | params: [${params.length} items]`
+        : "";
+  console.log(`[DB] ${when} | ${who} | get ${what}${paramPart}`);
+}
+
 /**
  * Run a parameterized SELECT and return the first row as an object, or null. Initializes DB if needed.
  */
@@ -107,6 +186,7 @@ export async function get<T = Record<string, unknown>>(
   sql: string,
   params: (string | number | null)[] = []
 ): Promise<T | null> {
+  logDbGet(sql, params);
   const db = await getDb();
   const stmt = db.prepare(sql);
   stmt.bind(params);
@@ -123,6 +203,19 @@ export async function all<T = Record<string, unknown>>(
   sql: string,
   params: (string | number | null)[] = []
 ): Promise<T[]> {
+  const when = new Date().toISOString();
+  const ctx = getRequestContext();
+  const who = ctx?.userId
+    ? `user:${ctx.userId}${ctx.userName ? ` (${ctx.userName})` : ""}`
+    : "system";
+  const what = describeSql(sql);
+  const paramPart =
+    params.length > 0 && params.length <= 4
+      ? ` | params: [${params.join(", ")}]`
+      : params.length > 4
+        ? ` | params: [${params.length} items]`
+        : "";
+  console.log(`[DB] ${when} | ${who} | all ${what}${paramPart}`);
   const db = await getDb();
   const stmt = db.prepare(sql);
   stmt.bind(params);

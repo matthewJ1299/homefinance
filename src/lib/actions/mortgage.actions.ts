@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
+import { setRequestContext } from "@/lib/db/request-context";
 import { MortgageService } from "@/lib/services/mortgage.service";
 import { mortgageConfigSchema, extraPaymentSchema } from "@/lib/validators/mortgage.schema";
 
@@ -25,6 +26,7 @@ export async function saveMortgageConfig(data: {
 }): Promise<MortgageActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   const parsed = mortgageConfigSchema.safeParse(data);
   if (!parsed.success) return { success: false, error: parsed.error.message };
   const config = { ...parsed.data };
@@ -44,6 +46,7 @@ export async function recordExtraPayment(data: {
 }): Promise<MortgageActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   const parsed = extraPaymentSchema.safeParse(data);
   if (!parsed.success) return { success: false, error: parsed.error.message };
   const service = new MortgageService();

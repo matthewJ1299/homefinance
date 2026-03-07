@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
+import { setRequestContext } from "@/lib/db/request-context";
 import { SplitService } from "@/lib/services/split.service";
 import { getUserRepository } from "@/lib/repositories";
 import { settleSplitSchema } from "@/lib/validators/split.schema";
@@ -16,6 +17,7 @@ export async function getSplitBalance(): Promise<
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
+  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   const splitService = new SplitService();
   const balance = await splitService.getBalance(Number(session.user.id));
   return { success: true, balance };
@@ -28,6 +30,7 @@ export async function getSplitHistory(): Promise<
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
+  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   const splitService = new SplitService();
   const history = await splitService.getSplitHistory(Number(session.user.id));
   return { success: true, history };
@@ -42,6 +45,7 @@ export async function settleSplit(formData: {
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
+  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   const payerUserId = Number(session.user.id);
   const parsed = settleSplitSchema.safeParse({
     ...formData,
