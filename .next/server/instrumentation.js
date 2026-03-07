@@ -1,1 +1,5 @@
-"use strict";(()=>{var a={};a.id=6183,a.ids=[6183],a.modules={29021:a=>{a.exports=require("fs")},33873:a=>{a.exports=require("path")},45957:(a,b,c)=>{async function d(){{let{initDb:a,startPersistLoop:b}=await c.e(4219).then(c.bind(c,74219));await a(),b(6e4)}}c.r(b),c.d(b,{register:()=>d})},46293:a=>{a.exports=require("sql.js")},84297:a=>{a.exports=require("async_hooks")}};var b=require("./webpack-runtime.js");b.C(a);var c=b(b.s=45957);module.exports=c})();
+var R=require("./chunks/[turbopack]_runtime.js")("server/instrumentation.js")
+R.c("server/chunks/src_lib_db_index_ts_ad35215a._.js")
+R.c("server/chunks/src_instrumentation_ts_18ea1a8f._.js")
+R.m("[project]/src/instrumentation.ts [instrumentation] (ecmascript)")
+module.exports=R.m("[project]/src/instrumentation.ts [instrumentation] (ecmascript)").exports

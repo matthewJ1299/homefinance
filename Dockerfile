@@ -10,6 +10,9 @@ RUN npm ci 2>/dev/null || npm install
 
 COPY . .
 
+# Ensure PWA icons exist (they may not be committed; script generates into public/icons)
+RUN node scripts/generate-pwa-icons.mjs
+
 ENV NODE_ENV=production
 RUN npm run build
 

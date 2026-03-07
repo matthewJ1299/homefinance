@@ -87,6 +87,8 @@ The app stores its database at `/app/data/sqlite.db` inside the container. Witho
 
 The `docker-entrypoint.sh` script automatically fixes ownership of this directory at startup so the non-root app user can write to it.
 
+**PWA icons:** The Dockerfile runs `node scripts/generate-pwa-icons.mjs` during build so `public/icons/` (icon-192x192.png, icon-512x512.png, etc.) are created even if not committed. The manifest and install prompt will work after deploy.
+
 ---
 
 ## 7. Environment Variables

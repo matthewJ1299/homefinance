@@ -43,6 +43,19 @@ Seed always creates:
 
 Amounts use the same integer format as the app (e.g. cents). To start with an empty transaction history, you would need to change the seed script or clear income/expenses after seeding.
 
+## PWA (install as app)
+
+HomeFinance can be installed as a Progressive Web App (PWA) on phones and desktops for home-screen access and optional offline use.
+
+- **Manifest and service worker**: The app uses Next.js `manifest.ts` and [Serwist](https://serwist.pages.dev/) for the service worker (precache, runtime cache, offline fallback). In development the service worker is disabled; use a production build to test install.
+- **Icons**: PWA icons live in `public/icons/`. Generate placeholder icons with:
+  ```bash
+  npm run generate-pwa-icons
+  ```
+  To use your own icon, replace `icon-192x192.png`, `icon-512x512.png`, and `icon-maskable-512x512.png` (see `public/icons/README.md`). Maskable icons should keep important content in the center 80%.
+- **Install prompt**: When the app meets install criteria (HTTPS, valid manifest, service worker, icons), supported browsers may show a custom "Install" banner (once per device until dismissed). The app also detects standalone mode and hides the prompt when already installed.
+- **Requirements**: Install works over HTTPS (or localhost). See [DEPLOY.md](./DEPLOY.md) for production deployment.
+
 ## Deploy
 
 See [DEPLOY.md](./DEPLOY.md) for deploying to a VPS with Coolify (Docker + Traefik). The guide covers DNS, Dockerfile, persistent storage, environment variables, and troubleshooting.
@@ -55,6 +68,7 @@ See [DEPLOY.md](./DEPLOY.md) for deploying to a VPS with Coolify (Docker + Traef
 - `npm run db:reset` – Recreate DB from scratch (delete file, then push schema). Do not run while the app is using the DB.
 - `npm run db:seed` – Clear all data, then seed users, categories, 3 months of income/expenses, and sample split expenses
 - `npm run db:fresh` – Reset DB then seed (recreate from scratch and seed in one go)
+- `npm run generate-pwa-icons` – Generate PWA icons into `public/icons/` (requires `sharp`). Run once or when changing app icon.
 - `npm run start:server` – Start the custom Node server (initDb + persist loop); use for cPanel. See DEPLOY.md.
 
 The app uses **sql.js** (pure JavaScript SQLite) and raw SQL; no ORM. Schema is applied via migration SQL in `drizzle/0000_init.sql` when you run `db:push`.
