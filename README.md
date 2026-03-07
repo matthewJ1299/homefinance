@@ -26,10 +26,15 @@ Personal finance app for tracking income, expenses, and budgets.
 ## Setup
 
 1. Install dependencies: `npm install`
-2. Copy `.env.example` to `.env.local` and set `AUTH_SECRET` (and optionally `DB_PATH`, seed overrides).
-3. Create the database and seed: `npm run db:fresh` (recreates the DB from scratch from the schema, then seeds), or:
-   - Reset and create tables: `npm run db:reset` (deletes the DB file, runs schema push, then seeds minimal categories and users)
-   - Seed: `npm run db:seed` (clears all data, then inserts users, categories, 3 months of income/expenses, and sample split expenses)
+2. Copy `.env.example` to `.env.local` and set `AUTH_SECRET`. Optionally set:
+   - **Postgres**: `DATABASE_URL=postgresql://user:password@host:5432/dbname` (when set, the app uses Postgres instead of SQLite).
+   - **SQLite**: `DB_PATH` (default `./data/sqlite.db`).
+   - **Seed**: `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD`, etc. (see `.env.example`).
+3. Create the database and seed: `npm run db:fresh` (recreates the DB from scratch, then seeds), or:
+   - Reset and create tables: `npm run db:reset` (drops/recreates DB, runs schema push, then seeds minimal categories and users).
+   - Seed: `npm run db:seed` (clears all data, then inserts users, categories, 3 months of income/expenses, and sample split expenses).
+
+**Local Postgres with Docker:** Run `docker compose up --build`, then in the app container run push and seed (see [DEPLOY.md](./DEPLOY.md)).
 
 ## Seed data
 
@@ -58,20 +63,20 @@ HomeFinance can be installed as a Progressive Web App (PWA) on phones and deskto
 
 ## Deploy
 
-See [DEPLOY.md](./DEPLOY.md) for deploying to a VPS with Coolify (Docker + Traefik). The guide covers DNS, Dockerfile, persistent storage, environment variables, and troubleshooting.
+See [DEPLOY.md](./DEPLOY.md) for deploying to a VPS with Coolify (Docker + Traefik). The guide covers DNS, Dockerfile, **Docker Compose** (app + Postgres with persistent volume), optional Coolify Postgres resource, environment variables, and troubleshooting.
 
 ## Scripts
 
 - `npm run dev` – Start dev server (Turbopack)
 - `npm run build` / `npm run start` – Production build and start
-- `npm run db:push` – Apply schema to the database (runs migration SQL; uses sql.js, no native bindings)
-- `npm run db:reset` – Recreate DB from scratch (delete file, then push schema). Do not run while the app is using the DB.
+- `npm run db:push` – Apply schema (Postgres: `drizzle/0000_init_pg.sql` when `DATABASE_URL` is set; SQLite: `drizzle/0000_init.sql` otherwise).
+- `npm run db:reset` – Recreate DB from scratch (Postgres: drop/recreate public schema; SQLite: delete file). Then run push (and optionally seed). Do not run while the app is using the DB.
 - `npm run db:seed` – Clear all data, then seed users, categories, 3 months of income/expenses, and sample split expenses
 - `npm run db:fresh` – Reset DB then seed (recreate from scratch and seed in one go)
 - `npm run generate-pwa-icons` – Generate PWA icons into `public/icons/` (requires `sharp`). Run once or when changing app icon.
 - `npm run start:server` – Start the custom Node server (initDb + persist loop); use for cPanel. See DEPLOY.md.
 
-The app uses **sql.js** (pure JavaScript SQLite) and raw SQL; no ORM. Schema is applied via migration SQL in `drizzle/0000_init.sql` when you run `db:push`.
+The app uses a small **database abstraction** (`src/lib/db`): when `DATABASE_URL` is set it uses **Postgres** (via `pg`); otherwise **SQLite** (sql.js, file at `DB_PATH`). Repositories use the same API (`run`, `get`, `all`, `lastInsertId`). Schema is in `drizzle/0000_init.sql` (SQLite) and `drizzle/0000_init_pg.sql` (Postgres); apply with `db:push`.
 
 ## Troubleshooting
 

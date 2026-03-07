@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: homefinance
+      POSTGRES_PASSWORD: homefinance
+      POSTGRES_DB: homefinance
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U homefinance -d homefinance"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://homefinance:homefinance@db:5432/homefinance
+      AUTH_SECRET: ${AUTH_SECRET:-change-me-in-production}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

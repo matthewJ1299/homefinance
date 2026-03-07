@@ -3,6 +3,8 @@ import { AsyncLocalStorage } from "async_hooks";
 export interface RequestContext {
   userId?: string;
   userName?: string;
+  /** Set by Postgres client after INSERT so lastInsertId() is request-scoped. */
+  lastInsertId?: number;
 }
 
 const requestStore = new AsyncLocalStorage<RequestContext>();

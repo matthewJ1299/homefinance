@@ -13,7 +13,23 @@ Target URL: **https://finance.dev.triadtech.co.za**
 | **VPS** | Coolify installed and running. Traefik proxy enabled on the server. |
 | **GitHub repo** | `matthewJ1299/homefinance` (public or with GitHub App connected in Coolify). |
 | **DNS** | An **A** record for `finance.dev.triadtech.co.za` pointing to the VPS IP. Verify: `nslookup finance.dev.triadtech.co.za` or `dig finance.dev.triadtech.co.za`. |
-| **Committed files** | `Dockerfile`, `docker-entrypoint.sh`, `.dockerignore`, `.gitattributes`, `package-lock.json` must all be committed and pushed. |
+| **Committed files** | `Dockerfile`, `docker-entrypoint.sh`, `docker-compose.yml`, `.dockerignore`, `.gitattributes`, `package-lock.json` must all be committed and pushed. |
+
+---
+
+## Deployment modes
+
+The app supports two database backends, selected by environment:
+
+| Mode | When | Persistence |
+|------|------|-------------|
+| **Postgres** | `DATABASE_URL` is set | Use a Postgres service with a persistent volume (Docker Compose volume or Coolify Postgres resource). |
+| **SQLite** | `DATABASE_URL` is not set | Use a volume at `/app/data` so `sqlite.db` persists. |
+
+**Recommended for Coolify:** Use **Postgres** so the database persists between redeploys and is not inside the app container. You can either:
+
+- **Option A (Docker Compose):** Deploy the repo as a Compose stack in Coolify. The included `docker-compose.yml` defines an `app` service and a `db` (Postgres) service with a `postgres_data` volume. Data survives redeploys.
+- **Option B (Coolify Postgres resource):** Create a Postgres "Database" resource in Coolify (managed Postgres with its own volume). Set `DATABASE_URL` in the app resource to the URL Coolify provides. Deploy the app as a single Dockerfile resource. Persistence is handled by Coolify's Postgres volume.
 
 ---
 
@@ -44,9 +60,9 @@ The response must show the same IP as `dev.triadtech.co.za`. If not, add the A r
 | Field | Value |
 |---|---|
 | **Name** | `HomeFinance` |
-| **Build Pack** | `Dockerfile` |
+| **Build Pack** | `Dockerfile` (single container) or `Docker Compose` (if using the compose stack with Postgres) |
 | **Base Directory** | `/` |
-| **Dockerfile Location** | `/Dockerfile` |
+| **Dockerfile Location** | `/Dockerfile` (or **Docker Compose Location** | `docker-compose.yml`) |
 
 ---
 
@@ -76,11 +92,15 @@ After entering the domain, click **Save**.
 
 ---
 
-## 6. Persistent Storage (SQLite)
+## 6. Persistent Storage
 
-The app stores its database at `/app/data/sqlite.db` inside the container. Without persistent storage, data is lost on every redeploy.
+**If using Postgres (Option A – Docker Compose):** The `db` service in `docker-compose.yml` uses a named volume `postgres_data`. Ensure the Postgres service has this volume attached in Coolify so data persists between redeploys. No `/app/data` volume is required for the app container.
 
-1. Go to the **Persistent Storage** (or **Volumes**) section of the resource.
+**If using Postgres (Option B – Coolify Postgres resource):** The Postgres instance is a separate resource with its own Coolify-managed volume. No volume is needed on the app container.
+
+**If using SQLite (no DATABASE_URL):** The app stores its database at `/app/data/sqlite.db` inside the container. Without persistent storage, data is lost on every redeploy.
+
+1. Go to the **Persistent Storage** (or **Volumes**) section of the **app** resource.
 2. Add a volume:
    - **Destination Path**: `/app/data`
    - **Name**: `homefinance_data` (Coolify may append a UUID; that is fine)
@@ -98,7 +118,9 @@ Go to the **Environment Variables** tab and add:
 | Key | Required | Value |
 |---|---|---|
 | `AUTH_SECRET` | Yes | Generate with: `openssl rand -base64 32` |
-| `DB_PATH` | No | Default: `/app/data/sqlite.db`. Only set if using a different path. |
+| `DATABASE_URL` | For Postgres | Connection URL, e.g. `postgresql://user:password@host:5432/dbname`. When set, the app uses Postgres instead of SQLite. With Docker Compose, the app service gets this from the compose file (or override in Coolify). With Coolify Postgres resource, use the URL Coolify provides. |
+| `DB_PATH` | No (SQLite only) | Default: `/app/data/sqlite.db`. Only set if using SQLite and a different path. |
+| `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD`, etc. | No | Used when running db:seed to create initial users from env (see **Running db:seed on the server**). |
 
 Do **not** commit real values to the repository.
 
@@ -132,11 +154,11 @@ Runs as root at startup to `chown /app/data` (fixing volume permissions when Coo
 
 ### Instrumentation (src/instrumentation.ts)
 
-Next.js calls `register()` when the server starts. This initializes the sql.js in-memory database from the file at `/app/data/sqlite.db` (or creates a new one) and starts a periodic persist loop that writes the in-memory DB back to disk every 60 seconds.
+Next.js calls `register()` when the server starts. If using **SQLite**, this initializes the sql.js in-memory database from the file at `/app/data/sqlite.db` (or creates a new one) and starts a periodic persist loop. If using **Postgres** (`DATABASE_URL` set), the app connects to the pool and does not use file persistence.
 
-### Why transactions show locally but not on the server
+### SQLite: why transactions show locally but not on the server
 
-The app uses an in-memory SQLite (sql.js) that is loaded from and saved to a single file. In production, Next.js or the platform may use multiple workers or processes; each has its own in-memory copy. A write in one worker was not visible to reads in another. The DB layer now (1) persists to file immediately after every write (`run()`), and (2) before every read (`getDb()`), reloads from file if the file is newer than the current in-memory load. That way all workers see each other’s writes. Keep exactly one replica in Coolify when using the default SQLite setup.
+When using SQLite (no `DATABASE_URL`), the app uses an in-memory sql.js instance that is loaded from and saved to a single file. In production, Next.js or the platform may use multiple workers or processes; each has its own in-memory copy. A write in one worker was not visible to reads in another. The DB layer now (1) persists to file immediately after every write (`run()`), and (2) before every read (`getDb()`), reloads from file if the file is newer than the current in-memory load. That way all workers see each other’s writes. Keep exactly one replica when using SQLite. With Postgres, this does not apply.
 
 ---
 
@@ -175,7 +197,9 @@ Ensure `next.config.ts` includes `output: "standalone"` and that `npm run build`
 
 ### Database reset on redeploy
 
-Persistent storage is not configured. Add a volume with destination path `/app/data` in Coolify.
+**Postgres:** Ensure the Postgres service (Compose `db` or Coolify Postgres resource) has a persistent volume. Without it, data is lost on redeploy. After a fresh deploy or intentional reset, run push then seed (or reset + push + seed) so tables and users are recreated from env (see **Running db:seed on the server**).
+
+**SQLite:** Add a volume with destination path `/app/data` for the app container.
 
 ### JWTSessionError: no matching decryption secret
 
@@ -183,7 +207,9 @@ The browser has a session cookie signed with a different `AUTH_SECRET`. Fix: cle
 
 ### No such table: users
 
-The app now applies the schema automatically on first start when the database has no tables. If you still see this, ensure the container has write access to `/app/data` and that the volume is mounted correctly.
+**Postgres:** Run schema push and seed: `npx tsx src/lib/db/push.ts` then `npx tsx src/lib/db/seed-categories.ts` (or seed.ts) inside the container. Ensure `DATABASE_URL` is set and the app can reach Postgres.
+
+**SQLite:** The app applies the schema automatically on first start when the database has no tables. If you still see this, ensure the container has write access to `/app/data` and that the volume is mounted correctly.
 
 ### EACCES: permission denied, open '/app/data/sqlite.db'
 
@@ -213,18 +239,18 @@ Then sign in with `SEED_USER1_EMAIL` (or `SEED_USER2_EMAIL`) and `SEED_USER_PASS
 
 ## Running db:seed on the server
 
-The image includes `tsx` and the db scripts so you can seed the database from inside the container when needed (e.g. after a fresh deploy with an empty volume). Run commands with `-u nextjs` so created files are owned by the app user (avoids EACCES when the app writes to the DB).
+The image includes `tsx` and the db scripts so you can seed the database from inside the container when needed (e.g. after a fresh deploy or after a reset). With **Postgres**, the app uses `DATABASE_URL` from the container environment, so no volume ownership issue. With **SQLite**, run commands with `-u nextjs` so created files are owned by the app user (avoids EACCES).
 
 **From your machine** (with Coolify/Docker):
 
-1. Find the running container name or ID: `docker ps` (or use Coolify’s “Terminal” / “Execute command” for the resource).
-2. Run the seed as the app user so the DB file is writable by the app (see EACCES above if you ran as root):
+1. Find the running **app** container name or ID: `docker ps` (or use Coolify’s “Terminal” / “Execute command” for the resource).
+2. Run the seed (as app user for SQLite; for Postgres either user is fine):
 
 ```bash
 docker exec -it -u nextjs <container_name_or_id> sh -c "cd /app && npx tsx src/lib/db/seed.ts"
 ```
 
-Reset + schema + categories + 2 users:
+Reset + schema + categories + 2 users (data can be completely lost; then recreated from schema and env):
 
 ```bash
 docker exec -it -u nextjs <container_name_or_id> sh -c "cd /app && npx tsx src/lib/db/reset.ts && npx tsx src/lib/db/push.ts && npx tsx src/lib/db/seed-categories.ts"
@@ -236,7 +262,7 @@ To only apply schema (no seed data):
 docker exec -it -u nextjs <container_name_or_id> sh -c "cd /app && npx tsx src/lib/db/push.ts"
 ```
 
-The seed uses the same DB as the app (`/app/data/sqlite.db` by default). You can override with env vars, e.g. `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD` (see `.env.example`). To pass them into `docker exec`, use `-e`:
+The seed uses the same DB as the app: with **Postgres**, `DATABASE_URL` is set in the container; with **SQLite**, `/app/data/sqlite.db` by default. Users are created from env vars: `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD`, `SEED_USER1_NAME`, `SEED_USER2_NAME` (see `.env.example`). To pass them into `docker exec`, use `-e`:
 
 ```bash
 docker exec -it -u nextjs -e SEED_USER_PASSWORD=YourSecretPass <container_name_or_id> sh -c "cd /app && npx tsx src/lib/db/seed.ts"
@@ -246,9 +272,21 @@ docker exec -it -u nextjs -e SEED_USER_PASSWORD=YourSecretPass <container_name_o
 
 ## Local Docker Testing
 
-Build and run locally to verify the image before deploying.
+**With Postgres (Docker Compose, recommended):**
 
-**Linux / macOS (Bash):**
+```bash
+docker compose up --build
+```
+
+Then run push and seed in the app container so tables and users exist (Compose sets `DATABASE_URL` automatically):
+
+```bash
+docker compose exec app sh -c "cd /app && npx tsx src/lib/db/push.ts && npx tsx src/lib/db/seed-categories.ts"
+```
+
+Open http://localhost:3000. The Postgres data persists in the `postgres_data` volume.
+
+**Single container with SQLite (Linux / macOS):**
 
 ```bash
 docker build -t home-finance .
@@ -258,8 +296,7 @@ docker run -p 3000:3000 \
   home-finance
 ```
 
-**Windows (PowerShell):**  
-Use backtick (`` ` ``) for line continuation. Do not use `openssl` in PowerShell; use a variable for the secret to avoid "invalid reference format":
+**Single container with SQLite (Windows PowerShell):**
 
 ```powershell
 docker build -t home-finance .

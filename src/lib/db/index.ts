@@ -1,110 +1,12 @@
-import initSqlJs, { type Database as SqlJsDatabase } from "sql.js";
-import path from "path";
-import fs from "fs";
 import { getRequestContext } from "./request-context";
+import type { IDbClient } from "./types";
+import { sqliteClient } from "./sqlite-client";
+import { postgresClient } from "./postgres-client";
 
-const dbPath =
-  process.env.DB_PATH ?? path.join(process.cwd(), "data", "sqlite.db");
-
-let sqlJsDb: SqlJsDatabase | null = null;
-/** Used to create new DB instances when reloading from file (e.g. after another process wrote). */
-let sqlJsModule: Awaited<ReturnType<typeof initSqlJs>> | null = null;
-/** File mtime when we last loaded so we can reload when another process/worker has written. */
-let lastLoadMtimeMs = 0;
-
-const dir = path.dirname(dbPath);
-if (!fs.existsSync(dir)) {
-  fs.mkdirSync(dir, { recursive: true });
+function getClient(): IDbClient {
+  return process.env.DATABASE_URL ? postgresClient : sqliteClient;
 }
 
-/**
- * Apply schema from drizzle/0000_init.sql if the users table does not exist.
- * Used so a fresh Docker volume or new DB_PATH gets tables on first run.
- */
-function applyMigrationIfNeeded(): void {
-  const check = sqlJsDb!.exec(
-    "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
-  );
-  if (check.length > 0 && check[0].values.length > 0) return;
-
-  const migrationPath = path.join(process.cwd(), "drizzle", "0000_init.sql");
-  if (!fs.existsSync(migrationPath)) return;
-
-  const sqlContent = fs.readFileSync(migrationPath, "utf-8");
-  const statements = sqlContent
-    .split(/--> statement-breakpoint\n?/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  for (const stmt of statements) {
-    sqlJsDb!.run(stmt);
-  }
-}
-
-/**
- * Initialize the database: load sql.js, load existing file or create empty DB,
- * enable foreign keys, apply schema if needed. Idempotent; safe to call multiple times.
- */
-export async function initDb(): Promise<void> {
-  if (sqlJsDb) return;
-
-  const SQL = await initSqlJs();
-  sqlJsModule = SQL;
-
-  if (fs.existsSync(dbPath)) {
-    const buf = fs.readFileSync(dbPath);
-    sqlJsDb = new SQL.Database(new Uint8Array(buf));
-    lastLoadMtimeMs = fs.statSync(dbPath).mtimeMs;
-  } else {
-    sqlJsDb = new SQL.Database();
-  }
-
-  sqlJsDb.run("PRAGMA foreign_keys = ON;");
-  sqlJsDb.run("PRAGMA journal_mode = WAL;");
-
-  applyMigrationIfNeeded();
-}
-
-/**
- * Persist the in-memory database to the file.
- */
-export function saveDb(): void {
-  if (!sqlJsDb) return;
-  const data = sqlJsDb.export();
-  const buf = Buffer.from(data);
-  fs.writeFileSync(dbPath, buf);
-}
-
-/**
- * If the DB file on disk is newer than our last load, reload so we see writes from other processes/workers.
- */
-function reloadFromFileIfNewer(): void {
-  if (!sqlJsDb || !sqlJsModule || !fs.existsSync(dbPath)) return;
-  const stat = fs.statSync(dbPath);
-  if (stat.mtimeMs <= lastLoadMtimeMs) return;
-
-  const buf = fs.readFileSync(dbPath);
-  const next = new sqlJsModule!.Database(new Uint8Array(buf));
-  next.run("PRAGMA foreign_keys = ON;");
-  next.run("PRAGMA journal_mode = WAL;");
-  sqlJsDb = next;
-  lastLoadMtimeMs = stat.mtimeMs;
-  applyMigrationIfNeeded();
-}
-
-/**
- * Raw database instance. Initializes the DB if needed (for this worker/process).
- * Before returning, reloads from file if another process/worker has written so reads see latest data.
- */
-export async function getDb(): Promise<SqlJsDatabase> {
-  await initDb();
-  reloadFromFileIfNewer();
-  return sqlJsDb!;
-}
-
-/**
- * Derive a short "what" description from SQL (e.g. "INSERT expenses", "SELECT users").
- */
 function describeSql(sql: string): string {
   const normalized = sql.replace(/\s+/g, " ").trim();
   if (/^INSERT\s+INTO\s+/i.test(normalized)) {
@@ -127,10 +29,6 @@ function describeSql(sql: string): string {
   return normalized.slice(0, 50);
 }
 
-/**
- * Try to get a numeric amount from params (common for expenses, income, budget).
- * Looks for a param that looks like cents (positive integer).
- */
 function amountFromParams(
   _sql: string,
   params: (string | number | null)[]
@@ -162,74 +60,42 @@ function logDbCall(
   console.log(parts.join(" "));
 }
 
-/**
- * Run a parameterized statement (INSERT/UPDATE/DELETE). Initializes DB if needed.
- * Persists to file immediately so other processes/workers see the write.
- */
+export async function initDb(): Promise<void> {
+  await getClient().initDb();
+}
+
+export function saveDb(): void {
+  getClient().saveDb();
+}
+
 export async function run(
   sql: string,
   params: (string | number | null)[] = []
 ): Promise<void> {
   logDbCall("run", sql, params);
-  const db = await getDb();
-  db.run(sql, params);
-  saveDb();
-  if (fs.existsSync(dbPath)) lastLoadMtimeMs = fs.statSync(dbPath).mtimeMs;
+  await getClient().run(sql, params);
 }
 
-/**
- * Run SQL and return the last inserted row id (for INSERT). Initializes DB if needed.
- */
 export async function lastInsertId(): Promise<number> {
-  const db = await getDb();
-  const stmt = db.prepare("SELECT last_insert_rowid() AS id");
-  stmt.step();
-  const row = stmt.getAsObject() as { id: number };
-  stmt.free();
-  return row.id;
+  return getClient().lastInsertId();
 }
 
-/**
- * Run a parameterized SELECT and return the first row as an object, or null. Initializes DB if needed.
- */
 export async function get<T = Record<string, unknown>>(
   sql: string,
   params: (string | number | null)[] = []
 ): Promise<T | null> {
-  const db = await getDb();
-  const stmt = db.prepare(sql);
-  stmt.bind(params);
-  const hasRow = stmt.step();
-  const row = hasRow ? (stmt.getAsObject() as T) : null;
-  stmt.free();
-  return row;
+  logDbCall("get", sql, params);
+  return getClient().get<T>(sql, params);
 }
 
-/**
- * Run a parameterized SELECT and return all rows as objects. Initializes DB if needed.
- */
 export async function all<T = Record<string, unknown>>(
   sql: string,
   params: (string | number | null)[] = []
 ): Promise<T[]> {
-  const db = await getDb();
-  const stmt = db.prepare(sql);
-  stmt.bind(params);
-  const rows: T[] = [];
-  while (stmt.step()) {
-    rows.push(stmt.getAsObject() as T);
-  }
-  stmt.free();
-  return rows;
+  logDbCall("all", sql, params);
+  return getClient().all<T>(sql, params);
 }
 
-/** Start periodic persistence. Call once in server after initDb(). */
 export function startPersistLoop(intervalMs = 60_000): void {
-  setInterval(() => {
-    try {
-      saveDb();
-    } catch (e) {
-      console.error("Failed to persist DB:", e);
-    }
-  }, intervalMs);
+  getClient().startPersistLoop(intervalMs);
 }
