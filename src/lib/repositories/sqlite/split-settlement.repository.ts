@@ -25,7 +25,7 @@ export class SplitSettlementRepository {
     expenseId?: number | null;
     incomeId?: number | null;
   }): Promise<{ id: number }> {
-    run(
+    await run(
       "INSERT INTO split_settlements (payer_user_id, recipient_user_id, amount, date, expense_id, income_id) VALUES (?, ?, ?, ?, ?, ?)",
       [
         data.payerUserId,
@@ -36,11 +36,11 @@ export class SplitSettlementRepository {
         data.incomeId ?? null,
       ]
     );
-    return { id: lastInsertId() };
+    return { id: await lastInsertId() };
   }
 
   async findAllForUser(userId: number): Promise<SplitSettlementWithNames[]> {
-    const rows = all<SettlementRow>(
+    const rows = await all<SettlementRow>(
       `SELECT ss.id, ss.payer_user_id, ss.recipient_user_id, ss.amount, ss.date, ss.expense_id, ss.income_id,
               p.name AS payer_name, r.name AS recipient_name
        FROM split_settlements ss
@@ -63,7 +63,7 @@ export class SplitSettlementRepository {
   }
 
   async findByExpenseId(expenseId: number): Promise<SplitSettlementRow | null> {
-    const row = get<SettlementRow>(
+    const row = await get<SettlementRow>(
       "SELECT id, payer_user_id, recipient_user_id, amount, date, expense_id, income_id FROM split_settlements WHERE expense_id = ? LIMIT 1",
       [expenseId]
     );
@@ -80,6 +80,6 @@ export class SplitSettlementRepository {
   }
 
   async delete(id: number): Promise<void> {
-    run("DELETE FROM split_settlements WHERE id = ?", [id]);
+    await run("DELETE FROM split_settlements WHERE id = ?", [id]);
   }
 }

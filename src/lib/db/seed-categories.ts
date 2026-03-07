@@ -4,7 +4,7 @@
  */
 import { createRequire } from "module";
 import bcrypt from "bcryptjs";
-import { initDb, saveDb, run, lastInsertId } from "./index";
+import { saveDb, run, lastInsertId } from "./index";
 import { defaultCategories } from "./seed-data";
 
 const require = createRequire(import.meta.url);
@@ -24,12 +24,12 @@ async function seedMinimal() {
   const user1Name = process.env.SEED_USER1_NAME ?? "Matt";
   const user2Name = process.env.SEED_USER2_NAME ?? "Sydney";
 
-  run("INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)", [
+  await run("INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)", [
     user1Name,
     user1Email,
     passwordHash,
   ]);
-  run("INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)", [
+  await run("INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)", [
     user2Name,
     user2Email,
     passwordHash,
@@ -37,7 +37,7 @@ async function seedMinimal() {
   console.log("Created 2 users:", user1Name + ",", user2Name + ".");
 
   for (const c of defaultCategories) {
-    run(
+    await run(
       "INSERT INTO categories (name, group_name, icon, sort_order, is_active, cost_type, default_amount) VALUES (?, ?, ?, ?, 1, ?, ?)",
       [c.name, c.groupName, null, c.sortOrder, c.costType, c.defaultAmount ?? null]
     );
@@ -47,7 +47,6 @@ async function seedMinimal() {
 }
 
 (async () => {
-  await initDb();
   await seedMinimal();
   saveDb();
 })().catch((e) => {

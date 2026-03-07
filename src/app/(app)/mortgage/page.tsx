@@ -1,4 +1,3 @@
-import { initDb } from "@/lib/db";
 import { getUserRepository } from "@/lib/repositories";
 import { MortgageService } from "@/lib/services/mortgage.service";
 import { fromMinorUnits } from "@/lib/utils/currency";
@@ -10,7 +9,6 @@ import { MortgageDetailsSection } from "@/components/mortgage/mortgage-details-s
 import { MortgagePaymentsList } from "@/components/mortgage/mortgage-payments-list";
 
 export default async function MortgagePage() {
-  await initDb();
   const service = new MortgageService();
   const { config, userConfigs } = await service.getConfig();
 

@@ -50,7 +50,7 @@ export class ExpenseRepository implements IExpenseRepository {
       ? `${SELECT_EXPENSE_DETAILS} WHERE e.month = ? AND e.user_id = ? ORDER BY e.date, e.created_at`
       : `${SELECT_EXPENSE_DETAILS} WHERE e.month = ? ORDER BY e.date, e.created_at`;
     const params = userId != null ? [month, userId] : [month];
-    const rows = all<ExpenseDetailsRow>(sql, params);
+    const rows = await all<ExpenseDetailsRow>(sql, params);
     return rows.map(toExpenseWithDetails);
   }
 
@@ -65,7 +65,7 @@ export class ExpenseRepository implements IExpenseRepository {
       : `${SELECT_EXPENSE_DETAILS} WHERE e.month = ?`;
     const params = userId != null ? [month, userId, limit, offset] : [month, limit, offset];
     const sql = `${base} ORDER BY e.date DESC, e.created_at DESC LIMIT ? OFFSET ?`;
-    const rows = all<ExpenseDetailsRow>(sql, params);
+    const rows = await all<ExpenseDetailsRow>(sql, params);
     return rows.map(toExpenseWithDetails);
   }
 
@@ -74,7 +74,7 @@ export class ExpenseRepository implements IExpenseRepository {
       ? "SELECT COUNT(id) AS c FROM expenses WHERE month = ? AND user_id = ?"
       : "SELECT COUNT(id) AS c FROM expenses WHERE month = ?";
     const params = userId != null ? [month, userId] : [month];
-    const row = get<{ c: number }>(sql, params);
+    const row = await get<{ c: number }>(sql, params);
     return row?.c ?? 0;
   }
 
@@ -85,7 +85,7 @@ export class ExpenseRepository implements IExpenseRepository {
       ? `SELECT category_id, SUM(amount) AS total FROM expenses WHERE user_id = ? AND month IN (${placeholders}) GROUP BY category_id`
       : `SELECT category_id, SUM(amount) AS total FROM expenses WHERE month IN (${placeholders}) GROUP BY category_id`;
     const params = userId != null ? [userId, ...months] : months;
-    const rows = all<{ category_id: number; total: number }>(sql, params);
+    const rows = await all<{ category_id: number; total: number }>(sql, params);
     const result: Record<number, number> = {};
     for (const r of rows) {
       result[r.category_id] = r.total;
@@ -94,7 +94,7 @@ export class ExpenseRepository implements IExpenseRepository {
   }
 
   async findById(id: number): Promise<ExpenseWithDetails | null> {
-    const row = get<ExpenseDetailsRow>(
+    const row = await get<ExpenseDetailsRow>(
       `${SELECT_EXPENSE_DETAILS} WHERE e.id = ?`,
       [id]
     );
@@ -102,7 +102,7 @@ export class ExpenseRepository implements IExpenseRepository {
   }
 
   async create(data: CreateExpenseInput): Promise<{ id: number }> {
-    run(
+    await run(
       "INSERT INTO expenses (user_id, category_id, amount, note, date, month, split_group_id, paid_by_user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       [
         data.userId,
@@ -115,7 +115,7 @@ export class ExpenseRepository implements IExpenseRepository {
         data.paidByUserId ?? null,
       ]
     );
-    return { id: lastInsertId() };
+    return { id: await lastInsertId() };
   }
 
   async update(id: number, data: UpdateExpenseInput): Promise<void> {
@@ -143,22 +143,22 @@ export class ExpenseRepository implements IExpenseRepository {
     }
     if (updates.length === 0) return;
     params.push(id);
-    run(`UPDATE expenses SET ${updates.join(", ")} WHERE id = ?`, params);
+    await run(`UPDATE expenses SET ${updates.join(", ")} WHERE id = ?`, params);
   }
 
   async delete(id: number): Promise<void> {
-    run("DELETE FROM expenses WHERE id = ?", [id]);
+    await run("DELETE FROM expenses WHERE id = ?", [id]);
   }
 
   async deleteBySplitGroupId(splitGroupId: string): Promise<void> {
-    const row = get<{ id: number }>("SELECT id FROM expenses WHERE split_group_id = ? LIMIT 1", [splitGroupId]);
+    const row = await get<{ id: number }>("SELECT id FROM expenses WHERE split_group_id = ? LIMIT 1", [splitGroupId]);
     if (!row) return;
-    run("DELETE FROM split_allocations WHERE expense_id = ?", [row.id]);
-    run("DELETE FROM expenses WHERE id = ?", [row.id]);
+    await run("DELETE FROM split_allocations WHERE expense_id = ?", [row.id]);
+    await run("DELETE FROM expenses WHERE id = ?", [row.id]);
   }
 
   async findSplitExpenses(): Promise<ExpenseWithDetails[]> {
-    const rows = all<ExpenseDetailsRow>(
+    const rows = await all<ExpenseDetailsRow>(
       `${SELECT_EXPENSE_DETAILS} WHERE e.split_group_id IS NOT NULL ORDER BY e.date DESC, e.created_at DESC`
     );
     return rows.map(toExpenseWithDetails);

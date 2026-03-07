@@ -14,16 +14,16 @@ interface RowWithUser {
 
 export class SplitAllocationRepository {
   async create(expenseId: number, userId: number, amount: number): Promise<{ id: number }> {
-    run("INSERT INTO split_allocations (expense_id, user_id, amount) VALUES (?, ?, ?)", [
+    await run("INSERT INTO split_allocations (expense_id, user_id, amount) VALUES (?, ?, ?)", [
       expenseId,
       userId,
       amount,
     ]);
-    return { id: lastInsertId() };
+    return { id: await lastInsertId() };
   }
 
   async findByExpenseId(expenseId: number): Promise<SplitAllocationWithUser[]> {
-    const rows = all<RowWithUser>(
+    const rows = await all<RowWithUser>(
       "SELECT sa.id, sa.expense_id AS expense_id, sa.user_id AS user_id, sa.amount, u.name FROM split_allocations sa INNER JOIN users u ON sa.user_id = u.id WHERE sa.expense_id = ?",
       [expenseId]
     );
@@ -37,7 +37,7 @@ export class SplitAllocationRepository {
   }
 
   async findAllForBalance(): Promise<SplitAllocationBalanceRow[]> {
-    const rows = all<{
+    const rows = await all<{
       amount: number;
       paid_by_user_id: number;
       allocation_user_id: number;
@@ -46,8 +46,8 @@ export class SplitAllocationRepository {
     );
     const result: SplitAllocationBalanceRow[] = [];
     for (const r of rows) {
-      const payer = get<{ name: string }>("SELECT name FROM users WHERE id = ?", [r.paid_by_user_id]);
-      const allocUser = get<{ name: string }>("SELECT name FROM users WHERE id = ?", [r.allocation_user_id]);
+      const payer = await get<{ name: string }>("SELECT name FROM users WHERE id = ?", [r.paid_by_user_id]);
+      const allocUser = await get<{ name: string }>("SELECT name FROM users WHERE id = ?", [r.allocation_user_id]);
       result.push({
         amount: r.amount,
         paidByUserId: r.paid_by_user_id,
@@ -60,6 +60,6 @@ export class SplitAllocationRepository {
   }
 
   async deleteByExpenseId(expenseId: number): Promise<void> {
-    run("DELETE FROM split_allocations WHERE expense_id = ?", [expenseId]);
+    await run("DELETE FROM split_allocations WHERE expense_id = ?", [expenseId]);
   }
 }

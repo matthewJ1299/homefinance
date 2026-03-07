@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { initDb } from "@/lib/db";
 import { BudgetService } from "@/lib/services/budget.service";
 import { allocateSchema, transferSchema } from "@/lib/validators/budget.schema";
 
@@ -15,7 +14,6 @@ export async function setBudgetAllocation(
   month: string,
   amount: number
 ): Promise<BudgetActionResult> {
-  await initDb();
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
   const parsed = allocateSchema.safeParse({ categoryId, month, amount });
@@ -30,7 +28,6 @@ export async function autoAllocateBudget(month: string): Promise<
   | { success: true; updated: number }
   | { success: false; error: string }
 > {
-  await initDb();
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
   const parsed = allocateSchema.pick({ month: true }).safeParse({ month });
@@ -48,7 +45,6 @@ export async function transferBudgetFunds(data: {
   amount: number;
   reason?: string | null;
 }): Promise<BudgetActionResult> {
-  await initDb();
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
   const parsed = transferSchema.safeParse(data);

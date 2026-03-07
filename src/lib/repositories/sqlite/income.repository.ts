@@ -40,17 +40,17 @@ export class IncomeRepository implements IIncomeRepository {
       ? `${SELECT_INCOME_ENTRY} WHERE i.month = ? AND i.user_id = ? ORDER BY i.date`
       : `${SELECT_INCOME_ENTRY} WHERE i.month = ? ORDER BY i.date`;
     const params = userId != null ? [month, userId] : [month];
-    const rows = all<IncomeEntryRow>(sql, params);
+    const rows = await all<IncomeEntryRow>(sql, params);
     return rows.map(toIncomeEntry);
   }
 
   async findById(id: number): Promise<IncomeEntry | null> {
-    const row = get<IncomeEntryRow>(`${SELECT_INCOME_ENTRY} WHERE i.id = ?`, [id]);
+    const row = await get<IncomeEntryRow>(`${SELECT_INCOME_ENTRY} WHERE i.id = ?`, [id]);
     return row ? toIncomeEntry(row) : null;
   }
 
   async create(data: CreateIncomeInput): Promise<{ id: number }> {
-    run(
+    await run(
       "INSERT INTO income (user_id, amount, type, description, date, month) VALUES (?, ?, ?, ?, ?, ?)",
       [
         data.userId,
@@ -61,7 +61,7 @@ export class IncomeRepository implements IIncomeRepository {
         data.month,
       ]
     );
-    return { id: lastInsertId() };
+    return { id: await lastInsertId() };
   }
 
   async update(id: number, data: UpdateIncomeInput): Promise<void> {
@@ -89,10 +89,10 @@ export class IncomeRepository implements IIncomeRepository {
     }
     if (updates.length === 0) return;
     params.push(id);
-    run(`UPDATE income SET ${updates.join(", ")} WHERE id = ?`, params);
+    await run(`UPDATE income SET ${updates.join(", ")} WHERE id = ?`, params);
   }
 
   async delete(id: number): Promise<void> {
-    run("DELETE FROM income WHERE id = ?", [id]);
+    await run("DELETE FROM income WHERE id = ?", [id]);
   }
 }

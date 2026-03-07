@@ -1,5 +1,4 @@
 import { auth } from "@/lib/auth";
-import { initDb } from "@/lib/db";
 import { getCategoryRepository, getUserRepository } from "@/lib/repositories";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { IncomeService } from "@/lib/services/income.service";
@@ -22,7 +21,6 @@ interface DashboardPageProps {
 }
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
-  await initDb();
   const session = await auth();
   if (!session?.user?.id) return null;
   const userId = Number(session.user.id);

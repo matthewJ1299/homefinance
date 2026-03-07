@@ -51,8 +51,6 @@ export const authConfig: NextAuthConfig = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
-        const { initDb } = await import("@/lib/db");
-        await initDb();
         const userRepo = getUserRepository();
         const user = await userRepo.findByEmailForAuth(credentials.email as string);
         if (!user) return null;

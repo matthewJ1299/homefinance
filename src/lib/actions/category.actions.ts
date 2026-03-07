@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { initDb } from "@/lib/db";
 import { getCategoryRepository } from "@/lib/repositories";
 import { createCategorySchema, updateCategorySchema } from "@/lib/validators/category.schema";
 
@@ -16,7 +15,6 @@ export async function createCategory(formData: {
   costType?: "fixed" | "variable";
   defaultAmount?: number | null;
 }): Promise<CategoryActionResult> {
-  await initDb();
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
   const parsed = createCategorySchema.safeParse(formData);
@@ -49,7 +47,6 @@ export async function updateCategory(
     defaultAmount?: number | null;
   }
 ): Promise<CategoryActionResult> {
-  await initDb();
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
   const parsed = updateCategorySchema.safeParse(formData);
@@ -77,7 +74,6 @@ export async function reorderCategory(
   id: number,
   direction: "up" | "down"
 ): Promise<CategoryActionResult> {
-  await initDb();
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
   const repo = getCategoryRepository();
@@ -109,7 +105,6 @@ export async function reorderCategory(
 export async function reorderCategories(
   orderedCategoryIds: number[]
 ): Promise<CategoryActionResult> {
-  await initDb();
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
   if (orderedCategoryIds.length === 0) return { success: true };
@@ -143,7 +138,6 @@ export async function reorderCategories(
  * budget allocations, or transfers.
  */
 export async function deleteCategory(id: number): Promise<CategoryActionResult> {
-  await initDb();
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
   const repo = getCategoryRepository();

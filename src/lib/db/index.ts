@@ -38,7 +38,7 @@ function applyMigrationIfNeeded(): void {
 
 /**
  * Initialize the database: load sql.js, load existing file or create empty DB,
- * enable foreign keys, apply schema if needed. Call once before using getDb().
+ * enable foreign keys, apply schema if needed. Idempotent; safe to call multiple times.
  */
 export async function initDb(): Promise<void> {
   if (sqlJsDb) return;
@@ -69,32 +69,30 @@ export function saveDb(): void {
 }
 
 /**
- * Raw database instance. Call initDb() before first use.
+ * Raw database instance. Initializes the DB if needed (for this worker/process).
+ * Use this or the run/all/get/lastInsertId helpers; they all ensure init.
  */
-export function getDb(): SqlJsDatabase {
-  if (!sqlJsDb) {
-    throw new Error(
-      "Database not initialized. Call initDb() before using getDb()."
-    );
-  }
-  return sqlJsDb;
+export async function getDb(): Promise<SqlJsDatabase> {
+  await initDb();
+  return sqlJsDb!;
 }
 
 /**
- * Run a parameterized statement (INSERT/UPDATE/DELETE).
+ * Run a parameterized statement (INSERT/UPDATE/DELETE). Initializes DB if needed.
  */
-export function run(
+export async function run(
   sql: string,
   params: (string | number | null)[] = []
-): void {
-  getDb().run(sql, params);
+): Promise<void> {
+  const db = await getDb();
+  db.run(sql, params);
 }
 
 /**
- * Run SQL and return the last inserted row id (for INSERT).
+ * Run SQL and return the last inserted row id (for INSERT). Initializes DB if needed.
  */
-export function lastInsertId(): number {
-  const db = getDb();
+export async function lastInsertId(): Promise<number> {
+  const db = await getDb();
   const stmt = db.prepare("SELECT last_insert_rowid() AS id");
   stmt.step();
   const row = stmt.getAsObject() as { id: number };
@@ -103,13 +101,13 @@ export function lastInsertId(): number {
 }
 
 /**
- * Run a parameterized SELECT and return the first row as an object, or null.
+ * Run a parameterized SELECT and return the first row as an object, or null. Initializes DB if needed.
  */
-export function get<T = Record<string, unknown>>(
+export async function get<T = Record<string, unknown>>(
   sql: string,
   params: (string | number | null)[] = []
-): T | null {
-  const db = getDb();
+): Promise<T | null> {
+  const db = await getDb();
   const stmt = db.prepare(sql);
   stmt.bind(params);
   const hasRow = stmt.step();
@@ -119,13 +117,13 @@ export function get<T = Record<string, unknown>>(
 }
 
 /**
- * Run a parameterized SELECT and return all rows as objects.
+ * Run a parameterized SELECT and return all rows as objects. Initializes DB if needed.
  */
-export function all<T = Record<string, unknown>>(
+export async function all<T = Record<string, unknown>>(
   sql: string,
   params: (string | number | null)[] = []
-): T[] {
-  const db = getDb();
+): Promise<T[]> {
+  const db = await getDb();
   const stmt = db.prepare(sql);
   stmt.bind(params);
   const rows: T[] = [];

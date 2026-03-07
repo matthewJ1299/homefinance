@@ -1,10 +1,8 @@
 import { auth } from "@/lib/auth";
-import { initDb } from "@/lib/db";
 import { SplitService } from "@/lib/services/split.service";
 import { SplitsPageClient } from "@/components/splits/splits-page-client";
 
 export default async function SplitsPage() {
-  await initDb();
   const session = await auth();
   if (!session?.user?.id) return null;
   const userId = Number(session.user.id);

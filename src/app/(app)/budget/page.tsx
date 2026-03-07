@@ -1,5 +1,4 @@
 import { auth } from "@/lib/auth";
-import { initDb } from "@/lib/db";
 import { BudgetService } from "@/lib/services/budget.service";
 import { getCurrentMonth } from "@/lib/utils/date";
 import { MonthNavigator } from "@/components/layout/month-navigator";
@@ -10,7 +9,6 @@ interface BudgetPageProps {
 }
 
 export default async function BudgetPage({ searchParams }: BudgetPageProps) {
-  await initDb();
   const session = await auth();
   if (!session?.user?.id) return null;
   const userId = Number(session.user.id);

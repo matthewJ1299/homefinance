@@ -24,22 +24,22 @@ function toUserForAuth(r: UserRow & { email: string; password_hash: string }): U
 
 export class UserRepository implements IUserRepository {
   async findAll(): Promise<UserSummary[]> {
-    const rows = all<UserRow>("SELECT id, name FROM users ORDER BY id");
+    const rows = await all<UserRow>("SELECT id, name FROM users ORDER BY id");
     return rows.map(toSummary);
   }
 
   async findAllExcept(userId: number): Promise<UserSummary[]> {
-    const rows = all<UserRow>("SELECT id, name FROM users WHERE id != ? ORDER BY id", [userId]);
+    const rows = await all<UserRow>("SELECT id, name FROM users WHERE id != ? ORDER BY id", [userId]);
     return rows.map(toSummary);
   }
 
   async findById(id: number): Promise<UserSummary | null> {
-    const row = get<UserRow>("SELECT id, name FROM users WHERE id = ?", [id]);
+    const row = await get<UserRow>("SELECT id, name FROM users WHERE id = ?", [id]);
     return row ? toSummary(row) : null;
   }
 
   async findByEmailForAuth(email: string): Promise<UserForAuth | null> {
-    const row = get<UserRow & { email: string; password_hash: string }>(
+    const row = await get<UserRow & { email: string; password_hash: string }>(
       "SELECT id, name, email, password_hash FROM users WHERE email = ?",
       [email]
     );

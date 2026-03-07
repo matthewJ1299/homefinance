@@ -23,7 +23,7 @@ interface TransferRow {
 
 export class BudgetRepository implements IBudgetRepository {
   async getAllocationsForMonth(month: string, userId: number) {
-    const rows = all<BudgetRow>(
+    const rows = await all<BudgetRow>(
       "SELECT category_id, allocated_amount FROM budgets WHERE month = ? AND user_id = ?",
       [month, userId]
     );
@@ -36,7 +36,7 @@ export class BudgetRepository implements IBudgetRepository {
   async getAllocationsForMonths(months: string[], userId: number): Promise<BudgetAllocationWithMonth[]> {
     if (months.length === 0) return [];
     const placeholders = months.map(() => "?").join(",");
-    const rows = all<BudgetRow & { month: string }>(
+    const rows = await all<BudgetRow & { month: string }>(
       `SELECT category_id, allocated_amount, month FROM budgets WHERE user_id = ? AND month IN (${placeholders})`,
       [userId, ...months]
     );
@@ -48,7 +48,7 @@ export class BudgetRepository implements IBudgetRepository {
   }
 
   async upsertAllocation(categoryId: number, month: string, amount: number, userId: number): Promise<void> {
-    run(
+    await run(
       `INSERT INTO budgets (user_id, category_id, month, allocated_amount) VALUES (?, ?, ?, ?)
        ON CONFLICT (user_id, category_id, month) DO UPDATE SET allocated_amount = excluded.allocated_amount, updated_at = datetime('now')`,
       [userId, categoryId, month, amount]
@@ -56,7 +56,7 @@ export class BudgetRepository implements IBudgetRepository {
   }
 
   async getTransfersForMonth(month: string, userId: number) {
-    const rows = all<TransferRow>(
+    const rows = await all<TransferRow>(
       "SELECT id, from_category_id, to_category_id, month, amount, user_id, reason, created_at FROM budget_transfers WHERE month = ? AND user_id = ? ORDER BY created_at",
       [month, userId]
     );
@@ -80,7 +80,7 @@ export class BudgetRepository implements IBudgetRepository {
     userId: number;
     reason?: string | null;
   }): Promise<void> {
-    run(
+    await run(
       "INSERT INTO budget_transfers (from_category_id, to_category_id, month, amount, user_id, reason) VALUES (?, ?, ?, ?, ?, ?)",
       [
         data.fromCategoryId,
