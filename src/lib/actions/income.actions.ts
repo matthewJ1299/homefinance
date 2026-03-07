@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
+import { initDb } from "@/lib/db";
 import { IncomeService } from "@/lib/services/income.service";
 import { createIncomeSchema, updateIncomeSchema } from "@/lib/validators/income.schema";
 import type { IncomeType } from "@/lib/types";
@@ -14,6 +15,7 @@ export async function addIncome(formData: {
   description?: string | null;
   date: string;
 }): Promise<IncomeActionResult> {
+  await initDb();
   const session = await auth();
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
@@ -35,6 +37,7 @@ export async function updateIncome(
   id: number,
   formData: { amount?: number; type?: IncomeType; description?: string | null; date?: string }
 ): Promise<IncomeActionResult> {
+  await initDb();
   const session = await auth();
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
@@ -51,6 +54,7 @@ export async function updateIncome(
 }
 
 export async function deleteIncome(id: number): Promise<IncomeActionResult> {
+  await initDb();
   const session = await auth();
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };

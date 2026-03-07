@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
+import { initDb } from "@/lib/db";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { SplitService } from "@/lib/services/split.service";
 import { MortgageService } from "@/lib/services/mortgage.service";
@@ -26,6 +27,7 @@ export async function addExpense(formData: {
   note?: string | null;
   date: string;
 }): Promise<ExpenseActionResult> {
+  await initDb();
   const session = await auth();
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
@@ -126,6 +128,7 @@ export async function updateExpense(
   id: number,
   formData: { categoryId?: number; amount?: number; note?: string | null; date?: string }
 ): Promise<ExpenseActionResult> {
+  await initDb();
   const session = await auth();
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
@@ -142,6 +145,7 @@ export async function updateExpense(
 }
 
 export async function deleteExpense(id: number): Promise<ExpenseActionResult> {
+  await initDb();
   const session = await auth();
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
@@ -183,6 +187,7 @@ export async function addSplitExpense(formData: {
   myShareCents?: number;
   otherShareCents?: number;
 }): Promise<ExpenseActionResult> {
+  await initDb();
   const session = await auth();
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };

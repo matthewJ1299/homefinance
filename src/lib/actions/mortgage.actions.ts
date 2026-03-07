@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
+import { initDb } from "@/lib/db";
 import { MortgageService } from "@/lib/services/mortgage.service";
 import { mortgageConfigSchema, extraPaymentSchema } from "@/lib/validators/mortgage.schema";
 
@@ -23,6 +24,7 @@ export async function saveMortgageConfig(data: {
     monthlyCap?: number;
   }>;
 }): Promise<MortgageActionResult> {
+  await initDb();
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
   const parsed = mortgageConfigSchema.safeParse(data);
@@ -42,6 +44,7 @@ export async function recordExtraPayment(data: {
   paymentDate: string;
   note?: string | null;
 }): Promise<MortgageActionResult> {
+  await initDb();
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
   const parsed = extraPaymentSchema.safeParse(data);

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
+import { initDb } from "@/lib/db";
 import { SplitService } from "@/lib/services/split.service";
 import { getUserRepository } from "@/lib/repositories";
 import { settleSplitSchema } from "@/lib/validators/split.schema";
@@ -12,6 +13,7 @@ export type SettleSplitResult = { success: true } | { success: false; error: str
 export async function getSplitBalance(): Promise<
   { success: true; balance: SplitBalance } | { success: false; error: string }
 > {
+  await initDb();
   const session = await auth();
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
@@ -24,6 +26,7 @@ export async function getSplitBalance(): Promise<
 export async function getSplitHistory(): Promise<
   { success: true; history: SplitHistoryItem[] } | { success: false; error: string }
 > {
+  await initDb();
   const session = await auth();
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
@@ -38,6 +41,7 @@ export async function settleSplit(formData: {
   amountCents: number;
   date?: string;
 }): Promise<SettleSplitResult> {
+  await initDb();
   const session = await auth();
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
