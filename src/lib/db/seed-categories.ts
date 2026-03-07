@@ -2,12 +2,18 @@
  * Seeds minimal data after db:reset: default categories and 2 users.
  * Assumes empty tables (right after schema push). Uses same env vars as full seed.
  */
-import { loadEnvConfig } from "@next/env";
+import { createRequire } from "module";
 import bcrypt from "bcryptjs";
 import { initDb, saveDb, run, lastInsertId } from "./index";
 import { defaultCategories } from "./seed-data";
 
-loadEnvConfig(process.cwd());
+const require = createRequire(import.meta.url);
+try {
+  const mod = require("@next/env");
+  if (typeof mod.loadEnvConfig === "function") mod.loadEnvConfig(process.cwd());
+} catch {
+  // In Docker/standalone @next/env may not expose loadEnvConfig; use process.env (e.g. Coolify env vars).
+}
 
 const DEFAULT_PASSWORD = process.env.SEED_USER_PASSWORD ?? "ChangeMe123!";
 
