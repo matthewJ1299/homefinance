@@ -3,6 +3,7 @@ import { auth, signOut } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { OfflineIndicator } from "./offline-indicator";
 import { ThemeToggle } from "./theme-toggle";
+import { MobileNavMenu } from "./mobile-nav-menu";
 
 export async function Header() {
   const session = await auth();
@@ -21,6 +22,7 @@ export async function Header() {
           HomeFinance
         </Link>
         <div className="flex items-center gap-2">
+          <MobileNavMenu />
           <ThemeToggle />
           <OfflineIndicator />
           <span className="text-sm text-muted-foreground">
