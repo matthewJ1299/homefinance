@@ -33,13 +33,22 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# sql.js WASM binary is not traced by standalone; copy the full package
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/sql.js ./node_modules/sql.js
+# Full node_modules (sql.js, tsx, and deps for db scripts so you can run db:seed in container)
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+
+# package.json and db scripts for running seed/migrations on server (e.g. docker exec ... npx tsx src/lib/db/seed.ts)
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder --chown=nextjs:nodejs /app/src/lib/db ./src/lib/db
+
+# Schema migration (app applies it on first run if DB has no tables)
+COPY --from=builder /app/drizzle ./drizzle
 
 # SQLite data directory (will be overlaid by a persistent volume)
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 
 COPY docker-entrypoint.sh /docker-entrypoint.sh
+# Ensure LF line endings (avoids "no such file or directory" when script has CRLF on Windows)
+RUN sed -i 's/\r$//' /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 3000

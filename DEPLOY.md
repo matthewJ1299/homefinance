@@ -122,7 +122,7 @@ In the resource's settings, enable **Auto Deploy** so each push to `master` trig
 ### Dockerfile (multi-stage)
 
 - **Builder stage**: Installs npm dependencies, runs `next build` with `output: "standalone"` (from `next.config.ts`). This produces a minimal, self-contained server under `.next/standalone/`.
-- **Runner stage**: Copies standalone output, static assets, and the `sql.js` package (whose `.wasm` binary is not traced by standalone). Installs `su-exec` for privilege dropping. Uses `docker-entrypoint.sh` as the entrypoint.
+- **Runner stage**: Copies standalone output, static assets, full `node_modules` (so `tsx` and db script dependencies are available), `package.json`, `src/lib/db`, and `drizzle/` for migrations. Schema is applied automatically on first start if the DB has no tables. You can run `npx tsx src/lib/db/seed.ts` inside the container to seed (see **Running db:seed on the server**). Installs `su-exec` for privilege dropping. Uses `docker-entrypoint.sh` as the entrypoint.
 
 ### docker-entrypoint.sh
 
@@ -152,7 +152,7 @@ No DNS record exists for `finance.dev.triadtech.co.za`. Add an A record pointing
 
 ### ENOENT: sql-wasm.wasm
 
-The Dockerfile must copy `node_modules/sql.js` into the runner image. This is already handled; if you modify the Dockerfile, ensure the `COPY ... node_modules/sql.js` line is present.
+The runner stage copies the full builder `node_modules` (which includes `sql.js` and `tsx`). Do not remove that copy or the app and db scripts will fail.
 
 ### EACCES: permission denied on /app/data/sqlite.db
 
@@ -171,11 +171,48 @@ Ensure `next.config.ts` includes `output: "standalone"` and that `npm run build`
 
 Persistent storage is not configured. Add a volume with destination path `/app/data` in Coolify.
 
+### JWTSessionError: no matching decryption secret
+
+The browser has a session cookie signed with a different `AUTH_SECRET`. Fix: clear the site cookies for the app, or use the same `AUTH_SECRET` across restarts. In Coolify, set `AUTH_SECRET` once and do not change it unless you are okay invalidating all sessions.
+
+### No such table: users
+
+The app now applies the schema automatically on first start when the database has no tables. If you still see this, ensure the container has write access to `/app/data` and that the volume is mounted correctly.
+
+---
+
+## Running db:seed on the server
+
+The image includes `tsx` and the db scripts so you can seed the database from inside the container when needed (e.g. after a fresh deploy with an empty volume).
+
+**From your machine** (with Coolify/Docker):
+
+1. Find the running container name or ID: `docker ps` (or use Coolify’s “Terminal” / “Execute command” for the resource).
+2. Run the seed script:
+
+```bash
+docker exec -it <container_name_or_id> sh -c "cd /app && npx tsx src/lib/db/seed.ts"
+```
+
+To only apply schema (no seed data):
+
+```bash
+docker exec -it <container_name_or_id> sh -c "cd /app && npx tsx src/lib/db/push.ts"
+```
+
+The seed uses the same DB as the app (`/app/data/sqlite.db` by default). You can override with env vars, e.g. `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD` (see `.env.example`). To pass them into `docker exec`, use `-e`:
+
+```bash
+docker exec -it -e SEED_USER_PASSWORD=YourSecretPass <container_name_or_id> sh -c "cd /app && npx tsx src/lib/db/seed.ts"
+```
+
 ---
 
 ## Local Docker Testing
 
-Build and run locally to verify the image before deploying:
+Build and run locally to verify the image before deploying.
+
+**Linux / macOS (Bash):**
 
 ```bash
 docker build -t home-finance .
@@ -183,6 +220,15 @@ docker run -p 3000:3000 \
   -e AUTH_SECRET=$(openssl rand -base64 32) \
   -v homefinance_data:/app/data \
   home-finance
+```
+
+**Windows (PowerShell):**  
+Use backtick (`` ` ``) for line continuation. Do not use `openssl` in PowerShell; use a variable for the secret to avoid "invalid reference format":
+
+```powershell
+docker build -t home-finance .
+$secret = [Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }) -as [byte[]])
+docker run -p 3000:3000 -e AUTH_SECRET=$secret -v homefinance_data:/app/data home-finance
 ```
 
 Open http://localhost:3000. The SQLite database persists in the `homefinance_data` Docker volume.

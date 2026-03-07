@@ -13,8 +13,32 @@ if (!fs.existsSync(dir)) {
 }
 
 /**
+ * Apply schema from drizzle/0000_init.sql if the users table does not exist.
+ * Used so a fresh Docker volume or new DB_PATH gets tables on first run.
+ */
+function applyMigrationIfNeeded(): void {
+  const check = sqlJsDb!.exec(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
+  );
+  if (check.length > 0 && check[0].values.length > 0) return;
+
+  const migrationPath = path.join(process.cwd(), "drizzle", "0000_init.sql");
+  if (!fs.existsSync(migrationPath)) return;
+
+  const sqlContent = fs.readFileSync(migrationPath, "utf-8");
+  const statements = sqlContent
+    .split(/--> statement-breakpoint\n?/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  for (const stmt of statements) {
+    sqlJsDb!.run(stmt);
+  }
+}
+
+/**
  * Initialize the database: load sql.js, load existing file or create empty DB,
- * enable foreign keys. Call once before using getDb().
+ * enable foreign keys, apply schema if needed. Call once before using getDb().
  */
 export async function initDb(): Promise<void> {
   if (sqlJsDb) return;
@@ -30,6 +54,8 @@ export async function initDb(): Promise<void> {
 
   sqlJsDb.run("PRAGMA foreign_keys = ON;");
   sqlJsDb.run("PRAGMA journal_mode = WAL;");
+
+  applyMigrationIfNeeded();
 }
 
 /**
