@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { initDb } from "@/lib/db";
 import { IncomeService } from "@/lib/services/income.service";
 import { getCurrentMonth } from "@/lib/utils/date";
 import { MonthNavigator } from "@/components/layout/month-navigator";
@@ -11,6 +12,7 @@ interface IncomePageProps {
 }
 
 export default async function IncomePage({ searchParams }: IncomePageProps) {
+  await initDb();
   await auth();
   const { month: monthParam } = await searchParams;
   const month = monthParam ?? getCurrentMonth();

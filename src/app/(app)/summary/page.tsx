@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { initDb } from "@/lib/db";
 import { SummaryService } from "@/lib/services/summary.service";
 import { MortgageService } from "@/lib/services/mortgage.service";
 import { getCurrentMonth } from "@/lib/utils/date";
@@ -16,6 +17,7 @@ interface SummaryPageProps {
 }
 
 export default async function SummaryPage({ searchParams }: SummaryPageProps) {
+  await initDb();
   const session = await auth();
   if (!session?.user?.id) return null;
   const userId = Number(session.user.id);

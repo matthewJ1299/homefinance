@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { initDb } from "@/lib/db";
 import { getCategoryRepository, getUserRepository } from "@/lib/repositories";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { IncomeService } from "@/lib/services/income.service";
@@ -12,6 +13,7 @@ interface ExpensesPageProps {
 }
 
 export default async function ExpensesPage({ searchParams }: ExpensesPageProps) {
+  await initDb();
   const session = await auth();
   if (!session?.user?.id) return null;
   const currentUserId = Number(session.user.id);

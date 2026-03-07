@@ -179,31 +179,61 @@ The browser has a session cookie signed with a different `AUTH_SECRET`. Fix: cle
 
 The app now applies the schema automatically on first start when the database has no tables. If you still see this, ensure the container has write access to `/app/data` and that the volume is mounted correctly.
 
+### EACCES: permission denied, open '/app/data/sqlite.db'
+
+The app runs as user `nextjs` (uid 1001). If the DB file was created by root (e.g. you ran the seed via `docker exec` without `-u nextjs`), the app cannot write to it. Fix ownership once:
+
+```bash
+docker exec -it <container_name_or_id> chown -R nextjs:nodejs /app/data
+```
+
+Then try logging in again. To avoid this, run db scripts as the app user (see **Running db:seed on the server**).
+
+### CredentialsSignin (invalid email or password)
+
+Login is rejected when no user exists for the email or the password does not match. Check:
+
+1. **Email** – Use exactly one of the emails you set when seeding: `SEED_USER1_EMAIL` or `SEED_USER2_EMAIL` (from Coolify env vars). No extra spaces; comparison is case-sensitive.
+2. **Password** – Use the same value you set as `SEED_USER_PASSWORD` when you ran the seed. If you did not set it, the default is `ChangeMe123!`.
+3. **Users present** – If you are unsure, re-run the seed as the app user so two users are created with your current env vars, then log in with one of those emails and the password:
+
+```bash
+docker exec -it -u nextjs <container_name_or_id> sh -c "cd /app && npx tsx src/lib/db/seed.ts"
+```
+
+Then sign in with `SEED_USER1_EMAIL` (or `SEED_USER2_EMAIL`) and `SEED_USER_PASSWORD`.
+
 ---
 
 ## Running db:seed on the server
 
-The image includes `tsx` and the db scripts so you can seed the database from inside the container when needed (e.g. after a fresh deploy with an empty volume).
+The image includes `tsx` and the db scripts so you can seed the database from inside the container when needed (e.g. after a fresh deploy with an empty volume). Run commands with `-u nextjs` so created files are owned by the app user (avoids EACCES when the app writes to the DB).
 
 **From your machine** (with Coolify/Docker):
 
 1. Find the running container name or ID: `docker ps` (or use Coolify’s “Terminal” / “Execute command” for the resource).
-2. Run the seed script:
+2. Run the seed as the app user so the DB file is writable by the app (see EACCES above if you ran as root):
 
 ```bash
-docker exec -it <container_name_or_id> sh -c "cd /app && npx tsx src/lib/db/seed.ts"
+docker exec -it -u nextjs <container_name_or_id> sh -c "cd /app && npx tsx src/lib/db/seed.ts"
+```
+
+Reset + schema + categories + 2 users:
+
+```bash
+docker exec -it -u nextjs <container_name_or_id> sh -c "cd /app && npx tsx src/lib/db/reset.ts && npx tsx src/lib/db/push.ts && npx tsx src/lib/db/seed-categories.ts"
 ```
 
 To only apply schema (no seed data):
 
 ```bash
-docker exec -it <container_name_or_id> sh -c "cd /app && npx tsx src/lib/db/push.ts"
+docker exec -it -u nextjs <container_name_or_id> sh -c "cd /app && npx tsx src/lib/db/push.ts"
 ```
 
 The seed uses the same DB as the app (`/app/data/sqlite.db` by default). You can override with env vars, e.g. `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD` (see `.env.example`). To pass them into `docker exec`, use `-e`:
 
 ```bash
-docker exec -it -e SEED_USER_PASSWORD=YourSecretPass <container_name_or_id> sh -c "cd /app && npx tsx src/lib/db/seed.ts"
+docker exec -it -u nextjs -e SEED_USER_PASSWORD=YourSecretPass <container_name_or_id> sh -c "cd /app && npx tsx src/lib/db/seed.ts"
 ```
 
 ---
