@@ -54,8 +54,8 @@ async function seed() {
   const insertedCategoryIds: number[] = [];
   for (const c of defaultCategories) {
     await run(
-      "INSERT INTO categories (name, group_name, icon, sort_order, is_active, cost_type, default_amount) VALUES (?, ?, ?, ?, 1, ?, ?)",
-      [c.name, c.groupName, null, c.sortOrder, c.costType, c.defaultAmount ?? null]
+      "INSERT INTO categories (name, group_name, icon, sort_order, is_active, cost_type, default_amount) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [c.name, c.groupName, null, c.sortOrder, true, c.costType, c.defaultAmount ?? null]
     );
     insertedCategoryIds.push(await lastInsertId());
   }
@@ -88,7 +88,7 @@ async function seedMortgage(userIds: [number, number]) {
   const monthlyPayment = 1_700_000; // R17,000 in cents (simplified; real calc would use PMT)
 
   await run(
-    "INSERT INTO mortgage_configs (property_value, loan_amount, annual_interest_rate, loan_term_months, start_date, target_equity_user_a_pct, is_active) VALUES (?, ?, ?, ?, ?, 0.5, 1)",
+    "INSERT INTO mortgage_configs (property_value, loan_amount, annual_interest_rate, loan_term_months, start_date, target_equity_user_a_pct, is_active) VALUES (?, ?, ?, ?, ?, 0.5, true)",
     [propertyValue, loanAmount, annualRate, loanTermMonths, startDate]
   );
   const mortgageId = await lastInsertId();
@@ -111,7 +111,7 @@ async function seedMortgage(userIds: [number, number]) {
     const principalPortion = monthlyPayment - interestPortion;
     const payeeUserId = monthNum % 2 === 1 ? user1Id : user2Id;
     await run(
-      "INSERT INTO mortgage_payments (mortgage_id, user_id, payment_date, month_number, amount, principal_portion, interest_portion, is_extra_payment, note) VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL)",
+      "INSERT INTO mortgage_payments (mortgage_id, user_id, payment_date, month_number, amount, principal_portion, interest_portion, is_extra_payment, note) VALUES (?, ?, ?, ?, ?, ?, ?, false, NULL)",
       [
         mortgageId,
         payeeUserId,

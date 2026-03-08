@@ -28,7 +28,7 @@ interface PaymentRow {
   amount: number;
   principal_portion: number;
   interest_portion: number;
-  is_extra_payment: number;
+  is_extra_payment: number | boolean;
   note: string | null;
   created_at: string;
 }
@@ -48,7 +48,7 @@ function toConfigRow(r: ConfigRow) {
 export class MortgageRepository implements IMortgageRepository {
   async getActiveConfig() {
     const row = await get<ConfigRow>(
-      "SELECT id, property_value, loan_amount, annual_interest_rate, loan_term_months, start_date, target_equity_user_a_pct FROM mortgage_configs WHERE is_active = 1 LIMIT 1"
+      "SELECT id, property_value, loan_amount, annual_interest_rate, loan_term_months, start_date, target_equity_user_a_pct FROM mortgage_configs WHERE is_active = true LIMIT 1"
     );
     return row ? toConfigRow(row) : null;
   }
@@ -140,7 +140,7 @@ export class MortgageRepository implements IMortgageRepository {
       amount: r.amount,
       principalPortion: r.principal_portion,
       interestPortion: r.interest_portion,
-      isExtraPayment: r.is_extra_payment === 1,
+      isExtraPayment: r.is_extra_payment === true || r.is_extra_payment === 1,
       note: r.note,
       createdAt: r.created_at,
     }));
@@ -167,7 +167,7 @@ export class MortgageRepository implements IMortgageRepository {
         data.amount,
         data.principalPortion,
         data.interestPortion,
-        data.isExtraPayment ? 1 : 0,
+        data.isExtraPayment,
         data.note ?? null,
       ]
     );

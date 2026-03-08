@@ -56,6 +56,13 @@ async function getDb(): Promise<SqlJsDatabase> {
   return sqlJsDb!;
 }
 
+/** sql.js BindParams does not accept boolean; convert to 0/1 for SQLite. */
+function toSqlJsParams(
+  params: (string | number | boolean | null)[]
+): (string | number | null)[] {
+  return params.map((p) => (typeof p === "boolean" ? (p ? 1 : 0) : p));
+}
+
 const sqliteClient: IDbClient = {
   async initDb(): Promise<void> {
     if (sqlJsDb) return;
@@ -86,10 +93,10 @@ const sqliteClient: IDbClient = {
 
   async run(
     sql: string,
-    params: (string | number | null)[] = []
+    params: (string | number | boolean | null)[] = []
   ): Promise<void> {
     const db = await getDb();
-    db.run(sql, params);
+    db.run(sql, toSqlJsParams(params));
     sqliteClient.saveDb();
   },
 
@@ -104,11 +111,11 @@ const sqliteClient: IDbClient = {
 
   async get<T = Record<string, unknown>>(
     sql: string,
-    params: (string | number | null)[] = []
+    params: (string | number | boolean | null)[] = []
   ): Promise<T | null> {
     const db = await getDb();
     const stmt = db.prepare(sql);
-    stmt.bind(params);
+    stmt.bind(toSqlJsParams(params));
     const hasRow = stmt.step();
     const row = hasRow ? (stmt.getAsObject() as T) : null;
     stmt.free();
@@ -117,11 +124,11 @@ const sqliteClient: IDbClient = {
 
   async all<T = Record<string, unknown>>(
     sql: string,
-    params: (string | number | null)[] = []
+    params: (string | number | boolean | null)[] = []
   ): Promise<T[]> {
     const db = await getDb();
     const stmt = db.prepare(sql);
-    stmt.bind(params);
+    stmt.bind(toSqlJsParams(params));
     const rows: T[] = [];
     while (stmt.step()) {
       rows.push(stmt.getAsObject() as T);

@@ -50,7 +50,7 @@ export class BudgetRepository implements IBudgetRepository {
   async upsertAllocation(categoryId: number, month: string, amount: number, userId: number): Promise<void> {
     await run(
       `INSERT INTO budgets (user_id, category_id, month, allocated_amount) VALUES (?, ?, ?, ?)
-       ON CONFLICT (user_id, category_id, month) DO UPDATE SET allocated_amount = excluded.allocated_amount, updated_at = datetime('now')`,
+       ON CONFLICT (user_id, category_id, month) DO UPDATE SET allocated_amount = excluded.allocated_amount, updated_at = NOW()`,
       [userId, categoryId, month, amount]
     );
   }

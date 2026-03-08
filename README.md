@@ -65,6 +65,13 @@ HomeFinance can be installed as a Progressive Web App (PWA) on phones and deskto
 
 See [DEPLOY.md](./DEPLOY.md) for deploying to a VPS with Coolify (Docker + Traefik). The guide covers DNS, Dockerfile, **Docker Compose** (app + Postgres with persistent volume), optional Coolify Postgres resource, environment variables, and troubleshooting.
 
+## Testing
+
+- **Unit tests**: Run `npm run test` (or `npm run test:watch` for watch mode). Tests cover:
+  - **Calculations**: Currency (toMinorUnits, fromMinorUnits, formatRand), date utils (prevMonth, nextMonth, monthFromDate, isValidMonth), mortgage (standardMonthlyPayment, simulateSchedule, calculateTopUp, generateSchedule, projectScheduleFromBalance), and budget/summary formulas (balance = income - expenses, remaining = allocated - spent, unallocated, adherencePct).
+  - **Design**: Calculation logic is tested in isolation; services use repository interfaces so unit tests mock repositories and assert only on formulas (SOLID, DRY).
+- **Integration tests**: In `src/__tests__/integration/api-and-db.integration.test.ts`. They call API route handlers and the real database. They **run only when `DATABASE_URL` is set** (e.g. local Postgres or CI). Use a seeded DB (`npm run db:fresh`). State is restored after each test: created expenses and income are deleted by ID; budget allocation changes are reverted by upserting the previous amount. This keeps the database in its previous state so tests are repeatable and do not pollute dev data.
+
 ## Scripts
 
 - `npm run dev` – Start dev server (Turbopack)
@@ -74,6 +81,8 @@ See [DEPLOY.md](./DEPLOY.md) for deploying to a VPS with Coolify (Docker + Traef
 - `npm run db:seed` – Clear all data, then seed users, categories, 3 months of income/expenses, and sample split expenses
 - `npm run db:fresh` – Reset DB then seed (recreate from scratch and seed in one go)
 - `npm run generate-pwa-icons` – Generate PWA icons into `public/icons/` (requires `sharp`). Run once or when changing app icon.
+- `npm run test` – Run unit and integration tests (Vitest). Integration tests are skipped when `DATABASE_URL` is unset.
+- `npm run test:watch` – Run tests in watch mode.
 - `npm run start:server` – Start the custom Node server (initDb + persist loop); use for cPanel. See DEPLOY.md.
 
 The app uses a small **database abstraction** (`src/lib/db`): when `DATABASE_URL` is set it uses **Postgres** (via `pg`); otherwise **SQLite** (sql.js, file at `DB_PATH`). Repositories use the same API (`run`, `get`, `all`, `lastInsertId`). Schema is in `drizzle/0000_init.sql` (SQLite) and `drizzle/0000_init_pg.sql` (Postgres); apply with `db:push`.

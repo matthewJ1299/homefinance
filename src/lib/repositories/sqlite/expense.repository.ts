@@ -7,8 +7,8 @@ import type {
 } from "../interfaces/expense.repository";
 
 const SELECT_EXPENSE_DETAILS = `
-  SELECT e.id, e.user_id AS userId, u.name AS userName, e.category_id AS categoryId, c.name AS categoryName,
-         e.amount, e.note, e.date, e.created_at AS createdAt, e.split_group_id AS splitGroupId, e.paid_by_user_id AS paidByUserId
+  SELECT e.id, e.user_id AS "userId", u.name AS "userName", e.category_id AS "categoryId", c.name AS "categoryName",
+         e.amount, e.note, e.date, e.created_at AS "createdAt", e.split_group_id AS "splitGroupId", e.paid_by_user_id AS "paidByUserId"
   FROM expenses e
   INNER JOIN users u ON e.user_id = u.id
   INNER JOIN categories c ON e.category_id = c.id

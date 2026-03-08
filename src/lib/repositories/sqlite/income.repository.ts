@@ -7,7 +7,7 @@ import type {
 } from "../interfaces/income.repository";
 
 const SELECT_INCOME_ENTRY = `
-  SELECT i.id, i.user_id AS userId, u.name AS userName, i.amount, i.type, i.description, i.date
+  SELECT i.id, i.user_id AS "userId", u.name AS "userName", i.amount, i.type, i.description, i.date
   FROM income i
   INNER JOIN users u ON i.user_id = u.id
 `;

@@ -1,10 +1,15 @@
 import { getRequestContext } from "./request-context";
 import type { IDbClient } from "./types";
-import { sqliteClient } from "./sqlite-client";
 import { postgresClient } from "./postgres-client";
 
+/** SQLite is disabled; Postgres (DATABASE_URL) is required. */
 function getClient(): IDbClient {
-  return process.env.DATABASE_URL ? postgresClient : sqliteClient;
+  if (!process.env.DATABASE_URL) {
+    throw new Error(
+      "DATABASE_URL is required. SQLite is disabled; use Postgres."
+    );
+  }
+  return postgresClient;
 }
 
 function describeSql(sql: string): string {
@@ -31,7 +36,7 @@ function describeSql(sql: string): string {
 
 function amountFromParams(
   _sql: string,
-  params: (string | number | null)[]
+  params: (string | number | boolean | null)[]
 ): number | undefined {
   const num = params.find(
     (p) => typeof p === "number" && Number.isInteger(p) && p > 0
@@ -42,7 +47,7 @@ function amountFromParams(
 function logDbCall(
   op: "run" | "get" | "all",
   sql: string,
-  params: (string | number | null)[]
+  params: (string | number | boolean | null)[]
 ): void {
   const when = new Date().toISOString();
   const ctx = getRequestContext();
@@ -70,7 +75,7 @@ export function saveDb(): void {
 
 export async function run(
   sql: string,
-  params: (string | number | null)[] = []
+  params: (string | number | boolean | null)[] = []
 ): Promise<void> {
   logDbCall("run", sql, params);
   await getClient().run(sql, params);
@@ -82,7 +87,7 @@ export async function lastInsertId(): Promise<number> {
 
 export async function get<T = Record<string, unknown>>(
   sql: string,
-  params: (string | number | null)[] = []
+  params: (string | number | boolean | null)[] = []
 ): Promise<T | null> {
   logDbCall("get", sql, params);
   return getClient().get<T>(sql, params);
@@ -90,7 +95,7 @@ export async function get<T = Record<string, unknown>>(
 
 export async function all<T = Record<string, unknown>>(
   sql: string,
-  params: (string | number | null)[] = []
+  params: (string | number | boolean | null)[] = []
 ): Promise<T[]> {
   logDbCall("all", sql, params);
   return getClient().all<T>(sql, params);

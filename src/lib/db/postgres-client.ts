@@ -11,7 +11,7 @@ let lastInsertedIdFallback: number | null = null;
 /**
  * Convert SQL with ? placeholders to $1, $2, ... and return the param array for pg.
  */
-function toPgParams(sql: string, params: (string | number | null)[]): [string, (string | number | null)[]] {
+function toPgParams(sql: string, params: (string | number | boolean | null)[]): [string, (string | number | boolean | null)[]] {
   let i = 0;
   const pgSql = sql.replace(/\?/g, () => `$${++i}`);
   return [pgSql, params];
@@ -43,7 +43,7 @@ const postgresClient: IDbClient = {
     // No-op for Postgres
   },
 
-  async run(sql: string, params: (string | number | null)[] = []): Promise<void> {
+  async run(sql: string, params: (string | number | boolean | null)[] = []): Promise<void> {
     const p = await getPool();
     const client = await p.connect();
     try {
@@ -71,7 +71,7 @@ const postgresClient: IDbClient = {
 
   async get<T = Record<string, unknown>>(
     sql: string,
-    params: (string | number | null)[] = []
+    params: (string | number | boolean | null)[] = []
   ): Promise<T | null> {
     const p = await getPool();
     const [pgSql, pgParams] = toPgParams(sql, params);
@@ -82,7 +82,7 @@ const postgresClient: IDbClient = {
 
   async all<T = Record<string, unknown>>(
     sql: string,
-    params: (string | number | null)[] = []
+    params: (string | number | boolean | null)[] = []
   ): Promise<T[]> {
     const p = await getPool();
     const [pgSql, pgParams] = toPgParams(sql, params);

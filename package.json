@@ -16,7 +16,9 @@
     "db:reset": "tsx src/lib/db/reset.ts && tsx src/lib/db/push.ts && tsx src/lib/db/seed-categories.ts",
     "db:seed": "tsx src/lib/db/seed.ts",
     "db:fresh": "npm run db:reset && npm run db:seed",
-    "generate-pwa-icons": "node scripts/generate-pwa-icons.mjs"
+    "generate-pwa-icons": "node scripts/generate-pwa-icons.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -58,6 +60,8 @@
     "postcss": "^8.4.0",
     "sharp": "^0.33.5",
     "tailwindcss": "^4.0.0",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^4.0.18"
   }
 }

@@ -38,8 +38,8 @@ async function seedMinimal() {
 
   for (const c of defaultCategories) {
     await run(
-      "INSERT INTO categories (name, group_name, icon, sort_order, is_active, cost_type, default_amount) VALUES (?, ?, ?, ?, 1, ?, ?)",
-      [c.name, c.groupName, null, c.sortOrder, c.costType, c.defaultAmount ?? null]
+      "INSERT INTO categories (name, group_name, icon, sort_order, is_active, cost_type, default_amount) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [c.name, c.groupName, null, c.sortOrder, true, c.costType, c.defaultAmount ?? null]
     );
   }
   console.log(`Seeded ${defaultCategories.length} default categories.`);

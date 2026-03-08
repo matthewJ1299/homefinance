@@ -8,7 +8,7 @@ interface CategoryRow {
   group_name: string;
   icon: string | null;
   sort_order: number;
-  is_active?: number;
+  is_active?: number | boolean;
   cost_type: string;
   default_amount: number | null;
 }
@@ -24,7 +24,7 @@ function toCategory(r: CategoryRow, includeIsActive = false): Category | Categor
     defaultAmount: r.default_amount,
   };
   if (includeIsActive && r.is_active !== undefined) {
-    return { ...base, isActive: r.is_active === 1 };
+    return { ...base, isActive: r.is_active === true || r.is_active === 1 };
   }
   return base;
 }
@@ -32,14 +32,14 @@ function toCategory(r: CategoryRow, includeIsActive = false): Category | Categor
 export class CategoryRepository implements ICategoryRepository {
   async findAll(): Promise<Category[]> {
     const rows = await all<CategoryRow>(
-      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount FROM categories WHERE is_active = 1 ORDER BY cost_type DESC, sort_order, name"
+      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount FROM categories WHERE is_active = true ORDER BY cost_type DESC, sort_order, name"
     );
     return rows.map((r) => toCategory(r) as Category);
   }
 
   async findAllIncludingInactive(): Promise<CategoryWithActive[]> {
     const rows = await all<CategoryRow>(
-      "SELECT id, name, group_name, icon, sort_order, is_active, cost_type, default_amount FROM categories ORDER BY is_active DESC, cost_type DESC, sort_order, name"
+      "SELECT id, name, group_name, icon, sort_order, is_active, cost_type, default_amount FROM categories ORDER BY is_active DESC NULLS LAST, cost_type DESC, sort_order, name"
     );
     return rows.map((r) => toCategory(r, true) as CategoryWithActive);
   }
@@ -99,7 +99,7 @@ export class CategoryRepository implements ICategoryRepository {
     }
   ): Promise<void> {
     const updates: string[] = [];
-    const params: (string | number | null)[] = [];
+    const params: (string | number | boolean | null)[] = [];
     if (data.name !== undefined) {
       updates.push("name = ?");
       params.push(data.name);
@@ -110,7 +110,7 @@ export class CategoryRepository implements ICategoryRepository {
     }
     if (data.isActive !== undefined) {
       updates.push("is_active = ?");
-      params.push(data.isActive ? 1 : 0);
+      params.push(data.isActive);
     }
     if (data.sortOrder !== undefined) {
       updates.push("sort_order = ?");

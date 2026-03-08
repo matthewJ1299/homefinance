@@ -9,7 +9,8 @@ interface ExpenseItemProps {
 }
 
 export function ExpenseItem({ expense, showOwner = false, className }: ExpenseItemProps) {
-  const initial = expense.userName.slice(0, 1).toUpperCase();
+  const name = expense.userName ?? "";
+  const initial = name.slice(0, 1).toUpperCase() || "?";
   return (
     <div
       className={cn(
@@ -20,13 +21,13 @@ export function ExpenseItem({ expense, showOwner = false, className }: ExpenseIt
       <div className="flex items-center gap-3 min-w-0">
         <span
           className="shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium"
-          title={expense.userName}
+          title={name}
         >
           {initial}
         </span>
         <div className="min-w-0">
           {showOwner && (
-            <span className="text-xs text-muted-foreground block truncate">{expense.userName}</span>
+            <span className="text-xs text-muted-foreground block truncate">{name}</span>
           )}
           <span className="font-medium text-sm block truncate">{expense.categoryName}</span>
           {expense.note && (
