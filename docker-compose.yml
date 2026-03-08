@@ -7,8 +7,7 @@ services:
       POSTGRES_DB: homefinance
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # Do not publish 5432 on the host (avoids "port already allocated" on Coolify). App reaches db via service name.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U homefinance -d homefinance"]
       interval: 5s
