@@ -4,10 +4,14 @@
 
 ### Added
 
+- **PWA install on iOS**: On iPhone and iPad, Safari does not support the standard install prompt. The app now detects iOS and shows instructions to install manually: tap the Share button (square with arrow) in Safari, then "Add to Home Screen". An apple-touch-icon is set in layout metadata so the home screen icon displays correctly when added.
+
 - **PWA push notifications**: Web Push support so the app can send notifications when in the background or closed. The service worker handles `push` and `notificationclick` (opens the app or a given URL). Users enable notifications in **Settings** (Push notifications section): enable, send a test, or disable. Backend stores subscriptions per user (table `push_subscriptions`); VAPID keys are required (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`). Generate keys with `npm run generate-vapid-keys` and add to env. API: `GET /api/push/vapid-public`, `POST /api/push/subscribe`, `POST /api/push/unsubscribe`, `POST /api/push/send` (test or server-triggered). Requires HTTPS and a supporting browser.
 - **Daily calendar notification**: If there is at least one calendar event today, a push is sent at 10am to all users who have push enabled. The notification says there is an upcoming event and lists the event name(s) and time(s). Schedule the cron endpoint `GET /api/cron/daily-calendar-notification` for 10am daily (e.g. `0 10 * * *` with your timezone). Protect with `CRON_SECRET`: send `Authorization: Bearer <CRON_SECRET>` or `x-cron-secret: <CRON_SECRET>`. If `CRON_SECRET` is not set, the route still runs (for testing); set it in production.
 
 ### Changed
+
+- **PWA manifest (iOS)**: Manifest aligned with iOS-friendly setup: added 180x180 icon (used for iOS home screen via layout apple link), orientation set to `portrait-primary`, and shortcuts for Dashboard, Expenses, and Summary. Layout apple icon now points to `icon-180x180.png`. Regenerate icons with `npm run generate-pwa-icons` to create the new 180x180 asset.
 
 - **Lists**: Navigating to Lists now shows the default list (first list by sort order) directly. If there are no lists, the page shows a message with a link to Settings to add one. Add list and manage lists (create/delete) are in **Settings** under **Shared lists**. The list detail page includes a list switcher (links to other lists) when you have more than one list.
 - **Calendar**: Toolbar (prev/next, Today, view switcher) uses smaller buttons and label on viewports up to 768px to reduce space on mobile.

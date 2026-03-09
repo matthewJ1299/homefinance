@@ -2,6 +2,7 @@
 
 Required for "Add to Home Screen" / install as app:
 
+- `icon-180x180.png` (180x180 px; used as apple-touch-icon on iOS)
 - `icon-192x192.png` (192x192 px)
 - `icon-512x512.png` (512x512 px)
 - `icon-maskable-512x512.png` (512x512 px, with safe zone for maskable icons)

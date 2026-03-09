@@ -1,5 +1,5 @@
 /**
- * Generates PWA icons (192x192, 512x512, maskable) into public/icons.
+ * Generates PWA icons (180x180 for iOS, 192x192, 512x512, maskable) into public/icons.
  * Run: node scripts/generate-pwa-icons.mjs
  * Requires: npm install -D sharp
  *
@@ -50,6 +50,7 @@ async function createIcon(size, filename, maskable = false) {
 
 async function main() {
   await mkdir(outDir, { recursive: true });
+  await createIcon(180, "icon-180x180.png", false);
   await createIcon(192, "icon-192x192.png", false);
   await createIcon(512, "icon-512x512.png", false);
   await createIcon(512, "icon-maskable-512x512.png", true);

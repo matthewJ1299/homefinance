@@ -10,9 +10,17 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
+function isIos(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  const platform = (navigator as unknown as { platform?: string }).platform;
+  return /iPad|iPhone|iPod/.test(ua) || (platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
 export function PwaInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
+  const [showIosInstructions, setShowIosInstructions] = useState(false);
   const [dismissed, setDismissed] = useState(true);
   const [isStandalone, setIsStandalone] = useState(false);
 
@@ -25,6 +33,13 @@ export function PwaInstallPrompt() {
 
     if (standalone || alreadyDismissed) {
       setDismissed(true);
+      return;
+    }
+
+    const ios = isIos();
+    if (ios) {
+      setShowIosInstructions(true);
+      setDismissed(false);
       return;
     }
 
@@ -53,14 +68,30 @@ export function PwaInstallPrompt() {
     localStorage.setItem(DISMISS_STORAGE_KEY, "1");
   };
 
-  if (isStandalone || dismissed || !deferredPrompt) return null;
+  const showPrompt = !isStandalone && !dismissed && (deferredPrompt != null || showIosInstructions);
+  if (!showPrompt) return null;
+
+  const containerClass =
+    "fixed bottom-20 left-4 right-4 z-40 md:bottom-4 md:left-auto md:right-4 md:max-w-sm rounded-lg border border-border bg-background p-3 shadow-lg";
+
+  if (showIosInstructions) {
+    return (
+      <div role="region" aria-label="Install app on iOS" className={containerClass}>
+        <p className="text-sm text-muted-foreground mb-2">
+          To install HomeFinance on your iPhone or iPad: tap the <strong>Share</strong> button
+          (square with arrow) at the bottom of Safari, then tap <strong>Add to Home Screen</strong>.
+        </p>
+        <div className="flex justify-end">
+          <Button size="sm" variant="outline" onClick={handleDismiss}>
+            Not now
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div
-      role="region"
-      aria-label="Install app"
-      className="fixed bottom-20 left-4 right-4 z-40 md:bottom-4 md:left-auto md:right-4 md:max-w-sm rounded-lg border border-border bg-background p-3 shadow-lg"
-    >
+    <div role="region" aria-label="Install app" className={containerClass}>
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           Install HomeFinance for quick access.

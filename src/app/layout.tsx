@@ -31,6 +31,9 @@ export const metadata: Metadata = {
   title: "HomeFinance",
   description: "Home finance tracker for two",
   manifest: "/manifest.webmanifest",
+  icons: {
+    apple: "/icons/icon-180x180.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
