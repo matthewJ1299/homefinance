@@ -71,6 +71,24 @@ async function pushPostgres(): Promise<void> {
         console.log("Postgres migration 0002 (recurring) applied.");
       }
     }
+
+    const hasCalendarEvents = await client.query(
+      "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'calendar_events'"
+    );
+    if (hasCalendarEvents.rows.length === 0) {
+      const migration0003Path = path.join(process.cwd(), "drizzle", "0003_calendar_events_pg.sql");
+      if (fs.existsSync(migration0003Path)) {
+        const sql0003 = fs.readFileSync(migration0003Path, "utf-8");
+        const statements0003 = sql0003
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statements0003) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration 0003 (calendar_events) applied.");
+      }
+    }
   } finally {
     await client.end();
   }
@@ -98,7 +116,28 @@ async function pushSqlite(): Promise<void> {
     "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
   );
   if (tableExists.length > 0 && tableExists[0].values.length > 0) {
-    console.log("Schema already applied (users table exists).");
+    const hasCalendarEvents = db.exec(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='calendar_events'"
+    );
+    if (hasCalendarEvents.length > 0 && hasCalendarEvents[0].values.length > 0) {
+      console.log("Schema already applied (users and calendar_events exist).");
+      db.close();
+      return;
+    }
+    const migration0003Path = path.join(process.cwd(), "drizzle", "0003_calendar_events.sql");
+    if (fs.existsSync(migration0003Path)) {
+      const sql0003 = fs.readFileSync(migration0003Path, "utf-8");
+      const statements0003 = sql0003
+        .split(/--> statement-breakpoint\n?/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      for (const stmt of statements0003) {
+        db.run(stmt);
+      }
+      console.log("SQLite migration 0003 (calendar_events) applied.");
+    }
+    const data = db.export();
+    fs.writeFileSync(dbPath, Buffer.from(data));
     db.close();
     return;
   }
@@ -139,6 +178,18 @@ async function pushSqlite(): Promise<void> {
       .map((s) => s.trim())
       .filter(Boolean);
     for (const stmt of statements0002) {
+      db.run(stmt);
+    }
+  }
+
+  const migration0003Path = path.join(process.cwd(), "drizzle", "0003_calendar_events.sql");
+  if (fs.existsSync(migration0003Path)) {
+    const sql0003 = fs.readFileSync(migration0003Path, "utf-8");
+    const statements0003 = sql0003
+      .split(/--> statement-breakpoint\n?/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    for (const stmt of statements0003) {
       db.run(stmt);
     }
   }

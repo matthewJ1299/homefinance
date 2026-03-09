@@ -1,0 +1,171 @@
+@import "react-big-calendar/lib/css/react-big-calendar.css";
+
+/* Themed overrides to match site (background, foreground, primary, border, radius) */
+.calendar-theme .rbc-off-range {
+  color: var(--muted-foreground);
+}
+
+.calendar-theme .rbc-off-range-bg {
+  background: var(--muted);
+}
+
+.calendar-theme .rbc-header {
+  border-color: var(--border);
+  color: var(--foreground);
+}
+
+.calendar-theme .rbc-header + .rbc-header {
+  border-left-color: var(--border);
+}
+
+.calendar-theme .rbc-rtl .rbc-header + .rbc-header {
+  border-right-color: var(--border);
+}
+
+.calendar-theme .rbc-today {
+  background-color: var(--accent);
+}
+
+.calendar-theme .rbc-toolbar button {
+  color: var(--foreground);
+  border-color: var(--border);
+  background: var(--background);
+  border-radius: var(--radius);
+}
+
+.calendar-theme .rbc-toolbar button:hover,
+.calendar-theme .rbc-toolbar button:focus {
+  background-color: var(--accent);
+  border-color: var(--border);
+  color: var(--accent-foreground);
+}
+
+.calendar-theme .rbc-toolbar button:active,
+.calendar-theme .rbc-toolbar button.rbc-active {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.calendar-theme .rbc-toolbar button:active:hover,
+.calendar-theme .rbc-toolbar button.rbc-active:hover {
+  background-color: var(--primary);
+  opacity: 0.9;
+  color: var(--primary-foreground);
+}
+
+.calendar-theme .rbc-toolbar .rbc-toolbar-label {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.calendar-theme .rbc-event,
+.calendar-theme .rbc-day-slot .rbc-background-event {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  border-radius: var(--radius);
+}
+
+.calendar-theme .rbc-event.rbc-selected,
+.calendar-theme .rbc-day-slot .rbc-selected.rbc-background-event {
+  background-color: var(--primary);
+  opacity: 0.9;
+}
+
+.calendar-theme .rbc-event:focus,
+.calendar-theme .rbc-day-slot .rbc-background-event:focus {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.calendar-theme .rbc-show-more {
+  background-color: var(--accent);
+  color: var(--primary);
+}
+
+.calendar-theme .rbc-show-more:hover,
+.calendar-theme .rbc-show-more:focus {
+  color: var(--primary);
+  opacity: 0.9;
+}
+
+.calendar-theme .rbc-month-view {
+  border-color: var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.calendar-theme .rbc-month-row + .rbc-month-row {
+  border-top-color: var(--border);
+}
+
+.calendar-theme .rbc-day-bg + .rbc-day-bg {
+  border-left-color: var(--border);
+}
+
+.calendar-theme .rbc-rtl .rbc-day-bg + .rbc-day-bg {
+  border-right-color: var(--border);
+}
+
+.calendar-theme .rbc-selected-cell {
+  background-color: var(--accent);
+}
+
+.calendar-theme .rbc-overlay {
+  border-color: var(--border);
+  background-color: var(--popover);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.calendar-theme .rbc-overlay-header {
+  border-bottom-color: var(--border);
+}
+
+.calendar-theme .rbc-agenda-view table.rbc-agenda-table {
+  border-color: var(--border);
+}
+
+.calendar-theme .rbc-agenda-view table.rbc-agenda-table tbody > tr > td + td,
+.calendar-theme .rbc-agenda-view table.rbc-agenda-table tbody > tr + tr,
+.calendar-theme .rbc-agenda-view table.rbc-agenda-table thead > tr > th {
+  border-color: var(--border);
+}
+
+.calendar-theme .rbc-timeslot-group {
+  border-bottom-color: var(--border);
+}
+
+.calendar-theme .rbc-time-header-content,
+.calendar-theme .rbc-time-content {
+  border-left-color: var(--border);
+}
+
+.calendar-theme .rbc-day-slot .rbc-time-slot {
+  border-top-color: var(--border);
+}
+
+.calendar-theme .rbc-time-view {
+  border-color: var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.calendar-theme .rbc-current-time-indicator {
+  background-color: var(--destructive);
+}
+
+.calendar-theme .rbc-label {
+  color: var(--muted-foreground);
+}
+
+.calendar-theme .rbc-date-cell {
+  color: var(--foreground);
+}
+
+.calendar-theme .rbc-addons-dnd .rbc-addons-dnd-drag-preview {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}

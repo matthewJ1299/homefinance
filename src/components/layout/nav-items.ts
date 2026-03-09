@@ -7,10 +7,12 @@ import {
   BarChart3,
   Settings,
   SplitSquareVertical,
+  CalendarDays,
 } from "lucide-react";
 
 export const navItems: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/expenses", label: "Expenses", icon: Receipt },
   { href: "/splits", label: "Splits", icon: SplitSquareVertical },
   { href: "/budget", label: "Budget", icon: PiggyBank },

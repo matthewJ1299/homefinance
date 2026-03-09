@@ -20,6 +20,8 @@ import { BudgetRepository } from "./sqlite/budget.repository";
 import { MortgageRepository } from "./sqlite/mortgage.repository";
 import type { IBudgetRepository } from "./interfaces/budget.repository";
 import type { IMortgageRepository } from "./interfaces/mortgage.repository";
+import type { ICalendarEventRepository } from "./interfaces/calendar-event.repository";
+import { CalendarEventRepository } from "./sqlite/calendar-event.repository";
 
 let categoryRepo: ICategoryRepository | null = null;
 let expenseRepo: IExpenseRepository | null = null;
@@ -32,6 +34,7 @@ let recurringIncomeRepo: IRecurringIncomeRepository | null = null;
 let recurringExpenseRepo: IRecurringExpenseRepository | null = null;
 let budgetRepo: IBudgetRepository | null = null;
 let mortgageRepo: IMortgageRepository | null = null;
+let calendarEventRepo: ICalendarEventRepository | null = null;
 
 export function getCategoryRepository(): ICategoryRepository {
   if (!categoryRepo) categoryRepo = new CategoryRepository();
@@ -86,5 +89,10 @@ export function getBudgetRepository(): IBudgetRepository {
 export function getMortgageRepository(): IMortgageRepository {
   if (!mortgageRepo) mortgageRepo = new MortgageRepository();
   return mortgageRepo;
+}
+
+export function getCalendarEventRepository(): ICalendarEventRepository {
+  if (!calendarEventRepo) calendarEventRepo = new CalendarEventRepository();
+  return calendarEventRepo;
 }
 
