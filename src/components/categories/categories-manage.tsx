@@ -17,11 +17,10 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { createCategory, updateCategory, reorderCategory, reorderCategories, deleteCategory } from "@/lib/actions/category.actions";
+import { createCategory, updateCategory, reorderCategories, deleteCategory } from "@/lib/actions/category.actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ChevronUp, ChevronDown } from "lucide-react";
 import { SortableCategoryRow } from "./sortable-category-row";
 import type { CategoryWithActive } from "@/lib/types";
 
@@ -177,18 +176,6 @@ export function CategoriesManage({ categories }: CategoriesManageProps) {
     });
   };
 
-  const handleReorder = (id: number, direction: "up" | "down") => {
-    startTransition(async () => {
-      const result = await reorderCategory(id, direction);
-      if (result.success) {
-        router.refresh();
-      } else {
-        setErrorText(result.error ?? "Failed to reorder");
-        setMessage("error");
-      }
-    });
-  };
-
   const handleDelete = (id: number, name: string) => {
     if (!confirm(`Permanently delete "${name}"? This cannot be undone.`)) return;
     setErrorText("");
@@ -299,33 +286,9 @@ export function CategoriesManage({ categories }: CategoriesManageProps) {
             strategy={verticalListSortingStrategy}
           >
             <ul className="space-y-2">
-              {categories.map((c, index) => (
+              {categories.map((c) => (
                 <SortableCategoryRow key={c.id} category={c}>
-                  <div className="flex flex-col shrink-0">
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="h-7 w-7"
-                  onClick={() => handleReorder(c.id, "up")}
-                  disabled={index === 0 || isPending}
-                  aria-label={`Move ${c.name} up`}
-                >
-                  <ChevronUp className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="h-7 w-7"
-                  onClick={() => handleReorder(c.id, "down")}
-                  disabled={index === categories.length - 1 || isPending}
-                  aria-label={`Move ${c.name} down`}
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </div>
-              {editingId === c.id ? (
+                  {editingId === c.id ? (
                 <>
                   <Input
                     type="text"

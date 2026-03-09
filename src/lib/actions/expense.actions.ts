@@ -11,8 +11,10 @@ import {
   getCategoryRepository,
   getUserRepository,
   getSplitSettlementRepository,
+  getSplitAllocationRepository,
   getIncomeRepository,
 } from "@/lib/repositories";
+import type { ExpenseWithDetails } from "@/lib/types";
 import { createExpenseSchema, updateExpenseSchema } from "@/lib/validators/expense.schema";
 import { createSplitExpenseSchema } from "@/lib/validators/split.schema";
 import { formatRand } from "@/lib/utils/currency";
@@ -124,9 +126,47 @@ export async function addExpense(formData: {
   return { success: true, id, warning };
 }
 
+export type GetExpenseForEditResult =
+  | { success: true; expense: ExpenseWithDetails; allocations?: Array<{ userId: number; userName: string; amount: number }> }
+  | { success: false; error: string };
+
+export async function getExpenseForEdit(expenseId: number): Promise<GetExpenseForEditResult> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, error: "Unauthorized" };
+  }
+  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  const expenseRepo = getExpenseRepository();
+  const expense = await expenseRepo.findById(expenseId);
+  if (!expense) {
+    return { success: false, error: "Expense not found." };
+  }
+  if (expense.userId !== Number(session.user.id)) {
+    return { success: false, error: "You can only edit your own expenses." };
+  }
+  if (!expense.splitGroupId) {
+    return { success: true, expense };
+  }
+  const allocationRepo = getSplitAllocationRepository();
+  const allocations = await allocationRepo.findByExpenseId(expenseId);
+  return {
+    success: true,
+    expense,
+    allocations: allocations.map((a) => ({ userId: a.userId, userName: a.userName, amount: a.amount })),
+  };
+}
+
 export async function updateExpense(
   id: number,
-  formData: { categoryId?: number; amount?: number; note?: string | null; date?: string }
+  formData: {
+    categoryId?: number;
+    amount?: number;
+    note?: string | null;
+    date?: string;
+    splitType?: "equal" | "full" | "exact";
+    myShareCents?: number;
+    otherShareCents?: number;
+  }
 ): Promise<ExpenseActionResult> {
   const session = await auth();
   if (!session?.user?.id) {
@@ -137,10 +177,72 @@ export async function updateExpense(
   if (!parsed.success) {
     return { success: false, error: parsed.error.message };
   }
+
+  const expenseRepo = getExpenseRepository();
+  const expense = await expenseRepo.findById(id);
+  if (!expense) {
+    return { success: false, error: "Expense not found." };
+  }
+  if (expense.userId !== Number(session.user.id)) {
+    return { success: false, error: "You can only edit your own expenses." };
+  }
+
+  const updatePayload: { categoryId?: number; amount?: number; note?: string | null; date?: string; month?: string } = {};
+  if (parsed.data.categoryId != null) updatePayload.categoryId = parsed.data.categoryId;
+  if (parsed.data.amount != null) updatePayload.amount = parsed.data.amount;
+  if (parsed.data.note !== undefined) updatePayload.note = parsed.data.note;
+  if (parsed.data.date != null) updatePayload.date = parsed.data.date;
+
   const service = new ExpenseService();
-  await service.update(id, Number(session.user.id), parsed.data);
+  await service.update(id, Number(session.user.id), updatePayload);
+
+  const isSplit = Boolean(expense.splitGroupId);
+  const shouldUpdateAllocations =
+    isSplit && (parsed.data.splitType != null || parsed.data.amount != null);
+  if (shouldUpdateAllocations) {
+    const allocationRepo = getSplitAllocationRepository();
+    const userRepo = getUserRepository();
+    const otherUsers = await userRepo.findAllExcept(expense.userId);
+    const otherUser = otherUsers[0];
+    if (!otherUser) {
+      revalidatePath("/dashboard");
+      revalidatePath("/expenses");
+      revalidatePath("/splits");
+      return { success: true };
+    }
+    const totalCents = parsed.data.amount ?? expense.amount;
+    let amountOwed: number;
+    if (parsed.data.splitType != null) {
+      switch (parsed.data.splitType) {
+        case "equal":
+          amountOwed = Math.floor(totalCents / 2);
+          break;
+        case "full":
+          amountOwed = totalCents;
+          break;
+        case "exact":
+          amountOwed = parsed.data.otherShareCents ?? 0;
+          break;
+        default:
+          amountOwed = Math.floor(totalCents / 2);
+      }
+    } else {
+      const currentAllocations = await allocationRepo.findByExpenseId(id);
+      const currentOtherShare = currentAllocations.reduce((s, a) => s + a.amount, 0);
+      amountOwed =
+        expense.amount > 0
+          ? Math.round((totalCents * currentOtherShare) / expense.amount)
+          : Math.floor(totalCents / 2);
+    }
+    await allocationRepo.deleteByExpenseId(id);
+    if (amountOwed > 0) {
+      await allocationRepo.create(id, otherUser.id, amountOwed);
+    }
+  }
+
   revalidatePath("/dashboard");
   revalidatePath("/expenses");
+  revalidatePath("/splits");
   return { success: true };
 }
 

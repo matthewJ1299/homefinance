@@ -71,7 +71,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <QuickAddForm categories={categories} userId={userId} otherUserName={otherUserName} splitGroups={splitGroups} />
       </section>
       <CollapsibleSection title="Recent expenses" defaultOpen>
-        <ExpenseList expenses={expensePage.expenses} />
+        <ExpenseList
+          expenses={expensePage.expenses}
+          categories={categories}
+          otherUserName={otherUserName}
+        />
         <ExpenseListPagination
           month={month}
           page={expensePage.page}

@@ -92,7 +92,12 @@ export function ExpensesPageClient({
         <h2 className="sr-only">Add expense</h2>
         <QuickAddForm categories={categories} userId={currentUserId} splitGroups={splitGroups} />
       </section>
-      <ExpenseList expenses={filteredExpenses} showOwner={view === "combined"} />
+      <ExpenseList
+        expenses={filteredExpenses}
+        showOwner={view === "combined"}
+        categories={categories}
+        otherUserName={users.find((u) => u.id !== currentUserId)?.name}
+      />
     </div>
   );
 }

@@ -1,14 +1,23 @@
 import type { ExpenseWithDetails } from "@/lib/types";
+import type { Category } from "@/lib/types";
 import { ExpenseItem } from "./expense-item";
 import { format } from "date-fns";
 
 interface ExpenseListProps {
   expenses: ExpenseWithDetails[];
   showOwner?: boolean;
+  categories?: Category[];
+  otherUserName?: string;
   className?: string;
 }
 
-export function ExpenseList({ expenses, showOwner = false, className }: ExpenseListProps) {
+export function ExpenseList({
+  expenses,
+  showOwner = false,
+  categories = [],
+  otherUserName,
+  className,
+}: ExpenseListProps) {
   const byDate = expenses.reduce<Record<string, ExpenseWithDetails[]>>((acc, e) => {
     (acc[e.date] ??= []).push(e);
     return acc;
@@ -32,7 +41,13 @@ export function ExpenseList({ expenses, showOwner = false, className }: ExpenseL
           </h3>
           <div className="space-y-0">
             {byDate[date].map((expense) => (
-              <ExpenseItem key={expense.id} expense={expense} showOwner={showOwner} />
+              <ExpenseItem
+                key={expense.id}
+                expense={expense}
+                showOwner={showOwner}
+                categories={categories}
+                otherUserName={otherUserName}
+              />
             ))}
           </div>
         </div>

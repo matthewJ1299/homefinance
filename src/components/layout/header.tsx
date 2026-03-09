@@ -19,7 +19,7 @@ export async function Header() {
           href="/dashboard"
           className="font-semibold text-foreground hover:underline"
         >
-          HomeFinance
+          Home
         </Link>
         <div className="flex items-center gap-2">
           <MobileNavMenu />
