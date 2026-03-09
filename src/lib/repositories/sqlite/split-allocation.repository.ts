@@ -36,14 +36,19 @@ export class SplitAllocationRepository {
     }));
   }
 
-  async findAllForBalance(): Promise<SplitAllocationBalanceRow[]> {
+  async findAllForBalance(groupId?: number): Promise<SplitAllocationBalanceRow[]> {
+    let sql =
+      "SELECT sa.amount, e.paid_by_user_id, sa.user_id AS allocation_user_id FROM split_allocations sa INNER JOIN expenses e ON sa.expense_id = e.id WHERE e.paid_by_user_id IS NOT NULL";
+    const params: number[] = [];
+    if (groupId != null) {
+      sql += " AND e.split_expense_group_id = ?";
+      params.push(groupId);
+    }
     const rows = await all<{
       amount: number;
       paid_by_user_id: number;
       allocation_user_id: number;
-    }>(
-      "SELECT sa.amount, e.paid_by_user_id, sa.user_id AS allocation_user_id FROM split_allocations sa INNER JOIN expenses e ON sa.expense_id = e.id WHERE e.paid_by_user_id IS NOT NULL"
-    );
+    }>(sql, params);
     const result: SplitAllocationBalanceRow[] = [];
     for (const r of rows) {
       const payer = await get<{ name: string }>("SELECT name FROM users WHERE id = ?", [r.paid_by_user_id]);

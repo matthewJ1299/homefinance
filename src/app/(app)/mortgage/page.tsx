@@ -40,10 +40,7 @@ export default async function MortgagePage() {
   }
 
   const userNameById = new Map(usersForForm.map((u) => [u.id, u.name]));
-  const currentBalance =
-    schedule.schedule.length > 0
-      ? schedule.schedule[schedule.schedule.length - 1].closingBalance
-      : config.loanAmount;
+  const currentBalance = schedule.currentBalance ?? config.loanAmount;
 
   const uc0 = userConfigs.find((c) => c.userId === usersForForm[0]?.id);
   const uc1 = userConfigs.find((c) => c.userId === usersForForm[1]?.id);

@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import type { ExpenseWithDetails } from "@/lib/types";
 import type { IncomeEntry } from "@/lib/repositories/interfaces/income.repository";
-import type { Category } from "@/lib/types";
+import type { Category, SplitGroup } from "@/lib/types";
 import type { UserSummary } from "@/lib/repositories/interfaces/user.repository";
 import { ExpensesViewToggle, viewToUserId, type ExpensesView } from "./expenses-view-toggle";
 import { ExpenseList } from "./expense-list";
@@ -15,6 +15,7 @@ interface ExpensesPageClientProps {
   currentUserId: number;
   users: UserSummary[];
   categories: Category[];
+  splitGroups?: SplitGroup[];
   expenses: ExpenseWithDetails[];
   incomeEntries: IncomeEntry[];
   initialView: ExpensesView;
@@ -39,6 +40,7 @@ export function ExpensesPageClient({
   currentUserId,
   users,
   categories,
+  splitGroups = [],
   expenses,
   incomeEntries,
   initialView,
@@ -88,7 +90,7 @@ export function ExpensesPageClient({
       </div>
       <section>
         <h2 className="sr-only">Add expense</h2>
-        <QuickAddForm categories={categories} userId={currentUserId} />
+        <QuickAddForm categories={categories} userId={currentUserId} splitGroups={splitGroups} />
       </section>
       <ExpenseList expenses={filteredExpenses} showOwner={view === "combined"} />
     </div>

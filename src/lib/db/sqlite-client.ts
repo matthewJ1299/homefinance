@@ -36,6 +36,48 @@ function applyMigrationIfNeeded(): void {
   }
 }
 
+function applyMigration0001IfNeeded(): void {
+  if (!sqlJsDb) return;
+  const check = sqlJsDb.exec(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='split_groups'"
+  );
+  if (check.length > 0 && check[0].values.length > 0) return;
+
+  const migrationPath = path.join(process.cwd(), "drizzle", "0001_split_groups.sql");
+  if (!fs.existsSync(migrationPath)) return;
+
+  const sqlContent = fs.readFileSync(migrationPath, "utf-8");
+  const statements = sqlContent
+    .split(/--> statement-breakpoint\n?/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  for (const stmt of statements) {
+    sqlJsDb.run(stmt);
+  }
+}
+
+function applyMigration0002IfNeeded(): void {
+  if (!sqlJsDb) return;
+  const check = sqlJsDb.exec(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='recurring_income'"
+  );
+  if (check.length > 0 && check[0].values.length > 0) return;
+
+  const migrationPath = path.join(process.cwd(), "drizzle", "0002_recurring.sql");
+  if (!fs.existsSync(migrationPath)) return;
+
+  const sqlContent = fs.readFileSync(migrationPath, "utf-8");
+  const statements = sqlContent
+    .split(/--> statement-breakpoint\n?/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  for (const stmt of statements) {
+    sqlJsDb.run(stmt);
+  }
+}
+
 function reloadFromFileIfNewer(): void {
   if (!sqlJsDb || !sqlJsModule || !fs.existsSync(dbPath)) return;
   const stat = fs.statSync(dbPath);
@@ -48,6 +90,8 @@ function reloadFromFileIfNewer(): void {
   sqlJsDb = next;
   lastLoadMtimeMs = stat.mtimeMs;
   applyMigrationIfNeeded();
+  applyMigration0001IfNeeded();
+  applyMigration0002IfNeeded();
 }
 
 async function getDb(): Promise<SqlJsDatabase> {
@@ -81,6 +125,8 @@ const sqliteClient: IDbClient = {
     sqlJsDb.run("PRAGMA foreign_keys = ON;");
     sqlJsDb.run("PRAGMA journal_mode = WAL;");
     applyMigrationIfNeeded();
+    applyMigration0001IfNeeded();
+    applyMigration0002IfNeeded();
   },
 
   saveDb(): void {

@@ -1,5 +1,23 @@
 export type IncomeType = "salary" | "ad_hoc";
 
+export interface RecurringIncome {
+  id: number;
+  userId: number;
+  amount: number;
+  type: IncomeType;
+  description: string | null;
+  dayOfMonth: number;
+}
+
+export interface RecurringExpense {
+  id: number;
+  userId: number;
+  categoryId: number;
+  amount: number;
+  note: string | null;
+  dayOfMonth: number;
+}
+
 export type CostType = "fixed" | "variable";
 
 export interface Category {
@@ -15,6 +33,13 @@ export interface Category {
 
 export type CategoryWithActive = Category & { isActive: boolean };
 
+export interface SplitGroup {
+  id: number;
+  name: string;
+  isDefault: boolean;
+  sortOrder: number;
+}
+
 export interface ExpenseWithDetails {
   id: number;
   userId: number;
@@ -27,6 +52,7 @@ export interface ExpenseWithDetails {
   createdAt: string;
   splitGroupId?: string | null;
   paidByUserId?: number | null;
+  splitExpenseGroupId?: number | null;
 }
 
 export type SplitType = "equal" | "full" | "exact";

@@ -6,7 +6,7 @@ Required for "Add to Home Screen" / install as app:
 - `icon-512x512.png` (512x512 px)
 - `icon-maskable-512x512.png` (512x512 px, with safe zone for maskable icons)
 
-Generate placeholder icons (theme-colored) with:
+Icons show a house on the theme green background. Regenerate with:
 
 ```bash
 npm run generate-pwa-icons

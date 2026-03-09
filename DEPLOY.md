@@ -211,6 +211,17 @@ The browser has a session cookie signed with a different `AUTH_SECRET`. Fix: cle
 
 **SQLite:** The app applies the schema automatically on first start when the database has no tables. If you still see this, ensure the container has write access to `/app/data` and that the volume is mounted correctly.
 
+### groupId missing / Splits or Settle errors
+
+The app uses **split groups** (e.g. Default, Home, Wedding) and requires the `split_groups` table and related columns. If you see "groupId" validation errors or missing group when using Splits or Settle, the database is missing the 0001/0002 migrations.
+
+**How to run migrations:**
+
+- **Postgres:** Run the push script. It applies the base schema (0000) when the `users` table is missing, then applies 0001 (split_groups) when `split_groups` is missing, and 0002 (recurring_income / recurring_expenses) when `recurring_income` is missing. No separate migrate step: just run `npx tsx src/lib/db/push.ts` inside the app container (or wherever `DATABASE_URL` is set). You should see log lines like "Postgres migration 0001 (split_groups) applied." and "Postgres migration 0002 (recurring) applied." if those tables were missing.
+- **SQLite:** Migrations 0001 and 0002 run automatically when the app starts (when the DB is opened) if the corresponding tables do not exist. Ensure the app has run at least once against the SQLite file so that `split_groups` and recurring tables are created.
+
+After migrations, the Default split group exists and the Splits page works without "groupId missing".
+
 ### EACCES: permission denied, open '/app/data/sqlite.db'
 
 The app runs as user `nextjs` (uid 1001). If the DB file was created by root (e.g. you ran the seed via `docker exec` without `-u nextjs`), the app cannot write to it. Fix ownership once:

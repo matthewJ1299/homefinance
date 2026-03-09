@@ -2,6 +2,7 @@ import {
   getExpenseRepository,
   getSplitAllocationRepository,
   getSplitSettlementRepository,
+  getSplitGroupRepository,
   getUserRepository,
   getCategoryRepository,
   getIncomeRepository,
@@ -19,6 +20,7 @@ export class SplitService {
     private expenseRepo = getExpenseRepository(),
     private allocationRepo = getSplitAllocationRepository(),
     private settlementRepo = getSplitSettlementRepository(),
+    private splitGroupRepo = getSplitGroupRepository(),
     private userRepo = getUserRepository(),
     private categoryRepo = getCategoryRepository(),
     private incomeRepo = getIncomeRepository()
@@ -30,13 +32,16 @@ export class SplitService {
     categoryId: number,
     note: string | null,
     date: string,
-    options: CreateSplitOptions
+    options: CreateSplitOptions,
+    groupId?: number
   ): Promise<{ id: number }> {
     const otherUsers = await this.userRepo.findAllExcept(paidByUserId);
     if (otherUsers.length === 0) {
       throw new Error("No other user to split with.");
     }
     const otherUser = otherUsers[0];
+    const resolvedGroupId =
+      groupId ?? (await this.splitGroupRepo.findDefault())?.id ?? null;
     let amountOwed: number;
     switch (options.type) {
       case "equal":
@@ -70,6 +75,7 @@ export class SplitService {
       month,
       splitGroupId,
       paidByUserId,
+      splitExpenseGroupId: resolvedGroupId,
     });
     try {
       await this.allocationRepo.create(expenseId, otherUser.id, amountOwed);
@@ -80,9 +86,9 @@ export class SplitService {
     return { id: expenseId };
   }
 
-  async getBalance(currentUserId: number): Promise<SplitBalance> {
-    const allocations = await this.allocationRepo.findAllForBalance();
-    const settlements = await this.settlementRepo.findAllForUser(currentUserId);
+  async getBalance(currentUserId: number, groupId?: number): Promise<SplitBalance> {
+    const allocations = await this.allocationRepo.findAllForBalance(groupId);
+    const settlements = await this.settlementRepo.findAllForUser(currentUserId, groupId);
 
     const perUserMap = new Map<
       number,
@@ -153,7 +159,8 @@ export class SplitService {
     amountCents: number,
     date: string,
     payerUserName: string,
-    recipientUserName: string
+    recipientUserName: string,
+    groupId: number
   ): Promise<void> {
     const splitsCategory = await this.categoryRepo.findByName("Splits");
     if (!splitsCategory) {
@@ -187,6 +194,7 @@ export class SplitService {
         date,
         expenseId,
         incomeId,
+        splitExpenseGroupId: groupId,
       });
     } catch (e) {
       await this.expenseRepo.delete(expenseId);
@@ -225,6 +233,7 @@ export class SplitService {
         month,
       });
       incomeId = income.id;
+      const defaultGroup = await this.splitGroupRepo.findDefault();
       await this.settlementRepo.create({
         payerUserId,
         recipientUserId,
@@ -232,6 +241,7 @@ export class SplitService {
         date,
         expenseId,
         incomeId,
+        splitExpenseGroupId: defaultGroup?.id ?? null,
       });
     } catch (e) {
       if (incomeId != null) await this.incomeRepo.delete(incomeId);
@@ -239,9 +249,9 @@ export class SplitService {
     }
   }
 
-  async getSplitHistory(userId: number): Promise<SplitHistoryItem[]> {
-    const expenses = await this.expenseRepo.findSplitExpenses();
-    const settlements = await this.settlementRepo.findAllForUser(userId);
+  async getSplitHistory(userId: number, groupId?: number): Promise<SplitHistoryItem[]> {
+    const expenses = await this.expenseRepo.findSplitExpenses(groupId);
+    const settlements = await this.settlementRepo.findAllForUser(userId, groupId);
 
     const result: SplitHistoryItem[] = [];
     for (const exp of expenses) {

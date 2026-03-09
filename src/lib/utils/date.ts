@@ -32,3 +32,11 @@ export function isValidMonth(month: string): boolean {
   const [, y, m] = match.map(Number);
   return m >= 1 && m <= 12 && y >= 2000 && y <= 2100;
 }
+
+/** Returns yyyy-MM-dd for the given month and day, clamping day to last day of month. */
+export function dateForMonthAndDay(month: string, dayOfMonth: number): string {
+  const [y, m] = month.split("-").map(Number);
+  const lastDay = endOfMonth(new Date(y, m - 1, 1)).getDate();
+  const day = Math.min(Math.max(1, dayOfMonth), lastDay);
+  return `${month}-${String(day).padStart(2, "0")}`;
+}

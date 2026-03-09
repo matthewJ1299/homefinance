@@ -193,6 +193,7 @@ export function generateSchedule(
     convergenceAchieved: Math.abs(userAFinal - targetEquityUserA) < 0.01,
     userAFinalEquityPct: userAFinal,
     userBFinalEquityPct: userBFinal,
+    currentBalance: params.loanAmount,
   };
 }
 

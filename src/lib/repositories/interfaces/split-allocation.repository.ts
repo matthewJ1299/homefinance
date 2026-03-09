@@ -20,6 +20,6 @@ export interface SplitAllocationBalanceRow {
 export interface ISplitAllocationRepository {
   create(expenseId: number, userId: number, amount: number): Promise<{ id: number }>;
   findByExpenseId(expenseId: number): Promise<SplitAllocationWithUser[]>;
-  findAllForBalance(): Promise<SplitAllocationBalanceRow[]>;
+  findAllForBalance(groupId?: number): Promise<SplitAllocationBalanceRow[]>;
   deleteByExpenseId(expenseId: number): Promise<void>;
 }

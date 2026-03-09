@@ -17,6 +17,7 @@ export interface CreateIncomeInput {
   description?: string | null;
   date: string;
   month: string;
+  recurringIncomeId?: number | null;
 }
 
 export interface UpdateIncomeInput {
@@ -33,4 +34,5 @@ export interface IIncomeRepository {
   create(data: CreateIncomeInput): Promise<{ id: number }>;
   update(id: number, data: UpdateIncomeInput): Promise<void>;
   delete(id: number): Promise<void>;
+  hasIncomeFromRecurring(recurringIncomeId: number, month: string): Promise<boolean>;
 }

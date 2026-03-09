@@ -21,6 +21,8 @@ export interface ScheduleResult {
   convergenceAchieved: boolean;
   userAFinalEquityPct: number;
   userBFinalEquityPct: number;
+  /** Balance after last actual payment, or loan amount when no payments yet. */
+  currentBalance: number;
 }
 
 export interface MortgageParams {

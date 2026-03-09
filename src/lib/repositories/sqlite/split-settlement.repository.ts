@@ -12,6 +12,7 @@ interface SettlementRow {
   date: string;
   expense_id: number | null;
   income_id: number | null;
+  split_expense_group_id?: number | null;
   payer_name: string;
   recipient_name: string;
 }
@@ -24,9 +25,10 @@ export class SplitSettlementRepository {
     date: string;
     expenseId?: number | null;
     incomeId?: number | null;
+    splitExpenseGroupId?: number | null;
   }): Promise<{ id: number }> {
     await run(
-      "INSERT INTO split_settlements (payer_user_id, recipient_user_id, amount, date, expense_id, income_id) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT INTO split_settlements (payer_user_id, recipient_user_id, amount, date, expense_id, income_id, split_expense_group_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
       [
         data.payerUserId,
         data.recipientUserId,
@@ -34,21 +36,25 @@ export class SplitSettlementRepository {
         data.date,
         data.expenseId ?? null,
         data.incomeId ?? null,
+        data.splitExpenseGroupId ?? null,
       ]
     );
     return { id: await lastInsertId() };
   }
 
-  async findAllForUser(userId: number): Promise<SplitSettlementWithNames[]> {
-    const rows = await all<SettlementRow>(
-      `SELECT ss.id, ss.payer_user_id, ss.recipient_user_id, ss.amount, ss.date, ss.expense_id, ss.income_id,
+  async findAllForUser(userId: number, groupId?: number): Promise<SplitSettlementWithNames[]> {
+    let sql = `SELECT ss.id, ss.payer_user_id, ss.recipient_user_id, ss.amount, ss.date, ss.expense_id, ss.income_id, ss.split_expense_group_id,
               p.name AS payer_name, r.name AS recipient_name
        FROM split_settlements ss
        INNER JOIN users p ON ss.payer_user_id = p.id
        INNER JOIN users r ON ss.recipient_user_id = r.id
-       WHERE ss.payer_user_id = ? OR ss.recipient_user_id = ?`,
-      [userId, userId]
-    );
+       WHERE (ss.payer_user_id = ? OR ss.recipient_user_id = ?)`;
+    const params: (string | number | boolean | null)[] = [userId, userId];
+    if (groupId != null) {
+      sql += " AND ss.split_expense_group_id = ?";
+      params.push(groupId);
+    }
+    const rows = await all<SettlementRow>(sql, params);
     return rows.map((r) => ({
       id: r.id,
       payerUserId: r.payer_user_id,

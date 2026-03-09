@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { SplitBalance, SplitHistoryItem } from "@/lib/types";
+import Link from "next/link";
+import type { SplitBalance, SplitHistoryItem, SplitGroup } from "@/lib/types";
 import { deleteExpense } from "@/lib/actions/expense.actions";
 import { settleSplit } from "@/lib/actions/split.actions";
 import { Button } from "@/components/ui/button";
@@ -15,13 +16,25 @@ import {
 } from "@/components/ui/dialog";
 import { formatRand, toMinorUnits } from "@/lib/utils/currency";
 
+export interface BalancePerGroupItem {
+  groupId: number;
+  groupName: string;
+  balance: SplitBalance;
+}
+
 interface SplitsPageClientProps {
+  groups: SplitGroup[];
+  balancePerGroup: BalancePerGroupItem[];
+  selectedGroupId: number | null;
   balance: SplitBalance;
   history: SplitHistoryItem[];
   currentUserId: number;
 }
 
 export function SplitsPageClient({
+  groups,
+  balancePerGroup,
+  selectedGroupId,
   balance,
   history,
   currentUserId,
@@ -49,7 +62,7 @@ export function SplitsPageClient({
   };
 
   const handleSettleSubmit = () => {
-    if (!settleRecipient) return;
+    if (!settleRecipient || selectedGroupId == null) return;
     const amountRands = parseFloat(settleAmountRands);
     if (Number.isNaN(amountRands) || amountRands <= 0) {
       setSettleError("Enter a valid amount.");
@@ -66,6 +79,7 @@ export function SplitsPageClient({
         recipientUserId: settleRecipient.userId,
         amountCents,
         date: settleDate,
+        groupId: selectedGroupId,
       });
       if (result.success) {
         setSettleOpen(false);
@@ -86,6 +100,53 @@ export function SplitsPageClient({
 
   return (
     <>
+      {balancePerGroup.length > 0 && (
+        <section>
+          <h2 className="text-sm font-medium mb-2">Summary by group</h2>
+          <div className="flex flex-wrap gap-2">
+            {balancePerGroup.map(({ groupId, groupName, balance: b }) => (
+              <Link
+                key={groupId}
+                href={groupId === selectedGroupId ? "/splits" : `/splits?group=${groupId}`}
+                className={`rounded-lg border p-3 text-sm min-w-[120px] block ${
+                  groupId === selectedGroupId
+                    ? "border-primary bg-primary/5"
+                    : "bg-card hover:bg-accent/50"
+                }`}
+              >
+                <span className="font-medium">{groupName}</span>
+                <div className="text-muted-foreground mt-1">
+                  {b.net > 0 && `You are owed ${formatRand(b.net)}`}
+                  {b.net < 0 && `You owe ${formatRand(-b.net)}`}
+                  {b.net === 0 && "Settled up"}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {groups.length > 1 && (
+        <section>
+          <h2 className="text-sm font-medium mb-2">Group</h2>
+          <div className="flex flex-wrap gap-1">
+            {groups.map((g) => (
+              <Link
+                key={g.id}
+                href={g.id === selectedGroupId ? "/splits" : `/splits?group=${g.id}`}
+                className={`rounded-md px-3 py-1.5 text-sm ${
+                  g.id === selectedGroupId
+                    ? "bg-primary text-primary-foreground"
+                    : "border bg-card hover:bg-accent/50"
+                }`}
+              >
+                {g.name}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section>
         <h2 className="text-sm font-medium mb-2">How much each person owes</h2>
         <div className="rounded-lg border bg-card p-4 space-y-2 text-sm">

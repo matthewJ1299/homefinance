@@ -11,6 +11,7 @@ export const createSplitExpenseSchema = z
     splitType: splitTypeSchema,
     myShareCents: z.number().int().min(0).optional(),
     otherShareCents: z.number().int().min(0).optional(),
+    groupId: z.number().int().positive().optional().nullable(),
   })
   .refine(
     (data) => {
@@ -28,5 +29,6 @@ export const settleSplitSchema = z.object({
   recipientUserId: z.number().int().positive(),
   amountCents: z.number().int().positive(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  groupId: z.number().int().positive(),
 });
 export type SettleSplitInput = z.infer<typeof settleSplitSchema>;

@@ -186,6 +186,7 @@ export async function addSplitExpense(formData: {
   splitType: "equal" | "full" | "exact";
   myShareCents?: number;
   otherShareCents?: number;
+  groupId?: number | null;
 }): Promise<ExpenseActionResult> {
   const session = await auth();
   if (!session?.user?.id) {
@@ -219,13 +220,16 @@ export async function addSplitExpense(formData: {
         : parsed.data.splitType === "full"
           ? { type: "full" as const }
           : { type: "equal" as const };
+    const groupId =
+      parsed.data.groupId != null && parsed.data.groupId > 0 ? parsed.data.groupId : undefined;
     const { id } = await splitService.createSplit(
       userId,
       parsed.data.totalAmountCents,
       parsed.data.categoryId,
       parsed.data.note ?? null,
       parsed.data.date,
-      options
+      options,
+      groupId
     );
     if (categoryRow.name.toLowerCase().trim() === "mortgage") {
       const mortgageService = new MortgageService();

@@ -10,6 +10,12 @@ import type { IIncomeRepository } from "./interfaces/income.repository";
 import type { IUserRepository } from "./interfaces/user.repository";
 import type { ISplitAllocationRepository } from "./interfaces/split-allocation.repository";
 import type { ISplitSettlementRepository } from "./interfaces/split-settlement.repository";
+import type { ISplitGroupRepository } from "./interfaces/split-group.repository";
+import type { IRecurringIncomeRepository } from "./interfaces/recurring-income.repository";
+import type { IRecurringExpenseRepository } from "./interfaces/recurring-expense.repository";
+import { SplitGroupRepository } from "./sqlite/split-group.repository";
+import { RecurringIncomeRepository } from "./sqlite/recurring-income.repository";
+import { RecurringExpenseRepository } from "./sqlite/recurring-expense.repository";
 import { BudgetRepository } from "./sqlite/budget.repository";
 import { MortgageRepository } from "./sqlite/mortgage.repository";
 import type { IBudgetRepository } from "./interfaces/budget.repository";
@@ -21,6 +27,9 @@ let incomeRepo: IIncomeRepository | null = null;
 let userRepo: IUserRepository | null = null;
 let splitAllocationRepo: ISplitAllocationRepository | null = null;
 let splitSettlementRepo: ISplitSettlementRepository | null = null;
+let splitGroupRepo: ISplitGroupRepository | null = null;
+let recurringIncomeRepo: IRecurringIncomeRepository | null = null;
+let recurringExpenseRepo: IRecurringExpenseRepository | null = null;
 let budgetRepo: IBudgetRepository | null = null;
 let mortgageRepo: IMortgageRepository | null = null;
 
@@ -52,6 +61,21 @@ export function getSplitAllocationRepository(): ISplitAllocationRepository {
 export function getSplitSettlementRepository(): ISplitSettlementRepository {
   if (!splitSettlementRepo) splitSettlementRepo = new SplitSettlementRepository();
   return splitSettlementRepo;
+}
+
+export function getSplitGroupRepository(): ISplitGroupRepository {
+  if (!splitGroupRepo) splitGroupRepo = new SplitGroupRepository();
+  return splitGroupRepo;
+}
+
+export function getRecurringIncomeRepository(): IRecurringIncomeRepository {
+  if (!recurringIncomeRepo) recurringIncomeRepo = new RecurringIncomeRepository();
+  return recurringIncomeRepo;
+}
+
+export function getRecurringExpenseRepository(): IRecurringExpenseRepository {
+  if (!recurringExpenseRepo) recurringExpenseRepo = new RecurringExpenseRepository();
+  return recurringExpenseRepo;
 }
 
 export function getBudgetRepository(): IBudgetRepository {

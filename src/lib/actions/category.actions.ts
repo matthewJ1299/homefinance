@@ -25,6 +25,7 @@ export async function createCategory(formData: {
   try {
     const category = await repo.create(parsed.data);
     revalidatePath("/categories");
+    revalidatePath("/settings");
     revalidatePath("/dashboard");
     revalidatePath("/expenses");
     revalidatePath("/budget");
@@ -60,6 +61,7 @@ export async function updateCategory(
   try {
     await repo.update(id, updates);
     revalidatePath("/categories");
+    revalidatePath("/settings");
     revalidatePath("/dashboard");
     revalidatePath("/expenses");
     revalidatePath("/budget");
@@ -92,6 +94,7 @@ export async function reorderCategory(
     await repo.update(id, { sortOrder: neighbour.sortOrder });
     await repo.update(neighbour.id, { sortOrder: current.sortOrder });
     revalidatePath("/categories");
+    revalidatePath("/settings");
     revalidatePath("/dashboard");
     revalidatePath("/expenses");
     revalidatePath("/budget");
@@ -128,6 +131,7 @@ export async function reorderCategories(
       await repo.update(orderedCategoryIds[i]!, { sortOrder: i });
     }
     revalidatePath("/categories");
+    revalidatePath("/settings");
     revalidatePath("/dashboard");
     revalidatePath("/expenses");
     revalidatePath("/budget");
@@ -160,6 +164,7 @@ export async function deleteCategory(id: number): Promise<CategoryActionResult> 
   try {
     await repo.delete(id);
     revalidatePath("/categories");
+    revalidatePath("/settings");
     revalidatePath("/dashboard");
     revalidatePath("/expenses");
     revalidatePath("/budget");

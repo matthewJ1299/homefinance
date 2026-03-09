@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { getCategoryRepository, getUserRepository } from "@/lib/repositories";
+import { getCategoryRepository, getUserRepository, getSplitGroupRepository } from "@/lib/repositories";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { IncomeService } from "@/lib/services/income.service";
 import { SplitService } from "@/lib/services/split.service";
@@ -11,6 +11,7 @@ import { ExpenseListPagination } from "@/components/expenses/expense-list-pagina
 import { IncomeQuickAdd } from "@/components/income/income-quick-add";
 import { IncomeList } from "@/components/income/income-list";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
+import { PopulateMonthButton } from "@/components/dashboard/populate-month-button";
 import { formatRand } from "@/lib/utils/currency";
 import Link from "next/link";
 
@@ -30,13 +31,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const categoryRepo = getCategoryRepository();
   const userRepo = getUserRepository();
+  const splitGroupRepo = getSplitGroupRepository();
   const expenseService = new ExpenseService();
   const incomeService = new IncomeService();
-  const [categories, otherUsers, expensePage, incomeResult, splitBalance] = await Promise.all([
+  const [categories, otherUsers, splitGroups, expensePage, incomeResult, splitBalance] = await Promise.all([
     categoryRepo.findAll(),
     userRepo.findAllExcept(userId),
+    splitGroupRepo.findAll(),
     expenseService.getByMonthPaginated(month, page, EXPENSE_PAGE_SIZE, userId),
-    incomeService.getByMonth(month),
+    incomeService.getByMonth(month, userId),
     new SplitService().getBalance(userId),
   ]);
   const otherUserName = otherUsers[0]?.name;
@@ -44,6 +47,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   return (
     <div className="p-4 space-y-6">
       <MonthNavigator />
+      <section className="flex flex-wrap items-center gap-3">
+        <PopulateMonthButton month={month} />
+        <span className="text-xs text-muted-foreground">
+          <Link href="/settings" className="underline hover:no-underline">Settings</Link>
+        </span>
+      </section>
       {splitBalance.net !== 0 && (
         <section>
           <Link
@@ -59,7 +68,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       )}
       <section>
         <h2 className="sr-only">Quick add expense</h2>
-        <QuickAddForm categories={categories} userId={userId} otherUserName={otherUserName} />
+        <QuickAddForm categories={categories} userId={userId} otherUserName={otherUserName} splitGroups={splitGroups} />
       </section>
       <CollapsibleSection title="Recent expenses" defaultOpen>
         <ExpenseList expenses={expensePage.expenses} />

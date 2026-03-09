@@ -14,27 +14,63 @@ async function pushPostgres(): Promise<void> {
   const client = new pg.Client({ connectionString: url });
   await client.connect();
   try {
-    const res = await client.query(
+    const hasUsers = await client.query(
       "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users'"
     );
-    if (res.rows.length > 0) {
-      console.log("Schema already applied (users table exists).");
-      return;
+    if (hasUsers.rows.length === 0) {
+      const migrationPath = path.join(process.cwd(), "drizzle", "0000_init_pg.sql");
+      if (!fs.existsSync(migrationPath)) {
+        console.error("Migration file not found: drizzle/0000_init_pg.sql");
+        process.exit(1);
+      }
+      const sqlContent = fs.readFileSync(migrationPath, "utf-8");
+      const statements = sqlContent
+        .split(/--> statement-breakpoint\n?/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      for (const stmt of statements) {
+        await client.query(stmt);
+      }
+      console.log("Postgres schema (0000) applied.");
+    } else {
+      console.log("Base schema already applied (users table exists).");
     }
-    const migrationPath = path.join(process.cwd(), "drizzle", "0000_init_pg.sql");
-    if (!fs.existsSync(migrationPath)) {
-      console.error("Migration file not found: drizzle/0000_init_pg.sql");
-      process.exit(1);
+
+    const hasSplitGroups = await client.query(
+      "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'split_groups'"
+    );
+    if (hasSplitGroups.rows.length === 0) {
+      const migration0001Path = path.join(process.cwd(), "drizzle", "0001_split_groups_pg.sql");
+      if (fs.existsSync(migration0001Path)) {
+        const sql0001 = fs.readFileSync(migration0001Path, "utf-8");
+        const statements0001 = sql0001
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statements0001) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration 0001 (split_groups) applied.");
+      }
     }
-    const sqlContent = fs.readFileSync(migrationPath, "utf-8");
-    const statements = sqlContent
-      .split(/--> statement-breakpoint\n?/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    for (const stmt of statements) {
-      await client.query(stmt);
+
+    const hasRecurringIncome = await client.query(
+      "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'recurring_income'"
+    );
+    if (hasRecurringIncome.rows.length === 0) {
+      const migration0002Path = path.join(process.cwd(), "drizzle", "0002_recurring_pg.sql");
+      if (fs.existsSync(migration0002Path)) {
+        const sql0002 = fs.readFileSync(migration0002Path, "utf-8");
+        const statements0002 = sql0002
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statements0002) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration 0002 (recurring) applied.");
+      }
     }
-    console.log("Postgres schema applied.");
   } finally {
     await client.end();
   }
@@ -81,6 +117,30 @@ async function pushSqlite(): Promise<void> {
 
   for (const stmt of statements) {
     db.run(stmt);
+  }
+
+  const migration0001Path = path.join(process.cwd(), "drizzle", "0001_split_groups.sql");
+  if (fs.existsSync(migration0001Path)) {
+    const sql0001 = fs.readFileSync(migration0001Path, "utf-8");
+    const statements0001 = sql0001
+      .split(/--> statement-breakpoint\n?/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    for (const stmt of statements0001) {
+      db.run(stmt);
+    }
+  }
+
+  const migration0002Path = path.join(process.cwd(), "drizzle", "0002_recurring.sql");
+  if (fs.existsSync(migration0002Path)) {
+    const sql0002 = fs.readFileSync(migration0002Path, "utf-8");
+    const statements0002 = sql0002
+      .split(/--> statement-breakpoint\n?/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    for (const stmt of statements0002) {
+      db.run(stmt);
+    }
   }
 
   const data = db.export();

@@ -5,7 +5,7 @@ import {
   Wallet,
   PiggyBank,
   BarChart3,
-  FolderOpen,
+  Settings,
   SplitSquareVertical,
 } from "lucide-react";
 
@@ -16,5 +16,5 @@ export const navItems: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/budget", label: "Budget", icon: PiggyBank },
   { href: "/mortgage", label: "Mortgage", icon: Wallet },
   { href: "/summary", label: "Summary", icon: BarChart3 },
-  { href: "/categories", label: "Categories", icon: FolderOpen },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];

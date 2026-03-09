@@ -202,6 +202,8 @@ export class MortgageService {
     const userAName = userConfigs.find((c) => c.userId === userAId)?.userName ?? "User A";
     const userBName = userConfigs.find((c) => c.userId === userBId)?.userName ?? "User B";
 
+    const currentBalance =
+      actualRows.length > 0 ? actualRows[actualRows.length - 1].closingBalance : config.loanAmount;
     return {
       monthlyBasePayment: M,
       monthlyTopUp: topUp,
@@ -211,6 +213,7 @@ export class MortgageService {
       convergenceAchieved: Math.abs((lastRow?.userACumulativeEquityPct ?? 0.5) - targetEquityUserA) < 0.01,
       userAFinalEquityPct: lastRow?.userACumulativeEquityPct ?? 0.5,
       userBFinalEquityPct: lastRow?.userBCumulativeEquityPct ?? 0.5,
+      currentBalance,
       monthlyPaymentUserA,
       monthlyPaymentUserB,
       targetEquityUserAPct: targetEquityUserA,
@@ -323,6 +326,7 @@ export class MortgageService {
       schedule: withExtras.schedule,
       projectedMonths: withExtras.months,
       projectedPayoffDate: lastRow?.date ?? config.startDate,
+      currentBalance: config.loanAmount,
       monthlyPaymentUserA,
       monthlyPaymentUserB,
       targetEquityUserAPct: targetEquityUserA,

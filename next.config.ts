@@ -6,6 +6,14 @@ const nextConfig: NextConfig = {
   output: "standalone",
   outputFileTracingRoot: process.cwd(),
   serverExternalPackages: ["sql.js"],
+  async redirects() {
+    return [
+      { source: "/categories", destination: "/settings", permanent: false },
+      { source: "/split-groups", destination: "/settings", permanent: false },
+      { source: "/recurring-income", destination: "/settings", permanent: false },
+      { source: "/recurring-expenses", destination: "/settings", permanent: false },
+    ];
+  },
 };
 
 const withSerwist = withSerwistInit({

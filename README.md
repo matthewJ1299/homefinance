@@ -4,7 +4,7 @@ Personal finance app for tracking income, expenses, and budgets.
 
 ## Features
 
-- **Income**: Record salary and ad-hoc income per month.
+- **Income**: Record salary and ad-hoc income per month. **Dashboard income** shows only the signed-in user's income for the selected month.
 - **Expenses**: Log expenses by category with optional notes.
   - **Dashboard**: The "Recent" expenses section shows only the signed-in user's expenses.
   - **Expenses page**: Toggle to view **My expenses**, another user's expenses (e.g. partner's), or **Combined** income and expenses for the selected view. Income and expense totals are shown for the active filter.
@@ -18,10 +18,12 @@ Personal finance app for tracking income, expenses, and budgets.
     - If there is no history or no allocations yet, the remainder is split evenly across categories.
   - Opening the budget for a new month automatically fills in carried-over allocations and, for fixed-cost categories with a default amount, that default.
 - **Transfers**: Move budget between categories within a month.
-- **Splits**: Track shared expenses and who owes whom. On the Splits page you see per-person balances (owed to you / you owe). You can settle in two ways: (1) On the **Splits** page use **Settle** and enter the amount (capped at what you owe) and optional date; (2) On the **dashboard**, add an expense with category **Splits** and the amount you paid. In both cases a Splits expense is recorded for you and ad-hoc income for the recipient; the balance is reduced and the settlement appears in **Split history** (e.g. "You paid [name] R X"). The amount you enter when settling from the dashboard cannot exceed what you currently owe.
+- **Splits**: Track shared expenses and who owes whom. **Split groups** (e.g. Home, Wedding) let you keep balances separate: create groups under **Split groups**, then when adding a split expense choose a group (defaults to "Default"). On the **Splits** page you see a summary tile per group and can switch the active group to see "How much each person owes" and **Split history** for that group only. Settling is per group: use **Settle** and the amount is applied to the current group's balance. You can also settle from the dashboard by adding an expense with category **Splits** (applies to the default group).
 - **Summary**: Per-user monthly snapshot (your income, expenses, and budget adherence) and household trends.
-- **Mortgage**: Optional mortgage tracking. The page uses plain-language labels and a single at-a-glance summary (what you owe, total per month, when you will be done paying, each person’s share of the home). The amortisation table and form to change the loan or who pays what are in a collapsible **More details** section below.
+- **Mortgage**: Optional mortgage tracking. The page uses plain-language labels and a single at-a-glance summary (what you still owe - balance after last payment - total per month, when you will be done paying, each person’s share of the home). The amortisation table and form to change the loan or who pays what are in a collapsible **More details** section below.
   - **Past vs future**: Months in which you have recorded payments show **actual** amounts paid (e.g. 10k one month, 5k another). When you change the interest rate or payment (config or user shares), only **future** months are recalculated; past months stay as paid. The projection runs from the current remaining balance, so payoff date and equity reflect the new rate and payment from “today” onward.
+
+- **Recurring income and expenses**: Under **Recurring income** and **Recurring expenses** you define templates (amount, category for expenses, day of month). Each month, use **Populate this month** on the dashboard to create actual income and expense rows from those templates. Population is idempotent: it only creates entries that do not already exist for that month, so you can run it again safely.
 
 ## Setup
 
@@ -76,7 +78,7 @@ See [DEPLOY.md](./DEPLOY.md) for deploying to a VPS with Coolify (Docker + Traef
 
 - `npm run dev` – Start dev server (Turbopack)
 - `npm run build` / `npm run start` – Production build and start
-- `npm run db:push` – Apply schema (Postgres: `drizzle/0000_init_pg.sql` when `DATABASE_URL` is set; SQLite: `drizzle/0000_init.sql` otherwise).
+- `npm run db:push` – Apply schema and migrations. Postgres: runs `0000_init_pg.sql` when the DB is empty, then `0001_split_groups_pg.sql` if `split_groups` is missing, then `0002_recurring_pg.sql` if `recurring_income` is missing. SQLite: runs `0000_init.sql` when the DB is empty (0001 and 0002 are applied automatically at app startup when those tables are missing). Use this after deploying or if you see "groupId missing" on the Splits page.
 - `npm run db:reset` – Recreate DB from scratch (Postgres: drop/recreate public schema; SQLite: delete file). Then run push (and optionally seed). Do not run while the app is using the DB.
 - `npm run db:seed` – Clear all data, then seed users, categories, 3 months of income/expenses, and sample split expenses
 - `npm run db:fresh` – Reset DB then seed (recreate from scratch and seed in one go)

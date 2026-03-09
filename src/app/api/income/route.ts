@@ -10,8 +10,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const month = request.nextUrl.searchParams.get("month") ?? getCurrentMonth();
+  const userId = Number(session.user.id);
   const service = new IncomeService();
-  const result = await service.getByMonth(month);
+  const result = await service.getByMonth(month, userId);
   return NextResponse.json(result);
 }
 

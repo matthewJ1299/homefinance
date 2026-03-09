@@ -10,7 +10,7 @@ import type { SplitBalance, SplitHistoryItem } from "@/lib/types";
 
 export type SettleSplitResult = { success: true } | { success: false; error: string };
 
-export async function getSplitBalance(): Promise<
+export async function getSplitBalance(groupId?: number): Promise<
   { success: true; balance: SplitBalance } | { success: false; error: string }
 > {
   const session = await auth();
@@ -19,11 +19,11 @@ export async function getSplitBalance(): Promise<
   }
   setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   const splitService = new SplitService();
-  const balance = await splitService.getBalance(Number(session.user.id));
+  const balance = await splitService.getBalance(Number(session.user.id), groupId);
   return { success: true, balance };
 }
 
-export async function getSplitHistory(): Promise<
+export async function getSplitHistory(groupId?: number): Promise<
   { success: true; history: SplitHistoryItem[] } | { success: false; error: string }
 > {
   const session = await auth();
@@ -32,7 +32,7 @@ export async function getSplitHistory(): Promise<
   }
   setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   const splitService = new SplitService();
-  const history = await splitService.getSplitHistory(Number(session.user.id));
+  const history = await splitService.getSplitHistory(Number(session.user.id), groupId);
   return { success: true, history };
 }
 
@@ -40,6 +40,7 @@ export async function settleSplit(formData: {
   recipientUserId: number;
   amountCents: number;
   date?: string;
+  groupId: number;
 }): Promise<SettleSplitResult> {
   const session = await auth();
   if (!session?.user?.id) {
@@ -63,12 +64,12 @@ export async function settleSplit(formData: {
   }
 
   const splitService = new SplitService();
-  const balance = await splitService.getBalance(payerUserId);
+  const balance = await splitService.getBalance(payerUserId, parsed.data.groupId);
   const perUser = balance.perUser.find((u) => u.userId === parsed.data.recipientUserId);
   const iOweToRecipient = perUser?.iOwe ?? 0;
   const amountCents = Math.min(parsed.data.amountCents, iOweToRecipient);
   if (amountCents <= 0) {
-    return { success: false, error: "You do not owe this person anything to settle." };
+    return { success: false, error: "You do not owe this person anything to settle in this group." };
   }
 
   const payer = await userRepo.findById(payerUserId);
@@ -85,7 +86,8 @@ export async function settleSplit(formData: {
       amountCents,
       date,
       payer.name,
-      recipient.name
+      recipient.name,
+      parsed.data.groupId
     );
   } catch (err) {
     return {

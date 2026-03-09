@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import type { Category } from "@/lib/types";
+import type { Category, SplitGroup } from "@/lib/types";
 import { addExpense, addSplitExpense } from "@/lib/actions/expense.actions";
 import { useOfflineQueue } from "@/hooks/use-offline-queue";
 import { CategoryPicker } from "./category-picker";
@@ -19,9 +19,10 @@ interface QuickAddFormProps {
   categories: Category[];
   userId: number;
   otherUserName?: string;
+  splitGroups?: SplitGroup[];
 }
 
-export function QuickAddForm({ categories, userId, otherUserName }: QuickAddFormProps) {
+export function QuickAddForm({ categories, userId, otherUserName, splitGroups = [] }: QuickAddFormProps) {
   const router = useRouter();
   const { isOnline, addToQueue, syncQueue } = useOfflineQueue();
   const [isPending, startTransition] = useTransition();
@@ -38,6 +39,8 @@ export function QuickAddForm({ categories, userId, otherUserName }: QuickAddForm
   const [splitType, setSplitType] = useState<SplitType>("equal");
   const [myShareRand, setMyShareRand] = useState("");
   const [otherShareRand, setOtherShareRand] = useState("");
+  const defaultSplitGroupId = splitGroups.find((g) => g.isDefault)?.id ?? splitGroups[0]?.id ?? null;
+  const [splitGroupId, setSplitGroupId] = useState<number | null>(defaultSplitGroupId);
 
   useEffect(() => {
     if (!isOnline) return;
@@ -55,6 +58,7 @@ export function QuickAddForm({ categories, userId, otherUserName }: QuickAddForm
     setSplitType("equal");
     setMyShareRand("");
     setOtherShareRand("");
+    setSplitGroupId(splitGroups.find((g) => g.isDefault)?.id ?? splitGroups[0]?.id ?? null);
     setErrorDetail(null);
     setCategoryDialogOpen(true);
   };
@@ -102,6 +106,7 @@ export function QuickAddForm({ categories, userId, otherUserName }: QuickAddForm
           note: note.trim() || undefined,
           date,
           splitType,
+          groupId: splitGroupId ?? undefined,
           ...(splitType === "exact" && {
             myShareCents: toMinorUnits(parseFloat(myShareRand.replace(/\s/g, "").replace(",", ".")) || 0),
             otherShareCents: toMinorUnits(parseFloat(otherShareRand.replace(/\s/g, "").replace(",", ".")) || 0),
@@ -260,6 +265,22 @@ export function QuickAddForm({ categories, userId, otherUserName }: QuickAddForm
               </label>
               {splitEnabled && (
                 <div className="pl-6 space-y-2 border-l-2 border-muted">
+                  {splitGroups.length > 0 && (
+                    <div>
+                      <Label className="text-xs block mb-1">Group</Label>
+                      <select
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        value={splitGroupId ?? ""}
+                        onChange={(e) => setSplitGroupId(e.target.value ? Number(e.target.value) : null)}
+                      >
+                        {splitGroups.map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {g.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div className="space-y-1">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input

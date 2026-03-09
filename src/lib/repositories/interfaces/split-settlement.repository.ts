@@ -6,6 +6,7 @@ export interface SplitSettlementRow {
   date: string;
   expenseId?: number | null;
   incomeId?: number | null;
+  splitExpenseGroupId?: number | null;
 }
 
 export interface SplitSettlementWithNames extends SplitSettlementRow {
@@ -21,8 +22,9 @@ export interface ISplitSettlementRepository {
     date: string;
     expenseId?: number | null;
     incomeId?: number | null;
+    splitExpenseGroupId?: number | null;
   }): Promise<{ id: number }>;
-  findAllForUser(userId: number): Promise<SplitSettlementWithNames[]>;
+  findAllForUser(userId: number, groupId?: number): Promise<SplitSettlementWithNames[]>;
   findByExpenseId(expenseId: number): Promise<SplitSettlementRow | null>;
   delete(id: number): Promise<void>;
 }

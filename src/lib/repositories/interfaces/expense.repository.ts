@@ -9,6 +9,8 @@ export interface CreateExpenseInput {
   month: string;
   splitGroupId?: string | null;
   paidByUserId?: number | null;
+  splitExpenseGroupId?: number | null;
+  recurringExpenseId?: number | null;
 }
 
 export interface UpdateExpenseInput {
@@ -34,5 +36,6 @@ export interface IExpenseRepository {
   update(id: number, data: UpdateExpenseInput): Promise<void>;
   delete(id: number): Promise<void>;
   deleteBySplitGroupId(splitGroupId: string): Promise<void>;
-  findSplitExpenses(): Promise<ExpenseWithDetails[]>;
+  findSplitExpenses(groupId?: number): Promise<ExpenseWithDetails[]>;
+  hasExpenseFromRecurring(recurringExpenseId: number, month: string): Promise<boolean>;
 }

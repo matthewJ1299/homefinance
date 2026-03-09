@@ -8,7 +8,7 @@ import type {
 
 const SELECT_EXPENSE_DETAILS = `
   SELECT e.id, e.user_id AS "userId", u.name AS "userName", e.category_id AS "categoryId", c.name AS "categoryName",
-         e.amount, e.note, e.date, e.created_at AS "createdAt", e.split_group_id AS "splitGroupId", e.paid_by_user_id AS "paidByUserId"
+         e.amount, e.note, e.date, e.created_at AS "createdAt", e.split_group_id AS "splitGroupId", e.paid_by_user_id AS "paidByUserId", e.split_expense_group_id AS "splitExpenseGroupId"
   FROM expenses e
   INNER JOIN users u ON e.user_id = u.id
   INNER JOIN categories c ON e.category_id = c.id
@@ -26,6 +26,7 @@ interface ExpenseDetailsRow {
   createdAt: string;
   splitGroupId: string | null;
   paidByUserId: number | null;
+  splitExpenseGroupId?: number | null;
 }
 
 function toExpenseWithDetails(r: ExpenseDetailsRow): ExpenseWithDetails {
@@ -41,6 +42,7 @@ function toExpenseWithDetails(r: ExpenseDetailsRow): ExpenseWithDetails {
     createdAt: r.createdAt,
     splitGroupId: r.splitGroupId,
     paidByUserId: r.paidByUserId,
+    splitExpenseGroupId: r.splitExpenseGroupId ?? undefined,
   };
 }
 
@@ -103,7 +105,7 @@ export class ExpenseRepository implements IExpenseRepository {
 
   async create(data: CreateExpenseInput): Promise<{ id: number }> {
     await run(
-      "INSERT INTO expenses (user_id, category_id, amount, note, date, month, split_group_id, paid_by_user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO expenses (user_id, category_id, amount, note, date, month, split_group_id, paid_by_user_id, split_expense_group_id, recurring_expense_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [
         data.userId,
         data.categoryId,
@@ -113,9 +115,19 @@ export class ExpenseRepository implements IExpenseRepository {
         data.month,
         data.splitGroupId ?? null,
         data.paidByUserId ?? null,
+        data.splitExpenseGroupId ?? null,
+        data.recurringExpenseId ?? null,
       ]
     );
     return { id: await lastInsertId() };
+  }
+
+  async hasExpenseFromRecurring(recurringExpenseId: number, month: string): Promise<boolean> {
+    const row = await get<{ id: number }>(
+      "SELECT id FROM expenses WHERE recurring_expense_id = ? AND month = ? LIMIT 1",
+      [recurringExpenseId, month]
+    );
+    return !!row;
   }
 
   async update(id: number, data: UpdateExpenseInput): Promise<void> {
@@ -157,10 +169,15 @@ export class ExpenseRepository implements IExpenseRepository {
     await run("DELETE FROM expenses WHERE id = ?", [row.id]);
   }
 
-  async findSplitExpenses(): Promise<ExpenseWithDetails[]> {
-    const rows = await all<ExpenseDetailsRow>(
-      `${SELECT_EXPENSE_DETAILS} WHERE e.split_group_id IS NOT NULL ORDER BY e.date DESC, e.created_at DESC`
-    );
+  async findSplitExpenses(groupId?: number): Promise<ExpenseWithDetails[]> {
+    let sql = `${SELECT_EXPENSE_DETAILS} WHERE e.split_group_id IS NOT NULL`;
+    const params: (string | number | boolean | null)[] = [];
+    if (groupId != null) {
+      sql += " AND e.split_expense_group_id = ?";
+      params.push(groupId);
+    }
+    sql += " ORDER BY e.date DESC, e.created_at DESC";
+    const rows = await all<ExpenseDetailsRow>(sql, params);
     return rows.map(toExpenseWithDetails);
   }
 }

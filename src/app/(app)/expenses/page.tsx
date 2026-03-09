@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { getCategoryRepository, getUserRepository } from "@/lib/repositories";
+import { getCategoryRepository, getUserRepository, getSplitGroupRepository } from "@/lib/repositories";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { IncomeService } from "@/lib/services/income.service";
 import { getCurrentMonth } from "@/lib/utils/date";
@@ -21,11 +21,13 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
 
   const categoryRepo = getCategoryRepository();
   const userRepo = getUserRepository();
+  const splitGroupRepo = getSplitGroupRepository();
   const expenseService = new ExpenseService();
   const incomeService = new IncomeService();
-  const [categories, users, expenseResult, incomeResult] = await Promise.all([
+  const [categories, users, splitGroups, expenseResult, incomeResult] = await Promise.all([
     categoryRepo.findAll(),
     userRepo.findAll(),
+    splitGroupRepo.findAll(),
     expenseService.getByMonth(month),
     incomeService.getByMonth(month),
   ]);
@@ -38,6 +40,7 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
         currentUserId={currentUserId}
         users={users}
         categories={categories}
+        splitGroups={splitGroups}
         expenses={expenseResult.expenses}
         incomeEntries={incomeResult.entries}
         initialView={initialView}

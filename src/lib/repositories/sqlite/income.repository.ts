@@ -51,7 +51,7 @@ export class IncomeRepository implements IIncomeRepository {
 
   async create(data: CreateIncomeInput): Promise<{ id: number }> {
     await run(
-      "INSERT INTO income (user_id, amount, type, description, date, month) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT INTO income (user_id, amount, type, description, date, month, recurring_income_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
       [
         data.userId,
         data.amount,
@@ -59,9 +59,18 @@ export class IncomeRepository implements IIncomeRepository {
         data.description ?? null,
         data.date,
         data.month,
+        data.recurringIncomeId ?? null,
       ]
     );
     return { id: await lastInsertId() };
+  }
+
+  async hasIncomeFromRecurring(recurringIncomeId: number, month: string): Promise<boolean> {
+    const row = await get<{ id: number }>(
+      "SELECT id FROM income WHERE recurring_income_id = ? AND month = ? LIMIT 1",
+      [recurringIncomeId, month]
+    );
+    return !!row;
   }
 
   async update(id: number, data: UpdateIncomeInput): Promise<void> {
