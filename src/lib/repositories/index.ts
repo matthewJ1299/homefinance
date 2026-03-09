@@ -22,6 +22,12 @@ import type { IBudgetRepository } from "./interfaces/budget.repository";
 import type { IMortgageRepository } from "./interfaces/mortgage.repository";
 import type { ICalendarEventRepository } from "./interfaces/calendar-event.repository";
 import { CalendarEventRepository } from "./sqlite/calendar-event.repository";
+import type { ISharedListRepository } from "./interfaces/shared-list.repository";
+import type { ISharedListItemRepository } from "./interfaces/shared-list-item.repository";
+import type { IPushSubscriptionRepository } from "./interfaces/push-subscription.repository";
+import { SharedListRepository } from "./sqlite/shared-list.repository";
+import { SharedListItemRepository } from "./sqlite/shared-list-item.repository";
+import { PushSubscriptionRepository } from "./sqlite/push-subscription.repository";
 
 let categoryRepo: ICategoryRepository | null = null;
 let expenseRepo: IExpenseRepository | null = null;
@@ -35,6 +41,9 @@ let recurringExpenseRepo: IRecurringExpenseRepository | null = null;
 let budgetRepo: IBudgetRepository | null = null;
 let mortgageRepo: IMortgageRepository | null = null;
 let calendarEventRepo: ICalendarEventRepository | null = null;
+let sharedListRepo: ISharedListRepository | null = null;
+let sharedListItemRepo: ISharedListItemRepository | null = null;
+let pushSubscriptionRepo: IPushSubscriptionRepository | null = null;
 
 export function getCategoryRepository(): ICategoryRepository {
   if (!categoryRepo) categoryRepo = new CategoryRepository();
@@ -94,5 +103,20 @@ export function getMortgageRepository(): IMortgageRepository {
 export function getCalendarEventRepository(): ICalendarEventRepository {
   if (!calendarEventRepo) calendarEventRepo = new CalendarEventRepository();
   return calendarEventRepo;
+}
+
+export function getSharedListRepository(): ISharedListRepository {
+  if (!sharedListRepo) sharedListRepo = new SharedListRepository();
+  return sharedListRepo;
+}
+
+export function getSharedListItemRepository(): ISharedListItemRepository {
+  if (!sharedListItemRepo) sharedListItemRepo = new SharedListItemRepository();
+  return sharedListItemRepo;
+}
+
+export function getPushSubscriptionRepository(): IPushSubscriptionRepository {
+  if (!pushSubscriptionRepo) pushSubscriptionRepo = new PushSubscriptionRepository();
+  return pushSubscriptionRepo;
 }
 

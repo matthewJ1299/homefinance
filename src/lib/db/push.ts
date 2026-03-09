@@ -89,6 +89,42 @@ async function pushPostgres(): Promise<void> {
         console.log("Postgres migration 0003 (calendar_events) applied.");
       }
     }
+
+    const hasSharedLists = await client.query(
+      "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'shared_lists'"
+    );
+    if (hasSharedLists.rows.length === 0) {
+      const migration0004Path = path.join(process.cwd(), "drizzle", "0004_shared_lists_pg.sql");
+      if (fs.existsSync(migration0004Path)) {
+        const sql0004 = fs.readFileSync(migration0004Path, "utf-8");
+        const statements0004 = sql0004
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statements0004) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration 0004 (shared_lists) applied.");
+      }
+    }
+
+    const hasPushSubscriptions = await client.query(
+      "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'push_subscriptions'"
+    );
+    if (hasPushSubscriptions.rows.length === 0) {
+      const migration0005Path = path.join(process.cwd(), "drizzle", "0005_push_subscriptions_pg.sql");
+      if (fs.existsSync(migration0005Path)) {
+        const sql0005 = fs.readFileSync(migration0005Path, "utf-8");
+        const statements0005 = sql0005
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statements0005) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration 0005 (push_subscriptions) applied.");
+      }
+    }
   } finally {
     await client.end();
   }

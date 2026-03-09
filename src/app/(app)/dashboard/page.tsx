@@ -1,5 +1,7 @@
+import { format } from "date-fns";
 import { auth } from "@/lib/auth";
 import { getCategoryRepository, getUserRepository, getSplitGroupRepository } from "@/lib/repositories";
+import { CalendarService } from "@/lib/services/calendar.service";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { IncomeService } from "@/lib/services/income.service";
 import { SplitService } from "@/lib/services/split.service";
@@ -12,6 +14,7 @@ import { IncomeQuickAdd } from "@/components/income/income-quick-add";
 import { IncomeList } from "@/components/income/income-list";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { PopulateMonthButton } from "@/components/dashboard/populate-month-button";
+import { TodayCalendarTile } from "@/components/dashboard/today-calendar-tile";
 import { formatRand } from "@/lib/utils/currency";
 import Link from "next/link";
 
@@ -34,13 +37,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const splitGroupRepo = getSplitGroupRepository();
   const expenseService = new ExpenseService();
   const incomeService = new IncomeService();
-  const [categories, otherUsers, splitGroups, expensePage, incomeResult, splitBalance] = await Promise.all([
+  const calendarService = new CalendarService();
+  const today = format(new Date(), "yyyy-MM-dd");
+  const [categories, otherUsers, splitGroups, expensePage, incomeResult, splitBalance, todayEvents] = await Promise.all([
     categoryRepo.findAll(),
     userRepo.findAllExcept(userId),
     splitGroupRepo.findAll(),
     expenseService.getByMonthPaginated(month, page, EXPENSE_PAGE_SIZE, userId),
     incomeService.getByMonth(month, userId),
     new SplitService().getBalance(userId),
+    calendarService.getByDateRange(today, today),
   ]);
   const otherUserName = otherUsers[0]?.name;
 
@@ -52,6 +58,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <span className="text-xs text-muted-foreground">
           <Link href="/settings" className="underline hover:no-underline">Settings</Link>
         </span>
+      </section>
+      <section className="max-w-xs">
+        <TodayCalendarTile occurrences={todayEvents} />
       </section>
       {splitBalance.net !== 0 && (
         <section>

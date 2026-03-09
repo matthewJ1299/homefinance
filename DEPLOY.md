@@ -121,8 +121,22 @@ Go to the **Environment Variables** tab and add:
 | `DATABASE_URL` | For Postgres | Connection URL, e.g. `postgresql://user:password@host:5432/dbname`. When set, the app uses Postgres instead of SQLite. With Docker Compose, the app service gets this from the compose file (or override in Coolify). With Coolify Postgres resource, use the URL Coolify provides. |
 | `DB_PATH` | No (SQLite only) | Default: `/app/data/sqlite.db`. Only set if using SQLite and a different path. |
 | `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD`, etc. | No | Used when running db:seed to create initial users from env (see **Running db:seed on the server**). |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | No (for push) | Required for PWA push notifications. Generate with `npm run generate-vapid-keys` and add both to env. Without them, users cannot enable notifications in Settings. |
+| `CRON_SECRET` | No (for daily calendar) | Secret for the 10am daily calendar notification cron. If set, requests to `/api/cron/daily-calendar-notification` must send `Authorization: Bearer <CRON_SECRET>` or header `x-cron-secret: <CRON_SECRET>`. If unset, the route runs without auth (use only for testing). |
 
 Do **not** commit real values to the repository.
+
+### Daily calendar notification (10am)
+
+To send a push at 10am on days when there is a calendar event, call the cron endpoint once per day at 10am in your desired timezone.
+
+- **Endpoint**: `GET https://<your-app-domain>/api/cron/daily-calendar-notification`
+- **Auth**: Set `CRON_SECRET` in the app env, then send it with the request: `Authorization: Bearer <CRON_SECRET>` or header `x-cron-secret: <CRON_SECRET>`. If `CRON_SECRET` is not set, the route runs without auth (do not use in production).
+- **Example (system cron, 10am server time)**:
+  ```bash
+  0 10 * * * curl -s -H "Authorization: Bearer $CRON_SECRET" "https://your-domain/api/cron/daily-calendar-notification"
+  ```
+  Store `CRON_SECRET` in the environment where cron runs (e.g. in a small script that sources env and runs curl). To use a specific timezone (e.g. Africa/Johannesburg), set `TZ` in the crontab or run the job in a container/scheduler that uses that TZ.
 
 ---
 

@@ -20,9 +20,11 @@ interface QuickAddFormProps {
   userId: number;
   otherUserName?: string;
   splitGroups?: SplitGroup[];
+  /** Called after an expense is successfully saved (e.g. to close a parent modal). */
+  onAfterSave?: () => void;
 }
 
-export function QuickAddForm({ categories, userId, otherUserName, splitGroups = [] }: QuickAddFormProps) {
+export function QuickAddForm({ categories, userId, otherUserName, splitGroups = [], onAfterSave }: QuickAddFormProps) {
   const router = useRouter();
   const { isOnline, addToQueue, syncQueue } = useOfflineQueue();
   const [isPending, startTransition] = useTransition();
@@ -92,6 +94,7 @@ export function QuickAddForm({ categories, userId, otherUserName, splitGroups = 
       setAmount("");
       setCategoryDialogOpen(false);
       setPendingCents(null);
+      onAfterSave?.();
       if (typeof navigator !== "undefined" && navigator.vibrate) {
         navigator.vibrate(50);
       }
@@ -120,6 +123,7 @@ export function QuickAddForm({ categories, userId, otherUserName, splitGroups = 
           setCategoryDialogOpen(false);
           setPendingCents(null);
           router.refresh();
+          onAfterSave?.();
           if (typeof navigator !== "undefined" && navigator.vibrate) {
             navigator.vibrate(50);
           }
@@ -148,6 +152,7 @@ export function QuickAddForm({ categories, userId, otherUserName, splitGroups = 
         setCategoryDialogOpen(false);
         setPendingCents(null);
         router.refresh();
+        onAfterSave?.();
         if (typeof navigator !== "undefined" && navigator.vibrate) {
           navigator.vibrate(50);
         }

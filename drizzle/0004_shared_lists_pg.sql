@@ -1,0 +1,16 @@
+CREATE TABLE shared_lists (
+	id SERIAL PRIMARY KEY,
+	name TEXT NOT NULL,
+	sort_order INTEGER DEFAULT 0 NOT NULL,
+	created_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE shared_list_items (
+	id SERIAL PRIMARY KEY,
+	list_id INTEGER NOT NULL REFERENCES shared_lists(id) ON DELETE CASCADE,
+	label TEXT NOT NULL,
+	quantity INTEGER DEFAULT 1 NOT NULL,
+	completed BOOLEAN DEFAULT false NOT NULL,
+	sort_order INTEGER DEFAULT 0 NOT NULL,
+	created_at TIMESTAMP DEFAULT NOW() NOT NULL
+);

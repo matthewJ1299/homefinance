@@ -1,8 +1,15 @@
 import { Header } from "./header";
 import { BottomNav } from "./bottom-nav";
 import { PwaInstallPrompt } from "@/components/pwa/pwa-install-prompt";
+import { QuickAddFab } from "@/components/quick-add-fab/quick-add-fab";
+import type { QuickAddFabProps } from "@/components/quick-add-fab/quick-add-fab";
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+interface AppShellProps {
+  children: React.ReactNode;
+  fabData: QuickAddFabProps;
+}
+
+export function AppShell({ children, fabData }: AppShellProps) {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -12,6 +19,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </main>
       <BottomNav />
+      <QuickAddFab {...fabData} />
       <PwaInstallPrompt />
     </div>
   );
