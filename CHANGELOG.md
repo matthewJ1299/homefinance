@@ -11,6 +11,8 @@
 
 ### Changed
 
+- **PWA install prompt (Gym-style)**: Install prompt now matches the pattern used in the Gym app for the "official" install notification on iOS: (1) iOS Safari only (not Chrome on iOS) via `isIOSSafari()`, (2) prompt appears after a 3-second delay, (3) two-step UI: compact bar with "How to Install" then expandable step-by-step instructions (Share, Add to Home Screen, Add), (4) dismiss uses sessionStorage so the prompt can show again in a new session. Added `src/lib/utils/device-detection.ts` (isIOS, isStandalone, isIOSSafari). On non-iOS, accepting install sets localStorage `pwa-installed` so the prompt is not shown again.
+
 - **PWA manifest (iOS)**: Manifest aligned with iOS-friendly setup: added 180x180 icon (used for iOS home screen via layout apple link), orientation set to `portrait-primary`, and shortcuts for Dashboard, Expenses, and Summary. Layout apple icon now points to `icon-180x180.png`. Regenerate icons with `npm run generate-pwa-icons` to create the new 180x180 asset.
 
 - **Lists**: Navigating to Lists now shows the default list (first list by sort order) directly. If there are no lists, the page shows a message with a link to Settings to add one. Add list and manage lists (create/delete) are in **Settings** under **Shared lists**. The list detail page includes a list switcher (links to other lists) when you have more than one list.
