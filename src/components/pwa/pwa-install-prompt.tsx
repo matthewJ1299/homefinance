@@ -18,7 +18,6 @@ export function PwaInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
-  const [showIosInstructions, setShowIosInstructions] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
   const isIOS = isIOSSafari();
 
@@ -51,10 +50,6 @@ export function PwaInstallPrompt() {
   }, [isIOS]);
 
   const handleInstall = async () => {
-    if (isIOS) {
-      setShowIosInstructions(true);
-      return;
-    }
     if (!deferredPrompt) return;
     await deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
@@ -68,7 +63,6 @@ export function PwaInstallPrompt() {
 
   const handleDismiss = () => {
     setShowPrompt(false);
-    setShowIosInstructions(false);
     sessionStorage.setItem(SESSION_DISMISS_KEY, "true");
   };
 
@@ -80,37 +74,23 @@ export function PwaInstallPrompt() {
     "fixed bottom-20 left-4 right-4 z-40 md:bottom-4 md:left-auto md:right-4 md:max-w-sm rounded-lg border border-border bg-background p-3 shadow-lg";
 
   return (
-    <div
-      role="region"
-      aria-label={showIosInstructions ? "Install app on iOS" : "Install app"}
-      className={containerClass}
-    >
+    <div role="region" aria-label="Install app" className={containerClass}>
       <div className="flex flex-col gap-2">
         <div className="flex items-start justify-between gap-2">
           <p className="text-sm text-muted-foreground">
             Install HomeFinance for quick access and offline use.
           </p>
           <div className="flex shrink-0 gap-1">
-            {!showIosInstructions && (
+            {!isIOS && (
               <Button size="sm" variant="outline" onClick={handleInstall}>
-                {isIOS ? "How to Install" : "Install"}
+                Install
               </Button>
             )}
             <Button size="sm" variant="ghost" onClick={handleDismiss}>
-              {showIosInstructions ? "Close" : "Not now"}
+              Not now
             </Button>
           </div>
         </div>
-        {showIosInstructions && (
-          <div className="mt-1.5 border-l-2 border-primary pl-3">
-            <p className="text-sm font-medium mb-1">To install on iOS:</p>
-            <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-0.5 m-0 pl-0">
-              <li>Tap the Share button (square with arrow) at the bottom of Safari</li>
-              <li>Scroll down and tap &quot;Add to Home Screen&quot;</li>
-              <li>Tap &quot;Add&quot; to confirm</li>
-            </ol>
-          </div>
-        )}
       </div>
     </div>
   );

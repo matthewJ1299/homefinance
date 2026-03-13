@@ -1,6 +1,5 @@
 import { Header } from "./header";
 import { BottomNav } from "./bottom-nav";
-import { PwaInstallPrompt } from "@/components/pwa/pwa-install-prompt";
 import { QuickAddFab } from "@/components/quick-add-fab/quick-add-fab";
 import type { QuickAddFabProps } from "@/components/quick-add-fab/quick-add-fab";
 
@@ -20,7 +19,6 @@ export function AppShell({ children, fabData }: AppShellProps) {
       </main>
       <BottomNav />
       <QuickAddFab {...fabData} />
-      <PwaInstallPrompt />
     </div>
   );
 }
