@@ -11,7 +11,7 @@ export interface NotificationPayload {
   url?: string;
 }
 
-const VAPID_CONTACT = "mailto:support@homefinance.local";
+const VAPID_CONTACT = (process.env.VAPID_SUBJECT ?? "mailto:push@homefinance.app").trim();
 const DEFAULT_TTL = 60;
 
 /**
@@ -50,6 +50,7 @@ function ensureVapid(): void {
   if (!isVapidConfigured()) {
     throw new Error("Push not configured (VAPID keys missing)");
   }
+  console.log(`[Push] VAPID subject: ${VAPID_CONTACT}`);
   webpush.setVapidDetails(VAPID_CONTACT, getVapidPublicKey(), getVapidPrivateKey());
 }
 
