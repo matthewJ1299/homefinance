@@ -15,7 +15,11 @@ export function PushNotificationsSettings() {
   const [permission, setPermission] = useState<NotificationPermission | null>(null);
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+    keyFingerprints?: { publicKeyStartsWith: string; publicKeyEndsWith: string; privateKeyStartsWith: string };
+  } | null>(null);
 
   const updateState = useCallback(async () => {
     setSupported(isPushSupported());
@@ -83,7 +87,11 @@ export function PushNotificationsSettings() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setMessage({ type: "error", text: data.error ?? "Failed to send test" });
+        setMessage({
+          type: "error",
+          text: data.error ?? "Failed to send test",
+          keyFingerprints: data.keyFingerprints,
+        });
         return;
       }
       setMessage({ type: "success", text: "Test notification sent." });
@@ -116,11 +124,20 @@ export function PushNotificationsSettings() {
       </p>
 
       {message && (
-        <p
-          className={`text-sm mb-3 ${message.type === "success" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-        >
-          {message.text}
-        </p>
+        <div className="mb-3 space-y-1">
+          <p
+            className={`text-sm ${message.type === "success" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+          >
+            {message.text}
+          </p>
+          {message.keyFingerprints && (
+            <p className="text-xs text-muted-foreground">
+              Server VAPID public key starts with: {message.keyFingerprints.publicKeyStartsWith}..., ends with: ...
+              {message.keyFingerprints.publicKeyEndsWith}. Private key starts with:{" "}
+              {message.keyFingerprints.privateKeyStartsWith}...
+            </p>
+          )}
+        </div>
       )}
 
       <div className="flex flex-wrap gap-2">

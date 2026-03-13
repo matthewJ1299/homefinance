@@ -53,10 +53,17 @@ export async function POST(request: NextRequest) {
   const result = await notificationService.sendToUser(userId, { title, body, url });
 
   if (result.badJwtToken) {
+    const pub = (process.env.VAPID_PUBLIC_KEY ?? "").trim();
+    const priv = (process.env.VAPID_PRIVATE_KEY ?? "").trim();
     return NextResponse.json(
       {
         error:
           "Your notification subscription is out of date. Disable notifications below, then enable them again and try sending a test.",
+        keyFingerprints: {
+          publicKeyStartsWith: pub.slice(0, 6),
+          publicKeyEndsWith: pub.length >= 8 ? pub.slice(-8) : "",
+          privateKeyStartsWith: priv.slice(0, 6),
+        },
       },
       { status: 400 }
     );
