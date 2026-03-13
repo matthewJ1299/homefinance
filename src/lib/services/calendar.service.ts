@@ -12,6 +12,7 @@ export interface CalendarEventOccurrence {
   createdByUserId: number;
   createdByName: string;
   recurrenceType: string;
+  reminderMinutes: number | null;
 }
 
 export interface CreateCalendarEventInput {
@@ -22,6 +23,7 @@ export interface CreateCalendarEventInput {
   notes?: string | null;
   recurrenceType: "none" | "weekly" | "monthly" | "yearly";
   recurrenceDayOfMonth?: number | null;
+  reminderMinutes?: number | null;
 }
 
 export interface UpdateCalendarEventInput {
@@ -32,6 +34,7 @@ export interface UpdateCalendarEventInput {
   notes?: string | null;
   recurrenceType?: "none" | "weekly" | "monthly" | "yearly";
   recurrenceDayOfMonth?: number | null;
+  reminderMinutes?: number | null;
 }
 
 export class CalendarService {
@@ -59,6 +62,7 @@ export class CalendarService {
           createdByUserId: event.createdByUserId,
           createdByName: event.createdByName,
           recurrenceType: event.recurrenceType,
+          reminderMinutes: event.reminderMinutes ?? null,
         });
       }
     }
@@ -81,6 +85,7 @@ export class CalendarService {
       notes: data.notes,
       recurrenceType: data.recurrenceType,
       recurrenceDayOfMonth: data.recurrenceDayOfMonth,
+      reminderMinutes: data.reminderMinutes,
     });
   }
 

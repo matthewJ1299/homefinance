@@ -4,6 +4,7 @@ const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const timeSchema = z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).optional().nullable();
 const recurrenceTypeSchema = z.enum(["none", "weekly", "monthly", "yearly"]);
 const recurrenceDaySchema = z.number().int().min(1).max(31).optional().nullable();
+const reminderMinutesSchema = z.number().int().min(0).max(1440).optional().nullable();
 
 export const createCalendarEventSchema = z.object({
   name: z.string().min(1).max(500),
@@ -13,6 +14,7 @@ export const createCalendarEventSchema = z.object({
   notes: z.string().max(2000).optional().nullable(),
   recurrenceType: recurrenceTypeSchema,
   recurrenceDayOfMonth: recurrenceDaySchema,
+  reminderMinutes: reminderMinutesSchema,
 });
 
 export const updateCalendarEventSchema = z.object({
@@ -23,6 +25,7 @@ export const updateCalendarEventSchema = z.object({
   notes: z.string().max(2000).optional().nullable(),
   recurrenceType: recurrenceTypeSchema.optional(),
   recurrenceDayOfMonth: recurrenceDaySchema,
+  reminderMinutes: reminderMinutesSchema,
 });
 
 export const getCalendarEventsQuerySchema = z.object({

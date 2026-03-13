@@ -44,5 +44,21 @@ export async function POST(request: NextRequest) {
   const userId = Number(session.user.id);
   const service = new CalendarService();
   const { id } = await service.create(userId, parsed.data);
+  try {
+    const { NotificationService, isNotificationConfigured } = await import(
+      "@/lib/services/notification.service"
+    );
+    if (isNotificationConfigured()) {
+      const notificationService = new NotificationService();
+      const userName = session.user.name ?? "Someone";
+      await notificationService.sendToAllExcept(userId, {
+        title: "HomeFinance",
+        body: `${userName} added event '${parsed.data.name}' on ${parsed.data.date}${parsed.data.time ? " at " + parsed.data.time : ""}`,
+        url: "/calendar",
+      });
+    }
+  } catch {
+    // Notification failure must not affect the primary operation
+  }
   return NextResponse.json({ id });
 }

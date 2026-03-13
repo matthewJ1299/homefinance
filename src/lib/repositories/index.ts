@@ -25,9 +25,11 @@ import { CalendarEventRepository } from "./sqlite/calendar-event.repository";
 import type { ISharedListRepository } from "./interfaces/shared-list.repository";
 import type { ISharedListItemRepository } from "./interfaces/shared-list-item.repository";
 import type { IPushSubscriptionRepository } from "./interfaces/push-subscription.repository";
+import type { ISentReminderRepository } from "./interfaces/sent-reminder.repository";
 import { SharedListRepository } from "./sqlite/shared-list.repository";
 import { SharedListItemRepository } from "./sqlite/shared-list-item.repository";
 import { PushSubscriptionRepository } from "./sqlite/push-subscription.repository";
+import { SentReminderRepository } from "./sqlite/sent-reminder.repository";
 
 let categoryRepo: ICategoryRepository | null = null;
 let expenseRepo: IExpenseRepository | null = null;
@@ -44,6 +46,7 @@ let calendarEventRepo: ICalendarEventRepository | null = null;
 let sharedListRepo: ISharedListRepository | null = null;
 let sharedListItemRepo: ISharedListItemRepository | null = null;
 let pushSubscriptionRepo: IPushSubscriptionRepository | null = null;
+let sentReminderRepo: ISentReminderRepository | null = null;
 
 export function getCategoryRepository(): ICategoryRepository {
   if (!categoryRepo) categoryRepo = new CategoryRepository();
@@ -118,5 +121,10 @@ export function getSharedListItemRepository(): ISharedListItemRepository {
 export function getPushSubscriptionRepository(): IPushSubscriptionRepository {
   if (!pushSubscriptionRepo) pushSubscriptionRepo = new PushSubscriptionRepository();
   return pushSubscriptionRepo;
+}
+
+export function getSentReminderRepository(): ISentReminderRepository {
+  if (!sentReminderRepo) sentReminderRepo = new SentReminderRepository();
+  return sentReminderRepo;
 }
 

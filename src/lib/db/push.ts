@@ -125,6 +125,24 @@ async function pushPostgres(): Promise<void> {
         console.log("Postgres migration 0005 (push_subscriptions) applied.");
       }
     }
+
+    const hasSentReminders = await client.query(
+      "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'sent_reminders'"
+    );
+    if (hasSentReminders.rows.length === 0) {
+      const migration0006Path = path.join(process.cwd(), "drizzle", "0006_calendar_reminders_pg.sql");
+      if (fs.existsSync(migration0006Path)) {
+        const sql0006 = fs.readFileSync(migration0006Path, "utf-8");
+        const statements0006 = sql0006
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statements0006) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration 0006 (calendar_reminders) applied.");
+      }
+    }
   } finally {
     await client.end();
   }
@@ -156,7 +174,36 @@ async function pushSqlite(): Promise<void> {
       "SELECT name FROM sqlite_master WHERE type='table' AND name='calendar_events'"
     );
     if (hasCalendarEvents.length > 0 && hasCalendarEvents[0].values.length > 0) {
-      console.log("Schema already applied (users and calendar_events exist).");
+      const hasSentReminders = db.exec(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='sent_reminders'"
+      );
+      if (hasSentReminders.length === 0 || hasSentReminders[0].values.length === 0) {
+        const migration0006Path = path.join(process.cwd(), "drizzle", "0006_calendar_reminders.sql");
+        if (fs.existsSync(migration0006Path)) {
+          const sql0006 = fs.readFileSync(migration0006Path, "utf-8");
+          const statements0006 = sql0006
+            .split(/--> statement-breakpoint\n?/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+          for (const stmt of statements0006) {
+            try {
+              db.run(stmt);
+            } catch (e) {
+              const msg = (e as Error).message ?? "";
+              if (msg.includes("duplicate column") || msg.includes("already exists")) {
+                // Column or table already present
+              } else {
+                throw e;
+              }
+            }
+          }
+          const data = db.export();
+          fs.writeFileSync(dbPath, Buffer.from(data));
+          console.log("SQLite migration 0006 (calendar_reminders) applied.");
+        }
+      } else {
+        console.log("Schema already applied (users, calendar_events, sent_reminders exist).");
+      }
       db.close();
       return;
     }

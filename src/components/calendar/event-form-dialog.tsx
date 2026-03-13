@@ -13,6 +13,18 @@ import { createCalendarEventSchema } from "@/lib/validators/calendar-event.schem
 const formSchema = createCalendarEventSchema;
 type FormValues = z.infer<typeof formSchema>;
 
+const REMINDER_OPTIONS: { value: number | null; label: string }[] = [
+  { value: null, label: "None" },
+  { value: 0, label: "At event time" },
+  { value: 5, label: "5 minutes before" },
+  { value: 10, label: "10 minutes before" },
+  { value: 15, label: "15 minutes before" },
+  { value: 30, label: "30 minutes before" },
+  { value: 60, label: "1 hour before" },
+  { value: 120, label: "2 hours before" },
+  { value: 1440, label: "1 day before" },
+];
+
 export interface CalendarEventFormValues {
   name: string;
   location: string | null;
@@ -21,6 +33,7 @@ export interface CalendarEventFormValues {
   notes: string | null;
   recurrenceType: "none" | "weekly" | "monthly" | "yearly";
   recurrenceDayOfMonth: number | null;
+  reminderMinutes: number | null;
 }
 
 interface EventFormDialogProps {
@@ -61,6 +74,7 @@ export function EventFormDialog({
       notes: null,
       recurrenceType: "none",
       recurrenceDayOfMonth: null,
+      reminderMinutes: null,
     },
   });
 
@@ -77,6 +91,7 @@ export function EventFormDialog({
           notes: initialValues.notes,
           recurrenceType: initialValues.recurrenceType,
           recurrenceDayOfMonth: initialValues.recurrenceDayOfMonth,
+          reminderMinutes: initialValues.reminderMinutes ?? null,
         });
       } else {
         reset({
@@ -87,6 +102,7 @@ export function EventFormDialog({
           notes: null,
           recurrenceType: "none",
           recurrenceDayOfMonth: null,
+          reminderMinutes: null,
         });
       }
     }
@@ -152,6 +168,26 @@ export function EventFormDialog({
             <option value="weekly">Weekly</option>
             <option value="monthly">Monthly</option>
             <option value="yearly">Yearly</option>
+          </select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="reminderMinutes">Reminder</Label>
+          <select
+            id="reminderMinutes"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            {...register("reminderMinutes", {
+              setValueAs: (v) => {
+                if (v === "" || v === undefined) return null;
+                const n = parseInt(String(v), 10);
+                return Number.isNaN(n) ? null : n;
+              },
+            })}
+          >
+            {REMINDER_OPTIONS.map((opt) => (
+              <option key={opt.label} value={opt.value ?? ""}>
+                {opt.label}
+              </option>
+            ))}
           </select>
         </div>
         {recurrenceType === "monthly" && (

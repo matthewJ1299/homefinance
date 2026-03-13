@@ -180,6 +180,7 @@ export function CalendarClient() {
           notes: string | null;
           recurrenceType: "none" | "weekly" | "monthly" | "yearly";
           recurrenceDayOfMonth: number | null;
+          reminderMinutes: number | null;
         }) => {
           setInitialFormValues({
             name: data.name,
@@ -189,6 +190,7 @@ export function CalendarClient() {
             notes: data.notes ?? null,
             recurrenceType: data.recurrenceType,
             recurrenceDayOfMonth: data.recurrenceDayOfMonth ?? null,
+            reminderMinutes: data.reminderMinutes ?? null,
           });
           setFormOpen(true);
         })
@@ -201,6 +203,7 @@ export function CalendarClient() {
             notes: event.resource.notes,
             recurrenceType: "none",
             recurrenceDayOfMonth: null,
+            reminderMinutes: null,
           });
           setFormOpen(true);
         });
@@ -224,6 +227,13 @@ export function CalendarClient() {
           Number.isNaN(Number(values.recurrenceDayOfMonth))
             ? null
             : Number(values.recurrenceDayOfMonth),
+        reminderMinutes:
+          values.reminderMinutes === undefined ||
+          values.reminderMinutes === null ||
+          values.reminderMinutes === "" ||
+          Number.isNaN(Number(values.reminderMinutes))
+            ? null
+            : Number(values.reminderMinutes),
       };
       if (editingEventId != null) {
         await updateMutation.mutateAsync({ id: editingEventId, body });

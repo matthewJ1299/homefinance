@@ -38,5 +38,23 @@ export async function POST(
   }
   const itemRepo = getSharedListItemRepository();
   const { id } = await itemRepo.create(parsed.data);
+  try {
+    const { NotificationService, isNotificationConfigured } = await import(
+      "@/lib/services/notification.service"
+    );
+    if (isNotificationConfigured()) {
+      const notificationService = new NotificationService();
+      const userName = session.user.name ?? "Someone";
+      const listName = exists.name;
+      const label = parsed.data.label ?? "an item";
+      await notificationService.sendToAllExcept(Number(session.user.id), {
+        title: "HomeFinance",
+        body: `${userName} added "${label}" to ${listName}`,
+        url: "/lists",
+      });
+    }
+  } catch {
+    // Notification failure must not affect the primary operation
+  }
   return NextResponse.json({ id });
 }

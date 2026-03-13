@@ -346,6 +346,24 @@ export async function addSplitExpense(formData: {
     revalidatePath("/dashboard");
     revalidatePath("/expenses");
     revalidatePath("/splits");
+    try {
+      const { NotificationService, isNotificationConfigured } = await import(
+        "@/lib/services/notification.service"
+      );
+      if (isNotificationConfigured()) {
+        const notificationService = new NotificationService();
+        const userName = session.user.name ?? "Someone";
+        const amountRands = (parsed.data.totalAmountCents / 100).toFixed(2);
+        const note = parsed.data.note?.trim() ? `: ${parsed.data.note}` : "";
+        await notificationService.sendToAllExcept(userId, {
+          title: "HomeFinance",
+          body: `${userName} added a split expense${note} (R${amountRands})`,
+          url: "/splits",
+        });
+      }
+    } catch {
+      // Notification failure must not affect the primary operation
+    }
     return { success: true, id };
   } catch (err) {
     return {

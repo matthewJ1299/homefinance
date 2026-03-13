@@ -12,6 +12,7 @@ export interface CalendarEvent {
   notes: string | null;
   recurrenceType: RecurrenceType;
   recurrenceDayOfMonth: number | null;
+  reminderMinutes: number | null;
 }
 
 export interface CreateCalendarEventInput {
@@ -23,6 +24,7 @@ export interface CreateCalendarEventInput {
   notes?: string | null;
   recurrenceType: RecurrenceType;
   recurrenceDayOfMonth?: number | null;
+  reminderMinutes?: number | null;
 }
 
 export interface UpdateCalendarEventInput {
@@ -33,6 +35,7 @@ export interface UpdateCalendarEventInput {
   notes?: string | null;
   recurrenceType?: RecurrenceType;
   recurrenceDayOfMonth?: number | null;
+  reminderMinutes?: number | null;
 }
 
 export interface ICalendarEventRepository {

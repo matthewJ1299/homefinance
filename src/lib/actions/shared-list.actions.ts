@@ -112,6 +112,24 @@ export async function createListItem(
     const item = await itemRepo.create(parsed.data);
     revalidatePath("/lists");
     revalidatePath(`/lists/${listId}`);
+    try {
+      const { NotificationService, isNotificationConfigured } = await import(
+        "@/lib/services/notification.service"
+      );
+      if (isNotificationConfigured()) {
+        const notificationService = new NotificationService();
+        const userName = session.user.name ?? "Someone";
+        const listName = exists.name;
+        const label = parsed.data.label ?? "an item";
+        await notificationService.sendToAllExcept(Number(session.user.id), {
+          title: "HomeFinance",
+          body: `${userName} added "${label}" to ${listName}`,
+          url: "/lists",
+        });
+      }
+    } catch {
+      // Notification failure must not affect the primary operation
+    }
     return { success: true, id: item.id };
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to add item";

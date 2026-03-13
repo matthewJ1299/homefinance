@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { format } from "date-fns";
-import webpush from "web-push";
 import { CalendarService } from "@/lib/services/calendar.service";
-import { getPushSubscriptionRepository, getUserRepository } from "@/lib/repositories";
+import { NotificationService, isNotificationConfigured } from "@/lib/services/notification.service";
 import { formatEventLine } from "@/lib/utils/format-time";
 
 /**
- * Sends a push notification at 10am (when invoked by a cron) to all users with
+ * Sends a push notification at 9am (when invoked by a cron or in-process scheduler) to all users with
  * push subscriptions if there is at least one calendar event today. The notification
  * states that there is an upcoming event and lists name and time for each.
  *
  * Call with: Authorization: Bearer <CRON_SECRET> or x-cron-secret: <CRON_SECRET>
- * Schedule the request for 10am daily in your timezone (e.g. cron: 0 10 * * * with TZ set).
+ * Schedule the request for 9am daily in your timezone (e.g. cron: 0 9 * * * with TZ set).
  */
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -25,20 +24,12 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const publicKey = process.env.VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-  if (!publicKey || !privateKey) {
+  if (!isNotificationConfigured()) {
     return NextResponse.json(
       { error: "Push not configured (VAPID keys missing)" },
       { status: 503 }
     );
   }
-
-  webpush.setVapidDetails(
-    "mailto:support@homefinance.local",
-    publicKey,
-    privateKey
-  );
 
   const today = format(new Date(), "yyyy-MM-dd");
   const calendarService = new CalendarService();
@@ -55,36 +46,17 @@ export async function GET(request: NextRequest) {
       : `You have upcoming events: ${occurrences.map((o) => formatEventLine(o.name, o.time)).join("; ")}.`;
   const url = "/calendar";
 
-  const payload = JSON.stringify({ title, body, url });
-
-  const pushRepo = getPushSubscriptionRepository();
-  const userRepo = getUserRepository();
-  const users = await userRepo.findAll();
-
-  let sent = 0;
-  const errors: string[] = [];
-
-  for (const user of users) {
-    const subscriptions = await pushRepo.findByUserId(user.id);
-    for (const sub of subscriptions) {
-      try {
-        await webpush.sendNotification(
-          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          payload,
-          { TTL: 86400 }
-        );
-        sent++;
-      } catch (e) {
-        errors.push((e as Error).message ?? "Unknown");
-      }
-    }
-  }
+  const notificationService = new NotificationService();
+  const { sent, failed } = await notificationService.sendToAll(
+    { title, body, url },
+    { ttl: 86400 }
+  );
 
   return NextResponse.json({
     sent,
+    failed,
     date: today,
     eventsCount: occurrences.length,
-    usersNotified: users.length,
-    errors: errors.length > 0 ? errors.slice(0, 10) : undefined,
+    errors: failed > 0 ? ["Some subscriptions failed or were stale"] : undefined,
   });
 }

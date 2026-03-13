@@ -1,0 +1,24 @@
+{
+  "id": "/",
+  "name": "HomeFinance",
+  "short_name": "HomeFinance",
+  "description": "Home finance tracker for two",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0a0a0a",
+  "theme_color": "#16a34a",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    { "src": "/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon-180x180.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Dashboard", "short_name": "Dashboard", "description": "Open dashboard", "url": "/dashboard", "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }] },
+    { "name": "Expenses", "short_name": "Expenses", "description": "View and add expenses", "url": "/expenses", "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }] },
+    { "name": "Summary", "short_name": "Summary", "description": "View monthly summary", "url": "/summary", "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }] }
+  ]
+}

@@ -10,7 +10,8 @@ import type {
 const SELECT_FIELDS = `
   SELECT c.id, c.created_by_user_id AS "createdByUserId", u.name AS "createdByName",
     c.created_at AS "createdAt", c.name, c.location, c.date, c.time, c.notes,
-    c.recurrence_type AS "recurrenceType", c.recurrence_day_of_month AS "recurrenceDayOfMonth"
+    c.recurrence_type AS "recurrenceType", c.recurrence_day_of_month AS "recurrenceDayOfMonth",
+    c.reminder_minutes AS "reminderMinutes"
   FROM calendar_events c
   INNER JOIN users u ON c.created_by_user_id = u.id
 `;
@@ -27,6 +28,7 @@ interface CalendarEventRow {
   notes: string | null;
   recurrenceType: string;
   recurrenceDayOfMonth: number | null;
+  reminderMinutes: number | null;
 }
 
 function toCalendarEvent(r: CalendarEventRow): CalendarEvent {
@@ -42,6 +44,7 @@ function toCalendarEvent(r: CalendarEventRow): CalendarEvent {
     notes: r.notes,
     recurrenceType: r.recurrenceType as RecurrenceType,
     recurrenceDayOfMonth: r.recurrenceDayOfMonth,
+    reminderMinutes: r.reminderMinutes ?? null,
   };
 }
 
@@ -62,8 +65,8 @@ export class CalendarEventRepository implements ICalendarEventRepository {
 
   async create(data: CreateCalendarEventInput): Promise<{ id: number }> {
     await run(
-      `INSERT INTO calendar_events (created_by_user_id, name, location, date, time, notes, recurrence_type, recurrence_day_of_month)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO calendar_events (created_by_user_id, name, location, date, time, notes, recurrence_type, recurrence_day_of_month, reminder_minutes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.createdByUserId,
         data.name,
@@ -73,6 +76,7 @@ export class CalendarEventRepository implements ICalendarEventRepository {
         data.notes ?? null,
         data.recurrenceType,
         data.recurrenceDayOfMonth ?? null,
+        data.reminderMinutes ?? null,
       ]
     );
     return { id: await lastInsertId() };
@@ -108,6 +112,10 @@ export class CalendarEventRepository implements ICalendarEventRepository {
     if (data.recurrenceDayOfMonth !== undefined) {
       updates.push("recurrence_day_of_month = ?");
       params.push(data.recurrenceDayOfMonth);
+    }
+    if (data.reminderMinutes !== undefined) {
+      updates.push("reminder_minutes = ?");
+      params.push(data.reminderMinutes);
     }
     if (updates.length === 0) return;
     params.push(id);
