@@ -124,7 +124,7 @@ export function PushNotificationsSettings() {
       )}
 
       <div className="flex flex-wrap gap-2">
-        {permission !== "granted" && !subscribed && (
+        {!subscribed && (
           <Button
             type="button"
             variant="default"
