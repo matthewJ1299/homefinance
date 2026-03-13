@@ -91,6 +91,11 @@ export class NotificationService {
         failed++;
       }
     }
+    // Log result for observability when testing notifications (e.g. from /api/push/send).
+    // Includes user ID, payload summary, and sent/failed counts.
+    console.log(
+      `[Push] sendToUser result | userId=${userId} | title="${payload.title}" | url="${payload.url ?? "/"}" | sent=${sent} | failed=${failed} | subscriptions=${subscriptions.length}`
+    );
     return { sent, failed };
   }
 
