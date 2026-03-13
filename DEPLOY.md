@@ -260,7 +260,8 @@ If the app logs show `statusCode=403` and `body={"reason":"BadJwtToken"}` from A
   1. **Confirm the new keys are in the running container.** In Coolify, changing env vars usually requires a **Redeploy** so the new container gets them. If you only rebuilt without redeploying, or the env panel wasn’t saved, the container may still have the old keys.
   2. **No newlines in env.** The app trims keys, but avoid pasting keys with extra lines. Use a single line per key in Coolify (or `.env`). Copy the output of `npm run generate-vapid-keys` as two separate single-line values.
   3. **Same key pair.** Ensure `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` are from the **same** run of `npm run generate-vapid-keys`. Regenerate once, copy both, set both in env, redeploy, then have the user disable and re-enable notifications and test again.
-  4. **Verify what the app sees:** Open `https://<your-app>/api/push/vapid-public` in a browser and check the `publicKey` value. It should match the start of the key you set in env (no extra characters). If it differs, the container is not using the env you expect.
+  4. **Verify what the app sees:** Open `https://<your-app>/api/push/vapid-public` in a browser and check the `publicKey` value. It must **end with** the same 8 characters your server log shows (e.g. `...up2r2xiM`). If it differs, the container is not using the env you expect.
+  5. **Public and private must be a pair.** Run `npm run generate-vapid-keys` **once**, then copy **both** lines and set both in env. If you ever set the public key from one run and the private key from another, you will get BadJwtToken. The script now prints a verification line: after deploy, the server log should show the same "public key ends with" and "private key starts with" as the script printed.
 
 ### Database reset on redeploy
 
