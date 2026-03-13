@@ -89,13 +89,22 @@ export class NotificationService {
         // stale subscriptions are removed in sendOne; don't count as failed
       } catch (err: unknown) {
         failed++;
-        const e = err as { statusCode?: number; body?: string; message?: string };
-        const statusCode = e?.statusCode ?? "?";
-        const body = typeof e?.body === "string" ? e.body.slice(0, 200) : "";
-        const message = e?.message ?? String(err);
+        const e = err as Record<string, unknown>;
+        const statusCode = e?.statusCode ?? (e?.response as { statusCode?: number } | undefined)?.statusCode ?? "?";
+        const body = typeof e?.body === "string" ? e.body.slice(0, 300) : (typeof e?.body === "object" && e?.body !== null ? JSON.stringify(e.body).slice(0, 300) : "");
+        const message = typeof e?.message === "string" ? e.message : String(err);
         console.error(
           `[Push] send failed | userId=${userId} | endpoint=${sub.endpoint.slice(0, 60)}... | statusCode=${statusCode} | message=${message}${body ? ` | body=${body}` : ""}`
         );
+        // Log full error so we see all properties (web-push uses statusCode/body; Apple may return different shape)
+        if (err && typeof err === "object") {
+          const keys = Object.getOwnPropertyNames(err);
+          const extra: Record<string, unknown> = {};
+          for (const k of keys) {
+            if (k !== "stack") (extra as Record<string, unknown>)[k] = (err as Record<string, unknown>)[k];
+          }
+          console.error("[Push] send failed (full error)", extra);
+        }
       }
     }
     // Log result for observability when testing notifications (e.g. from /api/push/send).
