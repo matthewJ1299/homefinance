@@ -2,18 +2,20 @@
 
 End-to-end guide for deploying the HomeFinance Next.js application to a VPS managed by **Coolify** (with its built-in **Traefik** proxy).
 
-Target URL: **https://finance.dev.triadtech.co.za**
+Target URL: **[https://finance.dev.triadtech.co.za](https://finance.dev.triadtech.co.za)**
 
 ---
 
 ## Prerequisites
 
-| Requirement | Detail |
-|---|---|
-| **VPS** | Coolify installed and running. Traefik proxy enabled on the server. |
-| **GitHub repo** | `matthewJ1299/homefinance` (public or with GitHub App connected in Coolify). |
-| **DNS** | An **A** record for `finance.dev.triadtech.co.za` pointing to the VPS IP. Verify: `nslookup finance.dev.triadtech.co.za` or `dig finance.dev.triadtech.co.za`. |
-| **Committed files** | `Dockerfile`, `docker-entrypoint.sh`, `docker-compose.yml`, `.dockerignore`, `.gitattributes`, `package-lock.json` must all be committed and pushed. |
+
+| Requirement         | Detail                                                                                                                                                         |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **VPS**             | Coolify installed and running. Traefik proxy enabled on the server.                                                                                            |
+| **GitHub repo**     | `matthewJ1299/homefinance` (public or with GitHub App connected in Coolify).                                                                                   |
+| **DNS**             | An **A** record for `finance.dev.triadtech.co.za` pointing to the VPS IP. Verify: `nslookup finance.dev.triadtech.co.za` or `dig finance.dev.triadtech.co.za`. |
+| **Committed files** | `Dockerfile`, `docker-entrypoint.sh`, `docker-compose.yml`, `.dockerignore`, `.gitattributes`, `package-lock.json` must all be committed and pushed.           |
+
 
 ---
 
@@ -21,10 +23,12 @@ Target URL: **https://finance.dev.triadtech.co.za**
 
 The app supports two database backends, selected by environment:
 
-| Mode | When | Persistence |
-|------|------|-------------|
-| **Postgres** | `DATABASE_URL` is set | Use a Postgres service with a persistent volume (Docker Compose volume or Coolify Postgres resource). |
-| **SQLite** | `DATABASE_URL` is not set | Use a volume at `/app/data` so `sqlite.db` persists. |
+
+| Mode         | When                      | Persistence                                                                                           |
+| ------------ | ------------------------- | ----------------------------------------------------------------------------------------------------- |
+| **Postgres** | `DATABASE_URL` is set     | Use a Postgres service with a persistent volume (Docker Compose volume or Coolify Postgres resource). |
+| **SQLite**   | `DATABASE_URL` is not set | Use a volume at `/app/data` so `sqlite.db` persists.                                                  |
+
 
 **Recommended for Coolify:** Use **Postgres** so the database persists between redeploys and is not inside the app container. You can either:
 
@@ -50,19 +54,21 @@ The response must show the same IP as `dev.triadtech.co.za`. If not, add the A r
 1. Open your Coolify dashboard and navigate to your **Project**.
 2. Click **Add New Resource** (or **Create New Resource**).
 3. Choose **Public Repository** (or **GitHub App** if the repo is private) and enter the repo URL:
-   `https://github.com/matthewJ1299/homefinance`
+  `https://github.com/matthewJ1299/homefinance`
 4. Select the **master** branch.
 
 ---
 
 ## 3. General Settings
 
-| Field | Value |
-|---|---|
-| **Name** | `HomeFinance` |
-| **Build Pack** | `Dockerfile` (single container) or `Docker Compose` (if using the compose stack with Postgres) |
-| **Base Directory** | `/` |
-| **Dockerfile Location** | `/Dockerfile` (or **Docker Compose Location** | `docker-compose.yml`) |
+
+| Field                   | Value                                                                                          |
+| ----------------------- | ---------------------------------------------------------------------------------------------- |
+| **Name**                | `HomeFinance`                                                                                  |
+| **Build Pack**          | `Dockerfile` (single container) or `Docker Compose` (if using the compose stack with Postgres) |
+| **Base Directory**      | `/`                                                                                            |
+| **Dockerfile Location** | `/Dockerfile` (or **Docker Compose Location**                                                  |
+
 
 ---
 
@@ -70,10 +76,12 @@ The response must show the same IP as `dev.triadtech.co.za`. If not, add the A r
 
 This is the most common source of "404 page not found" errors. Coolify expects a **full URL with protocol** in the Domains field.
 
-| Field | Value |
-|---|---|
-| **Domains** | `https://finance.dev.triadtech.co.za` |
+
+| Field         | Value                                       |
+| ------------- | ------------------------------------------- |
+| **Domains**   | `https://finance.dev.triadtech.co.za`       |
 | **Direction** | `Allow www & non-www.` (or your preference) |
+
 
 **Important:** The domain must include the `https://` prefix. If you enter only `finance.dev.triadtech.co.za` without a protocol, Coolify/Traefik may not create a route and all requests will return 404.
 
@@ -83,10 +91,12 @@ After entering the domain, click **Save**.
 
 ## 5. Network Settings
 
-| Field | Value |
-|---|---|
-| **Ports Exposes** | `3000` |
+
+| Field             | Value                                                                                                                           |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **Ports Exposes** | `3000`                                                                                                                          |
 | **Port Mappings** | Leave empty (Traefik handles routing; a direct host mapping like `3000:3000` exposes the port publicly and bypasses the proxy). |
+
 
 **Ports Exposes** tells Traefik which container port to forward traffic to. The app listens on `0.0.0.0:3000` inside the container.
 
@@ -102,8 +112,8 @@ After entering the domain, click **Save**.
 
 1. Go to the **Persistent Storage** (or **Volumes**) section of the **app** resource.
 2. Add a volume:
-   - **Destination Path**: `/app/data`
-   - **Name**: `homefinance_data` (Coolify may append a UUID; that is fine)
+  - **Destination Path**: `/app/data`
+  - **Name**: `homefinance_data` (Coolify may append a UUID; that is fine)
 
 The `docker-entrypoint.sh` script automatically fixes ownership of this directory at startup so the non-root app user can write to it.
 
@@ -115,14 +125,16 @@ The `docker-entrypoint.sh` script automatically fixes ownership of this director
 
 Go to the **Environment Variables** tab and add:
 
-| Key | Required | Value |
-|---|---|---|
-| `AUTH_SECRET` | Yes | Generate with: `openssl rand -base64 32` |
-| `DATABASE_URL` | For Postgres | Connection URL, e.g. `postgresql://user:password@host:5432/dbname`. When set, the app uses Postgres instead of SQLite. With Docker Compose, the app service gets this from the compose file (or override in Coolify). With Coolify Postgres resource, use the URL Coolify provides. |
-| `DB_PATH` | No (SQLite only) | Default: `/app/data/sqlite.db`. Only set if using SQLite and a different path. |
-| `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD`, etc. | No | Used when running db:seed to create initial users from env (see **Running db:seed on the server**). |
-| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | No (for push) | Required for PWA push notifications. Generate with `npm run generate-vapid-keys` and add both to env. Without them, users cannot enable notifications in Settings. Keep the private key secret. You do **not** need to rotate keys on a schedule; only change them if the private key was exposed or compromised (see **When to change VAPID keys** below). |
-| `CRON_SECRET` | No (for daily calendar) | Secret for the 10am daily calendar notification cron. If set, requests to `/api/cron/daily-calendar-notification` must send `Authorization: Bearer <CRON_SECRET>` or header `x-cron-secret: <CRON_SECRET>`. If unset, the route runs without auth (use only for testing). |
+
+| Key                                                                | Required                | Value                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------ | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AUTH_SECRET`                                                      | Yes                     | Generate with: `openssl rand -base64 32`                                                                                                                                                                                                                                                                                                                    |
+| `DATABASE_URL`                                                     | For Postgres            | Connection URL, e.g. `postgresql://user:password@host:5432/dbname`. When set, the app uses Postgres instead of SQLite. With Docker Compose, the app service gets this from the compose file (or override in Coolify). With Coolify Postgres resource, use the URL Coolify provides.                                                                         |
+| `DB_PATH`                                                          | No (SQLite only)        | Default: `/app/data/sqlite.db`. Only set if using SQLite and a different path.                                                                                                                                                                                                                                                                              |
+| `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD`, etc. | No                      | Used when running db:seed to create initial users from env (see **Running db:seed on the server**).                                                                                                                                                                                                                                                         |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`                            | No (for push)           | Required for PWA push notifications. Generate with `npm run generate-vapid-keys` and add both to env. Without them, users cannot enable notifications in Settings. Keep the private key secret. You do **not** need to rotate keys on a schedule; only change them if the private key was exposed or compromised (see **When to change VAPID keys** below). |
+| `CRON_SECRET`                                                      | No (for daily calendar) | Secret for the 10am daily calendar notification cron. If set, requests to `/api/cron/daily-calendar-notification` must send `Authorization: Bearer <CRON_SECRET>` or header `x-cron-secret: <CRON_SECRET>`. If unset, the route runs without auth (use only for testing).                                                                                   |
+
 
 Do **not** commit real values to the repository.
 
@@ -147,7 +159,7 @@ To send a push at 10am on days when there is a calendar event, call the cron end
 1. Click **Deploy** (or **Start Deployment**).
 2. Coolify will clone the repo, build the Docker image using the Dockerfile, start the container, and register the domain with Traefik.
 3. Monitor the build in the **Deployment Logs** tab.
-4. Once the container logs show `Ready in ...ms`, open **https://finance.dev.triadtech.co.za**.
+4. Once the container logs show `Ready in ...ms`, open **[https://finance.dev.triadtech.co.za](https://finance.dev.triadtech.co.za)**.
 
 ---
 
@@ -346,9 +358,9 @@ Then run push and seed in the app container so tables and users exist (Compose s
 docker compose exec app sh -c "cd /app && npx tsx src/lib/db/push.ts && npx tsx src/lib/db/seed-categories.ts"
 ```
 
-Open http://localhost:3000. The Postgres data persists in the `postgres_data` volume.
+Open [http://localhost:3000](http://localhost:3000). The Postgres data persists in the `postgres_data` volume.
 
-**Single container with SQLite (Linux / macOS):**
+**Single container with SQLite (Linux / acOS):**
 
 ```bash
 docker build -t home-finance .
@@ -366,4 +378,4 @@ $secret = [Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximu
 docker run -p 3000:3000 -e AUTH_SECRET=$secret -v homefinance_data:/app/data home-finance
 ```
 
-Open http://localhost:3000. The SQLite database persists in the `homefinance_data` Docker volume.
+Open [http://localhost:3000](http://localhost:3000). The SQLite database persists in the `homefinance_data` Docker volume.

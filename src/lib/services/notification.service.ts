@@ -14,6 +14,24 @@ export interface NotificationPayload {
 const VAPID_CONTACT = "mailto:support@homefinance.local";
 const DEFAULT_TTL = 60;
 
+/**
+ * True if the push service response indicates the subscription or VAPID auth is invalid.
+ * Apple (iOS): 403 with body {"reason":"BadJwtToken"}.
+ * Google/FCM (Android): 403 with body "invalid JWT provided"; 401 for auth errors.
+ * Used to show the same "disable then re-enable notifications" message on both platforms.
+ */
+function isSubscriptionOrAuthError(statusCode: unknown, bodyStr: string): boolean {
+  const code = Number(statusCode);
+  const body = bodyStr.toLowerCase();
+  if (code === 403) {
+    return body.includes("badjwttoken") || body.includes("invalid jwt") || body.includes("invalidjwt");
+  }
+  if (code === 401) {
+    return true;
+  }
+  return false;
+}
+
 function isVapidConfigured(): boolean {
   return !!(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
 }
@@ -98,7 +116,7 @@ export class NotificationService {
         const e = err as Record<string, unknown>;
         const statusCode = e?.statusCode ?? (e?.response as { statusCode?: number } | undefined)?.statusCode ?? "?";
         const bodyStr = typeof e?.body === "string" ? e.body : (typeof e?.body === "object" && e?.body !== null ? JSON.stringify(e.body) : "");
-        if (statusCode === 403 && bodyStr.includes("BadJwtToken")) {
+        if (isSubscriptionOrAuthError(statusCode, bodyStr)) {
           badJwtToken = true;
         }
         const body = bodyStr.slice(0, 300);
