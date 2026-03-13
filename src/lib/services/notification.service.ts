@@ -87,8 +87,15 @@ export class NotificationService {
         const result = await sendOne(sub.endpoint, sub.p256dh, sub.auth, payload, ttl);
         if (result.sent) sent++;
         // stale subscriptions are removed in sendOne; don't count as failed
-      } catch {
+      } catch (err: unknown) {
         failed++;
+        const e = err as { statusCode?: number; body?: string; message?: string };
+        const statusCode = e?.statusCode ?? "?";
+        const body = typeof e?.body === "string" ? e.body.slice(0, 200) : "";
+        const message = e?.message ?? String(err);
+        console.error(
+          `[Push] send failed | userId=${userId} | endpoint=${sub.endpoint.slice(0, 60)}... | statusCode=${statusCode} | message=${message}${body ? ` | body=${body}` : ""}`
+        );
       }
     }
     // Log result for observability when testing notifications (e.g. from /api/push/send).
