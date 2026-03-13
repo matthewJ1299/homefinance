@@ -121,10 +121,12 @@ Go to the **Environment Variables** tab and add:
 | `DATABASE_URL` | For Postgres | Connection URL, e.g. `postgresql://user:password@host:5432/dbname`. When set, the app uses Postgres instead of SQLite. With Docker Compose, the app service gets this from the compose file (or override in Coolify). With Coolify Postgres resource, use the URL Coolify provides. |
 | `DB_PATH` | No (SQLite only) | Default: `/app/data/sqlite.db`. Only set if using SQLite and a different path. |
 | `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD`, etc. | No | Used when running db:seed to create initial users from env (see **Running db:seed on the server**). |
-| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | No (for push) | Required for PWA push notifications. Generate with `npm run generate-vapid-keys` and add both to env. Without them, users cannot enable notifications in Settings. |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | No (for push) | Required for PWA push notifications. Generate with `npm run generate-vapid-keys` and add both to env. Without them, users cannot enable notifications in Settings. Keep the private key secret. You do **not** need to rotate keys on a schedule; only change them if the private key was exposed or compromised (see **When to change VAPID keys** below). |
 | `CRON_SECRET` | No (for daily calendar) | Secret for the 10am daily calendar notification cron. If set, requests to `/api/cron/daily-calendar-notification` must send `Authorization: Bearer <CRON_SECRET>` or header `x-cron-secret: <CRON_SECRET>`. If unset, the route runs without auth (use only for testing). |
 
 Do **not** commit real values to the repository.
+
+**When to change VAPID keys:** Rotate keys only if the **private key** was (or might have been) exposed (e.g. leaked in logs, committed to a repo, or shared). You do not need to change them periodically. After changing keys, update both env vars, redeploy, and have each user **disable** then **enable** notifications in Settings so their subscription is recreated with the new public key; until they do, they will see "subscription is out of date" when sending a test.
 
 ### Daily calendar notification (10am)
 
@@ -236,6 +238,13 @@ If the **host** can reach Apple but the **container** cannot, and the IPv4-only 
 - **Coolify**: In the app resource, if there is a **Sysctls** / **Docker run options** or similar, add the same sysctl. If not, you may need to use a custom Docker Compose override or run the container with `--sysctl net.ipv6.conf.all.disable_ipv6=1` (depends on how Coolify starts the container).
 
 After redeploying with IPv6 disabled, trigger a test notification again; the app should reach Apple over IPv4.
+
+### Push notifications: 403 BadJwtToken
+
+If the app logs show `statusCode=403` and `body={"reason":"BadJwtToken"}` from Apple, the VAPID JWT is invalid. Usually the **subscription was created with a different VAPID public key** than the one you are now using (e.g. keys were regenerated or env vars changed after the user enabled notifications).
+
+- **Fix**: Have the user **disable notifications** in Settings, then **enable** again. That creates a new subscription tied to the current `VAPID_PUBLIC_KEY`. Then send a test notification.
+- **If it still fails**: Regenerate keys (`npm run generate-vapid-keys`), set both `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` in env, redeploy, then have the user disable and re-enable notifications and test again.
 
 ### Database reset on redeploy
 

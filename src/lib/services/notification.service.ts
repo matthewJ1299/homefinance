@@ -72,12 +72,13 @@ export class NotificationService {
 
   /**
    * Send to all push subscriptions for the given user.
+   * Returns badJwtToken: true if any subscription failed with 403 BadJwtToken (subscription out of date).
    */
   async sendToUser(
     userId: number,
     payload: NotificationPayload,
     options?: { ttl?: number }
-  ): Promise<{ sent: number; failed: number }> {
+  ): Promise<{ sent: number; failed: number; badJwtToken?: boolean }> {
     const pushRepo = getPushSubscriptionRepository();
     const subscriptions = await pushRepo.findByUserId(userId);
     if (subscriptions.length === 0) {
@@ -86,6 +87,7 @@ export class NotificationService {
     const ttl = options?.ttl ?? DEFAULT_TTL;
     let sent = 0;
     let failed = 0;
+    let badJwtToken = false;
     for (const sub of subscriptions) {
       try {
         const result = await sendOne(sub.endpoint, sub.p256dh, sub.auth, payload, ttl);
@@ -95,7 +97,11 @@ export class NotificationService {
         failed++;
         const e = err as Record<string, unknown>;
         const statusCode = e?.statusCode ?? (e?.response as { statusCode?: number } | undefined)?.statusCode ?? "?";
-        const body = typeof e?.body === "string" ? e.body.slice(0, 300) : (typeof e?.body === "object" && e?.body !== null ? JSON.stringify(e.body).slice(0, 300) : "");
+        const bodyStr = typeof e?.body === "string" ? e.body : (typeof e?.body === "object" && e?.body !== null ? JSON.stringify(e.body) : "");
+        if (statusCode === 403 && bodyStr.includes("BadJwtToken")) {
+          badJwtToken = true;
+        }
+        const body = bodyStr.slice(0, 300);
         const message = typeof e?.message === "string" ? e.message : String(err);
         console.error(
           `[Push] send failed | userId=${userId} | endpoint=${sub.endpoint.slice(0, 60)}... | statusCode=${statusCode} | message=${message}${body ? ` | body=${body}` : ""}`
@@ -116,7 +122,7 @@ export class NotificationService {
     console.log(
       `[Push] sendToUser result | userId=${userId} | title="${payload.title}" | url="${payload.url ?? "/"}" | sent=${sent} | failed=${failed} | subscriptions=${subscriptions.length}`
     );
-    return { sent, failed };
+    return { sent, failed, ...(badJwtToken ? { badJwtToken: true } : {}) };
   }
 
   /**

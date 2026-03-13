@@ -51,6 +51,17 @@ export async function POST(request: NextRequest) {
 
   const notificationService = new NotificationService();
   const result = await notificationService.sendToUser(userId, { title, body, url });
+
+  if (result.badJwtToken) {
+    return NextResponse.json(
+      {
+        error:
+          "Your notification subscription is out of date. Disable notifications below, then enable them again and try sending a test.",
+      },
+      { status: 400 }
+    );
+  }
+
   return NextResponse.json({
     ok: true,
     sent: result.sent,
