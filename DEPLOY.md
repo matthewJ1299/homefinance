@@ -253,10 +253,14 @@ After redeploying with IPv6 disabled, trigger a test notification again; the app
 
 ### Push notifications: 403 BadJwtToken
 
-If the app logs show `statusCode=403` and `body={"reason":"BadJwtToken"}` from Apple, the VAPID JWT is invalid. Usually the **subscription was created with a different VAPID public key** than the one you are now using (e.g. keys were regenerated or env vars changed after the user enabled notifications).
+If the app logs show `statusCode=403` and `body={"reason":"BadJwtToken"}` from Apple, the VAPID JWT is invalid.
 
-- **Fix**: Have the user **disable notifications** in Settings, then **enable** again. That creates a new subscription tied to the current `VAPID_PUBLIC_KEY`. Then send a test notification.
-- **If it still fails**: Regenerate keys (`npm run generate-vapid-keys`), set both `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` in env, redeploy, then have the user disable and re-enable notifications and test again.
+- **First fix**: Have the user **disable notifications** in Settings, then **enable** again, then send a test. That creates a new subscription with the current public key.
+- **If it still fails after re-enabling**:
+  1. **Confirm the new keys are in the running container.** In Coolify, changing env vars usually requires a **Redeploy** so the new container gets them. If you only rebuilt without redeploying, or the env panel wasn’t saved, the container may still have the old keys.
+  2. **No newlines in env.** The app trims keys, but avoid pasting keys with extra lines. Use a single line per key in Coolify (or `.env`). Copy the output of `npm run generate-vapid-keys` as two separate single-line values.
+  3. **Same key pair.** Ensure `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` are from the **same** run of `npm run generate-vapid-keys`. Regenerate once, copy both, set both in env, redeploy, then have the user disable and re-enable notifications and test again.
+  4. **Verify what the app sees:** Open `https://<your-app>/api/push/vapid-public` in a browser and check the `publicKey` value. It should match the start of the key you set in env (no extra characters). If it differs, the container is not using the env you expect.
 
 ### Database reset on redeploy
 

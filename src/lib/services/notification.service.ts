@@ -32,19 +32,25 @@ function isSubscriptionOrAuthError(statusCode: unknown, bodyStr: string): boolea
   return false;
 }
 
+function getVapidPublicKey(): string {
+  const raw = process.env.VAPID_PUBLIC_KEY ?? "";
+  return raw.trim();
+}
+
+function getVapidPrivateKey(): string {
+  const raw = process.env.VAPID_PRIVATE_KEY ?? "";
+  return raw.trim();
+}
+
 function isVapidConfigured(): boolean {
-  return !!(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
+  return !!(getVapidPublicKey() && getVapidPrivateKey());
 }
 
 function ensureVapid(): void {
   if (!isVapidConfigured()) {
     throw new Error("Push not configured (VAPID keys missing)");
   }
-  webpush.setVapidDetails(
-    VAPID_CONTACT,
-    process.env.VAPID_PUBLIC_KEY!,
-    process.env.VAPID_PRIVATE_KEY!
-  );
+  webpush.setVapidDetails(VAPID_CONTACT, getVapidPublicKey(), getVapidPrivateKey());
 }
 
 /**
