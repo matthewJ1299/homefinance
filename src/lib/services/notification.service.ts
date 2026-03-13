@@ -1,5 +1,9 @@
+import https from "https";
 import webpush from "web-push";
 import { getPushSubscriptionRepository, getUserRepository } from "@/lib/repositories";
+
+/** Force IPv4 for push requests; avoids ETIMEDOUT/ENETUNREACH when container IPv6 is broken (e.g. Docker on some hosts). */
+const pushAgent = new https.Agent({ family: 4 });
 
 export interface NotificationPayload {
   title: string;
@@ -44,7 +48,7 @@ async function sendOne(
     await webpush.sendNotification(
       { endpoint, keys: { p256dh, auth } },
       body,
-      { TTL: ttl }
+      { TTL: ttl, agent: pushAgent }
     );
     return { sent: true, stale: false };
   } catch (err: unknown) {

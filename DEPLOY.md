@@ -209,6 +209,34 @@ Ensure `next.config.ts` includes `output: "standalone"` and that `npm run build`
 - Verify `AUTH_SECRET` is set in Coolify environment variables.
 - `trustHost: true` is already configured in `src/lib/auth.ts` for reverse-proxy deployments.
 
+### Push notifications: ETIMEDOUT / ENETUNREACH
+
+If the app logs show `[Push] send failed` with `ETIMEDOUT` or `ENETUNREACH` to IPs like `17.188.172.x` or `2620:149:208:...`, the **server cannot reach the push service** (e.g. Apple’s `web.push.apple.com` for iOS). Push is sent from the server to Apple/Google; outbound HTTPS from the app server must be allowed.
+
+- **Check outbound connectivity** from the same environment where the app runs (e.g. inside the Docker container). The app image does not include `curl`; use Node instead:
+  ```bash
+  node -e "require('https').get('https://web.push.apple.com', { timeout: 5000 }, (r) => { console.log('OK', r.statusCode); }).on('error', e => { console.error('FAIL', e.code || e.message); process.exit(1); });"
+  ```
+  If you see `OK 200` (or another 2xx), outbound HTTPS works. If you see `FAIL ETIMEDOUT`, `FAIL ENETUNREACH`, or the command hangs, the container cannot reach push services. If the **host** can reach Apple (e.g. `curl -sI --connect-timeout 5 https://web.push.apple.com` from the host returns HTTP 405) but the **container** cannot, try forcing IPv4 from inside the container (IPv6 is often broken or blocked in Docker):
+  ```bash
+  node -e "require('https').get('https://web.push.apple.com', { timeout: 5000, family: 4 }, (r) => { console.log('OK', r.statusCode); }).on('error', e => { console.error('FAIL', e.code); process.exit(1); });"
+  ```
+  If that returns `OK 405`, the container can reach Apple over IPv4; see **Push notifications: force IPv4** below to make the app use IPv4 for push.
+- **Typical causes**: Host firewall or security group blocking outbound 443; corporate proxy; Docker/VM network with no outbound internet; IPv6 broken (Apple may try IPv6 first). Fix by allowing outbound HTTPS (port 443) to the internet from the app server, or by resolving proxy/DNS/network issues on that host.
+
+### Push notifications: force IPv4
+
+If the **host** can reach Apple but the **container** cannot, and the IPv4-only test from inside the container works (`family: 4` in the Node one-liner above returns `OK 405`), the container’s IPv6 is failing and Node is trying it first. Force the app to use IPv4 by **disabling IPv6 in the app container**.
+
+- **Docker Compose**: Add to the app service:
+  ```yaml
+  sysctls:
+    - net.ipv6.conf.all.disable_ipv6=1
+  ```
+- **Coolify**: In the app resource, if there is a **Sysctls** / **Docker run options** or similar, add the same sysctl. If not, you may need to use a custom Docker Compose override or run the container with `--sysctl net.ipv6.conf.all.disable_ipv6=1` (depends on how Coolify starts the container).
+
+After redeploying with IPv6 disabled, trigger a test notification again; the app should reach Apple over IPv4.
+
 ### Database reset on redeploy
 
 **Postgres:** Ensure the Postgres service (Compose `db` or Coolify Postgres resource) has a persistent volume. Without it, data is lost on redeploy. After a fresh deploy or intentional reset, run push then seed (or reset + push + seed) so tables and users are recreated from env (see **Running db:seed on the server**).
