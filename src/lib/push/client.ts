@@ -50,7 +50,7 @@ export async function subscribeToPush(): Promise<PushSubscriptionJSON> {
     throw new Error("Push notifications are not supported in this browser.");
   }
 
-  const res = await fetch("/api/push/vapid-public");
+  const res = await fetch("/api/push/vapid-public", { cache: "no-store" });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error ?? "Failed to get push configuration");

@@ -12,5 +12,10 @@ export async function GET() {
       { status: 503 }
     );
   }
-  return NextResponse.json({ publicKey });
+  return NextResponse.json({ publicKey }, {
+    headers: {
+      "Cache-Control": "no-store, no-cache, must-revalidate",
+      Pragma: "no-cache",
+    },
+  });
 }

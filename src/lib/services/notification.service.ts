@@ -105,6 +105,12 @@ export class NotificationService {
   ): Promise<{ sent: number; failed: number; badJwtToken?: boolean }> {
     const pushRepo = getPushSubscriptionRepository();
     const subscriptions = await pushRepo.findByUserId(userId);
+    const subscribed = subscriptions.length > 0;
+    const pubPrefix = getVapidPublicKey().slice(0, 6);
+    const privPrefix = getVapidPrivateKey().slice(0, 6);
+    console.log(
+      `[Push] sendToUser | userId=${userId} | subscribed=${subscribed} | subscriptions=${subscriptions.length} | VAPID public key starts with: ${pubPrefix}... | VAPID private key starts with: ${privPrefix}...`
+    );
     if (subscriptions.length === 0) {
       return { sent: 0, failed: 0 };
     }
@@ -124,6 +130,10 @@ export class NotificationService {
         const bodyStr = typeof e?.body === "string" ? e.body : (typeof e?.body === "object" && e?.body !== null ? JSON.stringify(e.body) : "");
         if (isSubscriptionOrAuthError(statusCode, bodyStr)) {
           badJwtToken = true;
+          const pubKey = getVapidPublicKey();
+          const fingerprint = pubKey.length >= 8 ? pubKey.slice(-8) : "(key too short)";
+          console.error(`[Push] BadJwtToken: server VAPID public key ends with: ${fingerprint} (verify this matches VAPID_PUBLIC_KEY in env)`);
+          getPushSubscriptionRepository().deleteByEndpoint(sub.endpoint).catch(() => {});
         }
         const body = bodyStr.slice(0, 300);
         const message = typeof e?.message === "string" ? e.message : String(err);
