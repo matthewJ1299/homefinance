@@ -5,7 +5,7 @@ import { IncomeService } from "@/lib/services/income.service";
 import { formatRand } from "@/lib/utils/currency";
 
 /** Best free-tier model: most capable, slower. Free tier: 5 RPM, 100 RPD. */
-const MODEL = "gemini-2.5-pro";
+const MODEL = "gemini-2.5-flash";
 
 export interface AnalyzeExpensesResult {
   success: true;
