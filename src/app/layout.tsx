@@ -5,6 +5,7 @@ import { SessionProvider } from "@/components/providers/session-provider";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { PwaInstallPrompt } from "@/components/pwa/pwa-install-prompt";
+import { Toaster } from "sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -74,6 +75,7 @@ export default function RootLayout({
             <QueryProvider>
               {children}
               <PwaInstallPrompt />
+              <Toaster richColors position="top-center" />
             </QueryProvider>
           </SessionProvider>
         </ThemeProvider>

@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { Category, SplitGroup } from "@/lib/types";
+import type { CategoryBudgetHint } from "./category-picker";
 import { addExpense, addSplitExpense } from "@/lib/actions/expense.actions";
 import { useOfflineQueue } from "@/hooks/use-offline-queue";
 import { CategoryPicker } from "./category-picker";
@@ -11,7 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogHeader, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
-import { toMinorUnits } from "@/lib/utils/currency";
+import { toMinorUnits, formatRand } from "@/lib/utils/currency";
+import { toast } from "sonner";
 
 type SplitType = "equal" | "full" | "exact";
 
@@ -20,11 +22,13 @@ interface QuickAddFormProps {
   userId: number;
   otherUserName?: string;
   splitGroups?: SplitGroup[];
+  /** Optional per-category budget remaining for the current month. When provided, category picker shows remaining/over amounts. */
+  budgetByCategory?: Map<number, CategoryBudgetHint>;
   /** Called after an expense is successfully saved (e.g. to close a parent modal). */
   onAfterSave?: () => void;
 }
 
-export function QuickAddForm({ categories, userId, otherUserName, splitGroups = [], onAfterSave }: QuickAddFormProps) {
+export function QuickAddForm({ categories, userId, otherUserName, splitGroups = [], budgetByCategory, onAfterSave }: QuickAddFormProps) {
   const router = useRouter();
   const { isOnline, addToQueue, syncQueue } = useOfflineQueue();
   const [isPending, startTransition] = useTransition();
@@ -156,6 +160,19 @@ export function QuickAddForm({ categories, userId, otherUserName, splitGroups = 
         if (typeof navigator !== "undefined" && navigator.vibrate) {
           navigator.vibrate(50);
         }
+        if (result.categoryName != null && result.budgetRemaining !== undefined) {
+          const label = `${result.categoryName}: ${formatRand(result.budgetRemaining)} remaining this month`;
+          if (result.isOverspent) {
+            toast.warning(label, {
+              action: {
+                label: "Go to Budget",
+                onClick: () => router.push("/budget"),
+              },
+            });
+          } else {
+            toast.success(label);
+          }
+        }
       } else {
         setMessage("error");
         setErrorDetail("error" in result ? result.error : null);
@@ -234,6 +251,7 @@ export function QuickAddForm({ categories, userId, otherUserName, splitGroups = 
               categories={categories}
               value={categoryId}
               onChange={setCategoryId}
+              budgetByCategory={budgetByCategory}
             />
           </div>
           <div>

@@ -28,12 +28,12 @@ const HOUSE_SVG = `
 `;
 
 async function createIcon(size, filename, maskable = false) {
+  // Maskable: full green background (same as iOS); house in 80% safe zone so Android adaptive mask does not clip it.
   const padding = maskable ? Math.round(size * 0.1) : 0;
   const inner = size - padding * 2;
   const bgRect =
     maskable
-      ? `<rect width="${size}" height="${size}" fill="#0a0a0a"/>
-  <rect x="${padding}" y="${padding}" width="${inner}" height="${inner}" rx="${Math.round(inner * 0.22)}" fill="${THEME_GREEN}"/>
+      ? `<rect width="${size}" height="${size}" fill="${THEME_GREEN}"/>
   <g transform="translate(${padding},${padding}) scale(${inner / 100})">${HOUSE_SVG}</g>`
       : `<rect width="${size}" height="${size}" fill="${THEME_GREEN}"/>
   <g transform="scale(${size / 100})">${HOUSE_SVG}</g>`;

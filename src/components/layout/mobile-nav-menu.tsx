@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import { signOut } from "next-auth/react";
+import { Menu, X, LogOut } from "lucide-react";
 import { hamburgerMenuItems } from "./nav-items";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +44,7 @@ export function MobileNavMenu() {
               <X className="h-5 w-5" />
             </button>
           </div>
-          <nav className="flex flex-col p-2 gap-0.5 overflow-auto">
+          <nav className="flex flex-col p-2 gap-0.5 overflow-auto flex-1">
             {hamburgerMenuItems.map(({ href, label, icon: Icon }) => {
               const isActive =
                 pathname === href || pathname.startsWith(href + "/");
@@ -65,6 +66,19 @@ export function MobileNavMenu() {
               );
             })}
           </nav>
+          <div className="p-2 border-t shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                close();
+                signOut({ callbackUrl: "/login" });
+              }}
+              className="flex items-center gap-3 w-full rounded-md px-3 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent"
+            >
+              <LogOut className="h-5 w-5 shrink-0" />
+              Sign out
+            </button>
+          </div>
         </aside>
       </>
     ) : null;

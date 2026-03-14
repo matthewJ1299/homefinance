@@ -1,6 +1,8 @@
 import { format } from "date-fns";
 import { auth } from "@/lib/auth";
 import { getCategoryRepository, getUserRepository, getSplitGroupRepository } from "@/lib/repositories";
+import { BudgetService } from "@/lib/services/budget.service";
+import { isAIConfigured } from "@/lib/services/ai.service";
 import { CalendarService } from "@/lib/services/calendar.service";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { IncomeService } from "@/lib/services/income.service";
@@ -13,6 +15,8 @@ import { ExpenseListPagination } from "@/components/expenses/expense-list-pagina
 import { IncomeQuickAdd } from "@/components/income/income-quick-add";
 import { IncomeList } from "@/components/income/income-list";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
+import { AiAnalysisButton } from "@/components/dashboard/ai-analysis-button";
+import { BudgetWarningTile } from "@/components/dashboard/budget-warning-tile";
 import { PopulateMonthButton } from "@/components/dashboard/populate-month-button";
 import { TodayCalendarTile } from "@/components/dashboard/today-calendar-tile";
 import { formatRand } from "@/lib/utils/currency";
@@ -39,7 +43,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const incomeService = new IncomeService();
   const calendarService = new CalendarService();
   const today = format(new Date(), "yyyy-MM-dd");
-  const [categories, otherUsers, splitGroups, expensePage, incomeResult, splitBalance, todayEvents] = await Promise.all([
+  const budgetService = new BudgetService();
+  const [categories, otherUsers, splitGroups, expensePage, incomeResult, splitBalance, todayEvents, budgetOverview] = await Promise.all([
     categoryRepo.findAll(),
     userRepo.findAllExcept(userId),
     splitGroupRepo.findAll(),
@@ -47,14 +52,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     incomeService.getByMonth(month, userId),
     new SplitService().getBalance(userId),
     calendarService.getByDateRange(today, today),
+    budgetService.getOverview(month, userId),
   ]);
+  const overspentCategories = budgetOverview.categories.filter((c) => c.isOverspent);
+  const budgetByCategory = new Map(
+    budgetOverview.categories.map((c) => [c.categoryId, { remaining: c.remaining, isOverspent: c.isOverspent }])
+  );
   const otherUserName = otherUsers[0]?.name;
 
   return (
     <div className="p-4 space-y-6">
       <MonthNavigator />
       <section className="flex flex-wrap items-center gap-3">
-        <PopulateMonthButton month={month} />
         <span className="text-xs text-muted-foreground">
           <Link href="/settings" className="underline hover:no-underline">Settings</Link>
         </span>
@@ -75,10 +84,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </Link>
         </section>
       )}
+      <BudgetWarningTile overspentCategories={overspentCategories} />
       <section>
         <h2 className="sr-only">Quick add expense</h2>
-        <QuickAddForm categories={categories} userId={userId} otherUserName={otherUserName} splitGroups={splitGroups} />
+        <QuickAddForm categories={categories} userId={userId} otherUserName={otherUserName} splitGroups={splitGroups} budgetByCategory={budgetByCategory} />
       </section>
+      <AiAnalysisButton month={month} enabled={isAIConfigured()} />
       <CollapsibleSection title="Recent expenses" defaultOpen>
         <ExpenseList
           expenses={expensePage.expenses}
@@ -104,6 +115,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <IncomeQuickAdd month={month} />
         </div>
       </CollapsibleSection>
+      <section className="flex flex-wrap items-center gap-3">
+        <PopulateMonthButton month={month} />
+      </section>
     </div>
   );
 }

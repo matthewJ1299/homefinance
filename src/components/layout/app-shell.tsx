@@ -1,6 +1,5 @@
 import { Header } from "./header";
 import { BottomNav } from "./bottom-nav";
-import { QuickAddFab } from "@/components/quick-add-fab/quick-add-fab";
 import type { QuickAddFabProps } from "@/components/quick-add-fab/quick-add-fab";
 
 interface AppShellProps {
@@ -17,8 +16,7 @@ export function AppShell({ children, fabData }: AppShellProps) {
           {children}
         </div>
       </main>
-      <BottomNav />
-      <QuickAddFab {...fabData} />
+      <BottomNav fabData={fabData} />
     </div>
   );
 }

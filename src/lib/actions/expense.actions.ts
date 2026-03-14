@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { setRequestContext } from "@/lib/db/request-context";
 import { ExpenseService } from "@/lib/services/expense.service";
+import { BudgetService } from "@/lib/services/budget.service";
 import { SplitService } from "@/lib/services/split.service";
 import { MortgageService } from "@/lib/services/mortgage.service";
+import { monthFromDate } from "@/lib/utils/date";
 import {
   getExpenseRepository,
   getCategoryRepository,
@@ -20,7 +22,7 @@ import { createSplitExpenseSchema } from "@/lib/validators/split.schema";
 import { formatRand } from "@/lib/utils/currency";
 
 export type ExpenseActionResult =
-  | { success: true; id?: number; warning?: string }
+  | { success: true; id?: number; warning?: string; budgetRemaining?: number; categoryName?: string; isOverspent?: boolean }
   | { success: false; error: string };
 
 export async function addExpense(formData: {
@@ -121,9 +123,27 @@ export async function addExpense(formData: {
     }
   }
 
+  const month = monthFromDate(parsed.data.date);
+  let budgetRemaining: number | undefined;
+  let categoryName: string | undefined;
+  let isOverspent: boolean | undefined;
+  try {
+    const budgetService = new BudgetService();
+    const overview = await budgetService.getOverview(month, userId);
+    const row = overview.categories.find((c) => c.categoryId === parsed.data.categoryId);
+    if (row) {
+      budgetRemaining = row.remaining;
+      categoryName = row.categoryName;
+      isOverspent = row.isOverspent;
+    }
+  } catch {
+    // Budget fetch failure must not affect the primary operation
+  }
+
   revalidatePath("/dashboard");
   revalidatePath("/expenses");
-  return { success: true, id, warning };
+  revalidatePath("/budget");
+  return { success: true, id, warning, budgetRemaining, categoryName, isOverspent };
 }
 
 export type GetExpenseForEditResult =
