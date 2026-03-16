@@ -11,6 +11,7 @@ export interface CreateExpenseInput {
   paidByUserId?: number | null;
   splitExpenseGroupId?: number | null;
   recurringExpenseId?: number | null;
+  accountId?: number | null;
 }
 
 export interface UpdateExpenseInput {
@@ -19,6 +20,7 @@ export interface UpdateExpenseInput {
   note?: string | null;
   date?: string;
   month?: string;
+  accountId?: number | null;
 }
 
 export interface IExpenseRepository {

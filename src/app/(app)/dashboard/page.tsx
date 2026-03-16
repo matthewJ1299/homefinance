@@ -19,6 +19,7 @@ import { AiAnalysisButton } from "@/components/dashboard/ai-analysis-button";
 import { BudgetWarningTile } from "@/components/dashboard/budget-warning-tile";
 import { PopulateMonthButton } from "@/components/dashboard/populate-month-button";
 import { TodayCalendarTile } from "@/components/dashboard/today-calendar-tile";
+import { AccountsSummaryTile } from "@/components/dashboard/accounts-summary-tile";
 import { formatRand } from "@/lib/utils/currency";
 import Link from "next/link";
 
@@ -68,7 +69,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <Link href="/settings" className="underline hover:no-underline">Settings</Link>
         </span>
       </section>
-      <section className="max-w-xs">
+      <section className="max-w-xs space-y-3">
+        <AccountsSummaryTile />
         <TodayCalendarTile occurrences={todayEvents} />
       </section>
       {splitBalance.net !== 0 && (

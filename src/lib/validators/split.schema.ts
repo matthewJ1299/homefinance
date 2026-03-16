@@ -12,6 +12,7 @@ export const createSplitExpenseSchema = z
     myShareCents: z.number().int().min(0).optional(),
     otherShareCents: z.number().int().min(0).optional(),
     groupId: z.number().int().positive().optional().nullable(),
+    accountId: z.number().int().positive().optional(),
   })
   .refine(
     (data) => {

@@ -6,6 +6,7 @@ import {
   getUserRepository,
   getCategoryRepository,
   getIncomeRepository,
+  getAccountTransactionRepository,
 } from "@/lib/repositories";
 import { monthFromDate } from "@/lib/utils/date";
 import type { SplitBalance, SplitHistoryItem } from "@/lib/types";
@@ -23,7 +24,8 @@ export class SplitService {
     private splitGroupRepo = getSplitGroupRepository(),
     private userRepo = getUserRepository(),
     private categoryRepo = getCategoryRepository(),
-    private incomeRepo = getIncomeRepository()
+    private incomeRepo = getIncomeRepository(),
+    private accountTxRepo = getAccountTransactionRepository()
   ) {}
 
   async createSplit(
@@ -33,7 +35,8 @@ export class SplitService {
     note: string | null,
     date: string,
     options: CreateSplitOptions,
-    groupId?: number
+    groupId?: number,
+    accountId?: number
   ): Promise<{ id: number }> {
     const otherUsers = await this.userRepo.findAllExcept(paidByUserId);
     if (otherUsers.length === 0) {
@@ -55,14 +58,25 @@ export class SplitService {
         break;
     }
     if (amountOwed <= 0) {
-      return this.expenseRepo.create({
+      const { id } = await this.expenseRepo.create({
         userId: paidByUserId,
         categoryId,
         amount: totalAmountCents,
         note,
         date,
         month: monthFromDate(date),
+        accountId: accountId ?? null,
       });
+      if (accountId != null) {
+        await this.accountTxRepo.create({
+          accountId,
+          amount: -totalAmountCents,
+          transactionType: "expense",
+          referenceType: "expense",
+          referenceId: id,
+        });
+      }
+      return { id };
     }
     const splitGroupId = crypto.randomUUID();
     const month = monthFromDate(date);
@@ -76,7 +90,17 @@ export class SplitService {
       splitGroupId,
       paidByUserId,
       splitExpenseGroupId: resolvedGroupId,
+      accountId: accountId ?? null,
     });
+    if (accountId != null) {
+      await this.accountTxRepo.create({
+        accountId,
+        amount: -totalAmountCents,
+        transactionType: "expense",
+        referenceType: "expense",
+        referenceId: expenseId,
+      });
+    }
     try {
       await this.allocationRepo.create(expenseId, otherUser.id, amountOwed);
     } catch (e) {

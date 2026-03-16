@@ -1,4 +1,7 @@
-import { getIncomeRepository } from "@/lib/repositories";
+import {
+  getIncomeRepository,
+  getAccountTransactionRepository,
+} from "@/lib/repositories";
 import { monthFromDate } from "@/lib/utils/date";
 import type { IncomeEntry } from "@/lib/repositories/interfaces/income.repository";
 import type { IncomeType } from "@/lib/types";
@@ -14,7 +17,10 @@ export interface IncomeByMonthResult {
 }
 
 export class IncomeService {
-  constructor(private repo = getIncomeRepository()) {}
+  constructor(
+    private repo = getIncomeRepository(),
+    private accountTxRepo = getAccountTransactionRepository()
+  ) {}
 
   async getByMonth(month: string, userId?: number): Promise<IncomeByMonthResult> {
     const entries = await this.repo.findByMonth(month, userId);
@@ -35,17 +41,34 @@ export class IncomeService {
 
   async create(
     userId: number,
-    data: { amount: number; type: IncomeType; description?: string | null; date: string }
+    data: {
+      amount: number;
+      type: IncomeType;
+      description?: string | null;
+      date: string;
+      accountId?: number;
+    }
   ): Promise<{ id: number }> {
     const month = monthFromDate(data.date);
-    return this.repo.create({
+    const { id } = await this.repo.create({
       userId,
       amount: data.amount,
       type: data.type,
       description: data.description,
       date: data.date,
       month,
+      accountId: data.accountId ?? null,
     });
+    if (data.accountId != null) {
+      await this.accountTxRepo.create({
+        accountId: data.accountId,
+        amount: data.amount,
+        transactionType: "income",
+        referenceType: "income",
+        referenceId: id,
+      });
+    }
+    return { id };
   }
 
   async update(

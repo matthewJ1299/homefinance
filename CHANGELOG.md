@@ -4,6 +4,8 @@
 
 ### Added
 
+- **Accounts and Transfers**: Financial accounts system for tracking bank balances, savings, and credit. Create accounts (Bank, Savings, Credit) under **Settings** > **Accounts**. Link income and expenses to accounts when adding them; balances are computed from a ledger (`account_transactions`). Use **Transfer Money** from the dashboard Accounts tile or Settings > Accounts to move funds between accounts (e.g. bank to savings, pay down credit). Credit accounts show balance, limit, and available credit. All financial movement flows through `account_transactions`; balances are never stored directly. API: `GET/POST /api/accounts`, `GET /api/accounts/[id]/balance`, `GET /api/accounts/[id]/transactions`, `POST /api/transfers`.
+- **Dashboard Accounts Summary tile**: Shows totals by type (Bank, Savings, Credit) and Net, with a link to Transfer Money.
 - **Budget-expense integration**: After adding an expense (quick-add or dialog), a toast notification shows how much budget remains in that category for the month. If the category is over budget, the toast is a warning with a "Go to Budget" action. Implemented with Sonner; only used for this notification (inline messages elsewhere unchanged).
 - **Dashboard over-budget tile**: A warning card appears on the dashboard when any category is over budget for the selected month, listing each overspent category and amount over; the card links to the Budget page.
 - **Category picker budget hints**: On the dashboard quick-add, the category picker shows remaining budget per category (e.g. "Groceries (R450 left)"). Overspent categories are shown in red with the amount over.
@@ -12,6 +14,7 @@
 
 ### Changed
 
+- **Postgres-only database**: SQLite support removed. `DATABASE_URL` is now required. Use Postgres for all deployments.
 - **Header (top bar)**: Order is now name, theme toggle, hamburger (mobile). Sign out is moved into the hamburger slide-out menu at the bottom.
 - **Populate this month**: The "Populate this month" button is moved to the bottom of the dashboard (below the Income section).
 - **Android PWA icon**: The maskable icon now uses a full green background (matching iOS) with the house graphic in the 80% safe zone, so Android adaptive icons match the iOS home-screen appearance. Regenerate with `npm run generate-pwa-icons`.

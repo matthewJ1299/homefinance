@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { addIncome } from "@/lib/actions/income.actions";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import { toMinorUnits } from "@/lib/utils/currency";
-import type { IncomeType } from "@/lib/types";
+import type { IncomeType, AccountType } from "@/lib/types";
 
 export function IncomeForm() {
   const router = useRouter();
@@ -17,7 +17,15 @@ export function IncomeForm() {
   const [type, setType] = useState<IncomeType>("salary");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
+  const [accountId, setAccountId] = useState<number | null>(null);
+  const [accounts, setAccounts] = useState<Array<{ id: number; name: string; type: AccountType }>>([]);
   const [message, setMessage] = useState<"saved" | "error" | null>(null);
+
+  useEffect(() => {
+    fetch("/api/accounts")
+      .then((res) => (res.ok ? res.json() : { accounts: [] }))
+      .then((data) => setAccounts(data.accounts ?? []));
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +38,7 @@ export function IncomeForm() {
         type,
         description: description.trim() || undefined,
         date,
+        accountId: accountId ?? undefined,
       });
       if (result.success) {
         setAmount("");
@@ -104,6 +113,23 @@ export function IncomeForm() {
           className="mt-1"
         />
       </div>
+      {accounts.length > 0 && (
+        <div>
+          <Label>Account</Label>
+          <select
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
+            value={accountId ?? ""}
+            onChange={(e) => setAccountId(e.target.value ? Number(e.target.value) : null)}
+          >
+            <option value="">None</option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name} ({a.type})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <Button type="submit" className="w-full" disabled={isPending}>
         {isPending ? "Adding..." : "Add income"}
       </Button>

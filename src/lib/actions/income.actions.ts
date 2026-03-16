@@ -14,6 +14,7 @@ export async function addIncome(formData: {
   type: IncomeType;
   description?: string | null;
   date: string;
+  accountId?: number;
 }): Promise<IncomeActionResult> {
   const session = await auth();
   if (!session?.user?.id) {
@@ -35,7 +36,13 @@ export async function addIncome(formData: {
 
 export async function updateIncome(
   id: number,
-  formData: { amount?: number; type?: IncomeType; description?: string | null; date?: string }
+  formData: {
+    amount?: number;
+    type?: IncomeType;
+    description?: string | null;
+    date?: string;
+    accountId?: number;
+  }
 ): Promise<IncomeActionResult> {
   const session = await auth();
   if (!session?.user?.id) {

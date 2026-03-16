@@ -89,3 +89,19 @@ export interface SplitSettlementHistoryItem {
 }
 
 export type SplitHistoryItem = SplitExpenseHistoryItem | SplitSettlementHistoryItem;
+
+export type AccountType = "bank" | "savings" | "credit";
+
+export interface Account {
+  id: number;
+  name: string;
+  type: AccountType;
+  ownerUserId: number;
+  creditLimit: number | null;
+  createdAt: string;
+}
+
+export interface AccountWithBalance extends Account {
+  balance: number;
+  availableCredit?: number;
+}

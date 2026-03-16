@@ -30,6 +30,7 @@ export async function addExpense(formData: {
   amount: number;
   note?: string | null;
   date: string;
+  accountId?: number;
 }): Promise<ExpenseActionResult> {
   const session = await auth();
   if (!session?.user?.id) {
@@ -186,6 +187,7 @@ export async function updateExpense(
     splitType?: "equal" | "full" | "exact";
     myShareCents?: number;
     otherShareCents?: number;
+    accountId?: number;
   }
 ): Promise<ExpenseActionResult> {
   const session = await auth();
@@ -309,6 +311,7 @@ export async function addSplitExpense(formData: {
   myShareCents?: number;
   otherShareCents?: number;
   groupId?: number | null;
+  accountId?: number;
 }): Promise<ExpenseActionResult> {
   const session = await auth();
   if (!session?.user?.id) {
@@ -351,7 +354,8 @@ export async function addSplitExpense(formData: {
       parsed.data.note ?? null,
       parsed.data.date,
       options,
-      groupId
+      groupId,
+      parsed.data.accountId
     );
     if (categoryRow.name.toLowerCase().trim() === "mortgage") {
       const mortgageService = new MortgageService();

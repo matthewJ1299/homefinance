@@ -15,6 +15,7 @@ import { RecurringIncomeManage } from "@/components/recurring-income/recurring-i
 import { RecurringExpenseManage } from "@/components/recurring-expenses/recurring-expense-manage";
 import { SharedListsManage } from "@/components/shared-lists/shared-lists-manage";
 import { PushNotificationsSettings } from "@/components/push/push-notifications-settings";
+import { AccountsManage } from "@/components/accounts/accounts-manage";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -52,6 +53,13 @@ export default async function SettingsPage() {
       <div className="space-y-3">
         <CollapsibleSection title="Categories" defaultOpen={true}>
           <CategoriesManage categories={categories} />
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Accounts" defaultOpen={false}>
+          <p className="text-sm text-muted-foreground mb-3">
+            Track bank balances, savings, and credit. Link income and expenses to accounts. Use Transfer Money to move funds between accounts (e.g. bank to savings, or pay down credit).
+          </p>
+          <AccountsManage />
         </CollapsibleSection>
 
         <CollapsibleSection title="Split groups" defaultOpen={false}>

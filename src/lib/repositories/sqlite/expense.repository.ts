@@ -105,7 +105,7 @@ export class ExpenseRepository implements IExpenseRepository {
 
   async create(data: CreateExpenseInput): Promise<{ id: number }> {
     await run(
-      "INSERT INTO expenses (user_id, category_id, amount, note, date, month, split_group_id, paid_by_user_id, split_expense_group_id, recurring_expense_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO expenses (user_id, category_id, amount, note, date, month, split_group_id, paid_by_user_id, split_expense_group_id, recurring_expense_id, account_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [
         data.userId,
         data.categoryId,
@@ -117,6 +117,7 @@ export class ExpenseRepository implements IExpenseRepository {
         data.paidByUserId ?? null,
         data.splitExpenseGroupId ?? null,
         data.recurringExpenseId ?? null,
+        data.accountId ?? null,
       ]
     );
     return { id: await lastInsertId() };

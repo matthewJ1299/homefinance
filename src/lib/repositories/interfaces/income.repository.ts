@@ -18,6 +18,7 @@ export interface CreateIncomeInput {
   date: string;
   month: string;
   recurringIncomeId?: number | null;
+  accountId?: number | null;
 }
 
 export interface UpdateIncomeInput {
@@ -26,6 +27,7 @@ export interface UpdateIncomeInput {
   description?: string | null;
   date?: string;
   month?: string;
+  accountId?: number | null;
 }
 
 export interface IIncomeRepository {

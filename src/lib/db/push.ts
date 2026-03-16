@@ -143,152 +143,31 @@ async function pushPostgres(): Promise<void> {
         console.log("Postgres migration 0006 (calendar_reminders) applied.");
       }
     }
+
+    const hasAccounts = await client.query(
+      "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'accounts'"
+    );
+    if (hasAccounts.rows.length === 0) {
+      const migration0007Path = path.join(process.cwd(), "drizzle", "0007_accounts_pg.sql");
+      if (fs.existsSync(migration0007Path)) {
+        const sql0007 = fs.readFileSync(migration0007Path, "utf-8");
+        const statements0007 = sql0007
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statements0007) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration 0007 (accounts & transfers) applied.");
+      }
+    }
   } finally {
     await client.end();
   }
 }
 
-async function pushSqlite(): Promise<void> {
-  const initSqlJs = (await import("sql.js")).default;
-  const dbPath =
-    process.env.DB_PATH ?? path.join(process.cwd(), "data", "sqlite.db");
-  const dir = path.dirname(dbPath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-
-  const SQL = await initSqlJs();
-  let db: import("sql.js").Database;
-  if (fs.existsSync(dbPath)) {
-    const buf = fs.readFileSync(dbPath);
-    db = new SQL.Database(new Uint8Array(buf));
-  } else {
-    db = new SQL.Database();
-  }
-
-  const tableExists = db.exec(
-    "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
-  );
-  if (tableExists.length > 0 && tableExists[0].values.length > 0) {
-    const hasCalendarEvents = db.exec(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='calendar_events'"
-    );
-    if (hasCalendarEvents.length > 0 && hasCalendarEvents[0].values.length > 0) {
-      const hasSentReminders = db.exec(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='sent_reminders'"
-      );
-      if (hasSentReminders.length === 0 || hasSentReminders[0].values.length === 0) {
-        const migration0006Path = path.join(process.cwd(), "drizzle", "0006_calendar_reminders.sql");
-        if (fs.existsSync(migration0006Path)) {
-          const sql0006 = fs.readFileSync(migration0006Path, "utf-8");
-          const statements0006 = sql0006
-            .split(/--> statement-breakpoint\n?/)
-            .map((s) => s.trim())
-            .filter(Boolean);
-          for (const stmt of statements0006) {
-            try {
-              db.run(stmt);
-            } catch (e) {
-              const msg = (e as Error).message ?? "";
-              if (msg.includes("duplicate column") || msg.includes("already exists")) {
-                // Column or table already present
-              } else {
-                throw e;
-              }
-            }
-          }
-          const data = db.export();
-          fs.writeFileSync(dbPath, Buffer.from(data));
-          console.log("SQLite migration 0006 (calendar_reminders) applied.");
-        }
-      } else {
-        console.log("Schema already applied (users, calendar_events, sent_reminders exist).");
-      }
-      db.close();
-      return;
-    }
-    const migration0003Path = path.join(process.cwd(), "drizzle", "0003_calendar_events.sql");
-    if (fs.existsSync(migration0003Path)) {
-      const sql0003 = fs.readFileSync(migration0003Path, "utf-8");
-      const statements0003 = sql0003
-        .split(/--> statement-breakpoint\n?/)
-        .map((s) => s.trim())
-        .filter(Boolean);
-      for (const stmt of statements0003) {
-        db.run(stmt);
-      }
-      console.log("SQLite migration 0003 (calendar_events) applied.");
-    }
-    const data = db.export();
-    fs.writeFileSync(dbPath, Buffer.from(data));
-    db.close();
-    return;
-  }
-
-  const migrationPath = path.join(process.cwd(), "drizzle", "0000_init.sql");
-  if (!fs.existsSync(migrationPath)) {
-    console.error("Migration file not found: drizzle/0000_init.sql");
-    process.exit(1);
-  }
-
-  const sqlContent = fs.readFileSync(migrationPath, "utf-8");
-  const statements = sqlContent
-    .split(/--> statement-breakpoint\n?/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  for (const stmt of statements) {
-    db.run(stmt);
-  }
-
-  const migration0001Path = path.join(process.cwd(), "drizzle", "0001_split_groups.sql");
-  if (fs.existsSync(migration0001Path)) {
-    const sql0001 = fs.readFileSync(migration0001Path, "utf-8");
-    const statements0001 = sql0001
-      .split(/--> statement-breakpoint\n?/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    for (const stmt of statements0001) {
-      db.run(stmt);
-    }
-  }
-
-  const migration0002Path = path.join(process.cwd(), "drizzle", "0002_recurring.sql");
-  if (fs.existsSync(migration0002Path)) {
-    const sql0002 = fs.readFileSync(migration0002Path, "utf-8");
-    const statements0002 = sql0002
-      .split(/--> statement-breakpoint\n?/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    for (const stmt of statements0002) {
-      db.run(stmt);
-    }
-  }
-
-  const migration0003Path = path.join(process.cwd(), "drizzle", "0003_calendar_events.sql");
-  if (fs.existsSync(migration0003Path)) {
-    const sql0003 = fs.readFileSync(migration0003Path, "utf-8");
-    const statements0003 = sql0003
-      .split(/--> statement-breakpoint\n?/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    for (const stmt of statements0003) {
-      db.run(stmt);
-    }
-  }
-
-  const data = db.export();
-  fs.writeFileSync(dbPath, Buffer.from(data));
-  db.close();
-  console.log("Schema applied. Database saved to", dbPath);
-}
-
 (async () => {
-  if (process.env.DATABASE_URL) {
-    await pushPostgres();
-  } else {
-    await pushSqlite();
-  }
+  await pushPostgres();
 })().catch((e) => {
   console.error(e);
   process.exit(1);

@@ -30,6 +30,12 @@ import { SharedListRepository } from "./sqlite/shared-list.repository";
 import { SharedListItemRepository } from "./sqlite/shared-list-item.repository";
 import { PushSubscriptionRepository } from "./sqlite/push-subscription.repository";
 import { SentReminderRepository } from "./sqlite/sent-reminder.repository";
+import type { IAccountRepository } from "./interfaces/account.repository";
+import type { IAccountTransactionRepository } from "./interfaces/account-transaction.repository";
+import type { ITransferRepository } from "./interfaces/transfer.repository";
+import { AccountRepository } from "./sqlite/account.repository";
+import { AccountTransactionRepository } from "./sqlite/account-transaction.repository";
+import { TransferRepository } from "./sqlite/transfer.repository";
 
 let categoryRepo: ICategoryRepository | null = null;
 let expenseRepo: IExpenseRepository | null = null;
@@ -47,6 +53,9 @@ let sharedListRepo: ISharedListRepository | null = null;
 let sharedListItemRepo: ISharedListItemRepository | null = null;
 let pushSubscriptionRepo: IPushSubscriptionRepository | null = null;
 let sentReminderRepo: ISentReminderRepository | null = null;
+let accountRepo: IAccountRepository | null = null;
+let accountTransactionRepo: IAccountTransactionRepository | null = null;
+let transferRepo: ITransferRepository | null = null;
 
 export function getCategoryRepository(): ICategoryRepository {
   if (!categoryRepo) categoryRepo = new CategoryRepository();
@@ -126,5 +135,21 @@ export function getPushSubscriptionRepository(): IPushSubscriptionRepository {
 export function getSentReminderRepository(): ISentReminderRepository {
   if (!sentReminderRepo) sentReminderRepo = new SentReminderRepository();
   return sentReminderRepo;
+}
+
+export function getAccountRepository(): IAccountRepository {
+  if (!accountRepo) accountRepo = new AccountRepository();
+  return accountRepo;
+}
+
+export function getAccountTransactionRepository(): IAccountTransactionRepository {
+  if (!accountTransactionRepo)
+    accountTransactionRepo = new AccountTransactionRepository();
+  return accountTransactionRepo;
+}
+
+export function getTransferRepository(): ITransferRepository {
+  if (!transferRepo) transferRepo = new TransferRepository();
+  return transferRepo;
 }
 

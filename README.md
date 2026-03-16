@@ -18,6 +18,7 @@ Personal finance app for tracking income, expenses, and budgets.
     - If there is no history or no allocations yet, the remainder is split evenly across categories.
   - Opening the budget for a new month automatically fills in carried-over allocations and, for fixed-cost categories with a default amount, that default.
 - **Transfers**: Move budget between categories within a month.
+- **Accounts**: Track bank balances, savings, and credit. Create accounts under **Settings** > **Accounts** (Bank, Savings, Credit types). Link income and expenses to accounts when adding them; balances are computed from a ledger (`account_transactions`). Use **Transfer Money** (dashboard tile or Settings > Accounts) to move funds between accounts (e.g. bank to savings, or pay down credit). Credit accounts show balance, limit, and available credit. All financial movement flows through `account_transactions`; balances are never stored directly.
 - **Splits**: Track shared expenses and who owes whom. **Split groups** (e.g. Home, Wedding) let you keep balances separate: create groups under **Split groups**, then when adding a split expense choose a group (defaults to "Default"). On the **Splits** page you see a summary tile per group and can switch the active group to see "How much each person owes" and **Split history** for that group only. Settling is per group: use **Settle** and the amount is applied to the current group's balance. You can also settle from the dashboard by adding an expense with category **Splits** (applies to the default group).
 - **Summary**: Per-user monthly snapshot (your income, expenses, and budget adherence) and household trends.
 - **Quick-add**: On **mobile**, a **+** button in the **center** of the bottom nav bar opens a menu: **Expense**, **List item**, or **Calendar event**. On desktop the full sidebar is shown (no floating FAB). Select an option to open the modal and add an expense (with category and optional split), a list item (choose list, label, quantity), or a calendar event. Saves and refreshes the relevant data.
@@ -32,12 +33,10 @@ Personal finance app for tracking income, expenses, and budgets.
 ## Setup
 
 1. Install dependencies: `npm install`
-2. Copy `.env.example` to `.env.local` and set `AUTH_SECRET`. Optionally set:
-   - **Postgres**: `DATABASE_URL=postgresql://user:password@host:5432/dbname` (when set, the app uses Postgres instead of SQLite).
+2. Copy `.env.example` to `.env.local` and set `AUTH_SECRET`. **Required**: set `DATABASE_URL=postgresql://user:password@host:5432/dbname` (Postgres is required; SQLite is no longer supported). Optionally set:
    - **Push notifications**: `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` (run `npm run generate-vapid-keys` and add the output to `.env.local`; required for enabling push in the app).
    - **Scheduled notifications**: `TZ` (e.g. `Africa/Johannesburg`) for daily 9am and per-event reminder timing; optional `DAILY_NOTIFICATION_HOUR` (0-23, default 9). Optional `CRON_SECRET` if you call the cron endpoint from an external scheduler.
    - **AI expense analysis**: `GEMINI_API_KEY` (optional). When set, the dashboard shows an "Analyze spending" button that calls the Gemini API for the current month. If unset, the button is hidden.
-   - **SQLite**: `DB_PATH` (default `./data/sqlite.db`).
    - **Seed**: `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD`, etc. (see `.env.example`).
 3. Create the database and seed: `npm run db:fresh` (recreates the DB from scratch, then seeds), or:
    - Reset and create tables: `npm run db:reset` (drops/recreates DB, runs schema push, then seeds minimal categories and users).
@@ -92,8 +91,8 @@ See [DEPLOY.md](./DEPLOY.md) for deploying to a VPS with Coolify (Docker + Traef
 
 - `npm run dev` – Start dev server (Turbopack)
 - `npm run build` / `npm run start` – Production build and start
-- `npm run db:push` – Apply schema and migrations. Postgres: runs `0000_init_pg.sql` when the DB is empty, then `0001`–`0006` (split_groups, recurring, calendar_events, shared_lists, push_subscriptions, calendar_reminders) if those tables are missing. SQLite: runs `0000_init.sql` when the DB is empty (0001–0003, 0006 when applicable). Use this after deploying or if you see "groupId missing" on the Splits page.
-- `npm run db:reset` – Recreate DB from scratch (Postgres: drop/recreate public schema; SQLite: delete file). Then run push (and optionally seed). Do not run while the app is using the DB.
+- `npm run db:push` – Apply schema and migrations. Runs Postgres migrations (`0000_init_pg.sql` through `0007_accounts_pg.sql`) when tables are missing. Use this after deploying or if you see "groupId missing" on the Splits page.
+- `npm run db:reset` – Recreate DB from scratch (drop/recreate public schema). Then run push (and optionally seed). Do not run while the app is using the DB.
 - `npm run db:seed` – Clear all data, then seed users, categories, 3 months of income/expenses, and sample split expenses
 - `npm run db:fresh` – Reset DB then seed (recreate from scratch and seed in one go)
 - `npm run generate-pwa-icons` – Generate PWA icons into `public/icons/` (requires `sharp`). Run once or when changing app icon.
@@ -102,7 +101,7 @@ See [DEPLOY.md](./DEPLOY.md) for deploying to a VPS with Coolify (Docker + Traef
 - `npm run test:watch` – Run tests in watch mode.
 - `npm run start:server` – Start the custom Node server (initDb + persist loop); use for cPanel. See DEPLOY.md.
 
-The app uses a small **database abstraction** (`src/lib/db`): when `DATABASE_URL` is set it uses **Postgres** (via `pg`); otherwise **SQLite** (sql.js, file at `DB_PATH`). Repositories use the same API (`run`, `get`, `all`, `lastInsertId`). Schema is in `drizzle/0000_init.sql` (SQLite) and `drizzle/0000_init_pg.sql` (Postgres); apply with `db:push`.
+The app uses **Postgres** only (via `pg`). `DATABASE_URL` is required. Repositories use a small abstraction (`run`, `get`, `all`, `lastInsertId`). Schema is in `drizzle/0000_init_pg.sql` and numbered migrations; apply with `db:push`.
 
 ## Troubleshooting
 

@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { Category, SplitGroup } from "@/lib/types";
+import type { AccountType } from "@/lib/types";
 import type { CategoryBudgetHint } from "./category-picker";
 import { addExpense, addSplitExpense } from "@/lib/actions/expense.actions";
 import { useOfflineQueue } from "@/hooks/use-offline-queue";
@@ -47,6 +48,14 @@ export function QuickAddForm({ categories, userId, otherUserName, splitGroups = 
   const [otherShareRand, setOtherShareRand] = useState("");
   const defaultSplitGroupId = splitGroups.find((g) => g.isDefault)?.id ?? splitGroups[0]?.id ?? null;
   const [splitGroupId, setSplitGroupId] = useState<number | null>(defaultSplitGroupId);
+  const [accountId, setAccountId] = useState<number | null>(null);
+  const [accounts, setAccounts] = useState<Array<{ id: number; name: string; type: AccountType }>>([]);
+
+  useEffect(() => {
+    fetch("/api/accounts")
+      .then((res) => (res.ok ? res.json() : { accounts: [] }))
+      .then((data) => setAccounts(data.accounts ?? []));
+  }, []);
 
   useEffect(() => {
     if (!isOnline) return;
@@ -65,6 +74,7 @@ export function QuickAddForm({ categories, userId, otherUserName, splitGroups = 
     setMyShareRand("");
     setOtherShareRand("");
     setSplitGroupId(splitGroups.find((g) => g.isDefault)?.id ?? splitGroups[0]?.id ?? null);
+    setAccountId(accounts[0]?.id ?? null);
     setErrorDetail(null);
     setCategoryDialogOpen(true);
   };
@@ -114,6 +124,7 @@ export function QuickAddForm({ categories, userId, otherUserName, splitGroups = 
           date,
           splitType,
           groupId: splitGroupId ?? undefined,
+          accountId: accountId ?? undefined,
           ...(splitType === "exact" && {
             myShareCents: toMinorUnits(parseFloat(myShareRand.replace(/\s/g, "").replace(",", ".")) || 0),
             otherShareCents: toMinorUnits(parseFloat(otherShareRand.replace(/\s/g, "").replace(",", ".")) || 0),
@@ -146,6 +157,7 @@ export function QuickAddForm({ categories, userId, otherUserName, splitGroups = 
         amount: pendingCents,
         note: note.trim() || undefined,
         date,
+        accountId: accountId ?? undefined,
       });
       if (result.success) {
         setAmount("");
@@ -275,6 +287,23 @@ export function QuickAddForm({ categories, userId, otherUserName, splitGroups = 
               className="text-sm"
             />
           </div>
+          {accounts.length > 0 && (
+            <div>
+              <Label className="text-xs block mb-1">Account</Label>
+              <select
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={accountId ?? ""}
+                onChange={(e) => setAccountId(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">None</option>
+                {accounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name} ({a.type})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           {isOnline && (
             <div className="space-y-2">
               <label className="flex items-center gap-2 cursor-pointer">

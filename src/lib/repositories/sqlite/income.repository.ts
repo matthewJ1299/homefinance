@@ -51,7 +51,7 @@ export class IncomeRepository implements IIncomeRepository {
 
   async create(data: CreateIncomeInput): Promise<{ id: number }> {
     await run(
-      "INSERT INTO income (user_id, amount, type, description, date, month, recurring_income_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO income (user_id, amount, type, description, date, month, recurring_income_id, account_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       [
         data.userId,
         data.amount,
@@ -60,6 +60,7 @@ export class IncomeRepository implements IIncomeRepository {
         data.date,
         data.month,
         data.recurringIncomeId ?? null,
+        data.accountId ?? null,
       ]
     );
     return { id: await lastInsertId() };

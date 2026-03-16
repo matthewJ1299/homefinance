@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { addIncome } from "@/lib/actions/income.actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toMinorUnits } from "@/lib/utils/currency";
+import type { AccountType } from "@/lib/types";
 
 interface IncomeQuickAddProps {
   month: string;
@@ -18,7 +20,15 @@ export function IncomeQuickAdd({ month }: IncomeQuickAddProps) {
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
+  const [accountId, setAccountId] = useState<number | null>(null);
+  const [accounts, setAccounts] = useState<Array<{ id: number; name: string; type: AccountType }>>([]);
   const [message, setMessage] = useState<"saved" | "error" | null>(null);
+
+  useEffect(() => {
+    fetch("/api/accounts")
+      .then((res) => (res.ok ? res.json() : { accounts: [] }))
+      .then((data) => setAccounts(data.accounts ?? []));
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +41,7 @@ export function IncomeQuickAdd({ month }: IncomeQuickAddProps) {
         type: "salary",
         description: description.trim() || undefined,
         date,
+        accountId: accountId ?? undefined,
       });
       if (result.success) {
         setAmount("");
@@ -86,6 +97,23 @@ export function IncomeQuickAdd({ month }: IncomeQuickAddProps) {
         onChange={(e) => setDescription(e.target.value)}
         className="text-sm"
       />
+      {accounts.length > 0 && (
+        <div>
+          <Label className="text-xs block mb-1">Account</Label>
+          <select
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            value={accountId ?? ""}
+            onChange={(e) => setAccountId(e.target.value ? Number(e.target.value) : null)}
+          >
+            <option value="">None</option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name} ({a.type})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       {message === "saved" && (
         <p className="text-sm text-primary font-medium">Income saved. You can budget it now.</p>
       )}

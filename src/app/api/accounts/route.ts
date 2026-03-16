@@ -1,0 +1,38 @@
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { AccountService } from "@/lib/services/account.service";
+
+export async function GET() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = Number(session.user.id);
+  const service = new AccountService();
+  const accounts = await service.listAccountsForUser(userId);
+  return NextResponse.json({ accounts });
+}
+
+export async function POST(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const userId = Number(session.user.id);
+  const body = await request.json();
+  const { name, type, creditLimit } = body ?? {};
+  if (!name || !type) {
+    return NextResponse.json(
+      { error: "Invalid input", issues: ["name and type are required"] },
+      { status: 400 }
+    );
+  }
+  const service = new AccountService();
+  const account = await service.createAccount(userId, {
+    name,
+    type,
+    creditLimit: creditLimit ?? null,
+  });
+  return NextResponse.json(account, { status: 201 });
+}
+

@@ -1,4 +1,7 @@
-import { getExpenseRepository } from "@/lib/repositories";
+import {
+  getExpenseRepository,
+  getAccountTransactionRepository,
+} from "@/lib/repositories";
 import { monthFromDate } from "@/lib/utils/date";
 import type { ExpenseWithDetails } from "@/lib/types";
 import type { CreateExpenseInput, UpdateExpenseInput } from "@/lib/repositories/interfaces/expense.repository";
@@ -13,7 +16,10 @@ export interface ExpensesByMonthResult {
 }
 
 export class ExpenseService {
-  constructor(private repo = getExpenseRepository()) {}
+  constructor(
+    private repo = getExpenseRepository(),
+    private accountTxRepo = getAccountTransactionRepository()
+  ) {}
 
   async getSpendingByCategoryForMonths(months: string[], userId?: number): Promise<Record<number, number>> {
     return this.repo.getSpendingByCategoryForMonths(months, userId);
@@ -65,14 +71,25 @@ export class ExpenseService {
     data: Omit<CreateExpenseInput, "userId" | "month">
   ): Promise<{ id: number }> {
     const month = monthFromDate(data.date);
-    return this.repo.create({
+    const { id } = await this.repo.create({
       userId,
       categoryId: data.categoryId,
       amount: data.amount,
       note: data.note,
       date: data.date,
       month,
+      accountId: data.accountId ?? null,
     });
+    if (data.accountId != null) {
+      await this.accountTxRepo.create({
+        accountId: data.accountId,
+        amount: -data.amount,
+        transactionType: "expense",
+        referenceType: "expense",
+        referenceId: id,
+      });
+    }
+    return { id };
   }
 
   async update(id: number, userId: number, data: UpdateExpenseInput): Promise<void> {
