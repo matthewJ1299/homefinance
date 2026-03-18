@@ -46,10 +46,11 @@ export class AIService {
     const budgetService = new BudgetService();
     const expenseService = new ExpenseService();
     const incomeService = new IncomeService();
-
-    const [overview, incomeResult] = await Promise.all([
+    
+    const [overview, incomeResult, expenseResult] = await Promise.all([
       budgetService.getOverview(month, userId),
       incomeService.getByMonth(month, userId),
+      expenseService.getByMonth(month, userId),
     ]);
 
     const categorySummary = overview.categories
@@ -64,6 +65,7 @@ export class AIService {
 
     const data = {
       month,
+      expenses: expenseResult.expenses,
       totalIncome: formatRand(incomeResult.totals.overall),
       totalExpenses: formatRand(overview.totalExpenses),
       balance: formatRand(overview.balance),
@@ -72,11 +74,12 @@ export class AIService {
       categories: categorySummary,
     };
 
-    const prompt = `You are a personal finance assistant. Analyze this household budget summary for ${month} and respond in plain text (no markdown). Keep the response concise (under 300 words). Cover:
+    const prompt = `You are a personal finance assistant and planner. Analyze this household budget summary for ${month} and respond in plain text (no markdown). Keep the response concise (under 300 words). Cover:
 
 1. Spending patterns: How did spending compare to allocations? Which categories stood out?
 2. Budget advice: Any suggestions to reallocate or reduce spending next month?
 3. Anomalies: Anything unusual (e.g. one category much higher than usual)?
+4. Suggestions for next month: Any suggestions to reallocate or reduce spending next month?
 
 Data (amounts in ZAR):
 ${JSON.stringify(data, null, 2)}`;

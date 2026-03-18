@@ -10,6 +10,7 @@ import {
 } from "@/lib/repositories";
 import { monthFromDate } from "@/lib/utils/date";
 import type { SplitBalance, SplitHistoryItem } from "@/lib/types";
+import { calculateSplitBalance } from "@/lib/services/finance/accounts";
 
 export type CreateSplitOptions =
   | { type: "equal" }
@@ -113,68 +114,7 @@ export class SplitService {
   async getBalance(currentUserId: number, groupId?: number): Promise<SplitBalance> {
     const allocations = await this.allocationRepo.findAllForBalance(groupId);
     const settlements = await this.settlementRepo.findAllForUser(currentUserId, groupId);
-
-    const perUserMap = new Map<
-      number,
-      { userId: number; userName: string; owedToMe: number; iOwe: number }
-    >();
-    for (const row of allocations) {
-      if (row.paidByUserId === currentUserId && row.allocationUserId !== currentUserId) {
-        const existing = perUserMap.get(row.allocationUserId) ?? {
-          userId: row.allocationUserId,
-          userName: row.allocationUserName,
-          owedToMe: 0,
-          iOwe: 0,
-        };
-        existing.owedToMe += row.amount;
-        perUserMap.set(row.allocationUserId, existing);
-      } else if (row.allocationUserId === currentUserId) {
-        const existing = perUserMap.get(row.paidByUserId) ?? {
-          userId: row.paidByUserId,
-          userName: row.paidByUserName,
-          owedToMe: 0,
-          iOwe: 0,
-        };
-        existing.iOwe += row.amount;
-        perUserMap.set(row.paidByUserId, existing);
-      }
-    }
-
-    for (const s of settlements) {
-      if (s.recipientUserId === currentUserId) {
-        const existing = perUserMap.get(s.payerUserId) ?? {
-          userId: s.payerUserId,
-          userName: s.payerUserName,
-          owedToMe: 0,
-          iOwe: 0,
-        };
-        existing.owedToMe -= s.amount;
-        perUserMap.set(s.payerUserId, existing);
-      } else {
-        const existing = perUserMap.get(s.recipientUserId) ?? {
-          userId: s.recipientUserId,
-          userName: s.recipientUserName,
-          owedToMe: 0,
-          iOwe: 0,
-        };
-        existing.iOwe -= s.amount;
-        perUserMap.set(s.recipientUserId, existing);
-      }
-    }
-
-    let owedToMe = 0;
-    let iOwe = 0;
-    for (const u of perUserMap.values()) {
-      if (u.owedToMe > 0) owedToMe += u.owedToMe;
-      if (u.iOwe > 0) iOwe += u.iOwe;
-    }
-    const perUser = Array.from(perUserMap.values());
-    return {
-      owedToMe,
-      iOwe,
-      net: owedToMe - iOwe,
-      perUser,
-    };
+    return calculateSplitBalance({ currentUserId, allocations, settlements });
   }
 
   async settle(

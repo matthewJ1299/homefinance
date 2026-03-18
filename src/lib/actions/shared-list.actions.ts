@@ -11,6 +11,7 @@ import {
   createSharedListSchema,
   updateSharedListSchema,
 } from "@/lib/validators/shared-list.schema";
+import type { ListVisibility } from "@/lib/repositories/interfaces/shared-list.repository";
 import {
   createSharedListItemSchema,
   updateSharedListItemSchema,
@@ -23,6 +24,7 @@ export type SharedListActionResult =
 export async function createList(formData: {
   name: string;
   sortOrder?: number;
+  visibility?: ListVisibility;
 }): Promise<SharedListActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
@@ -116,7 +118,7 @@ export async function createListItem(
       const { NotificationService, isNotificationConfigured } = await import(
         "@/lib/services/notification.service"
       );
-      if (isNotificationConfigured()) {
+      if (exists.visibility === "shared" && isNotificationConfigured()) {
         const notificationService = new NotificationService();
         const userName = session.user.name ?? "Someone";
         const listName = exists.name;

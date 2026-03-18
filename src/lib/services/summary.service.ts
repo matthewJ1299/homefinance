@@ -1,5 +1,6 @@
 import { getIncomeRepository, getBudgetRepository } from "@/lib/repositories";
 import { ExpenseService } from "@/lib/services/expense.service";
+import { calculateMonthlySnapshotArithmetic } from "@/lib/services/finance/accounts";
 
 export interface MonthlySnapshotResult {
   month: string;
@@ -38,43 +39,19 @@ export class SummaryService {
       this.budgetRepo.getAllocationsForMonth(month, userId),
     ]);
 
-    const totalIncome = incomeResult.reduce((s, e) => s + e.amount, 0);
-    const totalExpenses = expenseResult.totals.overall;
-    const netPosition = totalIncome - totalExpenses;
-
-    const spentByCategory = expenseResult.totals.byCategory;
-    const allocationMap = new Map(
-      budgetOverview.map((a) => [a.categoryId, a.allocatedAmount])
-    );
-
-    const categoryNames = await this.getCategoryNames();
-    const categoryIds = new Set([
-      ...Object.keys(spentByCategory).map(Number),
-      ...allocationMap.keys(),
-    ]);
-    const budgetAdherence = Array.from(categoryIds).map((categoryId) => {
-      const allocated = allocationMap.get(categoryId) ?? 0;
-      const spent = spentByCategory[categoryId] ?? 0;
-      const name = categoryNames.get(categoryId) ?? "?";
-      const adherencePct = allocated > 0 ? (spent / allocated) * 100 : 0;
-      return { categoryName: name, allocated, spent, adherencePct };
-    });
-
-    const expensesByUser = expenseResult.totals.byUser;
-    const incomeByUser: Record<number, number> = {};
-    for (const e of incomeResult) {
-      incomeByUser[e.userId] = (incomeByUser[e.userId] ?? 0) + e.amount;
-    }
-
-    return {
+    const categoryIdToName = await this.getCategoryNames();
+    return calculateMonthlySnapshotArithmetic({
       month,
-      totalIncome,
-      totalExpenses,
-      netPosition,
-      budgetAdherence,
-      expensesByUser,
-      incomeByUser,
-    };
+      incomeEntries: incomeResult,
+      totalExpenses: expenseResult.totals.overall,
+      spentByCategory: expenseResult.totals.byCategory,
+      allocations: budgetOverview.map((a) => ({
+        categoryId: a.categoryId,
+        allocatedAmount: a.allocatedAmount,
+      })),
+      categoryIdToName,
+      expensesByUser: expenseResult.totals.byUser,
+    });
   }
 
   async getTrends(from: string, to: string): Promise<{ months: TrendMonthResult[] }> {

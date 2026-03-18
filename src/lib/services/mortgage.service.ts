@@ -5,7 +5,7 @@ import {
   standardMonthlyPayment,
   calculateTopUp,
   projectScheduleFromBalance,
-} from "./mortgage-calculator";
+} from "./finance/mortgage";
 import type { MortgageParams, AmortisationRow } from "@/lib/types/mortgage.types";
 import type { MortgageConfigRow, MortgageUserConfigRow, MortgagePaymentRow } from "@/lib/repositories/interfaces/mortgage.repository";
 import { addMonths, format } from "date-fns";

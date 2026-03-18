@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Category, SplitGroup } from "@/lib/types";
-import type { SharedList } from "@/lib/repositories/interfaces/shared-list.repository";
+import type {
+  ListVisibility,
+  SharedList,
+} from "@/lib/repositories/interfaces/shared-list.repository";
 import { QuickAddForm } from "@/components/expenses/quick-add-form";
 import { EventFormDialog } from "@/components/calendar/event-form-dialog";
 import { createListItem } from "@/lib/actions/shared-list.actions";
@@ -181,10 +184,18 @@ function AddListItemDialog({
   onSuccess,
 }: AddListItemDialogProps) {
   const [isPending, startTransition] = useTransition();
-  const [listId, setListId] = useState<number | "">(lists[0]?.id ?? "");
+  const [listVisibility, setListVisibility] = useState<ListVisibility>("shared");
+  const filteredLists = lists.filter((l) => l.visibility === listVisibility);
+  const [listId, setListId] = useState<number | "">(
+    filteredLists[0]?.id ?? ""
+  );
   const [label, setLabel] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setListId(lists.find((l) => l.visibility === listVisibility)?.id ?? "");
+  }, [listVisibility, lists]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,7 +213,7 @@ function AddListItemDialog({
       if (result.success) {
         setLabel("");
         setQuantity("1");
-        setListId(lists[0]?.id ?? "");
+        setListId(filteredLists[0]?.id ?? "");
         onSuccess();
       } else {
         setError(result.error);
@@ -214,9 +225,27 @@ function AddListItemDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <DialogHeader>Add list item</DialogHeader>
-        {lists.length === 0 ? (
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            type="button"
+            size="sm"
+            variant={listVisibility === "shared" ? "default" : "outline"}
+            onClick={() => setListVisibility("shared")}
+          >
+            Shared
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={listVisibility === "personal" ? "default" : "outline"}
+            onClick={() => setListVisibility("personal")}
+          >
+            Personal
+          </Button>
+        </div>
+        {filteredLists.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No lists yet. Create a list on the Lists page first.
+            No {listVisibility} lists yet. Create a list in Settings first.
           </p>
         ) : (
           <>
@@ -230,7 +259,7 @@ function AddListItemDialog({
                   setListId(e.target.value === "" ? "" : Number(e.target.value))
                 }
               >
-                {lists.map((list) => (
+                {filteredLists.map((list) => (
                   <option key={list.id} value={list.id}>
                     {list.name}
                   </option>
@@ -264,7 +293,7 @@ function AddListItemDialog({
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          {lists.length > 0 && (
+          {filteredLists.length > 0 && (
             <Button type="submit" disabled={isPending}>
               {isPending ? "Adding..." : "Add"}
             </Button>

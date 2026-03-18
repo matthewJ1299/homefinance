@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { BudgetService } from "./budget.service";
 import { SummaryService } from "./summary.service";
+import {
+  calculateBudgetOverviewArithmetic,
+  calculateMonthlySnapshotArithmetic,
+} from "@/lib/services/finance/accounts";
 
 /**
  * Unit tests for budget and summary calculation logic.
@@ -104,6 +108,21 @@ describe("budget calculations", () => {
     expect(row.spent).toBe(3_000);
     expect(row.remaining).toBe(5_000 - 3_000);
     expect(row.isOverspent).toBe(false);
+
+    const expected = calculateBudgetOverviewArithmetic({
+      totalIncome: 10_000,
+      totalExpenses: 3_000,
+      categories: [{ id: 1, name: "Food", groupName: "Living", costType: "variable" }],
+      allocationMap: new Map([[1, 5_000]]),
+      expenses: [{ userId: 1, categoryId: 1, amount: 3_000 }],
+      spentByCategory: { 1: 3_000 },
+    });
+
+    expect(overview.balance).toBe(expected.balance);
+    expect(overview.totalAllocated).toBe(expected.totalAllocated);
+    expect(overview.unallocated).toBe(expected.unallocated);
+    expect(overview.isBalanced).toBe(expected.isBalanced);
+    expect(overview.categories).toEqual(expected.categoryRows);
   });
 
   it("isOverspent is true when spent > allocated", async () => {
@@ -242,5 +261,19 @@ describe("summary calculations", () => {
     expect(adherence!.allocated).toBe(4_000);
     expect(adherence!.spent).toBe(3_000);
     expect(adherence!.adherencePct).toBe((3_000 / 4_000) * 100);
+
+    const expected = calculateMonthlySnapshotArithmetic({
+      month: "2024-03",
+      incomeEntries: [{ userId: 1, amount: 10_000 }],
+      totalExpenses: 3_000,
+      spentByCategory: { 1: 3_000 },
+      allocations: [{ categoryId: 1, allocatedAmount: 4_000 }],
+      categoryIdToName: new Map([[1, "Food"]]),
+      expensesByUser: { 1: 3_000 },
+    });
+
+    expect(snapshot.netPosition).toBe(expected.netPosition);
+    expect(snapshot.budgetAdherence).toEqual(expected.budgetAdherence);
+    expect(snapshot.incomeByUser).toEqual(expected.incomeByUser);
   });
 });

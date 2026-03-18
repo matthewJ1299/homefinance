@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Label } from "@/components/ui/label";
+import { CollapsibleSection } from "@/components/ui/collapsible-section";
 
 type DashboardTileKey =
   | "quickAdd"
@@ -94,8 +95,7 @@ export function DashboardTilesSettings() {
   ];
 
   return (
-    <section className="rounded-lg border bg-card p-4">
-      <h2 className="text-sm font-medium mb-1">Dashboard tiles</h2>
+    <CollapsibleSection title="Dashboard tiles" defaultOpen={false}>
       <p className="text-xs text-muted-foreground mb-3">
         Choose which tiles appear on the dashboard for this browser. You can change this at any time.
       </p>
@@ -117,7 +117,7 @@ export function DashboardTilesSettings() {
           </label>
         ))}
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
 

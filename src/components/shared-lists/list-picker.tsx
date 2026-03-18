@@ -9,9 +9,10 @@ import type { SharedList } from "@/lib/repositories/interfaces/shared-list.repos
 
 interface ListPickerProps {
   lists: SharedList[];
+  title?: string;
 }
 
-export function ListPicker({ lists }: ListPickerProps) {
+export function ListPicker({ lists, title }: ListPickerProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<"saved" | "error" | null>(null);
@@ -35,7 +36,7 @@ export function ListPicker({ lists }: ListPickerProps) {
   return (
     <div className="space-y-4">
       <h3 className="font-medium text-sm text-muted-foreground mb-3">
-        Your lists
+        {title ?? "Your lists"}
       </h3>
       {lists.length === 0 ? (
         <p className="text-sm text-muted-foreground">

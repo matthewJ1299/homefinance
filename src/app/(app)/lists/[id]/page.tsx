@@ -19,24 +19,48 @@ export default async function ListDetailPage({ params }: ListPageProps) {
   if (Number.isNaN(id)) notFound();
   const listRepo = getSharedListRepository();
   const itemRepo = getSharedListItemRepository();
-  const [list, lists, items] = await Promise.all([
+  const [list, items] = await Promise.all([
     listRepo.findById(id),
-    listRepo.findAll(),
     itemRepo.findByListId(id),
   ]);
   if (!list) notFound();
+  const lists = await listRepo.findAll({ visibility: list.visibility });
   return (
     <div className="p-4 space-y-6">
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
           <Link
-            href="/lists"
+            href={`/lists?scope=${list.visibility}`}
             className="text-sm text-muted-foreground hover:text-foreground"
           >
             Lists
           </Link>
           <span className="text-muted-foreground">/</span>
           <h1 className="text-xl font-semibold">{list.name}</h1>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link
+            href="/lists?scope=shared"
+            className={[
+              "text-sm font-medium rounded-md px-2 py-1 hover:bg-accent",
+              list.visibility === "shared"
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "text-muted-foreground hover:text-foreground",
+            ].join(" ")}
+          >
+            Shared
+          </Link>
+          <Link
+            href="/lists?scope=personal"
+            className={[
+              "text-sm font-medium rounded-md px-2 py-1 hover:bg-accent",
+              list.visibility === "personal"
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "text-muted-foreground hover:text-foreground",
+            ].join(" ")}
+          >
+            Personal
+          </Link>
         </div>
         <ListSwitcher lists={lists} currentList={list} />
       </div>

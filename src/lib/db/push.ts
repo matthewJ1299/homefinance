@@ -108,6 +108,26 @@ async function pushPostgres(): Promise<void> {
       }
     }
 
+    // Backfill list visibility (shared vs personal) so older databases keep working.
+    // Personal lists are owned by a specific user via shared_lists.owner_user_id.
+    const hasVisibilityColumn = await client.query(
+      "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'shared_lists' AND column_name = 'visibility'"
+    );
+    if (hasVisibilityColumn.rows.length === 0) {
+      await client.query(
+        "ALTER TABLE shared_lists ADD COLUMN visibility TEXT NOT NULL DEFAULT 'shared';"
+      );
+    }
+
+    const hasOwnerUserIdColumn = await client.query(
+      "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'shared_lists' AND column_name = 'owner_user_id'"
+    );
+    if (hasOwnerUserIdColumn.rows.length === 0) {
+      await client.query(
+        "ALTER TABLE shared_lists ADD COLUMN owner_user_id INTEGER REFERENCES users(id);"
+      );
+    }
+
     const hasPushSubscriptions = await client.query(
       "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'push_subscriptions'"
     );

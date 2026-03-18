@@ -1,4 +1,5 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
+import { getRequestContext } from "@/lib/db/request-context";
 import type { SharedList } from "../interfaces/shared-list.repository";
 import type {
   ISharedListRepository,
@@ -6,14 +7,24 @@ import type {
   UpdateSharedListInput,
 } from "../interfaces/shared-list.repository";
 
+import type { ListVisibility } from "../interfaces/shared-list.repository";
+
 const SELECT_FIELDS = `
-  SELECT id, name, sort_order AS "sortOrder", created_at AS "createdAt"
+  SELECT
+    id,
+    name,
+    visibility,
+    owner_user_id AS "ownerUserId",
+    sort_order AS "sortOrder",
+    created_at AS "createdAt"
   FROM shared_lists
 `;
 
 interface SharedListRow {
   id: number;
   name: string;
+  visibility: ListVisibility;
+  ownerUserId: number | null;
   sortOrder: number;
   createdAt: string;
 }
@@ -22,30 +33,80 @@ function toSharedList(r: SharedListRow): SharedList {
   return {
     id: r.id,
     name: r.name,
+    visibility: r.visibility,
+    ownerUserId: r.ownerUserId,
     sortOrder: r.sortOrder,
     createdAt: r.createdAt,
   };
 }
 
 export class SharedListRepository implements ISharedListRepository {
-  async findAll(): Promise<SharedList[]> {
+  private getUserIdOrNull(): number | null {
+    const ctx = getRequestContext();
+    const raw = ctx?.userId;
+    if (!raw) return null;
+    const id = Number(raw);
+    return Number.isFinite(id) ? id : null;
+  }
+
+  async findAll(options?: { visibility?: ListVisibility }): Promise<SharedList[]> {
+    const userId = this.getUserIdOrNull();
+    const visibility = options?.visibility;
+
+    const params: (string | number | boolean | null)[] = [];
+    let whereSql = "";
+
+    if (visibility === "shared") {
+      whereSql = "WHERE visibility = 'shared'";
+    } else if (visibility === "personal") {
+      if (userId == null) return [];
+      whereSql = "WHERE visibility = 'personal' AND owner_user_id = ?";
+      params.push(userId);
+    } else {
+      // Default: both shared and current user's personal lists.
+      if (userId == null) {
+        whereSql = "WHERE visibility = 'shared'";
+      } else {
+        whereSql =
+          "WHERE visibility = 'shared' OR (visibility = 'personal' AND owner_user_id = ?)";
+        params.push(userId);
+      }
+    }
+
     const rows = await all<SharedListRow>(
-      `${SELECT_FIELDS} ORDER BY sort_order ASC, id ASC`
+      `${SELECT_FIELDS} ${whereSql} ORDER BY sort_order ASC, id ASC`,
+      params
     );
     return rows.map(toSharedList);
   }
 
   async findById(id: number): Promise<SharedList | null> {
-    const row = await get<SharedListRow>(`${SELECT_FIELDS} WHERE id = ?`, [
-      id,
-    ]);
+    const userId = this.getUserIdOrNull();
+    const row = await (userId == null
+      ? get<SharedListRow>(
+          `${SELECT_FIELDS} WHERE id = ? AND visibility = 'shared'`,
+          [id]
+        )
+      : get<SharedListRow>(
+          `${SELECT_FIELDS} WHERE id = ? AND (visibility = 'shared' OR (visibility = 'personal' AND owner_user_id = ?))`,
+          [id, userId]
+        ));
     return row ? toSharedList(row) : null;
   }
 
   async create(data: CreateSharedListInput): Promise<{ id: number }> {
+    const userId = this.getUserIdOrNull();
+    const visibility: ListVisibility = data.visibility ?? "shared";
+    const ownerUserId =
+      visibility === "personal" ? (userId ?? null) : null;
+
+    if (visibility === "personal" && ownerUserId == null) {
+      throw new Error("Unauthorized");
+    }
+
     await run(
-      `INSERT INTO shared_lists (name, sort_order) VALUES (?, ?)`,
-      [data.name, data.sortOrder ?? 0]
+      `INSERT INTO shared_lists (name, sort_order, visibility, owner_user_id) VALUES (?, ?, ?, ?)`,
+      [data.name, data.sortOrder ?? 0, visibility, ownerUserId]
     );
     return { id: await lastInsertId() };
   }

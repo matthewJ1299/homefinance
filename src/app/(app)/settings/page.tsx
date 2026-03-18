@@ -85,9 +85,9 @@ export default async function SettingsPage() {
           <RecurringExpenseManage items={recurringExpenses} categories={categoriesForRecurring} />
         </CollapsibleSection>
 
-        <CollapsibleSection title="Shared lists" defaultOpen={false}>
+        <CollapsibleSection title="Lists" defaultOpen={false}>
           <p className="text-sm text-muted-foreground mb-3">
-            Create and delete shared lists. The first list is shown when you open Lists from the nav. Switch lists from the list detail page.
+            Create and delete shared or personal lists. Use the toggle to choose which kind of lists you are viewing/adding.
           </p>
           <SharedListsManage lists={sharedLists} />
         </CollapsibleSection>

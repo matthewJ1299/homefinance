@@ -42,7 +42,7 @@ export async function POST(
     const { NotificationService, isNotificationConfigured } = await import(
       "@/lib/services/notification.service"
     );
-    if (isNotificationConfigured()) {
+    if (exists.visibility === "shared" && isNotificationConfigured()) {
       const notificationService = new NotificationService();
       const userName = session.user.name ?? "Someone";
       const listName = exists.name;

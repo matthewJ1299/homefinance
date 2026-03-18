@@ -1,7 +1,8 @@
-import { addMonths, format } from "date-fns";
 import { getAccountTransactionRepository, getGoalContributionRepository, getGoalRepository } from "@/lib/repositories";
 import { estimateCreditPayoff, recommendCreditStrategy } from "@/lib/services/credit-strategy.service";
 import type { Goal } from "@/lib/types";
+import { calculateProgressPct } from "@/lib/services/finance/goals";
+import { projectSavingsGoalCompletionMonth } from "@/lib/services/finance/projections";
 
 export interface SavingsGoalProgress {
   goal: Goal;
@@ -50,18 +51,12 @@ export class GoalProjectionService {
     const monthlyActual = totalsMonth.totalContributed - totalsMonth.totalWithdrawn;
     const monthlyDelta = monthlyActual - goal.monthlyTarget;
     const target = goal.targetAmount;
-    const progressPct = target > 0 ? Math.max(0, Math.min(1, current / target)) : 0;
-
-    let projectedCompletionMonth: string | null = null;
-    const remaining = Math.max(0, target - current);
-    if (remaining === 0) {
-      projectedCompletionMonth = month;
-    } else if (goal.monthlyTarget > 0) {
-      const monthsRemaining = Math.ceil(remaining / goal.monthlyTarget);
-      const [y, m] = month.split("-").map(Number);
-      const start = new Date(y, (m ?? 1) - 1, 1);
-      projectedCompletionMonth = format(addMonths(start, monthsRemaining), "yyyy-MM");
-    }
+    const progressPct = calculateProgressPct({ current, target });
+    const projectedCompletionMonth = projectSavingsGoalCompletionMonth({
+      month,
+      remaining: Math.max(0, target - current),
+      monthlyTarget: goal.monthlyTarget,
+    });
 
     return {
       goal,

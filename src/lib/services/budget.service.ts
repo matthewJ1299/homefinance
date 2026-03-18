@@ -5,6 +5,7 @@ import { getCategoryRepository } from "@/lib/repositories";
 import { prevMonth } from "@/lib/utils/date";
 import type { Category } from "@/lib/types";
 import type { BudgetAllocationWithMonth } from "@/lib/repositories/interfaces/budget.repository";
+import { calculateBudgetOverviewArithmetic } from "@/lib/services/finance/accounts";
 
 /** Max months to look back when resolving carried-over allocations. */
 const CARRY_OVER_MONTHS = 12;
@@ -70,7 +71,6 @@ export class BudgetService {
 
     const totalIncome = incomeResult.totals.overall;
     const totalExpenses = expenseResult.totals.overall;
-    const balance = totalIncome - totalExpenses;
 
     const allocationMap = this.resolveEffectiveAllocations(
       month,
@@ -82,34 +82,15 @@ export class BudgetService {
     await this.persistMissingAllocationsForMonth(month, allocationMap, categories, userId);
     const spentByCategory = expenseResult.totals.byCategory;
     const categoryMeta = new Map(categories.map((c) => [c.id, c]));
-
-    let totalAllocated = 0;
-    const categoryRows: BudgetCategoryRow[] = categories.map((cat) => {
-      const allocated = allocationMap.get(cat.id) ?? 0;
-      const spent = spentByCategory[cat.id] ?? 0;
-      totalAllocated += allocated;
-      const remaining = allocated - spent;
-      const spentByUser: Record<number, number> = {};
-      for (const e of expenseResult.expenses) {
-        if (e.categoryId === cat.id) {
-          spentByUser[e.userId] = (spentByUser[e.userId] ?? 0) + e.amount;
-        }
-      }
-      return {
-        categoryId: cat.id,
-        categoryName: cat.name,
-        groupName: cat.groupName,
-        costType: cat.costType ?? "variable",
-        allocated,
-        spent,
-        remaining,
-        isOverspent: remaining < 0,
-        spentByUser,
-      };
+    const budgetArithmetic = calculateBudgetOverviewArithmetic({
+      totalIncome,
+      totalExpenses,
+      categories,
+      allocationMap,
+      expenses: expenseResult.expenses,
+      spentByCategory,
     });
-
-    const unallocated = totalIncome - totalAllocated;
-    const isBalanced = unallocated === 0;
+    const { balance, totalAllocated, categoryRows, unallocated, isBalanced } = budgetArithmetic;
 
     const transferDisplays: BudgetTransferDisplay[] = await Promise.all(
       transfers.map(async (t) => {
