@@ -35,11 +35,18 @@ function toIncomeEntry(r: IncomeEntryRow): IncomeEntry {
 }
 
 export class IncomeRepository implements IIncomeRepository {
-  async findByMonth(month: string, userId?: number): Promise<IncomeEntry[]> {
-    const sql = userId != null
-      ? `${SELECT_INCOME_ENTRY} WHERE i.month = ? AND i.user_id = ? ORDER BY i.date`
-      : `${SELECT_INCOME_ENTRY} WHERE i.month = ? ORDER BY i.date`;
-    const params = userId != null ? [month, userId] : [month];
+  async findByMonth(month: string, userId?: number, accountId?: number): Promise<IncomeEntry[]> {
+    let sql = `${SELECT_INCOME_ENTRY} WHERE i.month = ?`;
+    const params: (string | number)[] = [month];
+    if (userId != null) {
+      sql += " AND i.user_id = ?";
+      params.push(userId);
+    }
+    if (accountId != null) {
+      sql += " AND i.account_id = ?";
+      params.push(accountId);
+    }
+    sql += " ORDER BY i.date";
     const rows = await all<IncomeEntryRow>(sql, params);
     return rows.map(toIncomeEntry);
   }

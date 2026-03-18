@@ -30,10 +30,8 @@ function pushRecentCategoryId(id: number) {
   }
 }
 
-function sortByGroupAndName(categories: Category[]): Category[] {
-  return [...categories].sort(
-    (a, b) => a.groupName.localeCompare(b.groupName) || a.name.localeCompare(b.name)
-  );
+function byIncomingOrder(categories: Category[]): Category[] {
+  return [...categories];
 }
 
 export interface CategoryBudgetHint {
@@ -101,12 +99,8 @@ function PillSection({
 
 export function CategoryPicker({ categories, value, onChange, budgetByCategory, className }: CategoryPickerProps) {
   const { variable, fixed } = useMemo(() => {
-    const variableList = sortByGroupAndName(
-      categories.filter((c) => c.costType === "variable")
-    );
-    const fixedList = sortByGroupAndName(
-      categories.filter((c) => c.costType === "fixed")
-    );
+    const variableList = byIncomingOrder(categories.filter((c) => c.costType === "variable"));
+    const fixedList = byIncomingOrder(categories.filter((c) => c.costType === "fixed"));
     return { variable: variableList, fixed: fixedList };
   }, [categories]);
 

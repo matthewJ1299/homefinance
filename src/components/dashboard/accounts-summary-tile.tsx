@@ -25,7 +25,13 @@ export function AccountsSummaryTile() {
     fetch("/api/accounts")
       .then((res) => res.ok ? res.json() : { accounts: [] })
       .then((data) => {
-        setAccounts(data.accounts ?? []);
+        const list = Array.isArray(data.accounts) ? data.accounts : [];
+        setAccounts(
+          list.map((a: any) => ({
+            ...a,
+            balance: Number(a.balance ?? 0),
+          }))
+        );
       })
       .finally(() => setLoading(false));
   }, []);
@@ -36,12 +42,22 @@ export function AccountsSummaryTile() {
     credit: accounts.filter((a) => a.type === "credit").reduce((s, a) => s + a.balance, 0),
   };
   const net = byType.bank + byType.savings + byType.credit;
+  const cashOnHand = byType.bank + byType.savings;
+  const totalDebt = Math.abs(byType.credit);
 
   const refresh = () => {
     setLoading(true);
     fetch("/api/accounts")
-      .then((res) => res.ok ? res.json() : { accounts: [] })
-      .then((data) => setAccounts(data.accounts ?? []))
+      .then((res) => (res.ok ? res.json() : { accounts: [] }))
+      .then((data) => {
+        const list = Array.isArray(data.accounts) ? data.accounts : [];
+        setAccounts(
+          list.map((a: any) => ({
+            ...a,
+            balance: Number(a.balance ?? 0),
+          }))
+        );
+      })
       .finally(() => setLoading(false));
     router.refresh();
   };
@@ -82,17 +98,22 @@ export function AccountsSummaryTile() {
             Transfer Money
           </button>
         </div>
-        <div className="space-y-1 text-muted-foreground">
-          {byType.bank !== 0 && (
-            <div>Bank: {formatRand(byType.bank)}</div>
-          )}
-          {byType.savings !== 0 && (
-            <div>Savings: {formatRand(byType.savings)}</div>
-          )}
-          {byType.credit !== 0 && (
-            <div>Credit: {formatRand(byType.credit)}</div>
-          )}
+
+        <div className="grid grid-cols-1 gap-1 text-xs text-muted-foreground sm:grid-cols-3 mb-2">
+          <div>
+            <div className="uppercase tracking-wide">Net worth</div>
+            <div className="font-medium text-foreground">{formatRand(net)}</div>
+          </div>
+          <div>
+            <div className="uppercase tracking-wide">Cash on hand</div>
+            <div className="font-medium text-foreground">{formatRand(cashOnHand)}</div>
+          </div>
+          <div>
+            <div className="uppercase tracking-wide">Total debt</div>
+            <div className="font-medium text-foreground">{formatRand(totalDebt)}</div>
+          </div>
         </div>
+
         <div className="mt-2 pt-2 border-t font-medium">
           Net: {formatRand(net)}
         </div>

@@ -53,6 +53,7 @@ export interface ExpenseWithDetails {
   splitGroupId?: string | null;
   paidByUserId?: number | null;
   splitExpenseGroupId?: number | null;
+  accountId?: number | null;
 }
 
 export type SplitType = "equal" | "full" | "exact";
@@ -104,4 +105,35 @@ export interface Account {
 export interface AccountWithBalance extends Account {
   balance: number;
   availableCredit?: number;
+}
+
+export type GoalType = "savings" | "credit";
+export type GoalStrategy = "avalanche" | "snowball" | "target_date";
+export type GoalContributionKind = "contribution" | "withdrawal" | "payment" | "interest";
+
+export interface Goal {
+  id: number;
+  ownerUserId: number;
+  name: string;
+  type: GoalType;
+  targetAmount: number | null;
+  monthlyTarget: number;
+  linkedAccountId: number | null;
+  apr: number | null;
+  strategy: GoalStrategy | null;
+  archivedAt: string | null;
+  createdAt: string;
+}
+
+export interface GoalContribution {
+  id: number;
+  goalId: number;
+  ownerUserId: number;
+  accountTransactionId: number;
+  kind: GoalContributionKind;
+  /** Minor units, always positive; direction inferred by kind. */
+  amount: number;
+  effectiveDate: string;
+  note: string | null;
+  createdAt: string;
 }

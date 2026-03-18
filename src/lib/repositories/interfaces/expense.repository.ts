@@ -24,14 +24,15 @@ export interface UpdateExpenseInput {
 }
 
 export interface IExpenseRepository {
-  findByMonth(month: string, userId?: number): Promise<ExpenseWithDetails[]>;
+  findByMonth(month: string, userId?: number, accountId?: number): Promise<ExpenseWithDetails[]>;
   findByMonthPaginated(
     month: string,
     limit: number,
     offset: number,
-    userId?: number
+    userId?: number,
+    accountId?: number
   ): Promise<ExpenseWithDetails[]>;
-  countByMonth(month: string, userId?: number): Promise<number>;
+  countByMonth(month: string, userId?: number, accountId?: number): Promise<number>;
   findById(id: number): Promise<ExpenseWithDetails | null>;
   getSpendingByCategoryForMonths(months: string[], userId?: number): Promise<Record<number, number>>;
   create(data: CreateExpenseInput): Promise<{ id: number }>;

@@ -29,7 +29,8 @@ export class ExpenseService {
     month: string,
     page: number,
     pageSize: number,
-    userId?: number
+    userId?: number,
+    accountId?: number
   ): Promise<{
     expenses: ExpenseWithDetails[];
     total: number;
@@ -37,11 +38,11 @@ export class ExpenseService {
     pageSize: number;
     totalPages: number;
   }> {
-    const total = await this.repo.countByMonth(month, userId);
+    const total = await this.repo.countByMonth(month, userId, accountId);
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     const safePage = Math.min(Math.max(1, page), totalPages);
     const offset = (safePage - 1) * pageSize;
-    const expenses = await this.repo.findByMonthPaginated(month, pageSize, offset, userId);
+    const expenses = await this.repo.findByMonthPaginated(month, pageSize, offset, userId, accountId);
     return {
       expenses,
       total,
@@ -51,8 +52,8 @@ export class ExpenseService {
     };
   }
 
-  async getByMonth(month: string, userId?: number): Promise<ExpensesByMonthResult> {
-    const expenses = await this.repo.findByMonth(month, userId);
+  async getByMonth(month: string, userId?: number, accountId?: number): Promise<ExpensesByMonthResult> {
+    const expenses = await this.repo.findByMonth(month, userId, accountId);
     const totals = {
       overall: 0,
       byUser: {} as Record<number, number>,

@@ -9,6 +9,8 @@ import {
   SplitSquareVertical,
   CalendarDays,
   ListTodo,
+  CreditCard,
+  Target,
 } from "lucide-react";
 
 export interface NavItem {
@@ -31,6 +33,8 @@ export const hamburgerMenuItems: NavItem[] = [
   { href: "/expenses", label: "Expenses", icon: Receipt },
   { href: "/splits", label: "Splits", icon: SplitSquareVertical },
   { href: "/budget", label: "Budget", icon: PiggyBank },
+  { href: "/accounts", label: "Accounts", icon: CreditCard },
+  { href: "/goals", label: "Goals", icon: Target },
   { href: "/mortgage", label: "Mortgage", icon: Wallet },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
@@ -43,7 +47,9 @@ export const fullNavItems: NavItem[] = [
   { href: "/expenses", label: "Expenses", icon: Receipt },
   { href: "/splits", label: "Splits", icon: SplitSquareVertical },
   { href: "/budget", label: "Budget", icon: PiggyBank },
+  { href: "/accounts", label: "Accounts", icon: CreditCard },
   { href: "/mortgage", label: "Mortgage", icon: Wallet },
+  { href: "/goals", label: "Goals", icon: Target },
   { href: "/summary", label: "Summary", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

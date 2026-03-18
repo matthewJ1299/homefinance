@@ -33,9 +33,13 @@ import { SentReminderRepository } from "./sqlite/sent-reminder.repository";
 import type { IAccountRepository } from "./interfaces/account.repository";
 import type { IAccountTransactionRepository } from "./interfaces/account-transaction.repository";
 import type { ITransferRepository } from "./interfaces/transfer.repository";
+import type { IGoalRepository } from "./interfaces/goal.repository";
+import type { IGoalContributionRepository } from "./interfaces/goal-contribution.repository";
 import { AccountRepository } from "./sqlite/account.repository";
 import { AccountTransactionRepository } from "./sqlite/account-transaction.repository";
 import { TransferRepository } from "./sqlite/transfer.repository";
+import { GoalRepository } from "./sqlite/goal.repository";
+import { GoalContributionRepository } from "./sqlite/goal-contribution.repository";
 
 let categoryRepo: ICategoryRepository | null = null;
 let expenseRepo: IExpenseRepository | null = null;
@@ -56,6 +60,8 @@ let sentReminderRepo: ISentReminderRepository | null = null;
 let accountRepo: IAccountRepository | null = null;
 let accountTransactionRepo: IAccountTransactionRepository | null = null;
 let transferRepo: ITransferRepository | null = null;
+let goalRepo: IGoalRepository | null = null;
+let goalContributionRepo: IGoalContributionRepository | null = null;
 
 export function getCategoryRepository(): ICategoryRepository {
   if (!categoryRepo) categoryRepo = new CategoryRepository();
@@ -151,5 +157,15 @@ export function getAccountTransactionRepository(): IAccountTransactionRepository
 export function getTransferRepository(): ITransferRepository {
   if (!transferRepo) transferRepo = new TransferRepository();
   return transferRepo;
+}
+
+export function getGoalRepository(): IGoalRepository {
+  if (!goalRepo) goalRepo = new GoalRepository();
+  return goalRepo;
+}
+
+export function getGoalContributionRepository(): IGoalContributionRepository {
+  if (!goalContributionRepo) goalContributionRepo = new GoalContributionRepository();
+  return goalContributionRepo;
 }
 

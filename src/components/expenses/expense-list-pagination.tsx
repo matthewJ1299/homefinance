@@ -12,6 +12,7 @@ interface ExpenseListPaginationProps {
   totalPages: number;
   total: number;
   pageSize: number;
+  account?: string;
 }
 
 export function ExpenseListPagination({
@@ -20,12 +21,13 @@ export function ExpenseListPagination({
   totalPages,
   total,
   pageSize,
+  account,
 }: ExpenseListPaginationProps) {
   if (total === 0 || totalPages <= 1) return null;
 
   const start = (page - 1) * pageSize + 1;
   const end = Math.min(page * pageSize, total);
-  const baseHref = `/dashboard?month=${encodeURIComponent(month)}`;
+  const baseHref = `/dashboard?month=${encodeURIComponent(month)}${account && account !== "all" ? `&account=${encodeURIComponent(account)}` : ""}`;
 
   return (
     <nav

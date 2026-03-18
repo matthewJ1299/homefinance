@@ -10,6 +10,9 @@ import { SpendingByCategoryChart } from "@/components/summary/spending-by-catego
 import { IncomeVsExpensesChart } from "@/components/summary/income-vs-expenses-chart";
 import { EquityGrowthChart } from "@/components/summary/equity-growth-chart";
 import { getUserRepository } from "@/lib/repositories";
+import { AccountsSummaryTile } from "@/components/dashboard/accounts-summary-tile";
+import { AiAnalysisButton } from "@/components/dashboard/ai-analysis-button";
+import { isAIConfigured } from "@/lib/services/ai.service";
 
 interface SummaryPageProps {
   searchParams: Promise<{ month?: string; from?: string; to?: string }>;
@@ -61,7 +64,20 @@ export default async function SummaryPage({ searchParams }: SummaryPageProps) {
   return (
     <div className="p-4 space-y-6">
       <MonthNavigator />
-      <h1 className="text-xl font-semibold">Summary</h1>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-xl font-semibold">Summary</h1>
+          <p className="text-sm text-muted-foreground">
+            High-level view of your income, expenses, budgets, and accounts.
+          </p>
+          <div className="mt-3">
+            <AiAnalysisButton month={month} enabled={isAIConfigured()} />
+          </div>
+        </div>
+        <section className="w-full max-w-xs">
+          <AccountsSummaryTile />
+        </section>
+      </div>
 
       <section>
         <h2 className="font-medium text-muted-foreground mb-2">Monthly snapshot</h2>

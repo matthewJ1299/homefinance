@@ -8,7 +8,7 @@ import type {
 
 const SELECT_EXPENSE_DETAILS = `
   SELECT e.id, e.user_id AS "userId", u.name AS "userName", e.category_id AS "categoryId", c.name AS "categoryName",
-         e.amount, e.note, e.date, e.created_at AS "createdAt", e.split_group_id AS "splitGroupId", e.paid_by_user_id AS "paidByUserId", e.split_expense_group_id AS "splitExpenseGroupId"
+         e.amount, e.note, e.date, e.created_at AS "createdAt", e.split_group_id AS "splitGroupId", e.paid_by_user_id AS "paidByUserId", e.split_expense_group_id AS "splitExpenseGroupId", e.account_id AS "accountId"
   FROM expenses e
   INNER JOIN users u ON e.user_id = u.id
   INNER JOIN categories c ON e.category_id = c.id
@@ -27,6 +27,7 @@ interface ExpenseDetailsRow {
   splitGroupId: string | null;
   paidByUserId: number | null;
   splitExpenseGroupId?: number | null;
+   accountId?: number | null;
 }
 
 function toExpenseWithDetails(r: ExpenseDetailsRow): ExpenseWithDetails {
@@ -43,15 +44,23 @@ function toExpenseWithDetails(r: ExpenseDetailsRow): ExpenseWithDetails {
     splitGroupId: r.splitGroupId,
     paidByUserId: r.paidByUserId,
     splitExpenseGroupId: r.splitExpenseGroupId ?? undefined,
+    accountId: r.accountId ?? undefined,
   };
 }
 
 export class ExpenseRepository implements IExpenseRepository {
-  async findByMonth(month: string, userId?: number): Promise<ExpenseWithDetails[]> {
-    const sql = userId != null
-      ? `${SELECT_EXPENSE_DETAILS} WHERE e.month = ? AND e.user_id = ? ORDER BY e.date, e.created_at`
-      : `${SELECT_EXPENSE_DETAILS} WHERE e.month = ? ORDER BY e.date, e.created_at`;
-    const params = userId != null ? [month, userId] : [month];
+  async findByMonth(month: string, userId?: number, accountId?: number): Promise<ExpenseWithDetails[]> {
+    let sql = `${SELECT_EXPENSE_DETAILS} WHERE e.month = ?`;
+    const params: (string | number)[] = [month];
+    if (userId != null) {
+      sql += " AND e.user_id = ?";
+      params.push(userId);
+    }
+    if (accountId != null) {
+      sql += " AND e.account_id = ?";
+      params.push(accountId);
+    }
+    sql += " ORDER BY e.date, e.created_at";
     const rows = await all<ExpenseDetailsRow>(sql, params);
     return rows.map(toExpenseWithDetails);
   }
@@ -60,22 +69,36 @@ export class ExpenseRepository implements IExpenseRepository {
     month: string,
     limit: number,
     offset: number,
-    userId?: number
+    userId?: number,
+    accountId?: number
   ): Promise<ExpenseWithDetails[]> {
-    const base = userId != null
-      ? `${SELECT_EXPENSE_DETAILS} WHERE e.month = ? AND e.user_id = ?`
-      : `${SELECT_EXPENSE_DETAILS} WHERE e.month = ?`;
-    const params = userId != null ? [month, userId, limit, offset] : [month, limit, offset];
+    let base = `${SELECT_EXPENSE_DETAILS} WHERE e.month = ?`;
+    const params: (string | number)[] = [month];
+    if (userId != null) {
+      base += " AND e.user_id = ?";
+      params.push(userId);
+    }
+    if (accountId != null) {
+      base += " AND e.account_id = ?";
+      params.push(accountId);
+    }
     const sql = `${base} ORDER BY e.date DESC, e.created_at DESC LIMIT ? OFFSET ?`;
+    params.push(limit, offset);
     const rows = await all<ExpenseDetailsRow>(sql, params);
     return rows.map(toExpenseWithDetails);
   }
 
-  async countByMonth(month: string, userId?: number): Promise<number> {
-    const sql = userId != null
-      ? "SELECT COUNT(id) AS c FROM expenses WHERE month = ? AND user_id = ?"
-      : "SELECT COUNT(id) AS c FROM expenses WHERE month = ?";
-    const params = userId != null ? [month, userId] : [month];
+  async countByMonth(month: string, userId?: number, accountId?: number): Promise<number> {
+    let sql = "SELECT COUNT(id) AS c FROM expenses WHERE month = ?";
+    const params: (string | number)[] = [month];
+    if (userId != null) {
+      sql += " AND user_id = ?";
+      params.push(userId);
+    }
+    if (accountId != null) {
+      sql += " AND account_id = ?";
+      params.push(accountId);
+    }
     const row = await get<{ c: number }>(sql, params);
     return row?.c ?? 0;
   }

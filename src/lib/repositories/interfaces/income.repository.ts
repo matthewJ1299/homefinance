@@ -31,7 +31,7 @@ export interface UpdateIncomeInput {
 }
 
 export interface IIncomeRepository {
-  findByMonth(month: string, userId?: number): Promise<IncomeEntry[]>;
+  findByMonth(month: string, userId?: number, accountId?: number): Promise<IncomeEntry[]>;
   findById(id: number): Promise<IncomeEntry | null>;
   create(data: CreateIncomeInput): Promise<{ id: number }>;
   update(id: number, data: UpdateIncomeInput): Promise<void>;

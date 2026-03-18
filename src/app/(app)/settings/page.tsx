@@ -15,6 +15,7 @@ import { RecurringIncomeManage } from "@/components/recurring-income/recurring-i
 import { RecurringExpenseManage } from "@/components/recurring-expenses/recurring-expense-manage";
 import { SharedListsManage } from "@/components/shared-lists/shared-lists-manage";
 import { PushNotificationsSettings } from "@/components/push/push-notifications-settings";
+import { DashboardTilesSettings } from "@/components/settings/dashboard-tiles-settings";
 import { AccountsManage } from "@/components/accounts/accounts-manage";
 
 export default async function SettingsPage() {
@@ -41,6 +42,7 @@ export default async function SettingsPage() {
       </p>
 
       <PushNotificationsSettings />
+      <DashboardTilesSettings />
 
       <section className="rounded-lg border bg-card p-4">
         <h2 className="text-sm font-medium mb-1">Recurring this month</h2>
@@ -51,7 +53,7 @@ export default async function SettingsPage() {
       </section>
 
       <div className="space-y-3">
-        <CollapsibleSection title="Categories" defaultOpen={true}>
+        <CollapsibleSection title="Categories" defaultOpen={false}>
           <CategoriesManage categories={categories} />
         </CollapsibleSection>
 
