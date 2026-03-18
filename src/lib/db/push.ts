@@ -161,6 +161,24 @@ async function pushPostgres(): Promise<void> {
         console.log("Postgres migration 0007 (accounts & transfers) applied.");
       }
     }
+
+    const hasGoals = await client.query(
+      "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'goals'"
+    );
+    if (hasGoals.rows.length === 0) {
+      const migration0008Path = path.join(process.cwd(), "drizzle", "0008_goals_pg.sql");
+      if (fs.existsSync(migration0008Path)) {
+        const sql0008 = fs.readFileSync(migration0008Path, "utf-8");
+        const statements0008 = sql0008
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statements0008) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration 0008 (goals) applied.");
+      }
+    }
   } finally {
     await client.end();
   }

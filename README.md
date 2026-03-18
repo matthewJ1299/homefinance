@@ -8,6 +8,11 @@ Personal finance app for tracking income, expenses, and budgets.
 - **Expenses**: Log expenses by category with optional notes.
   - **Dashboard**: The "Recent" expenses section shows only the signed-in user's expenses. A **Today's events** tile shows any calendar events for the current day (with time if set) and links to the Calendar page; if there are none, it shows "No events today".
   - **Expenses page**: Toggle to view **My expenses**, another user's expenses (e.g. partner's), or **Combined** income and expenses for the selected view. Income and expense totals are shown for the active filter.
+- **Goals (Intent)**: Track intent separately from spending.
+  - **Savings goals**: Set a target amount and monthly target, link to an account (recommended). Add contributions manually; the dashboard shows progress, monthly compliance, and a projected completion month.
+  - **Credit goals**: Link to a credit account, set a monthly payment target, optionally store APR. Add manual payments and manual interest from statements. The dashboard shows payoff estimates.
+  - **Clean UX rule**: Goal contributions are **not expenses**. The Expenses page remains pure “money gone”; contributions appear only on goals/dashboard.
+  - **Mental model**: Accounts = truth (ledger), Goals = intent, Contributions = bridge (link ledger movements to goals).
 - **Categories**: Each category is either **Fixed** or **Variable** cost.
   - **Fixed**: Same amount each month (e.g. Utilities, Insurance). You can set a default amount (R) in Manage categories; that amount is auto-allocated for new months until you change it.
   - **Variable**: Amount varies by month (e.g. Groceries, Dining out).
@@ -53,6 +58,7 @@ Seed always creates:
 - **3 months** of income and expenses for **both users**: current month and the two previous months. Income includes monthly salary per user plus ad-hoc entries; expenses are spread across categories and both users.
 - **Per-user budget allocations** for the same 3 months: each user gets allocation rows for the main categories (groceries, transport, utilities, savings, etc.) and one sample **budget transfer** (savings to groceries) so the Budget page shows meaningful data for each user.
 - **Split expenses** (current month): e.g. groceries split equally, dinner split equally, and a full-amount-owed utility expense, so the Splits page shows who owes whom. A **Splits** category is included for settlement expenses.
+- **Goals**: Sample savings and credit goals per user, with example goal contributions, credit payment, and a manual interest entry (all linked to the account ledger).
 
 Amounts use the same integer format as the app (e.g. cents). To start with an empty transaction history, you would need to change the seed script or clear income/expenses after seeding.
 

@@ -22,8 +22,8 @@ export class IncomeService {
     private accountTxRepo = getAccountTransactionRepository()
   ) {}
 
-  async getByMonth(month: string, userId?: number): Promise<IncomeByMonthResult> {
-    const entries = await this.repo.findByMonth(month, userId);
+  async getByMonth(month: string, userId?: number, accountId?: number): Promise<IncomeByMonthResult> {
+    const entries = await this.repo.findByMonth(month, userId, accountId);
     const totals = {
       overall: 0,
       byUser: {} as Record<number, number>,

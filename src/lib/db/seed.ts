@@ -14,10 +14,52 @@ try {
 
 const DEFAULT_PASSWORD = process.env.SEED_USER_PASSWORD ?? "ChangeMe123!";
 
+type UserAccounts = {
+  bankAccountId: number;
+  savingsAccountId: number;
+  creditAccountId: number;
+};
+
+async function seedAccounts(userIds: [number, number]): Promise<Record<number, UserAccounts>> {
+  const accountsByUser: Record<number, UserAccounts> = {};
+  for (const userId of userIds) {
+    const bankName = userId === userIds[0] ? "Matt Bank" : "Sydney Bank";
+    const savingsName = userId === userIds[0] ? "Matt Savings" : "Sydney Savings";
+    const creditName = userId === userIds[0] ? "Matt Credit Card" : "Sydney Credit Card";
+
+    await run(
+      "INSERT INTO accounts (name, type, owner_user_id, credit_limit) VALUES (?, ?, ?, ?)",
+      [bankName, "bank", userId, null]
+    );
+    const bankAccountId = await lastInsertId();
+
+    await run(
+      "INSERT INTO accounts (name, type, owner_user_id, credit_limit) VALUES (?, ?, ?, ?)",
+      [savingsName, "savings", userId, null]
+    );
+    const savingsAccountId = await lastInsertId();
+
+    await run(
+      "INSERT INTO accounts (name, type, owner_user_id, credit_limit) VALUES (?, ?, ?, ?)",
+      [creditName, "credit", userId, 200_000_00] // R200,000 limit in cents
+    );
+    const creditAccountId = await lastInsertId();
+
+    accountsByUser[userId] = { bankAccountId, savingsAccountId, creditAccountId };
+  }
+  console.log("Created accounts for users.");
+  return accountsByUser;
+}
+
 async function seed() {
   console.log("Clearing existing data...");
+  await run("DELETE FROM goal_contributions");
+  await run("DELETE FROM goals");
   await run("DELETE FROM split_settlements");
   await run("DELETE FROM split_allocations");
+  await run("DELETE FROM account_transactions");
+  await run("DELETE FROM transfers");
+  await run("DELETE FROM accounts");
   await run("DELETE FROM budget_transfers");
   await run("DELETE FROM budgets");
   await run("DELETE FROM expenses");
@@ -61,10 +103,15 @@ async function seed() {
   }
   console.log("Created default categories.");
 
+  const accountsByUser = await seedAccounts([user1Id, user2Id]);
+
   await seedSampleTransactionsAndIncome(
     [user1Id, user2Id],
-    insertedCategoryIds
+    insertedCategoryIds,
+    accountsByUser
   );
+
+  await seedGoals([user1Id, user2Id], accountsByUser);
 
   await seedBudgets([user1Id, user2Id], insertedCategoryIds);
 
@@ -73,6 +120,84 @@ async function seed() {
   await seedMortgage([user1Id, user2Id]);
 
   console.log("Seed complete. Default password for both:", DEFAULT_PASSWORD);
+}
+
+async function seedGoals(userIds: [number, number], accountsByUser: Record<number, UserAccounts>) {
+  const now = new Date();
+  const today = format(now, "yyyy-MM-dd");
+  const lastMonth = format(subMonths(now, 1), "yyyy-MM-dd");
+
+  for (const userId of userIds) {
+    const accounts = accountsByUser[userId]!;
+
+    await run(
+      "INSERT INTO goals (owner_user_id, name, type, target_amount, monthly_target, linked_account_id, apr, strategy) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      [userId, "Car", "savings", 100_000_00, 5_000_00, accounts.savingsAccountId, null, null]
+    );
+    const savingsGoalId = await lastInsertId();
+
+    await run(
+      "INSERT INTO goals (owner_user_id, name, type, target_amount, monthly_target, linked_account_id, apr, strategy) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      [userId, "Credit Card Payoff", "credit", null, 1_500_00, accounts.creditAccountId, 0.22, "avalanche"]
+    );
+    const creditGoalId = await lastInsertId();
+
+    // Savings contributions: transfer bank -> savings, and link the transfer_in tx to the goal.
+    for (const date of [lastMonth, today]) {
+      await run(
+        "INSERT INTO transfers (from_account_id, to_account_id, amount, note) VALUES (?, ?, ?, ?)",
+        [accounts.bankAccountId, accounts.savingsAccountId, 5_000_00, "Goal contribution"]
+      );
+      const transferId = await lastInsertId();
+      await run(
+        "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note) VALUES (?, ?, ?, ?, ?, ?)",
+        [accounts.bankAccountId, -5_000_00, "transfer_out", "transfer", transferId, "Goal contribution"]
+      );
+      await run(
+        "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note) VALUES (?, ?, ?, ?, ?, ?)",
+        [accounts.savingsAccountId, 5_000_00, "transfer_in", "transfer", transferId, "Goal contribution"]
+      );
+      const toTxId = await lastInsertId();
+
+      await run(
+        "INSERT INTO goal_contributions (goal_id, owner_user_id, account_transaction_id, kind, amount, effective_date, note) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [savingsGoalId, userId, toTxId, "contribution", 5_000_00, date, "Contribution"]
+      );
+    }
+
+    // Credit payment: transfer bank -> credit, link the transfer_in tx to the goal.
+    await run(
+      "INSERT INTO transfers (from_account_id, to_account_id, amount, note) VALUES (?, ?, ?, ?)",
+      [accounts.bankAccountId, accounts.creditAccountId, 1_500_00, "Credit payment"]
+    );
+    const payTransferId = await lastInsertId();
+    await run(
+      "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note) VALUES (?, ?, ?, ?, ?, ?)",
+      [accounts.bankAccountId, -1_500_00, "transfer_out", "transfer", payTransferId, "Credit payment"]
+    );
+    await run(
+      "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note) VALUES (?, ?, ?, ?, ?, ?)",
+      [accounts.creditAccountId, 1_500_00, "transfer_in", "transfer", payTransferId, "Credit payment"]
+    );
+    const creditPayTxId = await lastInsertId();
+    await run(
+      "INSERT INTO goal_contributions (goal_id, owner_user_id, account_transaction_id, kind, amount, effective_date, note) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [creditGoalId, userId, creditPayTxId, "payment", 1_500_00, today, "Payment"]
+    );
+
+    // Manual interest: adjustment on credit account (negative amount), link to goal as kind=interest.
+    await run(
+      "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note) VALUES (?, ?, ?, ?, ?, ?)",
+      [accounts.creditAccountId, -250_00, "adjustment", null, null, "Interest"]
+    );
+    const interestTxId = await lastInsertId();
+    await run(
+      "INSERT INTO goal_contributions (goal_id, owner_user_id, account_transaction_id, kind, amount, effective_date, note) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [creditGoalId, userId, interestTxId, "interest", 250_00, today, "Interest"]
+    );
+  }
+
+  console.log("Created sample goals and goal contributions.");
 }
 
 const MORTGAGE_PAYMENT_COUNT = 15;
@@ -204,7 +329,8 @@ async function seedSplitExpenses(
 
 async function seedSampleTransactionsAndIncome(
   userIds: [number, number],
-  categoryIdsByOrder: number[]
+  categoryIdsByOrder: number[],
+  accountsByUser: Record<number, UserAccounts>
 ) {
   const now = new Date();
   const months = [
@@ -289,32 +415,63 @@ async function seedSampleTransactionsAndIncome(
       { categoryId: categoryIds.other, amount: 2400, note: "Misc" },
     ];
 
-    for (let day = 1; day <= 28; day += 3) {
-      const date = new Date(y, m - 1, Math.min(day, 28));
-      const template =
+    // Staggered expenses every ~2 days for both users to get 30+ per user across months.
+    for (let day = 1; day <= 28; day += 2) {
+      const baseTemplate =
         expenseTemplates[Math.floor((day - 1) / 3) % expenseTemplates.length];
+      const baseAmount = baseTemplate.amount + (day % 5) * 200;
+
+      const dateMatt = new Date(y, m - 1, Math.min(day, 28));
       expenseRows.push({
-        userId: day % 2 === 1 ? userIdMatt : userIdSydney,
-        categoryId: template.categoryId,
-        amount: template.amount + (day % 5) * 200,
-        note: template.note,
-        date: format(date, "yyyy-MM-dd"),
+        userId: userIdMatt,
+        categoryId: baseTemplate.categoryId,
+        amount: baseAmount,
+        note: baseTemplate.note,
+        date: format(dateMatt, "yyyy-MM-dd"),
+        month,
+      });
+
+      const dateSydney = new Date(y, m - 1, Math.min(day + 1, 28));
+      expenseRows.push({
+        userId: userIdSydney,
+        categoryId: baseTemplate.categoryId,
+        amount: baseAmount + 500,
+        note: baseTemplate.note,
+        date: format(dateSydney, "yyyy-MM-dd"),
         month,
       });
     }
   }
 
   for (const row of incomeRows) {
+    const accounts = accountsByUser[row.userId];
+    const accountId = accounts?.bankAccountId ?? null;
     await run(
-      "INSERT INTO income (user_id, amount, type, description, date, month) VALUES (?, ?, ?, ?, ?, ?)",
-      [row.userId, row.amount, row.type, row.description, row.date, row.month]
+      "INSERT INTO income (user_id, amount, type, description, date, month, account_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [row.userId, row.amount, row.type, row.description, row.date, row.month, accountId]
     );
+    const incomeId = await lastInsertId();
+    if (accountId != null) {
+      await run(
+        "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note) VALUES (?, ?, ?, ?, ?, ?)",
+        [accountId, row.amount, "income", "income", incomeId, row.description]
+      );
+    }
   }
   for (const row of expenseRows) {
+    const accounts = accountsByUser[row.userId];
+    const accountId = accounts?.bankAccountId ?? null;
     await run(
-      "INSERT INTO expenses (user_id, category_id, amount, note, date, month) VALUES (?, ?, ?, ?, ?, ?)",
-      [row.userId, row.categoryId, row.amount, row.note, row.date, row.month]
+      "INSERT INTO expenses (user_id, category_id, amount, note, date, month, account_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [row.userId, row.categoryId, row.amount, row.note, row.date, row.month, accountId]
     );
+    const expenseId = await lastInsertId();
+    if (accountId != null) {
+      await run(
+        "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note) VALUES (?, ?, ?, ?, ?, ?)",
+        [accountId, -row.amount, "expense", "expense", expenseId, row.note]
+      );
+    }
   }
   console.log(
     `Sample data: ${incomeRows.length} income entries, ${expenseRows.length} expenses across ${months.length} months (${months.join(", ")}).`
