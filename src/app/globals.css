@@ -24,19 +24,20 @@
 }
 
 .dark {
-  --background: hsl(0 0% 3.9%);
+  /* Dark UI tuned to match the mockups (near-black background + lifted dark cards). */
+  --background: hsl(0 0% 3%);
   --foreground: hsl(0 0% 98%);
-  --card: hsl(0 0% 3.9%);
+  --card: hsl(0 0% 6.5%);
   --card-foreground: hsl(0 0% 98%);
-  --popover: hsl(0 0% 3.9%);
+  --popover: hsl(0 0% 6.5%);
   --popover-foreground: hsl(0 0% 98%);
   --primary: hsl(142 70% 45%);
   --primary-foreground: hsl(0 0% 9%);
-  --secondary: hsl(0 0% 14%);
+  --secondary: hsl(0 0% 12%);
   --secondary-foreground: hsl(0 0% 98%);
-  --muted: hsl(0 0% 14%);
-  --muted-foreground: hsl(0 0% 64%);
-  --accent: hsl(0 0% 14%);
+  --muted: hsl(0 0% 10%);
+  --muted-foreground: hsl(0 0% 62%);
+  --accent: hsl(0 0% 12%);
   --accent-foreground: hsl(0 0% 98%);
   --destructive: hsl(0 62% 50%);
   --destructive-foreground: hsl(0 0% 98%);

@@ -15,6 +15,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { formatRand, toMinorUnits } from "@/lib/utils/currency";
+import { toast } from "sonner";
 
 export interface BalancePerGroupItem {
   groupId: number;
@@ -84,17 +85,24 @@ export function SplitsPageClient({
       if (result.success) {
         setSettleOpen(false);
         setSettleRecipient(null);
-        router.refresh();
+        toast.success("Settlement recorded.");
+        void router.refresh();
       } else {
         setSettleError(result.error);
+        toast.error(result.error);
       }
     });
   };
 
   const handleDelete = (expenseId: number) => {
     startTransition(async () => {
-      await deleteExpense(expenseId);
-      router.refresh();
+      const result = await deleteExpense(expenseId);
+      if (result.success) {
+        toast.success("Expense deleted.");
+        void router.refresh();
+      } else {
+        toast.error(result.error);
+      }
     });
   };
 

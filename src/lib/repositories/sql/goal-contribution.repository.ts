@@ -76,6 +76,25 @@ export class GoalContributionRepository implements IGoalContributionRepository {
     return rows.map(toGoalContribution);
   }
 
+  async findByGoalChronologicalAsc(
+    goalId: number,
+    ownerUserId: number
+  ): Promise<GoalContribution[]> {
+    const rows = await all<GoalContributionRow>(
+      "SELECT id, goal_id, owner_user_id, account_transaction_id, kind, amount, effective_date, note, created_at FROM goal_contributions WHERE goal_id = ? AND owner_user_id = ? ORDER BY effective_date ASC, created_at ASC",
+      [goalId, ownerUserId]
+    );
+    return rows.map(toGoalContribution);
+  }
+
+  async countByGoal(goalId: number, ownerUserId: number): Promise<number> {
+    const row = await get<{ c: number }>(
+      "SELECT COUNT(*) AS c FROM goal_contributions WHERE goal_id = ? AND owner_user_id = ?",
+      [goalId, ownerUserId]
+    );
+    return row?.c ?? 0;
+  }
+
   async totalsByGoal(goalId: number, ownerUserId: number): Promise<GoalContributionTotals> {
     const row = await get(
       `SELECT

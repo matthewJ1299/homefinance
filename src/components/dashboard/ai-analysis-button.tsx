@@ -5,6 +5,7 @@ import { analyzeExpenses } from "@/lib/actions/ai.actions";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface AiAnalysisButtonProps {
   month: string;
@@ -28,8 +29,10 @@ export function AiAnalysisButton({ month, enabled }: AiAnalysisButtonProps) {
       const result = await analyzeExpenses(month);
       if (result.success) {
         setAnalysis(result.analysis);
+        toast.success("Analysis ready.");
       } else {
         setError(result.error);
+        toast.error(result.error);
       }
     });
   };

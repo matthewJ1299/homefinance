@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatRand } from "@/lib/utils/currency";
 import type { RecurringIncome } from "@/lib/types";
+import { usePropSyncedState } from "@/hooks/use-prop-synced-state";
+import { toast } from "sonner";
 
 interface RecurringIncomeManageProps {
   items: RecurringIncome[];
@@ -31,6 +33,7 @@ export function RecurringIncomeManage({ items }: RecurringIncomeManageProps) {
   const [editType, setEditType] = useState<"salary" | "ad_hoc">("salary");
   const [editDescription, setEditDescription] = useState("");
   const [editDayOfMonth, setEditDayOfMonth] = useState("1");
+  const [itemsState, setItemsState] = usePropSyncedState(items);
 
   const toCents = (r: string) => Math.round(parseFloat(r.replace(/\s/g, "").replace(",", ".")) * 100) || 0;
 
@@ -49,6 +52,19 @@ export function RecurringIncomeManage({ items }: RecurringIncomeManageProps) {
       return;
     }
     setErrorText("");
+    const tempId = -Date.now();
+    const snapshot = itemsState;
+    setItemsState((prev) => [
+      ...prev,
+      {
+        id: tempId,
+        userId: prev[0]?.userId ?? 0,
+        amount: cents,
+        type,
+        description: description.trim() || null,
+        dayOfMonth: day,
+      },
+    ]);
     startTransition(async () => {
       const result = await createRecurringIncome({
         amount: cents,
@@ -62,10 +78,16 @@ export function RecurringIncomeManage({ items }: RecurringIncomeManageProps) {
         setDayOfMonth("1");
         setMessage("saved");
         setTimeout(() => setMessage(null), 2000);
-        router.refresh();
+        if (result.id != null) {
+          setItemsState((prev) => prev.map((i) => (i.id === tempId ? { ...i, id: result.id! } : i)));
+        }
+        toast.success("Recurring income created.");
+        void router.refresh();
       } else {
+        setItemsState(snapshot);
         setErrorText(result.error);
         setMessage("error");
+        toast.error(result.error);
       }
     });
   };
@@ -91,6 +113,14 @@ export function RecurringIncomeManage({ items }: RecurringIncomeManageProps) {
       return;
     }
     setErrorText("");
+    const snapshot = itemsState;
+    setItemsState((prev) =>
+      prev.map((i) =>
+        i.id === editingId
+          ? { ...i, amount: cents, type: editType, description: editDescription.trim() || null, dayOfMonth: day }
+          : i
+      )
+    );
     startTransition(async () => {
       const result = await updateRecurringIncome(editingId, {
         amount: cents,
@@ -102,24 +132,32 @@ export function RecurringIncomeManage({ items }: RecurringIncomeManageProps) {
         setEditingId(null);
         setMessage("saved");
         setTimeout(() => setMessage(null), 2000);
-        router.refresh();
+        toast.success("Recurring income updated.");
+        void router.refresh();
       } else {
+        setItemsState(snapshot);
         setErrorText(result.error);
         setMessage("error");
+        toast.error(result.error);
       }
     });
   };
 
   const handleDelete = (id: number) => {
     if (!confirm("Delete this recurring income?")) return;
+    const snapshot = itemsState;
+    setItemsState((prev) => prev.filter((i) => i.id !== id));
     startTransition(async () => {
       const result = await deleteRecurringIncome(id);
       if (result.success) {
         if (editingId === id) setEditingId(null);
-        router.refresh();
+        toast.success("Recurring income deleted.");
+        void router.refresh();
       } else {
+        setItemsState(snapshot);
         setErrorText(result.error);
         setMessage("error");
+        toast.error(result.error);
       }
     });
   };
@@ -180,11 +218,11 @@ export function RecurringIncomeManage({ items }: RecurringIncomeManageProps) {
 
       <section>
         <h2 className="font-medium text-sm text-muted-foreground mb-3">Templates</h2>
-        {items.length === 0 ? (
+        {itemsState.length === 0 ? (
           <p className="text-sm text-muted-foreground">No recurring income yet.</p>
         ) : (
           <ul className="space-y-2">
-            {items.map((item) => (
+            {itemsState.map((item) => (
               <li key={item.id} className="rounded-lg border bg-card p-3 text-sm flex items-center justify-between gap-2 flex-wrap">
                 {editingId === item.id ? (
                   <>

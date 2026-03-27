@@ -27,5 +27,50 @@ services:
     sysctls:
       - net.ipv6.conf.all.disable_ipv6=1
 
+  # Next.js dev + Compose Watch (sync/rebuild). Does not start unless profile "watch" is enabled.
+  # Usage: docker compose --profile watch up db app-dev --watch
+  app-dev:
+    profiles:
+      - watch
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://homefinance:homefinance@db:5432/homefinance
+      AUTH_SECRET: ${AUTH_SECRET:-change-me-in-production}
+      NODE_ENV: development
+    depends_on:
+      db:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+        - action: sync
+          path: ./public
+          target: /app/public
+        - action: sync
+          path: ./drizzle
+          target: /app/drizzle
+        - action: sync+restart
+          path: ./next.config.ts
+          target: /app/next.config.ts
+        - action: sync+restart
+          path: ./postcss.config.mjs
+          target: /app/postcss.config.mjs
+        - action: sync+restart
+          path: ./server.js
+          target: /app/server.js
+        - action: sync+restart
+          path: ./tsconfig.json
+          target: /app/tsconfig.json
+        - action: rebuild
+          path: package.json
+        - action: rebuild
+          path: package-lock.json
+
 volumes:
   postgres_data:

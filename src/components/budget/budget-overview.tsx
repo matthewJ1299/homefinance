@@ -9,12 +9,25 @@ import { TransferDialog } from "./transfer-dialog";
 import { autoAllocateBudget } from "@/lib/actions/budget.actions";
 import { Button } from "@/components/ui/button";
 import type { BudgetOverviewResult } from "@/lib/services/budget.service";
+import type { Category, ExpenseWithDetails } from "@/lib/types";
+import { BudgetDonutChart } from "./budget-donut-chart";
+import { BudgetCategorySummaryTile } from "./budget-category-summary-tile";
+import { RecentExpensesCard } from "@/components/dashboard/recent-expenses-card";
+import { toast } from "sonner";
 
 interface BudgetOverviewProps {
   data: BudgetOverviewResult;
+  recentExpenses?: ExpenseWithDetails[];
+  expenseCategories?: Category[];
+  otherUserName?: string;
 }
 
-export function BudgetOverview({ data }: BudgetOverviewProps) {
+export function BudgetOverview({
+  data,
+  recentExpenses = [],
+  expenseCategories = [],
+  otherUserName,
+}: BudgetOverviewProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [autoAllocateError, setAutoAllocateError] = useState<string | null>(null);
@@ -31,32 +44,44 @@ export function BudgetOverview({ data }: BudgetOverviewProps) {
   }));
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4">
-        <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">Total income</span>
-          <span className="font-medium">{formatRand(data.totalIncome)}</span>
+    <div className="space-y-6 pb-8">
+      <div className="rounded-2xl border border-border/60 bg-card/90 p-4 sm:p-5 shadow-sm space-y-5">
+        <BudgetDonutChart allocated={data.totalAllocated} spent={data.totalExpenses} />
+        <div className="grid gap-3 sm:grid-cols-2 border-t border-border/50 pt-4">
+          <div className="flex justify-between text-sm gap-2">
+            <span className="text-muted-foreground">Total income</span>
+            <span className="font-medium tabular-nums">{formatRand(data.totalIncome)}</span>
+          </div>
+          <div className="flex justify-between text-sm gap-2">
+            <span className="text-muted-foreground">Total expenses</span>
+            <span className="font-medium tabular-nums">{formatRand(data.totalExpenses)}</span>
+          </div>
+          <div className="flex justify-between text-sm gap-2">
+            <span className="text-muted-foreground">Balance</span>
+            <span className="font-medium tabular-nums">{formatRand(data.balance)}</span>
+          </div>
+          <div className="flex justify-between text-sm gap-2">
+            <span className="text-muted-foreground">Allocated</span>
+            <span className="font-medium tabular-nums">{formatRand(data.totalAllocated)}</span>
+          </div>
         </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">Total expenses</span>
-          <span className="font-medium">{formatRand(data.totalExpenses)}</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">Balance</span>
-          <span className="font-medium">{formatRand(data.balance)}</span>
-        </div>
-
-        <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">Allocated</span>
-          <span className="font-medium">{formatRand(data.totalAllocated)}</span>
-        </div>
-        {!data.isBalanced && (
-          <UnallocatedBanner unallocated={data.unallocated} />
-        )}
+        {!data.isBalanced && <UnallocatedBanner unallocated={data.unallocated} />}
       </div>
 
+      <BudgetCategorySummaryTile categories={data.categories} />
+
+      {recentExpenses.length > 0 && expenseCategories.length > 0 && (
+        <RecentExpensesCard
+          expenses={recentExpenses}
+          categories={expenseCategories}
+          otherUserName={otherUserName}
+          title="Recent transactions"
+          seeAllHref={`/expenses?month=${encodeURIComponent(data.month)}`}
+        />
+      )}
+
       <div
-        className="sticky top-14 z-10 -mx-4 px-4 py-3 sm:-mx-6 sm:px-6 bg-background border-b shadow-sm"
+        className="sticky top-14 z-10 -mx-4 px-4 py-3 sm:-mx-6 sm:px-6 bg-background/95 backdrop-blur-sm border-b border-border/60 shadow-sm rounded-t-xl"
         aria-live="polite"
       >
         {autoAllocateError && (
@@ -75,14 +100,17 @@ export function BudgetOverview({ data }: BudgetOverviewProps) {
                 variant="secondary"
                 size="sm"
                 disabled={isPending}
+                className="cursor-pointer"
                 onClick={() => {
                   setAutoAllocateError(null);
                   startTransition(async () => {
                     const result = await autoAllocateBudget(data.month);
                     if (result.success) {
-                      router.refresh();
+                      toast.success("Budget auto-allocated.");
+                      void router.refresh();
                     } else {
                       setAutoAllocateError(result.error);
+                      toast.error(result.error);
                     }
                   });
                 }}
@@ -95,12 +123,12 @@ export function BudgetOverview({ data }: BudgetOverviewProps) {
       </div>
 
       <div className="space-y-4">
-        <h2 className="font-semibold">Categories</h2>
+        <h2 className="font-semibold text-base tracking-tight">Categories and allocations</h2>
         <div className="space-y-4">
           {data.categories.map((cat) => (
             <div
               key={cat.categoryId}
-              className="rounded-lg border border-border bg-card overflow-hidden"
+              className="rounded-2xl border border-border/60 bg-card/80 overflow-hidden shadow-sm"
             >
               <BudgetCategoryCard
                 categoryId={cat.categoryId}

@@ -9,6 +9,7 @@ import {
   getCurrentSubscription,
 } from "@/lib/push/client";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export function PushNotificationsSettings() {
   const [supported, setSupported] = useState(false);
@@ -40,7 +41,9 @@ export function PushNotificationsSettings() {
       setPermission("granted");
       setSubscribed(true);
       setMessage({ type: "success", text: "Notifications enabled." });
+      toast.success("Notifications enabled.");
     } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to enable notifications.");
       setMessage({
         type: "error",
         text: e instanceof Error ? e.message : "Failed to enable notifications",
@@ -61,7 +64,9 @@ export function PushNotificationsSettings() {
       }
       setSubscribed(false);
       setMessage({ type: "success", text: "Notifications disabled." });
+      toast.success("Notifications disabled.");
     } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to disable notifications.");
       setMessage({
         type: "error",
         text: e instanceof Error ? e.message : "Failed to disable",
@@ -87,6 +92,7 @@ export function PushNotificationsSettings() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        toast.error(data.error ?? "Failed to send test notification.");
         setMessage({
           type: "error",
           text: data.error ?? "Failed to send test",
@@ -95,7 +101,9 @@ export function PushNotificationsSettings() {
         return;
       }
       setMessage({ type: "success", text: "Test notification sent." });
+      toast.success("Test notification sent.");
     } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to send test notification.");
       setMessage({
         type: "error",
         text: e instanceof Error ? e.message : "Failed to send test",

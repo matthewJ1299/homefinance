@@ -1,4 +1,15 @@
 /**
+ * Format as 24h "HH:mm" for compact schedule UIs. Empty string if no time.
+ */
+export function formatTime24(time: string | null | undefined): string {
+  if (!time || !time.trim()) return "";
+  const parts = time.split(":");
+  const h = String(parts[0] ?? "0").padStart(2, "0");
+  const m = String(parts[1] ?? "0").padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+/**
  * Format a time string (HH:mm or HH:mm:ss) for display (e.g. "10 AM", "2:30 PM").
  * Returns "all day" when time is null or empty.
  */

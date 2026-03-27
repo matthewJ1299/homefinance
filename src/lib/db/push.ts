@@ -1,7 +1,6 @@
 /**
  * Applies schema to the database.
  * - If DATABASE_URL is set: runs drizzle/0000_init_pg.sql when users table is missing.
- * - Otherwise: runs drizzle/0000_init.sql (SQLite) when no tables exist.
  * Use: npm run db:push
  */
 import path from "path";
@@ -197,6 +196,78 @@ async function pushPostgres(): Promise<void> {
           await client.query(stmt);
         }
         console.log("Postgres migration 0008 (goals) applied.");
+      }
+    }
+
+    const hasCalendarEndTime = await client.query(
+      "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'calendar_events' AND column_name = 'end_time'"
+    );
+    if (hasCalendarEndTime.rows.length === 0) {
+      const migration0009Path = path.join(process.cwd(), "drizzle", "0009_calendar_categories_and_event_fields_pg.sql");
+      if (fs.existsSync(migration0009Path)) {
+        const sql0009 = fs.readFileSync(migration0009Path, "utf-8");
+        const statements0009 = sql0009
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statements0009) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration 0009 (calendar categories + event fields) applied.");
+      }
+    }
+
+    const hasCalendarEndDate = await client.query(
+      "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'calendar_events' AND column_name = 'end_date'"
+    );
+    if (hasCalendarEndDate.rows.length === 0) {
+      const migration0010Path = path.join(process.cwd(), "drizzle", "0010_calendar_event_end_date_pg.sql");
+      if (fs.existsSync(migration0010Path)) {
+        const sql0010 = fs.readFileSync(migration0010Path, "utf-8");
+        const statements0010 = sql0010
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statements0010) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration 0010 (calendar_events.end_date) applied.");
+      }
+    }
+
+    const hasBudgetMonthStartDay = await client.query(
+      "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'budget_month_start_day'"
+    );
+    if (hasBudgetMonthStartDay.rows.length === 0) {
+      const migration0011Path = path.join(process.cwd(), "drizzle", "0011_budget_month_start_day_pg.sql");
+      if (fs.existsSync(migration0011Path)) {
+        const sql0011 = fs.readFileSync(migration0011Path, "utf-8");
+        const statements0011 = sql0011
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statements0011) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration 0011 (budget_month_start_day on users) applied.");
+      }
+    }
+
+    const hasPrimaryAccountId = await client.query(
+      "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'primary_account_id'"
+    );
+    if (hasPrimaryAccountId.rows.length === 0) {
+      const migration0012Path = path.join(process.cwd(), "drizzle", "0012_primary_account_pg.sql");
+      if (fs.existsSync(migration0012Path)) {
+        const sql0012 = fs.readFileSync(migration0012Path, "utf-8");
+        const statements0012 = sql0012
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statements0012) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration 0012 (users.primary_account_id) applied.");
       }
     }
   } finally {

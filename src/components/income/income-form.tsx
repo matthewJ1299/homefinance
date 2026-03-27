@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import { toMinorUnits } from "@/lib/utils/currency";
 import type { IncomeType, AccountType } from "@/lib/types";
+import { toast } from "sonner";
 
 export function IncomeForm() {
   const router = useRouter();
@@ -46,10 +47,12 @@ export function IncomeForm() {
         setDate(format(new Date(), "yyyy-MM-dd"));
         setMessage("saved");
         setTimeout(() => setMessage(null), 2000);
-        router.refresh();
+        toast.success("Income added.");
+        void router.refresh();
       } else {
         setMessage("error");
         setTimeout(() => setMessage(null), 3000);
+        toast.error(result.error);
       }
     });
   };

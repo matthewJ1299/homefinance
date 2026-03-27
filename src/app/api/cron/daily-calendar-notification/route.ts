@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { format } from "date-fns";
 import { CalendarService } from "@/lib/services/calendar.service";
 import { NotificationService, isNotificationConfigured } from "@/lib/services/notification.service";
+import { getUserRepository } from "@/lib/repositories";
 import { formatEventLine } from "@/lib/utils/format-time";
 
 /**
@@ -33,30 +34,38 @@ export async function GET(request: NextRequest) {
 
   const today = format(new Date(), "yyyy-MM-dd");
   const calendarService = new CalendarService();
-  const occurrences = await calendarService.getByDateRange(today, today);
+  const userRepo = getUserRepository();
+  const users = await userRepo.findAll();
+  const notificationService = new NotificationService();
 
-  if (occurrences.length === 0) {
-    return NextResponse.json({ sent: 0, reason: "no_events", date: today });
+  let sent = 0;
+  let failed = 0;
+  let usersNotified = 0;
+
+  for (const user of users) {
+    const occurrences = await calendarService.getByDateRange(today, today, user.id);
+    if (occurrences.length === 0) continue;
+    usersNotified++;
+    const title = "HomeFinance";
+    const body =
+      occurrences.length === 1
+        ? `You have an upcoming event: ${formatEventLine(occurrences[0].name, occurrences[0].time)}.`
+        : `You have upcoming events: ${occurrences.map((o) => formatEventLine(o.name, o.time)).join("; ")}.`;
+    const url = "/calendar";
+    const r = await notificationService.sendToUser(user.id, { title, body, url }, { ttl: 86400 });
+    sent += r.sent;
+    failed += r.failed;
   }
 
-  const title = "HomeFinance";
-  const body =
-    occurrences.length === 1
-      ? `You have an upcoming event: ${formatEventLine(occurrences[0].name, occurrences[0].time)}.`
-      : `You have upcoming events: ${occurrences.map((o) => formatEventLine(o.name, o.time)).join("; ")}.`;
-  const url = "/calendar";
-
-  const notificationService = new NotificationService();
-  const { sent, failed } = await notificationService.sendToAll(
-    { title, body, url },
-    { ttl: 86400 }
-  );
+  if (usersNotified === 0) {
+    return NextResponse.json({ sent: 0, failed: 0, reason: "no_events", date: today });
+  }
 
   return NextResponse.json({
     sent,
     failed,
     date: today,
-    eventsCount: occurrences.length,
+    usersNotified,
     errors: failed > 0 ? ["Some subscriptions failed or were stale"] : undefined,
   });
 }

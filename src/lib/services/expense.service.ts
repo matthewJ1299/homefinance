@@ -1,8 +1,9 @@
 import {
   getExpenseRepository,
   getAccountTransactionRepository,
+  getUserRepository,
 } from "@/lib/repositories";
-import { monthFromDate } from "@/lib/utils/date";
+import { budgetMonthKeyForUser, getBudgetPeriodForUserMonth } from "@/lib/utils/budget-month-for-user";
 import type { ExpenseWithDetails } from "@/lib/types";
 import type { CreateExpenseInput, UpdateExpenseInput } from "@/lib/repositories/interfaces/expense.repository";
 
@@ -21,8 +22,16 @@ export class ExpenseService {
     private accountTxRepo = getAccountTransactionRepository()
   ) {}
 
+  async getUsageCountsByCategory(userId?: number): Promise<Record<number, number>> {
+    return this.repo.getUsageCountsByCategory(userId);
+  }
+
   async getSpendingByCategoryForMonths(months: string[], userId?: number): Promise<Record<number, number>> {
-    return this.repo.getSpendingByCategoryForMonths(months, userId);
+    if (userId == null) {
+      return this.repo.getSpendingByCategoryForMonths(months, undefined, undefined);
+    }
+    const startDay = await getUserRepository().getBudgetMonthStartDay(userId);
+    return this.repo.getSpendingByCategoryForMonths(months, userId, startDay);
   }
 
   async getByMonthPaginated(
@@ -38,11 +47,19 @@ export class ExpenseService {
     pageSize: number;
     totalPages: number;
   }> {
-    const total = await this.repo.countByMonth(month, userId, accountId);
+    const period = userId != null ? await getBudgetPeriodForUserMonth(month, userId) : undefined;
+    const total = await this.repo.countByMonth(month, userId, accountId, period);
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     const safePage = Math.min(Math.max(1, page), totalPages);
     const offset = (safePage - 1) * pageSize;
-    const expenses = await this.repo.findByMonthPaginated(month, pageSize, offset, userId, accountId);
+    const expenses = await this.repo.findByMonthPaginated(
+      month,
+      pageSize,
+      offset,
+      userId,
+      accountId,
+      period
+    );
     return {
       expenses,
       total,
@@ -53,7 +70,8 @@ export class ExpenseService {
   }
 
   async getByMonth(month: string, userId?: number, accountId?: number): Promise<ExpensesByMonthResult> {
-    const expenses = await this.repo.findByMonth(month, userId, accountId);
+    const period = userId != null ? await getBudgetPeriodForUserMonth(month, userId) : undefined;
+    const expenses = await this.repo.findByMonth(month, userId, accountId, period);
     const totals = {
       overall: 0,
       byUser: {} as Record<number, number>,
@@ -71,7 +89,7 @@ export class ExpenseService {
     userId: number,
     data: Omit<CreateExpenseInput, "userId" | "month">
   ): Promise<{ id: number }> {
-    const month = monthFromDate(data.date);
+    const month = await budgetMonthKeyForUser(userId, data.date);
     const { id } = await this.repo.create({
       userId,
       categoryId: data.categoryId,
@@ -95,7 +113,7 @@ export class ExpenseService {
 
   async update(id: number, userId: number, data: UpdateExpenseInput): Promise<void> {
     const payload: UpdateExpenseInput = { ...data };
-    if (data.date) payload.month = monthFromDate(data.date);
+    if (data.date) payload.month = await budgetMonthKeyForUser(userId, data.date);
     await this.repo.update(id, payload);
   }
 

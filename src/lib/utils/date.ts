@@ -1,7 +1,76 @@
-import { format, subMonths, addMonths, startOfMonth, endOfMonth } from "date-fns";
+import { format, subMonths, addMonths, endOfMonth } from "date-fns";
+import type { BudgetMonthPeriod } from "@/lib/types/budget-month";
 
+/** Calendar month containing "today" (yyyy-MM). */
 export function getCurrentMonth(): string {
   return format(new Date(), "yyyy-MM");
+}
+
+/** Clamp budget start day to 1-28 so every month has a valid start date. */
+export function normalizeBudgetMonthStartDay(day: number): number {
+  if (!Number.isFinite(day) || day < 1) return 1;
+  if (day > 28) return 28;
+  return Math.floor(day);
+}
+
+/**
+ * Inclusive date range for the budget month key (yyyy-MM).
+ * Start day 1 = calendar month. Otherwise e.g. 25 = 25th through 24th of next month.
+ */
+export function getBudgetPeriodForMonthKey(month: string, startDay: number): BudgetMonthPeriod {
+  const d = normalizeBudgetMonthStartDay(startDay);
+  const [y, m] = month.split("-").map(Number);
+  if (d <= 1) {
+    const start = new Date(y, m - 1, 1);
+    const end = endOfMonth(start);
+    return { start: format(start, "yyyy-MM-dd"), end: format(end, "yyyy-MM-dd") };
+  }
+  const start = dateForMonthAndDay(month, d);
+  const nextFirst = addMonths(new Date(y, m - 1, 1), 1);
+  const nextMonthKey = format(nextFirst, "yyyy-MM");
+  const nextStartStr = dateForMonthAndDay(nextMonthKey, d);
+  const [ny, nm, ndom] = nextStartStr.split("-").map(Number);
+  const endDate = new Date(ny, nm - 1, ndom - 1);
+  return { start, end: format(endDate, "yyyy-MM-dd") };
+}
+
+/**
+ * Pick a transaction date for quick-add on a screen scoped to `period` (e.g. dashboard for a budget month).
+ * Uses today when it falls in the period; otherwise the nearest boundary so the row appears in that month's lists.
+ */
+export function pickQuickAddDateForBudgetPeriod(todayIso: string, period: BudgetMonthPeriod): string {
+  if (todayIso >= period.start && todayIso <= period.end) return todayIso;
+  if (todayIso < period.start) return period.start;
+  return period.end;
+}
+
+/** Maps a transaction date to the budget month key for the given start-day rule. */
+export function budgetMonthKeyFromIsoDate(dateStr: string, startDay: number): string {
+  const d = normalizeBudgetMonthStartDay(startDay);
+  if (d <= 1) return monthFromDate(dateStr);
+  const [y, mo, dom] = dateStr.split("-").map(Number);
+  if (dom >= d) {
+    return `${y}-${String(mo).padStart(2, "0")}`;
+  }
+  const prev = subMonths(new Date(y, mo - 1, 1), 1);
+  return format(prev, "yyyy-MM");
+}
+
+/** Budget month key for "today" using the user's start day. */
+export function getCurrentBudgetMonth(startDay: number): string {
+  return budgetMonthKeyFromIsoDate(format(new Date(), "yyyy-MM-dd"), startDay);
+}
+
+/** Label for month navigator and headings. */
+export function formatBudgetMonthLabel(month: string, startDay: number): string {
+  const d = normalizeBudgetMonthStartDay(startDay);
+  if (d <= 1) return formatMonth(month);
+  const { start, end } = getBudgetPeriodForMonthKey(month, d);
+  const [sy, sm, sd] = start.split("-").map(Number);
+  const [ey, em, ed] = end.split("-").map(Number);
+  const ds = new Date(sy, sm - 1, sd);
+  const de = new Date(ey, em - 1, ed);
+  return `${format(ds, "d MMM")} - ${format(de, "d MMM yyyy")}`;
 }
 
 export function formatMonth(month: string): string {

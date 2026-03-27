@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   updateList,
@@ -14,6 +14,8 @@ import { Label } from "@/components/ui/label";
 import { SharedListItemRow } from "./shared-list-item-row";
 import type { SharedList } from "@/lib/repositories/interfaces/shared-list.repository";
 import type { SharedListItem } from "@/lib/repositories/interfaces/shared-list-item.repository";
+import { usePropSyncedState } from "@/hooks/use-prop-synced-state";
+import { toast } from "sonner";
 
 interface ListDetailProps {
   list: SharedList;
@@ -30,7 +32,34 @@ export function ListDetail({ list, items }: ListDetailProps) {
   const [message, setMessage] = useState<"saved" | "error" | null>(null);
   const [errorText, setErrorText] = useState("");
 
-  const completedCount = items.filter((i) => i.completed).length;
+  const [itemsState, setItemsState] = usePropSyncedState(items);
+  const completedCount = itemsState.filter((i) => i.completed).length;
+
+  const optimisticUpsertItem = useCallback(
+    (next: SharedListItem) => {
+      const snapshot = itemsState;
+      setItemsState((prev) => {
+        const idx = prev.findIndex((i) => i.id === next.id);
+        if (idx >= 0) {
+          const copy = [...prev];
+          copy[idx] = next;
+          return copy;
+        }
+        return [next, ...prev];
+      });
+      return () => setItemsState(snapshot);
+    },
+    [itemsState, setItemsState]
+  );
+
+  const optimisticRemoveItem = useCallback(
+    (item: SharedListItem) => {
+      const snapshot = itemsState;
+      setItemsState((prev) => prev.filter((i) => i.id !== item.id));
+      return () => setItemsState(snapshot);
+    },
+    [itemsState, setItemsState]
+  );
 
   const handleAddItem = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +67,16 @@ export function ListDetail({ list, items }: ListDetailProps) {
     if (!label) return;
     const qty = Math.max(1, parseInt(newQuantity, 10) || 1);
     setErrorText("");
+    const tempId = -Date.now();
+    const rollback = optimisticUpsertItem({
+      id: tempId,
+      listId: list.id,
+      label,
+      quantity: qty,
+      completed: false,
+      sortOrder: 0,
+      createdAt: new Date().toISOString(),
+    });
     startTransition(async () => {
       const result = await createListItem(list.id, { label, quantity: qty });
       if (result.success) {
@@ -45,10 +84,16 @@ export function ListDetail({ list, items }: ListDetailProps) {
         setNewQuantity("1");
         setMessage("saved");
         setTimeout(() => setMessage(null), 2000);
-        router.refresh();
+        if (result.id != null) {
+          setItemsState((prev) => prev.map((i) => (i.id === tempId ? { ...i, id: result.id! } : i)));
+        }
+        toast.success("Item added.");
+        void router.refresh();
       } else {
+        rollback();
         setErrorText(result.error);
         setMessage("error");
+        toast.error(result.error);
       }
     });
   };
@@ -66,10 +111,12 @@ export function ListDetail({ list, items }: ListDetailProps) {
         setEditingName(false);
         setMessage("saved");
         setTimeout(() => setMessage(null), 2000);
-        router.refresh();
+        toast.success("List updated.");
+        void router.refresh();
       } else {
         setErrorText(result.error);
         setMessage("error");
+        toast.error(result.error);
       }
     });
   };
@@ -86,23 +133,30 @@ export function ListDetail({ list, items }: ListDetailProps) {
       const result = await deleteList(list.id);
       if (result.success) {
         router.push("/lists");
-        router.refresh();
+        toast.success("List deleted.");
+        void router.refresh();
       } else {
         setErrorText(result.error);
         setMessage("error");
+        toast.error(result.error);
       }
     });
   };
 
   const handleDeleteCompleted = () => {
     setErrorText("");
+    const snapshot = itemsState;
+    setItemsState((prev) => prev.filter((i) => !i.completed));
     startTransition(async () => {
       const result = await deleteCompletedListItems(list.id);
       if (result.success) {
-        router.refresh();
+        toast.success("Completed items deleted.");
+        void router.refresh();
       } else {
+        setItemsState(snapshot);
         setErrorText(result.error);
         setMessage("error");
+        toast.error(result.error);
       }
     });
   };
@@ -198,12 +252,17 @@ export function ListDetail({ list, items }: ListDetailProps) {
         <h2 className="font-medium text-sm text-muted-foreground mb-3">
           Items
         </h2>
-        {items.length === 0 ? (
+        {itemsState.length === 0 ? (
           <p className="text-sm text-muted-foreground">No items yet.</p>
         ) : (
           <ul className="space-y-2">
-            {items.map((item) => (
-              <SharedListItemRow key={item.id} item={item} />
+            {itemsState.map((item) => (
+              <SharedListItemRow
+                key={item.id}
+                item={item}
+                onOptimisticUpsertItem={optimisticUpsertItem}
+                onOptimisticRemoveItem={optimisticRemoveItem}
+              />
             ))}
           </ul>
         )}

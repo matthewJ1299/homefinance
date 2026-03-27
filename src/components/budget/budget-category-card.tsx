@@ -8,6 +8,8 @@ import { AllocationBar } from "./allocation-bar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { CategoryTransactions } from "./category-transactions";
+import { toast } from "sonner";
 
 interface BudgetCategoryCardProps {
   categoryId: number;
@@ -40,6 +42,7 @@ export function BudgetCategoryCard({
   const [amountInput, setAmountInput] = useState<string>(() =>
     allocated > 0 ? (allocated / 100).toFixed(2) : ""
   );
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     setAmountInput(allocated > 0 ? (allocated / 100).toFixed(2) : "");
@@ -53,8 +56,13 @@ export function BudgetCategoryCard({
     const parsed = value === "" ? 0 : Math.round(parseFloat(value) * 100);
     if (value !== "" && (Number.isNaN(parsed) || parsed < 0)) return;
     startTransition(async () => {
-      await setBudgetAllocation(categoryId, month, parsed);
-      router.refresh();
+      const result = await setBudgetAllocation(categoryId, month, parsed);
+      if (result.success) {
+        toast.success("Budget updated.");
+        void router.refresh();
+      } else {
+        toast.error(result.error);
+      }
     });
   };
 
@@ -120,6 +128,24 @@ export function BudgetCategoryCard({
         spent={spent}
         totalIncome={totalIncome}
       />
+
+      <div className="pt-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setExpanded((e) => !e)}
+          disabled={isPending}
+          className="w-full justify-center text-muted-foreground hover:text-foreground"
+        >
+          {expanded ? "Hide transactions" : "View transactions"}
+        </Button>
+      </div>
+
+      {expanded && (
+        <CategoryTransactions month={month} categoryId={categoryId} />
+      )}
+
       {isOverspent && (
         <Button variant="outline" size="sm" onClick={onTransfer} className="w-full">
           Move money to cover

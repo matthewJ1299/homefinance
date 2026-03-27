@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createList } from "@/lib/actions/shared-list.actions";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import type {
   ListVisibility,
   SharedList,
 } from "@/lib/repositories/interfaces/shared-list.repository";
+import { usePropSyncedState } from "@/hooks/use-prop-synced-state";
+import { toast } from "sonner";
 
 interface SharedListsManageProps {
   lists: SharedList[];
@@ -23,22 +25,54 @@ export function SharedListsManage({ lists }: SharedListsManageProps) {
   const [newName, setNewName] = useState("");
   const [message, setMessage] = useState<"saved" | "error" | null>(null);
   const [errorText, setErrorText] = useState("");
+  const [listsState, setListsState] = usePropSyncedState(lists);
+
+  const optimisticRemoveList = useCallback(
+    (list: SharedList) => {
+      const snapshot = listsState;
+      setListsState((prev) => prev.filter((l) => l.id !== list.id));
+      return () => setListsState(snapshot);
+    },
+    [listsState, setListsState]
+  );
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     const name = newName.trim();
     if (!name) return;
     setErrorText("");
+    const tempId = -Date.now();
+    const rollback = (() => {
+      const snapshot = listsState;
+      setListsState((prev) => [
+        ...prev,
+        {
+          id: tempId,
+          name,
+          sortOrder: prev.length + 1,
+          createdAt: new Date().toISOString(),
+          visibility,
+          ownerUserId: null,
+        },
+      ]);
+      return () => setListsState(snapshot);
+    })();
     startTransition(async () => {
       const result = await createList({ name, visibility });
       if (result.success) {
         setNewName("");
         setMessage("saved");
         setTimeout(() => setMessage(null), 2000);
-        router.refresh();
+        if (result.id != null) {
+          setListsState((prev) => prev.map((l) => (l.id === tempId ? { ...l, id: result.id! } : l)));
+        }
+        toast.success("List created.");
+        void router.refresh();
       } else {
+        rollback();
         setErrorText(result.error);
         setMessage("error");
+        toast.error(result.error);
       }
     });
   };
@@ -91,8 +125,9 @@ export function SharedListsManage({ lists }: SharedListsManageProps) {
       </section>
 
       <ListPicker
-        lists={lists.filter((l) => l.visibility === visibility)}
+        lists={listsState.filter((l) => l.visibility === visibility)}
         title={visibility === "shared" ? "Shared lists" : "Personal lists"}
+        onOptimisticRemoveList={optimisticRemoveList}
       />
 
       {message === "saved" && (

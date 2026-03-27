@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 
 const DB_NAME = "homefinance-offline";
 const STORE_NAME = "expenses";
@@ -109,11 +110,17 @@ export function useOfflineQueue() {
         })),
       }),
     });
-    if (!res.ok) return;
+    if (!res.ok) {
+      toast.error("Offline expenses could not sync yet.");
+      return;
+    }
     const data = await res.json();
     const syncedIds = (data.synced as Array<{ tempId: string }>).map((s) => s.tempId);
     await clearQueue(syncedIds);
     await refreshQueue();
+    if (syncedIds.length > 0) {
+      toast.success(`Synced ${syncedIds.length} offline expense${syncedIds.length === 1 ? "" : "s"}.`);
+    }
   }, [refreshQueue]);
 
   return { queue, isOnline, addToQueue, refreshQueue, syncQueue };

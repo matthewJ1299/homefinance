@@ -2,12 +2,10 @@ import { getRequestContext } from "./request-context";
 import type { IDbClient } from "./types";
 import { postgresClient } from "./postgres-client";
 
-/** SQLite is disabled; Postgres (DATABASE_URL) is required. */
+/** Postgres (DATABASE_URL) is required. */
 function getClient(): IDbClient {
   if (!process.env.DATABASE_URL) {
-    throw new Error(
-      "DATABASE_URL is required. SQLite is disabled; use Postgres."
-    );
+    throw new Error("DATABASE_URL is required.");
   }
   return postgresClient;
 }

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogHeader, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 type SplitType = "equal" | "full" | "exact";
 
@@ -21,6 +22,7 @@ interface EditExpenseDialogProps {
   allocations?: Array<{ userId: number; userName: string; amount: number }>;
   categories: Category[];
   otherUserName?: string;
+  onOptimisticUpsertExpense?: (next: ExpenseWithDetails) => () => void;
 }
 
 function inferSplitType(
@@ -41,6 +43,7 @@ export function EditExpenseDialog({
   allocations = [],
   categories,
   otherUserName,
+  onOptimisticUpsertExpense,
 }: EditExpenseDialogProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -92,6 +95,17 @@ export function EditExpenseDialog({
     }
 
     startTransition(async () => {
+      const categoryName = categories.find((c) => c.id === categoryId)?.name ?? expense.categoryName;
+      const optimisticNext: ExpenseWithDetails = {
+        ...expense,
+        categoryId,
+        categoryName,
+        amount: totalCents,
+        note: note.trim() || null,
+        date,
+      };
+      const rollback = onOptimisticUpsertExpense?.(optimisticNext);
+
       const payload: {
         categoryId: number;
         amount: number;
@@ -116,9 +130,12 @@ export function EditExpenseDialog({
       const result = await updateExpense(expense.id, payload);
       if (result.success) {
         onOpenChange(false);
-        router.refresh();
+        toast.success("Expense updated.");
+        void router.refresh();
       } else {
+        rollback?.();
         setErrorDetail(result.error);
+        toast.error(result.error);
       }
     });
   };

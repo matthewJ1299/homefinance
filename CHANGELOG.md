@@ -2,8 +2,69 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Add hub / quick add navigation**: After saving from `/add` or the floating quick-add menu, **expense** navigates to **Dashboard**, **list item** to **`/lists/[id]`** for the list you chose, and **calendar event** to **`/calendar`**. `AddListItemDialog`’s `onSuccess` now receives `{ listId }`.
+
+- **Optimistic UI + toasts for all saves**: UI updates immediately for create/update/delete operations, then shows a success toast once the database write completes. On failure, a failure toast is shown and the UI rolls back the optimistic change.
+
+- **Add expense quick flow (`/add` and `QuickAddForm`)**: The **Choose category** step shows the **amount** you are logging (read-only summary). The Add hub can pass a **quick line** (e.g. `89.50 lunch`) so amount and note pre-fill when you continue. Applies anywhere `QuickAddForm` is used (same inner step).
+
+- **Dashboard quick add (split)**: Checking **Split with partner** now expands the same options as elsewhere: **split group** (when you have groups), **I paid, split equally**, **I am owed the full amount**, or **Split by exact amount** with my / other share fields.
+
+### Fixed
+
+- **Dashboard quick add vs Recent expenses**: Quick add now uses the same **primary account** and **budget-month date** as the server uses for the **Recent expenses** list (primary from `AccountService`, date clamped into the visible budget month when you are not viewing the current period). Previously, the client could save before `/api/accounts` finished (no `account_id`) while Recent expenses filtered by primary account, so new rows appeared on **Expenses** but not under Quick add; month mismatch when `?month=` differed from calendar today had the same symptom.
+
+- **Dev server without DATABASE_URL**: The Node instrumentation hook no longer throws at startup when `DATABASE_URL` is unset; it logs a warning and skips DB init, the persist loop, and the in-process notification scheduler. The app still requires Postgres for real use—configure `DATABASE_URL` before hitting DB-backed routes.
+
+### Changed
+
+- **Dashboard recent expenses**: The home **Recent expenses** list uses the user’s **primary account** (Settings > Accounts). If none is set but multiple accounts exist, the app picks the same default as before (oldest bank, else oldest account). **Only account**: that account is always primary automatically. The `account` query parameter on `/dashboard` does not affect this list. If the user has no accounts yet, behavior is unchanged (all expenses for the month).
+
+- **Mobile hamburger menu**: Uses the same links as the desktop sidebar (`fullNavItems`): Calendar, Add, Lists, Summary, and the rest of the finance pages, not the shorter subset used before.
+- **Settings > Lists**: **List items** subsection lets you pick any list and add checklist rows, adjust quantity, mark complete, delete items, or delete all completed—same behavior as `/lists/[id]` without leaving Settings.
+
+### Fixed
+
+- **Goals projection typecheck**: Credit horizon `useEffect` in `goal-projection-section` used `[detail.goal.id]` in the dependency array while `detail` can be null; dependency is now `detail?.goal.id` so `next build` type-check passes.
+
+- **Expenses page account filter**: Choosing an account in the **Account** dropdown now correctly limits the expense list to rows linked to that account. Postgres `BIGINT` `account_id` values were returned as strings from the driver, so strict comparison with the numeric selection failed; expense rows now normalize `accountId` when mapping from the database.
+- **Expense/income `accountId` (Zod)**: Create/update validators coerce numeric strings for `accountId` so server actions and APIs accept JSON shapes where BIGINT ids arrive as strings (fixes `/add` and similar flows). Account repository rows normalize `id` and `credit_limit` from Postgres.
+
+### Changed
+
+- **`GET /api/accounts` order**: Returns the **primary** account first, then other accounts sorted by name (Settings list matches this order).
+- **Quick add (expense and income)**: With at least one account, there is no **None** option; default selection is the primary account. Expense quick add waits for the accounts request before enabling **Add** so the default applies.
+
 ### Added
 
+- **Primary account**: `users.primary_account_id` (nullable FK to `accounts`, `ON DELETE SET NULL`). **Settings > Accounts** shows a **Primary** badge, **Set as primary** when you have more than one account, and a note when you have only one (it is always primary). `GET /api/accounts` returns `primaryAccountId`; `PUT /api/accounts/primary` with `{ "accountId": number }` sets it. Coherence is enforced in `AccountService` (single account always primary; invalid primary after deletes is repaired). Postgres migration `0012_primary_account_pg.sql`.
+
+- **Goals expanded page**: `/goals` is a single focused goal view with five sections (Overview, Progress and monthly tracking, Activity from the ledger, live Projection, Controls). Activity rows require a real `account_transaction_id`; projections are computed only via API and not stored. Credit goals compare Avalanche, Snowball, and Target date payments live (`POST /api/goals/[id]/projection-scenario`); full detail and paginated activity use `GET /api/goals/[id]/detail`. See [docs/goals.md](./docs/goals.md).
+- **Credit projection months slider**: On the Goals projection card, a **max payoff months** slider (1–120) shows the minimum payment for that horizon, total interest, comparison to your plan payment, and tightening by one month (`buildHorizonSliderScenario` + `horizonMonths` on `POST /api/goals/[id]/projection-scenario`).
+
+- **Export transactions (Settings)**: **Export transactions** on the Settings page downloads a CSV of all **income** and **expense** rows for the signed-in user via `GET /api/export/transactions`. Columns include kind, dates, budget month, amounts (minor units plus a decimal column), category or income type, notes, optional account and split fields, and created timestamp. UTF-8 with BOM for Excel.
+
+- **Budget month start day (pay-cycle months)**: Under **Settings**, **Budget month range** lets each user choose which calendar day the budget month begins (1-28). Default `1` is a normal calendar month. Example: `25` means the budget period is the 25th through the 24th of the following month (inclusive), so salary on the 25th opens the new budget month. Budget, income, expenses, summary, goals summary/progress, dashboard labels, and month navigation use this range; new/edited transactions get a `yyyy-MM` budget key from the transaction date and this rule. Postgres migration `0011_budget_month_start_day_pg.sql` on `users.budget_month_start_day` (applied by `db:push` when the column is missing).
+- **Calendar multi-day events**: Optional **end date** (`calendar_events.end_date`, inclusive) for non-recurring events. Month view shows a **spanning pill** across the week row under the affected days; day schedule and dashboard tiles show the date range. Recurring templates still use a single day per occurrence (end date is cleared when recurrence is not “none”). Postgres migration `0010_calendar_event_end_date_pg.sql` (applied by `db:push` when `end_date` is missing).
+- **Add hub (`/add`)**: Dedicated **Create new** screen (task, event, expense cards + Quick add) opened from the **center Add** control in the mobile bottom bar. List-item creation uses shared `AddListItemDialog` (shared/personal scope).
+- **Budget page (mobile mockup)**: Summary card with larger donut + income/expense/balance rows; **Spending by category** tile (dots + progress bars); **Recent transactions** (reuses expense list styling); **Categories and allocations** section unchanged below the sticky allocate strip.
+- **Lists overview**: `/lists` shows **My lists** with filter chips (All + per list), per-list progress and items, and **Open** to the list detail page (no auto-redirect to the first list only).
+- **Dashboard stats strip**: Three tappable cards (open list tasks, today’s event count, month balance) under the greeting.
+- **Docker Compose Watch**: `docker-compose.yml` adds an **app-dev** service (profile `watch`, `Dockerfile.dev`) with `develop.watch` rules: sync `src/`, `public/`, `drizzle/`; sync+restart for `next.config.ts`, `postcss.config.mjs`, `server.js`, `tsconfig.json`; rebuild on lockfile changes. Run `docker compose --profile watch up db app-dev --watch` for local dev with hot reload. Default `docker compose up` still uses production **app**.
+
+### Changed
+
+- **Mobile bottom navigation**: Layout is **Home, Calendar, [Add], Lists, Budget** (center Add navigates to `/add`; last slot is Budget instead of Summary). **Summary** remains in the hamburger / desktop sidebar. Bar uses a floating center pill, labels on mobile, and extra bottom padding for content.
+- **App layout**: Removed per-request prefetch of categories/lists/split groups for the old nav quick-add menu; `/add` loads its own data.
+- **Calendar UI**: Tighter mockup-style month cells (rounded-2xl, borderless transparent cells, light hover tint; selected/today state only on the day-number circle), larger header month title, schedule cards with clearer title/notes spacing and shadows. Multi-day spanning bars: no border, ring, or shadow on the bar. Month grid: denser week rows (shorter cells, tighter vertical gaps), `w-full` grids and day buttons so columns use the full card width, slightly reduced horizontal padding in the grid frame.
+- **Lists list rows**: Check-circle toggle, date chip, compact quantity controls, icon delete, optional chevron to list detail.
+- **Quick-add trigger** (`QuickAddTrigger`): Document-level **pointerdown** outside handler excludes the trigger element (fixes tap race where the menu closed then reopened). Refactored list-item dialog into `src/components/shared-lists/add-list-item-dialog.tsx` for reuse.
+
+### Added
+
+- **Calendar events (richer model + UI)**: Events support optional **end time**, **category** (lookup table `calendar_categories` with color hex for dots and schedule bars), **shared vs personal** visibility (`is_shared`: household vs creator-only), and **priority** (1-4). Month grid shows colored dots per category; day schedule uses a mockup-style layout (start/end times, vertical color bar, card, location pin, shared/personal icon). **GET /api/calendar/categories** lists categories. List and notifications respect visibility: API and dashboard show shared events plus the current user’s personal events; daily summary push is per-user; per-event reminders go to all users for shared events and only to the creator for personal events. Real-time “new event” push to the partner runs only for shared events. Postgres migration `0009_calendar_categories_and_event_fields_pg.sql` (applied by `db:push` when `calendar_events.end_time` is missing).
 - **Accounts and Transfers**: Financial accounts system for tracking bank balances, savings, and credit. Create accounts (Bank, Savings, Credit) under **Settings** > **Accounts**. Link income and expenses to accounts when adding them; balances are computed from a ledger (`account_transactions`). Use **Transfer Money** from the dashboard Accounts tile or Settings > Accounts to move funds between accounts (e.g. bank to savings, pay down credit). Credit accounts show balance, limit, and available credit. All financial movement flows through `account_transactions`; balances are never stored directly. API: `GET/POST /api/accounts`, `GET /api/accounts/[id]/balance`, `GET /api/accounts/[id]/transactions`, `POST /api/transfers`.
 - **Goals (Intent) + Contributions (Bridge)**: Added a Goals system to track intent separately from reality. Goals can be **Savings** (target + monthly target) or **Credit** (linked credit account + monthly payment target + optional APR). Contributions are *not expenses*: they are recorded as account movements (transfers/adjustments in `account_transactions`) and linked to goals via `goal_contributions`. Dashboard tiles show savings progress, monthly compliance, projected completion month, credit payoff estimate, and alerts when behind. New page: **Goals** (`/goals`). API: `GET/POST /api/goals`, `GET/PATCH/DELETE /api/goals/[id]`, actions `POST /api/goals/[id]/contribute|withdraw|pay|interest`, queries `GET /api/goals/summary`, `GET /api/goals/[id]/progress` (alias: `/projection`). Deterministic math drives projections/strategies; AI remains advisory only.
 - **Dashboard Accounts Summary tile**: Shows totals by type (Bank, Savings, Credit) and Net, with a link to Transfer Money.
@@ -12,14 +73,18 @@
 - **Dashboard over-budget tile**: A warning card appears on the dashboard when any category is over budget for the selected month, listing each overspent category and amount over; the card links to the Budget page.
 - **Category picker budget hints**: On the dashboard quick-add, the category picker shows remaining budget per category (e.g. "Groceries (R450 left)"). Overspent categories are shown in red with the amount over.
 - **AI expense analysis (Gemini)**: Optional AI module for monthly expense analysis. Set `GEMINI_API_KEY` in the environment to enable. Uses **Gemini 2.5 Pro** (best free-tier model; may be slower). On the dashboard, an "Analyze spending" button sends the current month's budget summary and returns a short analysis (spending patterns, budget advice, anomalies). Rate-limited in-memory (5 calls per user per hour). If the key is not set, the button is hidden.
-- **Quick-add in bottom nav (mobile)**: The floating quick-add FAB is replaced on mobile by a center **+** button in the bottom navigation bar. Layout is: Home, Calendar, [+], Lists, Summary. Tapping + opens the same menu (Expense, List item, Calendar event) above the bar. Desktop sidebar unchanged (no FAB in sidebar).
+- **Shared UI primitives**: Added `AvatarCircle` and `SectionHeader` components to support the new UI mockups.
+- **Home dashboard redesign (mockups)**: Updated the dashboard layout to match the provided “Good morning” Home mockup (greeting bar, split balance banner, over budget + today/next cards, inline quick add, and recent expenses card).
+- **Calendar UI (mockups)**: Replaced the month/week/day calendar UI with a custom month grid + schedule list. Clicking a day opens the add-event dialog prefilled with that day.
+- **Budget UI (mockups)**: Added a total budget donut chart, updated allocation progress bars to show `Spent/Allocated` with green/red states, and made allocation tiles expandable to reveal that month&apos;s transactions per category.
 
 ### Changed
 
-- **Postgres-only database**: SQLite support removed. `DATABASE_URL` is now required. Use Postgres for all deployments.
+- **Postgres-only database**: `DATABASE_URL` is now required. Use Postgres for all deployments.
 - **Header (top bar)**: Order is now name, theme toggle, hamburger (mobile). Sign out is moved into the hamburger slide-out menu at the bottom.
 - **Populate this month**: The "Populate this month" button is moved to the bottom of the dashboard (below the Income section).
 - **Android PWA icon**: The maskable icon now uses a full green background (matching iOS) with the house graphic in the 80% safe zone, so Android adaptive icons match the iOS home-screen appearance. Regenerate with `npm run generate-pwa-icons`.
+- **Dark UI styling**: Tuned dark theme colors (background/card/border/muted) to better match the provided mockups.
 
 ### Added (previous)
 
@@ -38,7 +103,7 @@
 - **PWA manifest (iOS)**: Manifest aligned with iOS-friendly setup: added 180x180 icon (used for iOS home screen via layout apple link), orientation set to `portrait-primary`, and shortcuts for Dashboard, Expenses, and Summary. Layout apple icon now points to `icon-180x180.png`. Regenerate icons with `npm run generate-pwa-icons` to create the new 180x180 asset.
 
 - **PWA manifest**: Switched from dynamic `manifest.ts` to static `public/manifest.json` for reliable iOS PWA recognition. Layout no longer exports `manifest` in metadata; the manifest is linked explicitly in `<head>`.
-- **db:push**: Postgres and SQLite now apply migration 0006 (calendar_reminders): adds `reminder_minutes` to `calendar_events` and creates `sent_reminders` table.
+- **db:push**: Applies migration 0006 (calendar_reminders): adds `reminder_minutes` to `calendar_events` and creates `sent_reminders` table.
 - **Lists**: Navigating to Lists now shows the default list (first list by sort order) directly. If there are no lists, the page shows a message with a link to Settings to add one. Add list and manage lists (create/delete) are in **Settings** under **Shared lists**. The list detail page includes a list switcher (links to other lists) when you have more than one list.
 - **Calendar**: Toolbar (prev/next, Today, view switcher) uses smaller buttons and label on viewports up to 768px to reduce space on mobile.
 

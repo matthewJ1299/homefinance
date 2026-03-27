@@ -53,8 +53,9 @@ export async function updateIncome(
   if (!parsed.success) {
     return { success: false, error: parsed.error.message };
   }
+  const userId = Number(session.user.id);
   const service = new IncomeService();
-  await service.update(id, parsed.data);
+  await service.update(id, userId, parsed.data);
   revalidatePath("/income");
   revalidatePath("/budget");
   return { success: true };

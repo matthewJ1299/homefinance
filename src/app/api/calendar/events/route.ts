@@ -26,8 +26,9 @@ export async function GET(request: NextRequest) {
   if (differenceInDays(endDate, startDate) > MAX_RANGE_DAYS) {
     return NextResponse.json({ error: "Date range must not exceed 1 year" }, { status: 400 });
   }
+  const userId = Number(session.user.id);
   const service = new CalendarService();
-  const result = await service.getByDateRange(startStr, endStr);
+  const result = await service.getByDateRange(startStr, endStr, userId);
   return NextResponse.json(result);
 }
 
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
     const { NotificationService, isNotificationConfigured } = await import(
       "@/lib/services/notification.service"
     );
-    if (isNotificationConfigured()) {
+    if (isNotificationConfigured() && parsed.data.isShared !== false) {
       const notificationService = new NotificationService();
       const userName = session.user.name ?? "Someone";
       await notificationService.sendToAllExcept(userId, {

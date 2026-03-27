@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { SummaryService } from "@/lib/services/summary.service";
 import { MortgageService } from "@/lib/services/mortgage.service";
-import { getCurrentMonth } from "@/lib/utils/date";
+import { getDefaultBudgetMonthForUser } from "@/lib/utils/budget-month-for-user";
 import { subMonths } from "date-fns";
 import { format } from "date-fns";
 import { MonthNavigator } from "@/components/layout/month-navigator";
@@ -23,8 +23,9 @@ export default async function SummaryPage({ searchParams }: SummaryPageProps) {
   if (!session?.user?.id) return null;
   const userId = Number(session.user.id);
   const { month: monthParam, from: fromParam, to: toParam } = await searchParams;
-  const month = monthParam ?? getCurrentMonth();
-  const to = toParam ?? getCurrentMonth();
+  const defaultBudgetMonth = await getDefaultBudgetMonthForUser(userId);
+  const month = monthParam ?? defaultBudgetMonth;
+  const to = toParam ?? defaultBudgetMonth;
   const from =
     fromParam ??
     format(subMonths(new Date(to + "-01"), 11), "yyyy-MM");

@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toMinorUnits } from "@/lib/utils/currency";
 import type { AccountType } from "@/lib/types";
+import { parseAccountsApiPayload } from "@/lib/utils/accounts-api";
+import { toast } from "sonner";
 
 interface IncomeQuickAddProps {
   month: string;
@@ -21,19 +23,46 @@ export function IncomeQuickAdd({ month }: IncomeQuickAddProps) {
   const [description, setDescription] = useState("");
   const [date, setDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [accountId, setAccountId] = useState<number | null>(null);
+  const [primaryAccountId, setPrimaryAccountId] = useState<number | null>(null);
   const [accounts, setAccounts] = useState<Array<{ id: number; name: string; type: AccountType }>>([]);
+  const [accountsReady, setAccountsReady] = useState(false);
   const [message, setMessage] = useState<"saved" | "error" | null>(null);
 
   useEffect(() => {
     fetch("/api/accounts")
-      .then((res) => (res.ok ? res.json() : { accounts: [] }))
-      .then((data) => setAccounts(data.accounts ?? []));
+      .then((res) => (res.ok ? res.json() : {}))
+      .then((data) => {
+        const { accounts: list, primaryAccountId: primary } = parseAccountsApiPayload(data);
+        setAccounts(list);
+        setPrimaryAccountId(primary);
+      })
+      .catch(() => {
+        setAccounts([]);
+        setPrimaryAccountId(null);
+      })
+      .finally(() => setAccountsReady(true));
   }, []);
+
+  useEffect(() => {
+    if (accounts.length === 0) {
+      setAccountId(null);
+      return;
+    }
+    const fallback = primaryAccountId ?? accounts[0]!.id;
+    setAccountId((prev) =>
+      prev != null && accounts.some((a) => a.id === prev) ? prev : fallback
+    );
+  }, [accounts, primaryAccountId]);
+
+  const effectiveAccountId =
+    accounts.length === 0 ? undefined : (accountId ?? primaryAccountId ?? accounts[0]?.id ?? undefined);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!accountsReady) return;
     const parsed = parseFloat(amount.replace(/\s/g, "").replace(",", "."));
     if (Number.isNaN(parsed) || parsed <= 0) return;
+    if (accounts.length > 0 && effectiveAccountId == null) return;
     const cents = toMinorUnits(parsed);
     startTransition(async () => {
       const result = await addIncome({
@@ -41,7 +70,7 @@ export function IncomeQuickAdd({ month }: IncomeQuickAddProps) {
         type: "salary",
         description: description.trim() || undefined,
         date,
-        accountId: accountId ?? undefined,
+        accountId: effectiveAccountId,
       });
       if (result.success) {
         setAmount("");
@@ -49,10 +78,12 @@ export function IncomeQuickAdd({ month }: IncomeQuickAddProps) {
         setDate(format(new Date(), "yyyy-MM-dd"));
         setMessage("saved");
         setTimeout(() => setMessage(null), 2000);
-        router.refresh();
+        toast.success("Income added.");
+        void router.refresh();
       } else {
         setMessage("error");
         setTimeout(() => setMessage(null), 3000);
+        toast.error(result.error);
       }
     });
   };
@@ -74,7 +105,10 @@ export function IncomeQuickAdd({ month }: IncomeQuickAddProps) {
             className="text-lg"
           />
         </div>
-        <Button type="submit" disabled={isPending}>
+        <Button
+          type="submit"
+          disabled={isPending || !accountsReady || (accounts.length > 0 && effectiveAccountId == null)}
+        >
           {isPending ? "Saving..." : "Add"}
         </Button>
       </div>
@@ -102,12 +136,11 @@ export function IncomeQuickAdd({ month }: IncomeQuickAddProps) {
           <Label className="text-xs block mb-1">Account</Label>
           <select
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={accountId ?? ""}
-            onChange={(e) => setAccountId(e.target.value ? Number(e.target.value) : null)}
+            value={String(accountId ?? primaryAccountId ?? accounts[0]!.id)}
+            onChange={(e) => setAccountId(Number(e.target.value))}
           >
-            <option value="">None</option>
             {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
+              <option key={a.id} value={String(a.id)}>
                 {a.name} ({a.type})
               </option>
             ))}

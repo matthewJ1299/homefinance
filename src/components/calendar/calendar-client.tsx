@@ -3,14 +3,20 @@
 import { useCallback, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
-import { format, parse, startOfWeek, getDay } from "date-fns";
+import { addDays, format, parse, startOfWeek, getDay } from "date-fns";
 import { enUS } from "date-fns/locale";
 import type { SlotInfo } from "react-big-calendar";
 import "./calendar.css";
-import { EventFormDialog, type CalendarEventFormValues } from "./event-form-dialog";
+import {
+  EventFormDialog,
+  type CalendarEventFormValues,
+  buildCalendarEventApiBody,
+} from "./event-form-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { CalendarEventOccurrence } from "@/lib/services/calendar.service";
+import { occurrenceSegmentEnd } from "@/lib/utils/calendar-occurrence";
+import { toast } from "sonner";
 
 const locales = { "en-US": enUS };
 const localizer = dateFnsLocalizer({
@@ -29,7 +35,9 @@ interface CalendarEventWithDates {
   resource: {
     eventId: number;
     date: string;
+    endDate: string | null;
     time: string | null;
+    endTime: string | null;
     name: string;
     location: string | null;
     notes: string | null;
@@ -38,13 +46,21 @@ interface CalendarEventWithDates {
 }
 
 function occurrenceToCalendarEvent(o: CalendarEventOccurrence): CalendarEventWithDates {
-  const dateStr = o.date;
+  const startDateStr = o.date;
+  const endDateStr = occurrenceSegmentEnd(o);
   const timeStr = o.time;
   const allDay = !timeStr;
   const start = timeStr
-    ? parse(`${dateStr}T${timeStr}`, "yyyy-MM-dd'T'HH:mm", new Date())
-    : parse(dateStr, "yyyy-MM-dd", new Date());
-  const end = allDay ? new Date(start.getTime() + 60 * 60 * 1000) : new Date(start.getTime() + 60 * 60 * 1000);
+    ? parse(`${startDateStr}T${timeStr}`, "yyyy-MM-dd'T'HH:mm", new Date())
+    : parse(startDateStr, "yyyy-MM-dd", new Date());
+  let end: Date;
+  if (allDay) {
+    end = addDays(parse(endDateStr, "yyyy-MM-dd", new Date()), 1);
+  } else if (o.endTime) {
+    end = parse(`${endDateStr}T${o.endTime}`, "yyyy-MM-dd'T'HH:mm", new Date());
+  } else {
+    end = new Date(start.getTime() + 60 * 60 * 1000);
+  }
   return {
     start,
     end,
@@ -53,7 +69,9 @@ function occurrenceToCalendarEvent(o: CalendarEventOccurrence): CalendarEventWit
     resource: {
       eventId: o.eventId,
       date: o.date,
+      endDate: o.endDate,
       time: o.time,
+      endTime: o.endTime,
       name: o.name,
       location: o.location,
       notes: o.notes,
@@ -103,8 +121,51 @@ export function CalendarClient() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? "Failed to create event");
       }
+      const data = (await res.json().catch(() => ({}))) as { id?: number };
+      return data.id as number | undefined;
     },
-    onSuccess: () => {
+    onMutate: async (body) => {
+      await queryClient.cancelQueries({ queryKey: ["calendar-events"] });
+      const tempId = -Date.now();
+      const optimistic: CalendarEventOccurrence = {
+        eventId: tempId,
+        date: String(body.date ?? ""),
+        endDate: (body.endDate as string | null | undefined) ?? null,
+        time: (body.time as string | null | undefined) ?? null,
+        endTime: (body.endTime as string | null | undefined) ?? null,
+        name: String(body.name ?? "New event"),
+        location: (body.location as string | null | undefined) ?? null,
+        notes: (body.notes as string | null | undefined) ?? null,
+        createdByUserId: 0,
+        createdByName: "You",
+        recurrenceType: String(body.recurrenceType ?? "none"),
+        reminderMinutes: (body.reminderMinutes as number | null | undefined) ?? null,
+        categoryId: (body.categoryId as number | null | undefined) ?? null,
+        categoryName: null,
+        categoryColor: null,
+        isShared: (body.isShared as boolean | undefined) ?? true,
+        priority: (body.priority as number | undefined) ?? 0,
+      };
+      const key = ["calendar-events", range.start, range.end] as const;
+      const previous = queryClient.getQueryData<CalendarEventOccurrence[]>(key) ?? [];
+      if (optimistic.date >= range.start && optimistic.date <= range.end) {
+        queryClient.setQueryData<CalendarEventOccurrence[]>(key, [optimistic, ...previous]);
+      }
+      return { key, previous, tempId };
+    },
+    onError: (err, _body, ctx) => {
+      if (ctx) {
+        queryClient.setQueryData(ctx.key, ctx.previous);
+      }
+      toast.error(err instanceof Error ? err.message : "Failed to create event.");
+    },
+    onSuccess: (id, _body, ctx) => {
+      toast.success("Event added.");
+      if (ctx?.tempId != null && id != null) {
+        queryClient.setQueryData<CalendarEventOccurrence[]>(ctx.key, (prev) =>
+          (prev ?? []).map((o) => (o.eventId === ctx.tempId ? { ...o, eventId: id } : o))
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
     },
   });
@@ -121,7 +182,21 @@ export function CalendarClient() {
         throw new Error(data.error ?? "Failed to update event");
       }
     },
+    onMutate: async ({ id, body }) => {
+      await queryClient.cancelQueries({ queryKey: ["calendar-events"] });
+      const key = ["calendar-events", range.start, range.end] as const;
+      const previous = queryClient.getQueryData<CalendarEventOccurrence[]>(key) ?? [];
+      queryClient.setQueryData<CalendarEventOccurrence[]>(key, (prev) =>
+        (prev ?? []).map((o) => (o.eventId === id ? { ...o, ...body } as CalendarEventOccurrence : o))
+      );
+      return { key, previous };
+    },
+    onError: (err, _vars, ctx) => {
+      if (ctx) queryClient.setQueryData(ctx.key, ctx.previous);
+      toast.error(err instanceof Error ? err.message : "Failed to update event.");
+    },
     onSuccess: () => {
+      toast.success("Event updated.");
       queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
     },
   });
@@ -131,7 +206,21 @@ export function CalendarClient() {
       const res = await fetch(`/api/calendar/events/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete event");
     },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["calendar-events"] });
+      const key = ["calendar-events", range.start, range.end] as const;
+      const previous = queryClient.getQueryData<CalendarEventOccurrence[]>(key) ?? [];
+      queryClient.setQueryData<CalendarEventOccurrence[]>(key, (prev) =>
+        (prev ?? []).filter((o) => o.eventId !== id)
+      );
+      return { key, previous };
+    },
+    onError: (err, _id, ctx) => {
+      if (ctx) queryClient.setQueryData(ctx.key, ctx.previous);
+      toast.error(err instanceof Error ? err.message : "Failed to delete event.");
+    },
     onSuccess: () => {
+      toast.success("Event deleted.");
       queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
     },
   });
@@ -176,21 +265,31 @@ export function CalendarClient() {
           name: string;
           location: string | null;
           date: string;
+          endDate: string | null;
           time: string | null;
+          endTime: string | null;
           notes: string | null;
           recurrenceType: "none" | "weekly" | "monthly" | "yearly";
           recurrenceDayOfMonth: number | null;
           reminderMinutes: number | null;
+          categoryId: number | null;
+          isShared: boolean;
+          priority: number;
         }) => {
           setInitialFormValues({
             name: data.name,
             location: data.location ?? null,
             date: data.date,
+            endDate: data.endDate ?? null,
             time: data.time ?? null,
+            endTime: data.endTime ?? null,
             notes: data.notes ?? null,
             recurrenceType: data.recurrenceType,
             recurrenceDayOfMonth: data.recurrenceDayOfMonth ?? null,
             reminderMinutes: data.reminderMinutes ?? null,
+            categoryId: data.categoryId ?? null,
+            isShared: data.isShared !== false,
+            priority: typeof data.priority === "number" ? data.priority : 2,
           });
           setFormOpen(true);
         })
@@ -199,11 +298,16 @@ export function CalendarClient() {
             name: event.resource.name,
             location: event.resource.location,
             date: event.resource.date,
+            endDate: event.resource.endDate ?? null,
             time: event.resource.time,
+            endTime: event.resource.endTime ?? null,
             notes: event.resource.notes,
             recurrenceType: "none",
             recurrenceDayOfMonth: null,
             reminderMinutes: null,
+            categoryId: null,
+            isShared: true,
+            priority: 2,
           });
           setFormOpen(true);
         });
@@ -212,29 +316,8 @@ export function CalendarClient() {
   );
 
   const handleFormSubmit = useCallback(
-    async (values: Record<string, unknown>) => {
-      const body = {
-        name: values.name,
-        location: values.location ?? null,
-        date: values.date,
-        time: values.time ?? null,
-        notes: values.notes ?? null,
-        recurrenceType: values.recurrenceType,
-        recurrenceDayOfMonth:
-          values.recurrenceDayOfMonth === undefined ||
-          values.recurrenceDayOfMonth === null ||
-          values.recurrenceDayOfMonth === "" ||
-          Number.isNaN(Number(values.recurrenceDayOfMonth))
-            ? null
-            : Number(values.recurrenceDayOfMonth),
-        reminderMinutes:
-          values.reminderMinutes === undefined ||
-          values.reminderMinutes === null ||
-          values.reminderMinutes === "" ||
-          Number.isNaN(Number(values.reminderMinutes))
-            ? null
-            : Number(values.reminderMinutes),
-      };
+    async (values: Parameters<typeof buildCalendarEventApiBody>[0]) => {
+      const body = buildCalendarEventApiBody(values);
       if (editingEventId != null) {
         await updateMutation.mutateAsync({ id: editingEventId, body });
       } else {

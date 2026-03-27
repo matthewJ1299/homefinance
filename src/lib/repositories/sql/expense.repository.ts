@@ -1,5 +1,7 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
 import type { ExpenseWithDetails } from "@/lib/types";
+import type { BudgetMonthPeriod } from "@/lib/types/budget-month";
+import { getBudgetPeriodForMonthKey, normalizeBudgetMonthStartDay } from "@/lib/utils/date";
 import type {
   IExpenseRepository,
   CreateExpenseInput,
@@ -8,7 +10,7 @@ import type {
 
 const SELECT_EXPENSE_DETAILS = `
   SELECT e.id, e.user_id AS "userId", u.name AS "userName", e.category_id AS "categoryId", c.name AS "categoryName",
-         e.amount, e.note, e.date, e.created_at AS "createdAt", e.split_group_id AS "splitGroupId", e.paid_by_user_id AS "paidByUserId", e.split_expense_group_id AS "splitExpenseGroupId", e.account_id AS "accountId"
+         e.amount, e.note, e.date, e.month AS "month", e.created_at AS "createdAt", e.split_group_id AS "splitGroupId", e.paid_by_user_id AS "paidByUserId", e.split_expense_group_id AS "splitExpenseGroupId", e.account_id AS "accountId"
   FROM expenses e
   INNER JOIN users u ON e.user_id = u.id
   INNER JOIN categories c ON e.category_id = c.id
@@ -23,14 +25,21 @@ interface ExpenseDetailsRow {
   amount: number;
   note: string | null;
   date: string;
+  month: string;
   createdAt: string;
   splitGroupId: string | null;
   paidByUserId: number | null;
   splitExpenseGroupId?: number | null;
-   accountId?: number | null;
+  /** Postgres BIGINT may arrive as string from node-pg. */
+  accountId?: number | null | string;
 }
 
 function toExpenseWithDetails(r: ExpenseDetailsRow): ExpenseWithDetails {
+  const accountIdRaw = r.accountId;
+  const accountId =
+    accountIdRaw != null && accountIdRaw !== ""
+      ? Number(accountIdRaw)
+      : undefined;
   return {
     id: r.id,
     userId: r.userId,
@@ -40,18 +49,31 @@ function toExpenseWithDetails(r: ExpenseDetailsRow): ExpenseWithDetails {
     amount: r.amount,
     note: r.note,
     date: r.date,
+    month: r.month,
     createdAt: r.createdAt,
     splitGroupId: r.splitGroupId,
     paidByUserId: r.paidByUserId,
     splitExpenseGroupId: r.splitExpenseGroupId ?? undefined,
-    accountId: r.accountId ?? undefined,
+    accountId: Number.isFinite(accountId) ? accountId : undefined,
   };
 }
 
 export class ExpenseRepository implements IExpenseRepository {
-  async findByMonth(month: string, userId?: number, accountId?: number): Promise<ExpenseWithDetails[]> {
-    let sql = `${SELECT_EXPENSE_DETAILS} WHERE e.month = ?`;
-    const params: (string | number)[] = [month];
+  async findByMonth(
+    month: string,
+    userId?: number,
+    accountId?: number,
+    period?: BudgetMonthPeriod
+  ): Promise<ExpenseWithDetails[]> {
+    let sql = `${SELECT_EXPENSE_DETAILS} WHERE `;
+    const params: (string | number)[] = [];
+    if (period) {
+      sql += "e.date >= ? AND e.date <= ?";
+      params.push(period.start, period.end);
+    } else {
+      sql += "e.month = ?";
+      params.push(month);
+    }
     if (userId != null) {
       sql += " AND e.user_id = ?";
       params.push(userId);
@@ -70,10 +92,18 @@ export class ExpenseRepository implements IExpenseRepository {
     limit: number,
     offset: number,
     userId?: number,
-    accountId?: number
+    accountId?: number,
+    period?: BudgetMonthPeriod
   ): Promise<ExpenseWithDetails[]> {
-    let base = `${SELECT_EXPENSE_DETAILS} WHERE e.month = ?`;
-    const params: (string | number)[] = [month];
+    let base = `${SELECT_EXPENSE_DETAILS} WHERE `;
+    const params: (string | number)[] = [];
+    if (period) {
+      base += "e.date >= ? AND e.date <= ?";
+      params.push(period.start, period.end);
+    } else {
+      base += "e.month = ?";
+      params.push(month);
+    }
     if (userId != null) {
       base += " AND e.user_id = ?";
       params.push(userId);
@@ -88,9 +118,21 @@ export class ExpenseRepository implements IExpenseRepository {
     return rows.map(toExpenseWithDetails);
   }
 
-  async countByMonth(month: string, userId?: number, accountId?: number): Promise<number> {
-    let sql = "SELECT COUNT(id) AS c FROM expenses WHERE month = ?";
-    const params: (string | number)[] = [month];
+  async countByMonth(
+    month: string,
+    userId?: number,
+    accountId?: number,
+    period?: BudgetMonthPeriod
+  ): Promise<number> {
+    let sql = "SELECT COUNT(id) AS c FROM expenses WHERE ";
+    const params: (string | number)[] = [];
+    if (period) {
+      sql += "date >= ? AND date <= ?";
+      params.push(period.start, period.end);
+    } else {
+      sql += "month = ?";
+      params.push(month);
+    }
     if (userId != null) {
       sql += " AND user_id = ?";
       params.push(userId);
@@ -103,17 +145,55 @@ export class ExpenseRepository implements IExpenseRepository {
     return row?.c ?? 0;
   }
 
-  async getSpendingByCategoryForMonths(months: string[], userId?: number): Promise<Record<number, number>> {
+  async getSpendingByCategoryForMonths(
+    months: string[],
+    userId?: number,
+    budgetMonthStartDay?: number
+  ): Promise<Record<number, number>> {
     if (months.length === 0) return {};
-    const placeholders = months.map(() => "?").join(",");
-    const sql = userId != null
-      ? `SELECT category_id, SUM(amount) AS total FROM expenses WHERE user_id = ? AND month IN (${placeholders}) GROUP BY category_id`
-      : `SELECT category_id, SUM(amount) AS total FROM expenses WHERE month IN (${placeholders}) GROUP BY category_id`;
-    const params = userId != null ? [userId, ...months] : months;
+    if (budgetMonthStartDay === undefined) {
+      const placeholders = months.map(() => "?").join(",");
+      const sql = userId != null
+        ? `SELECT category_id, SUM(amount) AS total FROM expenses WHERE user_id = ? AND month IN (${placeholders}) GROUP BY category_id`
+        : `SELECT category_id, SUM(amount) AS total FROM expenses WHERE month IN (${placeholders}) GROUP BY category_id`;
+      const params = userId != null ? [userId, ...months] : months;
+      const rows = await all<{ category_id: number; total: number }>(sql, params);
+      const result: Record<number, number> = {};
+      for (const r of rows) {
+        result[r.category_id] = r.total;
+      }
+      return result;
+    }
+    const d = normalizeBudgetMonthStartDay(budgetMonthStartDay);
+    const periods = months.map((m) => getBudgetPeriodForMonthKey(m, d));
+    const orParts = periods.map(() => "(date >= ? AND date <= ?)").join(" OR ");
+    const params: (string | number)[] = [];
+    if (userId != null) params.push(userId);
+    for (const p of periods) {
+      params.push(p.start, p.end);
+    }
+    const sql =
+      userId != null
+        ? `SELECT category_id, SUM(amount) AS total FROM expenses WHERE user_id = ? AND (${orParts}) GROUP BY category_id`
+        : `SELECT category_id, SUM(amount) AS total FROM expenses WHERE (${orParts}) GROUP BY category_id`;
     const rows = await all<{ category_id: number; total: number }>(sql, params);
     const result: Record<number, number> = {};
     for (const r of rows) {
       result[r.category_id] = r.total;
+    }
+    return result;
+  }
+
+  async getUsageCountsByCategory(userId?: number): Promise<Record<number, number>> {
+    const sql =
+      userId != null
+        ? "SELECT category_id, COUNT(id) AS c FROM expenses WHERE user_id = ? GROUP BY category_id"
+        : "SELECT category_id, COUNT(id) AS c FROM expenses GROUP BY category_id";
+    const params = userId != null ? [userId] : [];
+    const rows = await all<{ category_id: number; c: number }>(sql, params);
+    const result: Record<number, number> = {};
+    for (const r of rows) {
+      result[r.category_id] = r.c;
     }
     return result;
   }
@@ -124,6 +204,12 @@ export class ExpenseRepository implements IExpenseRepository {
       [id]
     );
     return row ? toExpenseWithDetails(row) : null;
+  }
+
+  async findAllByUserId(userId: number): Promise<ExpenseWithDetails[]> {
+    const sql = `${SELECT_EXPENSE_DETAILS} WHERE e.user_id = ? ORDER BY e.date ASC, e.created_at ASC, e.id ASC`;
+    const rows = await all<ExpenseDetailsRow>(sql, [userId]);
+    return rows.map(toExpenseWithDetails);
   }
 
   async create(data: CreateExpenseInput): Promise<{ id: number }> {

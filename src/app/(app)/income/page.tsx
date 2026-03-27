@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { IncomeService } from "@/lib/services/income.service";
-import { getCurrentMonth } from "@/lib/utils/date";
+import { getDefaultBudgetMonthForUser } from "@/lib/utils/budget-month-for-user";
 import { MonthNavigator } from "@/components/layout/month-navigator";
 import { IncomeForm } from "@/components/income/income-form";
 import { IncomeList } from "@/components/income/income-list";
@@ -11,12 +11,14 @@ interface IncomePageProps {
 }
 
 export default async function IncomePage({ searchParams }: IncomePageProps) {
-  await auth();
+  const session = await auth();
+  if (!session?.user?.id) return null;
+  const userId = Number(session.user.id);
   const { month: monthParam } = await searchParams;
-  const month = monthParam ?? getCurrentMonth();
+  const month = monthParam ?? (await getDefaultBudgetMonthForUser(userId));
 
   const service = new IncomeService();
-  const { entries, totals } = await service.getByMonth(month);
+  const { entries, totals } = await service.getByMonth(month, userId);
 
   return (
     <div className="p-4 space-y-6">

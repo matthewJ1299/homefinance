@@ -10,6 +10,7 @@ import { Trash2, Pencil } from "lucide-react";
 import { deleteExpense, getExpenseForEdit } from "@/lib/actions/expense.actions";
 import { Button } from "@/components/ui/button";
 import { EditExpenseDialog } from "./edit-expense-dialog";
+import { toast } from "sonner";
 
 interface ExpenseItemProps {
   expense: ExpenseWithDetails;
@@ -18,6 +19,8 @@ interface ExpenseItemProps {
   categories?: Category[];
   otherUserName?: string;
   className?: string;
+  onOptimisticRemoveExpense?: (expense: ExpenseWithDetails) => () => void;
+  onOptimisticUpsertExpense?: (next: ExpenseWithDetails) => () => void;
 }
 
 export function ExpenseItem({
@@ -27,6 +30,8 @@ export function ExpenseItem({
   categories = [],
   otherUserName,
   className,
+  onOptimisticRemoveExpense,
+  onOptimisticUpsertExpense,
 }: ExpenseItemProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -37,6 +42,7 @@ export function ExpenseItem({
   const name = expense.userName ?? "";
   const initial = name.slice(0, 1).toUpperCase() || "?";
   const isSplit = Boolean(expense.splitGroupId);
+  const isTemp = expense.id < 0;
 
   const handleEdit = () => {
     if (isSplit) {
@@ -46,7 +52,7 @@ export function ExpenseItem({
           setEditAllocations(result.allocations);
           setEditOpen(true);
         } else {
-          alert(result.error);
+          toast.error(result.error);
         }
       });
     } else {
@@ -57,12 +63,16 @@ export function ExpenseItem({
 
   const handleDelete = () => {
     if (!confirm("Delete this expense? This cannot be undone.")) return;
+    if (isTemp) return;
+    const rollback = onOptimisticRemoveExpense?.(expense);
     startTransition(async () => {
       const result = await deleteExpense(expense.id);
       if (result.success) {
-        router.refresh();
+        toast.success("Expense deleted.");
+        void router.refresh();
       } else {
-        alert(result.error);
+        rollback?.();
+        toast.error(result.error);
       }
     });
   };
@@ -109,7 +119,7 @@ export function ExpenseItem({
             size="icon"
             className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
             onClick={handleEdit}
-            disabled={isPending}
+            disabled={isPending || isTemp}
             title="Edit expense"
             aria-label="Edit expense"
           >
@@ -121,7 +131,7 @@ export function ExpenseItem({
               size="icon"
               className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
               onClick={handleDelete}
-              disabled={isPending}
+              disabled={isPending || isTemp}
               title="Delete expense"
               aria-label="Delete expense"
             >
@@ -137,6 +147,7 @@ export function ExpenseItem({
         allocations={editAllocations}
         categories={categories}
         otherUserName={otherUserName}
+        onOptimisticUpsertExpense={onOptimisticUpsertExpense}
       />
     </>
   );

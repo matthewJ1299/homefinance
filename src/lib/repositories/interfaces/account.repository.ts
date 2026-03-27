@@ -14,6 +14,8 @@ export interface UpdateAccountInput {
 export interface IAccountRepository {
   findById(id: number, ownerUserId: number): Promise<Account | null>;
   findAllForUser(ownerUserId: number): Promise<Account[]>;
+  /** Oldest bank account (primary spending), else oldest account by id. */
+  findMainAccountIdForUser(ownerUserId: number): Promise<number | null>;
   create(ownerUserId: number, data: CreateAccountInput): Promise<{ id: number }>;
   update(id: number, ownerUserId: number, data: UpdateAccountInput): Promise<void>;
   delete(id: number, ownerUserId: number): Promise<void>;

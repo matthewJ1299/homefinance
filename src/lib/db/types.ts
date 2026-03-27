@@ -1,5 +1,5 @@
 /**
- * Database client interface. Implementations (SQLite, Postgres) are swapped via env (DATABASE_URL).
+ * Database client interface. The app uses Postgres via `DATABASE_URL`.
  */
 export interface IDbClient {
   initDb(): Promise<void>;

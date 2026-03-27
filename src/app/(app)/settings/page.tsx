@@ -5,8 +5,11 @@ import {
   getRecurringIncomeRepository,
   getRecurringExpenseRepository,
   getSharedListRepository,
+  getSharedListItemRepository,
+  getUserRepository,
 } from "@/lib/repositories";
-import { getCurrentMonth, formatMonth } from "@/lib/utils/date";
+import { formatBudgetMonthLabel } from "@/lib/utils/date";
+import { getDefaultBudgetMonthForUser } from "@/lib/utils/budget-month-for-user";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { PopulateMonthButton } from "@/components/dashboard/populate-month-button";
 import { CategoriesManage } from "@/components/categories/categories-manage";
@@ -14,9 +17,13 @@ import { SplitGroupsManage } from "@/components/split-groups/split-groups-manage
 import { RecurringIncomeManage } from "@/components/recurring-income/recurring-income-manage";
 import { RecurringExpenseManage } from "@/components/recurring-expenses/recurring-expense-manage";
 import { SharedListsManage } from "@/components/shared-lists/shared-lists-manage";
+import { SharedListItemsManage } from "@/components/shared-lists/shared-list-items-manage";
+import type { SharedListItem } from "@/lib/repositories/interfaces/shared-list-item.repository";
 import { PushNotificationsSettings } from "@/components/push/push-notifications-settings";
 import { DashboardTilesSettings } from "@/components/settings/dashboard-tiles-settings";
 import { AccountsManage } from "@/components/accounts/accounts-manage";
+import { BudgetMonthRangeSettings } from "@/components/settings/budget-month-range-settings";
+import { ExportTransactionsSettings } from "@/components/settings/export-transactions-settings";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -30,9 +37,17 @@ export default async function SettingsPage() {
     getRecurringExpenseRepository().findByUserId(userId),
     getSharedListRepository().findAll(),
   ]);
+  const itemRepo = getSharedListItemRepository();
+  const listItemsByListId: Record<number, SharedListItem[]> = {};
+  await Promise.all(
+    sharedLists.map(async (list) => {
+      listItemsByListId[list.id] = await itemRepo.findByListId(list.id);
+    })
+  );
   const categoriesForRecurring = await getCategoryRepository().findAll();
 
-  const currentMonth = getCurrentMonth();
+  const budgetMonthStartDay = await getUserRepository().getBudgetMonthStartDay(userId);
+  const currentMonth = await getDefaultBudgetMonthForUser(userId);
 
   return (
     <div className="p-4 space-y-6">
@@ -42,12 +57,16 @@ export default async function SettingsPage() {
       </p>
 
       <PushNotificationsSettings />
+      <ExportTransactionsSettings />
+      <BudgetMonthRangeSettings currentStartDay={budgetMonthStartDay} />
       <DashboardTilesSettings />
 
       <section className="rounded-lg border bg-card p-4">
         <h2 className="text-sm font-medium mb-1">Recurring this month</h2>
         <p className="text-xs text-muted-foreground mb-3">
-          Create income and expense entries from your recurring templates for {formatMonth(currentMonth)}. Only items that do not exist yet for this month are added.
+          Create income and expense entries from your recurring templates for{" "}
+          {formatBudgetMonthLabel(currentMonth, budgetMonthStartDay)}. Only items that do not exist yet for this
+          month are added.
         </p>
         <PopulateMonthButton month={currentMonth} />
       </section>
@@ -87,9 +106,10 @@ export default async function SettingsPage() {
 
         <CollapsibleSection title="Lists" defaultOpen={false}>
           <p className="text-sm text-muted-foreground mb-3">
-            Create and delete shared or personal lists. Use the toggle to choose which kind of lists you are viewing/adding.
+            Create and delete shared or personal lists. Use the toggle to choose which kind of lists you are viewing/adding. Below, pick any list to add or remove checklist rows without opening the Lists pages.
           </p>
           <SharedListsManage lists={sharedLists} />
+          <SharedListItemsManage lists={sharedLists} itemsByListId={listItemsByListId} />
         </CollapsibleSection>
       </div>
     </div>

@@ -5,7 +5,6 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   output: "standalone",
   outputFileTracingRoot: process.cwd(),
-  serverExternalPackages: ["sql.js"],
   async redirects() {
     return [
       { source: "/categories", destination: "/settings", permanent: false },

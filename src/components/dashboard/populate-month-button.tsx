@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { populateMonth } from "@/lib/actions/population.actions";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface PopulateMonthButtonProps {
   month: string;
@@ -30,12 +31,18 @@ export function PopulateMonthButton({ month }: PopulateMonthButtonProps) {
               : "Nothing to add (all recurring items already exist for this month)."
         );
         if (result.incomeCreated > 0 || result.expensesCreated > 0) {
-          router.refresh();
+          toast.success("Month populated.");
+          void router.refresh();
+        } else if (result.errors.length > 0) {
+          toast.error(result.errors.join(" "));
+        } else {
+          toast.success("Nothing to add.");
         }
         setTimeout(() => setMessage(null), 5000);
       } else {
         setMessage(result.error);
         setTimeout(() => setMessage(null), 5000);
+        toast.error(result.error);
       }
     });
   };

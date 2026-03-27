@@ -9,6 +9,8 @@ interface ExpenseListProps {
   categories?: Category[];
   otherUserName?: string;
   className?: string;
+  onOptimisticRemoveExpense?: (expense: ExpenseWithDetails) => () => void;
+  onOptimisticUpsertExpense?: (next: ExpenseWithDetails) => () => void;
 }
 
 export function ExpenseList({
@@ -17,6 +19,8 @@ export function ExpenseList({
   categories = [],
   otherUserName,
   className,
+  onOptimisticRemoveExpense,
+  onOptimisticUpsertExpense,
 }: ExpenseListProps) {
   const byDate = expenses.reduce<Record<string, ExpenseWithDetails[]>>((acc, e) => {
     (acc[e.date] ??= []).push(e);
@@ -47,6 +51,8 @@ export function ExpenseList({
                 showOwner={showOwner}
                 categories={categories}
                 otherUserName={otherUserName}
+                onOptimisticRemoveExpense={onOptimisticRemoveExpense}
+                onOptimisticUpsertExpense={onOptimisticUpsertExpense}
               />
             ))}
           </div>

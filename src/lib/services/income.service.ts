@@ -2,7 +2,7 @@ import {
   getIncomeRepository,
   getAccountTransactionRepository,
 } from "@/lib/repositories";
-import { monthFromDate } from "@/lib/utils/date";
+import { budgetMonthKeyForUser, getBudgetPeriodForUserMonth } from "@/lib/utils/budget-month-for-user";
 import type { IncomeEntry } from "@/lib/repositories/interfaces/income.repository";
 import type { IncomeType } from "@/lib/types";
 
@@ -23,7 +23,8 @@ export class IncomeService {
   ) {}
 
   async getByMonth(month: string, userId?: number, accountId?: number): Promise<IncomeByMonthResult> {
-    const entries = await this.repo.findByMonth(month, userId, accountId);
+    const period = userId != null ? await getBudgetPeriodForUserMonth(month, userId) : undefined;
+    const entries = await this.repo.findByMonth(month, userId, accountId, period);
     const totals = {
       overall: 0,
       byUser: {} as Record<number, number>,
@@ -49,7 +50,7 @@ export class IncomeService {
       accountId?: number;
     }
   ): Promise<{ id: number }> {
-    const month = monthFromDate(data.date);
+    const month = await budgetMonthKeyForUser(userId, data.date);
     const { id } = await this.repo.create({
       userId,
       amount: data.amount,
@@ -73,10 +74,11 @@ export class IncomeService {
 
   async update(
     id: number,
+    userId: number,
     data: { amount?: number; type?: IncomeType; description?: string | null; date?: string }
   ): Promise<void> {
     const payload: { amount?: number; type?: IncomeType; description?: string | null; date?: string; month?: string } = { ...data };
-    if (data.date) payload.month = monthFromDate(data.date);
+    if (data.date) payload.month = await budgetMonthKeyForUser(userId, data.date);
     await this.repo.update(id, payload);
   }
 

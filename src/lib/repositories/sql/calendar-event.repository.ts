@@ -9,11 +9,15 @@ import type {
 
 const SELECT_FIELDS = `
   SELECT c.id, c.created_by_user_id AS "createdByUserId", u.name AS "createdByName",
-    c.created_at AS "createdAt", c.name, c.location, c.date, c.time, c.notes,
+    c.created_at AS "createdAt", c.name, c.location, c.date, c.end_date AS "endDate", c.time, c.end_time AS "endTime", c.notes,
     c.recurrence_type AS "recurrenceType", c.recurrence_day_of_month AS "recurrenceDayOfMonth",
-    c.reminder_minutes AS "reminderMinutes"
+    c.reminder_minutes AS "reminderMinutes",
+    c.category_id AS "categoryId",
+    cat.name AS "categoryName", cat.color AS "categoryColor",
+    c.is_shared AS "isShared", c.priority
   FROM calendar_events c
   INNER JOIN users u ON c.created_by_user_id = u.id
+  LEFT JOIN calendar_categories cat ON c.category_id = cat.id
 `;
 
 interface CalendarEventRow {
@@ -24,11 +28,18 @@ interface CalendarEventRow {
   name: string;
   location: string | null;
   date: string;
+  endDate: string | null;
   time: string | null;
+  endTime: string | null;
   notes: string | null;
   recurrenceType: string;
   recurrenceDayOfMonth: number | null;
   reminderMinutes: number | null;
+  categoryId: number | null;
+  categoryName: string | null;
+  categoryColor: string | null;
+  isShared: boolean;
+  priority: number;
 }
 
 function toCalendarEvent(r: CalendarEventRow): CalendarEvent {
@@ -40,21 +51,43 @@ function toCalendarEvent(r: CalendarEventRow): CalendarEvent {
     name: r.name,
     location: r.location,
     date: r.date,
+    endDate: r.endDate ?? null,
     time: r.time,
+    endTime: r.endTime ?? null,
     notes: r.notes,
     recurrenceType: r.recurrenceType as RecurrenceType,
     recurrenceDayOfMonth: r.recurrenceDayOfMonth,
     reminderMinutes: r.reminderMinutes ?? null,
+    categoryId: r.categoryId ?? null,
+    categoryName: r.categoryName ?? null,
+    categoryColor: r.categoryColor ?? null,
+    isShared: r.isShared !== false,
+    priority: typeof r.priority === "number" ? r.priority : 2,
   };
 }
 
+const RANGE_WHERE = `WHERE ((c.recurrence_type = 'none' AND c.date <= ? AND COALESCE(c.end_date, c.date) >= ?)
+     OR (c.recurrence_type != 'none'))`;
+
 export class CalendarEventRepository implements ICalendarEventRepository {
-  async findByDateRange(start: string, end: string): Promise<CalendarEvent[]> {
+  async findByDateRangeForViewer(
+    start: string,
+    end: string,
+    viewerUserId: number
+  ): Promise<CalendarEvent[]> {
     const sql = `${SELECT_FIELDS}
-      WHERE (c.recurrence_type = 'none' AND c.date >= ? AND c.date <= ?)
-         OR (c.recurrence_type != 'none')
+      ${RANGE_WHERE}
+        AND (c.is_shared = true OR c.created_by_user_id = ?)
       ORDER BY c.date, c.time`;
-    const rows = await all<CalendarEventRow>(sql, [start, end]);
+    const rows = await all<CalendarEventRow>(sql, [end, start, viewerUserId]);
+    return rows.map(toCalendarEvent);
+  }
+
+  async findByDateRangeAll(start: string, end: string): Promise<CalendarEvent[]> {
+    const sql = `${SELECT_FIELDS}
+      ${RANGE_WHERE}
+      ORDER BY c.date, c.time`;
+    const rows = await all<CalendarEventRow>(sql, [end, start]);
     return rows.map(toCalendarEvent);
   }
 
@@ -65,18 +98,26 @@ export class CalendarEventRepository implements ICalendarEventRepository {
 
   async create(data: CreateCalendarEventInput): Promise<{ id: number }> {
     await run(
-      `INSERT INTO calendar_events (created_by_user_id, name, location, date, time, notes, recurrence_type, recurrence_day_of_month, reminder_minutes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO calendar_events (
+        created_by_user_id, name, location, date, end_date, time, end_time, notes,
+        recurrence_type, recurrence_day_of_month, reminder_minutes,
+        category_id, is_shared, priority
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.createdByUserId,
         data.name,
         data.location ?? null,
         data.date,
+        data.endDate ?? null,
         data.time ?? null,
+        data.endTime ?? null,
         data.notes ?? null,
         data.recurrenceType,
         data.recurrenceDayOfMonth ?? null,
         data.reminderMinutes ?? null,
+        data.categoryId ?? null,
+        data.isShared !== false,
+        data.priority ?? 2,
       ]
     );
     return { id: await lastInsertId() };
@@ -84,7 +125,7 @@ export class CalendarEventRepository implements ICalendarEventRepository {
 
   async update(id: number, data: UpdateCalendarEventInput): Promise<void> {
     const updates: string[] = [];
-    const params: (string | number | null)[] = [];
+    const params: (string | number | boolean | null)[] = [];
     if (data.name != null) {
       updates.push("name = ?");
       params.push(data.name);
@@ -97,9 +138,17 @@ export class CalendarEventRepository implements ICalendarEventRepository {
       updates.push("date = ?");
       params.push(data.date);
     }
+    if (data.endDate !== undefined) {
+      updates.push("end_date = ?");
+      params.push(data.endDate);
+    }
     if (data.time !== undefined) {
       updates.push("time = ?");
       params.push(data.time);
+    }
+    if (data.endTime !== undefined) {
+      updates.push("end_time = ?");
+      params.push(data.endTime);
     }
     if (data.notes !== undefined) {
       updates.push("notes = ?");
@@ -116,6 +165,18 @@ export class CalendarEventRepository implements ICalendarEventRepository {
     if (data.reminderMinutes !== undefined) {
       updates.push("reminder_minutes = ?");
       params.push(data.reminderMinutes);
+    }
+    if (data.categoryId !== undefined) {
+      updates.push("category_id = ?");
+      params.push(data.categoryId);
+    }
+    if (data.isShared !== undefined) {
+      updates.push("is_shared = ?");
+      params.push(data.isShared);
+    }
+    if (data.priority !== undefined) {
+      updates.push("priority = ?");
+      params.push(data.priority);
     }
     if (updates.length === 0) return;
     params.push(id);

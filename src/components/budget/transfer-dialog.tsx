@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toMinorUnits } from "@/lib/utils/currency";
+import { toast } from "sonner";
 
 interface TransferDialogProps {
   open: boolean;
@@ -63,9 +64,11 @@ export function TransferDialog({
         onOpenChange(false);
         setAmount("");
         setReason("");
-        router.refresh();
+        toast.success("Budget transfer saved.");
+        void router.refresh();
       } else {
         setError(result.error);
+        toast.error(result.error);
       }
     });
   };

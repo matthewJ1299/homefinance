@@ -1,5 +1,6 @@
 import { getIncomeRepository, getBudgetRepository } from "@/lib/repositories";
 import { ExpenseService } from "@/lib/services/expense.service";
+import { IncomeService } from "@/lib/services/income.service";
 import { calculateMonthlySnapshotArithmetic } from "@/lib/services/finance/accounts";
 
 export interface MonthlySnapshotResult {
@@ -28,13 +29,14 @@ export interface TrendMonthResult {
 export class SummaryService {
   constructor(
     private expenseService = new ExpenseService(),
+    private incomeService = new IncomeService(),
     private incomeRepo = getIncomeRepository(),
     private budgetRepo = getBudgetRepository()
   ) {}
 
   async getMonthlySnapshot(month: string, userId: number): Promise<MonthlySnapshotResult> {
     const [incomeResult, expenseResult, budgetOverview] = await Promise.all([
-      this.incomeRepo.findByMonth(month, userId),
+      this.incomeService.getByMonth(month, userId),
       this.expenseService.getByMonth(month, userId),
       this.budgetRepo.getAllocationsForMonth(month, userId),
     ]);
@@ -42,7 +44,7 @@ export class SummaryService {
     const categoryIdToName = await this.getCategoryNames();
     return calculateMonthlySnapshotArithmetic({
       month,
-      incomeEntries: incomeResult,
+      incomeEntries: incomeResult.entries,
       totalExpenses: expenseResult.totals.overall,
       spentByCategory: expenseResult.totals.byCategory,
       allocations: budgetOverview.map((a) => ({

@@ -7,7 +7,7 @@ import { ExpenseService } from "@/lib/services/expense.service";
 import { BudgetService } from "@/lib/services/budget.service";
 import { SplitService } from "@/lib/services/split.service";
 import { MortgageService } from "@/lib/services/mortgage.service";
-import { monthFromDate } from "@/lib/utils/date";
+import { budgetMonthKeyForUser } from "@/lib/utils/budget-month-for-user";
 import {
   getExpenseRepository,
   getCategoryRepository,
@@ -124,7 +124,7 @@ export async function addExpense(formData: {
     }
   }
 
-  const month = monthFromDate(parsed.data.date);
+  const month = await budgetMonthKeyForUser(userId, parsed.data.date);
   let budgetRemaining: number | undefined;
   let categoryName: string | undefined;
   let isOverspent: boolean | undefined;

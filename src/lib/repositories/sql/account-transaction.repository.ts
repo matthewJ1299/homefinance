@@ -58,6 +58,24 @@ export class AccountTransactionRepository
     return row?.balance ?? 0;
   }
 
+  async findById(id: number): Promise<AccountTransaction | null> {
+    const row = await get<AccountTransactionRow>(
+      "SELECT id, account_id, amount, transaction_type, reference_type, reference_id, note, created_at FROM account_transactions WHERE id = ?",
+      [id]
+    );
+    return row ? toAccountTransaction(row) : null;
+  }
+
+  async findByIds(ids: number[]): Promise<AccountTransaction[]> {
+    if (ids.length === 0) return [];
+    const placeholders = ids.map(() => "?").join(", ");
+    const rows = await all<AccountTransactionRow>(
+      `SELECT id, account_id, amount, transaction_type, reference_type, reference_id, note, created_at FROM account_transactions WHERE id IN (${placeholders})`,
+      ids
+    );
+    return rows.map(toAccountTransaction);
+  }
+
   async findByAccount(
     accountId: number,
     limit: number,

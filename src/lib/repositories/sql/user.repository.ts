@@ -1,4 +1,5 @@
-import { all, get } from "@/lib/db";
+import { all, get, run } from "@/lib/db";
+import { normalizeBudgetMonthStartDay } from "@/lib/utils/date";
 import type { UserSummary, UserForAuth } from "../interfaces/user.repository";
 import type { IUserRepository } from "../interfaces/user.repository";
 
@@ -44,5 +45,35 @@ export class UserRepository implements IUserRepository {
       [email]
     );
     return row ? toUserForAuth(row) : null;
+  }
+
+  async getBudgetMonthStartDay(userId: number): Promise<number> {
+    const row = await get<{ budget_month_start_day: number | null }>(
+      "SELECT budget_month_start_day FROM users WHERE id = ?",
+      [userId]
+    );
+    const raw = row?.budget_month_start_day;
+    if (raw == null) return 1;
+    return normalizeBudgetMonthStartDay(raw);
+  }
+
+  async updateBudgetMonthStartDay(userId: number, day: number): Promise<void> {
+    const normalized = normalizeBudgetMonthStartDay(day);
+    await run("UPDATE users SET budget_month_start_day = ? WHERE id = ?", [normalized, userId]);
+  }
+
+  async getPrimaryAccountId(userId: number): Promise<number | null> {
+    const row = await get<{ primary_account_id: number | null | string }>(
+      "SELECT primary_account_id FROM users WHERE id = ?",
+      [userId]
+    );
+    const raw = row?.primary_account_id;
+    if (raw == null || raw === "") return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  async setPrimaryAccountId(userId: number, accountId: number | null): Promise<void> {
+    await run("UPDATE users SET primary_account_id = ? WHERE id = ?", [accountId, userId]);
   }
 }

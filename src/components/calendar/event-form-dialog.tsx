@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogHeader, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,15 +26,61 @@ const REMINDER_OPTIONS: { value: number | null; label: string }[] = [
   { value: 1440, label: "1 day before" },
 ];
 
+const PRIORITY_OPTIONS: { value: number; label: string }[] = [
+  { value: 1, label: "Low" },
+  { value: 2, label: "Normal" },
+  { value: 3, label: "High" },
+  { value: 4, label: "Urgent" },
+];
+
+/** Maps validated form values to the JSON body expected by calendar API routes. */
+export function buildCalendarEventApiBody(values: FormValues): Record<string, unknown> {
+  return {
+    name: values.name,
+    location: values.location ?? null,
+    date: values.date,
+    endDate:
+      values.recurrenceType !== "none"
+        ? null
+        : values.endDate === "" || values.endDate == null
+          ? null
+          : values.endDate,
+    time: values.time ?? null,
+    endTime: values.endTime ?? null,
+    notes: values.notes ?? null,
+    recurrenceType: values.recurrenceType,
+    recurrenceDayOfMonth:
+      values.recurrenceDayOfMonth === undefined ||
+      values.recurrenceDayOfMonth === null ||
+      Number.isNaN(Number(values.recurrenceDayOfMonth))
+        ? null
+        : Number(values.recurrenceDayOfMonth),
+    reminderMinutes:
+      values.reminderMinutes === undefined ||
+      values.reminderMinutes === null ||
+      Number.isNaN(Number(values.reminderMinutes))
+        ? null
+        : Number(values.reminderMinutes),
+    categoryId: values.categoryId ?? null,
+    isShared: values.isShared,
+    priority: values.priority ?? 2,
+  };
+}
+
 export interface CalendarEventFormValues {
   name: string;
   location: string | null;
   date: string;
+  endDate: string | null;
   time: string | null;
+  endTime: string | null;
   notes: string | null;
   recurrenceType: "none" | "weekly" | "monthly" | "yearly";
   recurrenceDayOfMonth: number | null;
   reminderMinutes: number | null;
+  categoryId: number | null;
+  isShared: boolean;
+  priority: number;
 }
 
 interface EventFormDialogProps {
@@ -57,12 +104,22 @@ export function EventFormDialog({
   onSubmit,
   onDelete,
 }: EventFormDialogProps) {
+  const { data: categories = [] } = useQuery({
+    queryKey: ["calendar-categories"],
+    queryFn: async () => {
+      const res = await fetch("/api/calendar/categories");
+      if (!res.ok) throw new Error("Failed to load categories");
+      return res.json() as Promise<{ id: number; name: string; color: string }[]>;
+    },
+    enabled: open,
+    staleTime: 60_000,
+  });
+
   const {
     register,
     handleSubmit,
     reset,
     watch,
-    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -70,11 +127,16 @@ export function EventFormDialog({
       name: "",
       location: null,
       date: defaultDate ?? new Date().toISOString().slice(0, 10),
+      endDate: null,
       time: defaultTime ?? null,
+      endTime: null,
       notes: null,
       recurrenceType: "none",
       recurrenceDayOfMonth: null,
       reminderMinutes: null,
+      categoryId: null,
+      isShared: true,
+      priority: 2,
     },
   });
 
@@ -87,22 +149,32 @@ export function EventFormDialog({
           name: initialValues.name,
           location: initialValues.location,
           date: initialValues.date,
+          endDate: initialValues.endDate ?? null,
           time: initialValues.time,
+          endTime: initialValues.endTime ?? null,
           notes: initialValues.notes,
           recurrenceType: initialValues.recurrenceType,
           recurrenceDayOfMonth: initialValues.recurrenceDayOfMonth,
           reminderMinutes: initialValues.reminderMinutes ?? null,
+          categoryId: initialValues.categoryId ?? null,
+          isShared: initialValues.isShared !== false,
+          priority: initialValues.priority ?? 2,
         });
       } else {
         reset({
           name: "",
           location: null,
           date: defaultDate ?? new Date().toISOString().slice(0, 10),
+          endDate: null,
           time: defaultTime ?? null,
+          endTime: null,
           notes: null,
           recurrenceType: "none",
           recurrenceDayOfMonth: null,
           reminderMinutes: null,
+          categoryId: null,
+          isShared: true,
+          priority: 2,
         });
       }
     }
@@ -132,21 +204,79 @@ export function EventFormDialog({
           )}
         </div>
         <div className="space-y-2">
+          <Label htmlFor="categoryId">Category</Label>
+          <select
+            id="categoryId"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            {...register("categoryId", {
+              setValueAs: (v) => (v === "" || v === undefined ? null : Number(v)),
+            })}
+          >
+            <option value="">None</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-2">
           <Label htmlFor="location">Location</Label>
           <Input id="location" {...register("location")} placeholder="Location" />
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-2">
+          <Label htmlFor="date">Start date</Label>
+          <Input id="date" type="date" {...register("date")} />
+          {errors.date && (
+            <p className="text-sm text-destructive">{errors.date.message}</p>
+          )}
+        </div>
+        {recurrenceType === "none" && (
           <div className="space-y-2">
-            <Label htmlFor="date">Date</Label>
-            <Input id="date" type="date" {...register("date")} />
-            {errors.date && (
-              <p className="text-sm text-destructive">{errors.date.message}</p>
+            <Label htmlFor="endDate">End date (optional)</Label>
+            <Input id="endDate" type="date" {...register("endDate")} />
+            <p className="text-xs text-muted-foreground">
+              Leave empty for a single-day event. End date must be on or after the start date.
+            </p>
+            {errors.endDate && (
+              <p className="text-sm text-destructive">{errors.endDate.message}</p>
             )}
           </div>
+        )}
+        <div className="grid grid-cols-2 gap-2">
           <div className="space-y-2">
-            <Label htmlFor="time">Time</Label>
+            <Label htmlFor="time">Start time</Label>
             <Input id="time" type="time" {...register("time")} />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="endTime">End time</Label>
+            <Input id="endTime" type="time" {...register("endTime")} />
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="isShared"
+            className="h-4 w-4 rounded border-input"
+            {...register("isShared")}
+          />
+          <Label htmlFor="isShared" className="font-normal cursor-pointer">
+            Shared with household (both users see this event)
+          </Label>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="priority">Priority</Label>
+          <select
+            id="priority"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            {...register("priority", { valueAsNumber: true })}
+          >
+            {PRIORITY_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="space-y-2">
           <Label htmlFor="notes">Notes</Label>

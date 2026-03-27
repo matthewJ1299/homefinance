@@ -16,6 +16,7 @@ export interface Transfer {
 
 export interface ITransferRepository {
   create(input: CreateTransferInput): Promise<{ id: number }>;
+  findById(id: number): Promise<Transfer | null>;
   findByAccount(
     accountId: number,
     limit: number,

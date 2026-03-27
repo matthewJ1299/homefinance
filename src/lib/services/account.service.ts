@@ -2,6 +2,7 @@ import type { AccountWithBalance, AccountType } from "@/lib/types";
 import {
   getAccountRepository,
   getAccountTransactionRepository,
+  getUserRepository,
 } from "@/lib/repositories";
 
 interface CreateAccountOptions {
@@ -18,10 +19,25 @@ interface UpdateAccountOptions {
 export class AccountService {
   constructor(
     private readonly accountRepo = getAccountRepository(),
-    private readonly txRepo = getAccountTransactionRepository()
+    private readonly txRepo = getAccountTransactionRepository(),
+    private readonly userRepo = getUserRepository()
   ) {}
 
-  async listAccountsForUser(userId: number): Promise<AccountWithBalance[]> {
+  async getMainAccountId(userId: number): Promise<number | null> {
+    await this.ensurePrimaryAccountCoherence(userId);
+    const primary = await this.userRepo.getPrimaryAccountId(userId);
+    if (primary != null) {
+      const acc = await this.accountRepo.findById(primary, userId);
+      if (acc) return primary;
+    }
+    return this.accountRepo.findMainAccountIdForUser(userId);
+  }
+
+  async listAccountsForUser(
+    userId: number
+  ): Promise<{ accounts: AccountWithBalance[]; primaryAccountId: number | null }> {
+    await this.ensurePrimaryAccountCoherence(userId);
+    const primaryAccountId = await this.userRepo.getPrimaryAccountId(userId);
     const accounts = await this.accountRepo.findAllForUser(userId);
     const results: AccountWithBalance[] = [];
     for (const acc of accounts) {
@@ -32,7 +48,26 @@ export class AccountService {
           : undefined;
       results.push({ ...acc, balance, availableCredit });
     }
-    return results;
+    const pid = primaryAccountId;
+    const byName = (a: AccountWithBalance, b: AccountWithBalance) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+    const sorted =
+      pid == null
+        ? [...results].sort(byName)
+        : [...results].sort((a, b) => {
+            if (a.id === pid && b.id !== pid) return -1;
+            if (b.id === pid && a.id !== pid) return 1;
+            return byName(a, b);
+          });
+    return { accounts: sorted, primaryAccountId };
+  }
+
+  async setPrimaryAccount(userId: number, accountId: number): Promise<void> {
+    const acc = await this.accountRepo.findById(accountId, userId);
+    if (!acc) {
+      throw new Error("Account not found");
+    }
+    await this.userRepo.setPrimaryAccountId(userId, accountId);
   }
 
   async createAccount(
@@ -48,6 +83,7 @@ export class AccountService {
     if (!account) {
       throw new Error("Failed to load account after create");
     }
+    await this.ensurePrimaryAccountCoherence(userId);
     const balance = await this.txRepo.getBalance(account.id);
     const availableCredit =
       account.type === "credit" && account.creditLimit != null
@@ -73,6 +109,7 @@ export class AccountService {
       throw new Error("Cannot delete account with non-zero balance");
     }
     await this.accountRepo.delete(accountId, userId);
+    await this.ensurePrimaryAccountCoherence(userId);
   }
 
   async getAccountWithBalance(
@@ -88,5 +125,29 @@ export class AccountService {
         : undefined;
     return { ...account, balance, availableCredit };
   }
-}
 
+  private async ensurePrimaryAccountCoherence(userId: number): Promise<void> {
+    const accounts = await this.accountRepo.findAllForUser(userId);
+    const ids = new Set(accounts.map((a) => a.id));
+    const primary = await this.userRepo.getPrimaryAccountId(userId);
+
+    if (accounts.length === 0) {
+      if (primary != null) {
+        await this.userRepo.setPrimaryAccountId(userId, null);
+      }
+      return;
+    }
+    if (accounts.length === 1) {
+      const only = accounts[0]!.id;
+      if (primary !== only) {
+        await this.userRepo.setPrimaryAccountId(userId, only);
+      }
+      return;
+    }
+    if (primary != null && ids.has(primary)) {
+      return;
+    }
+    const fallback = await this.accountRepo.findMainAccountIdForUser(userId);
+    await this.userRepo.setPrimaryAccountId(userId, fallback);
+  }
+}

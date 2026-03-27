@@ -1,13 +1,9 @@
 import { auth } from "@/lib/auth";
 import { setRequestContext } from "@/lib/db/request-context";
 import { redirect } from "next/navigation";
-import {
-  getCategoryRepository,
-  getUserRepository,
-  getSplitGroupRepository,
-  getSharedListRepository,
-} from "@/lib/repositories";
 import { AppShell } from "@/components/layout/app-shell";
+import { BudgetMonthStartDayProvider } from "@/components/settings/budget-month-start-context";
+import { getUserRepository } from "@/lib/repositories";
 
 export default async function AppLayout({
   children,
@@ -18,31 +14,17 @@ export default async function AppLayout({
   if (!session?.user) {
     redirect("/login");
   }
-  const userId = Number(session.user.id);
   setRequestContext({
     userId: session.user.id,
     userName: session.user.name ?? undefined,
   });
 
-  const [categories, otherUsers, splitGroups, lists] = await Promise.all([
-    getCategoryRepository().findAll(),
-    getUserRepository().findAllExcept(userId),
-    getSplitGroupRepository().findAll(),
-    getSharedListRepository().findAll(),
-  ]);
-  const otherUserName = otherUsers[0]?.name;
+  const userId = Number(session.user.id);
+  const budgetMonthStartDay = await getUserRepository().getBudgetMonthStartDay(userId);
 
   return (
-    <AppShell
-      fabData={{
-        categories,
-        userId,
-        otherUserName,
-        splitGroups,
-        lists,
-      }}
-    >
-      {children}
-    </AppShell>
+    <BudgetMonthStartDayProvider value={budgetMonthStartDay}>
+      <AppShell>{children}</AppShell>
+    </BudgetMonthStartDayProvider>
   );
 }

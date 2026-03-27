@@ -8,7 +8,7 @@ import {
   getIncomeRepository,
   getAccountTransactionRepository,
 } from "@/lib/repositories";
-import { monthFromDate } from "@/lib/utils/date";
+import { budgetMonthKeyForUser } from "@/lib/utils/budget-month-for-user";
 import type { SplitBalance, SplitHistoryItem } from "@/lib/types";
 import { calculateSplitBalance } from "@/lib/services/finance/accounts";
 
@@ -59,13 +59,14 @@ export class SplitService {
         break;
     }
     if (amountOwed <= 0) {
+      const month = await budgetMonthKeyForUser(paidByUserId, date);
       const { id } = await this.expenseRepo.create({
         userId: paidByUserId,
         categoryId,
         amount: totalAmountCents,
         note,
         date,
-        month: monthFromDate(date),
+        month,
         accountId: accountId ?? null,
       });
       if (accountId != null) {
@@ -80,7 +81,7 @@ export class SplitService {
       return { id };
     }
     const splitGroupId = crypto.randomUUID();
-    const month = monthFromDate(date);
+    const month = await budgetMonthKeyForUser(paidByUserId, date);
     const { id: expenseId } = await this.expenseRepo.create({
       userId: paidByUserId,
       categoryId,
@@ -130,7 +131,8 @@ export class SplitService {
     if (!splitsCategory) {
       throw new Error("Splits category not found. Run db:seed to create it.");
     }
-    const month = monthFromDate(date);
+    const expenseMonth = await budgetMonthKeyForUser(payerUserId, date);
+    const incomeMonth = await budgetMonthKeyForUser(recipientUserId, date);
 
     const { id: expenseId } = await this.expenseRepo.create({
       userId: payerUserId,
@@ -138,7 +140,7 @@ export class SplitService {
       amount: amountCents,
       note: `Settlement to ${recipientUserName}`,
       date,
-      month,
+      month: expenseMonth,
     });
     let incomeId: number | null = null;
     try {
@@ -148,7 +150,7 @@ export class SplitService {
         type: "ad_hoc",
         description: `Settlement from ${payerUserName}`,
         date,
-        month,
+        month: incomeMonth,
       });
       incomeId = income.id;
       await this.settlementRepo.create({
@@ -184,7 +186,7 @@ export class SplitService {
       throw new Error("No other user to settle with.");
     }
     const recipientUserId = otherUsers[0].id;
-    const month = monthFromDate(date);
+    const incomeMonth = await budgetMonthKeyForUser(recipientUserId, date);
 
     let incomeId: number | null = null;
     try {
@@ -194,7 +196,7 @@ export class SplitService {
         type: "ad_hoc",
         description: `Settlement from ${payerUserName}`,
         date,
-        month,
+        month: incomeMonth,
       });
       incomeId = income.id;
       const defaultGroup = await this.splitGroupRepo.findDefault();

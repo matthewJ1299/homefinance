@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Category } from "@/lib/types";
 import { formatRand } from "@/lib/utils/currency";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 const RECENT_KEY = "homefinance-recent-categories";
+const TOP_USED_COUNT = 8;
 
 function getRecentCategoryIds(): number[] {
   if (typeof window === "undefined") return [];
@@ -34,6 +36,16 @@ function byIncomingOrder(categories: Category[]): Category[] {
   return [...categories];
 }
 
+function byUsageThenName(categories: Category[], usage?: Record<number, number> | null): Category[] {
+  if (!usage) return byIncomingOrder(categories);
+  return [...categories].sort((a, b) => {
+    const ca = usage[a.id] ?? 0;
+    const cb = usage[b.id] ?? 0;
+    if (cb !== ca) return cb - ca;
+    return a.name.localeCompare(b.name);
+  });
+}
+
 export interface CategoryBudgetHint {
   remaining: number;
   isOverspent: boolean;
@@ -55,6 +67,7 @@ function PillSection({
   onSelect,
   budgetByCategory,
   className,
+  pillsClassName,
 }: {
   label: string;
   categories: Category[];
@@ -62,12 +75,13 @@ function PillSection({
   onSelect: (id: number) => void;
   budgetByCategory?: Map<number, CategoryBudgetHint>;
   className?: string;
+  pillsClassName?: string;
 }) {
   if (categories.length === 0) return null;
   return (
     <div className={className}>
       <p className="text-xs text-muted-foreground mb-1.5 font-medium">{label}</p>
-      <div className="flex flex-wrap gap-2">
+      <div className={cn("flex flex-wrap gap-2", pillsClassName)}>
         {categories.map((c) => {
           const hint = budgetByCategory?.get(c.id);
           const labelText = hint
@@ -98,11 +112,44 @@ function PillSection({
 }
 
 export function CategoryPicker({ categories, value, onChange, budgetByCategory, className }: CategoryPickerProps) {
+  const [usageCounts, setUsageCounts] = useState<Record<number, number> | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/expenses/category-usage")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: unknown) => {
+        if (cancelled) return;
+        if (!data || typeof data !== "object") return;
+        const maybeCounts = (data as { counts?: unknown }).counts;
+        if (maybeCounts && typeof maybeCounts === "object") {
+          setUsageCounts(maybeCounts as Record<number, number>);
+        }
+      })
+      .catch(() => {
+        // ignore
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const mostUsed = useMemo(() => {
+    return byUsageThenName(categories, usageCounts).slice(0, TOP_USED_COUNT);
+  }, [categories, usageCounts]);
+
   const { variable, fixed } = useMemo(() => {
-    const variableList = byIncomingOrder(categories.filter((c) => c.costType === "variable"));
-    const fixedList = byIncomingOrder(categories.filter((c) => c.costType === "fixed"));
+    const variableList = byUsageThenName(
+      categories.filter((c) => c.costType === "variable"),
+      usageCounts
+    );
+    const fixedList = byUsageThenName(
+      categories.filter((c) => c.costType === "fixed"),
+      usageCounts
+    );
     return { variable: variableList, fixed: fixedList };
-  }, [categories]);
+  }, [categories, usageCounts]);
 
   const handleSelect = (id: number) => {
     pushRecentCategoryId(id);
@@ -111,6 +158,27 @@ export function CategoryPicker({ categories, value, onChange, budgetByCategory, 
 
   return (
     <div className={cn("space-y-4 pb-2", className)}>
+      <PillSection
+        label="Most used"
+        categories={mostUsed}
+        value={value}
+        onSelect={handleSelect}
+        budgetByCategory={budgetByCategory}
+        pillsClassName="flex-nowrap overflow-x-auto no-scrollbar pb-1"
+      />
+      <div className="flex justify-start">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="px-2 h-7 text-xs"
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? "Show less" : "Show more"}
+        </Button>
+      </div>
+      {expanded ? (
+        <>
       <PillSection
         label="Variable costs"
         categories={variable}
@@ -125,6 +193,8 @@ export function CategoryPicker({ categories, value, onChange, budgetByCategory, 
         onSelect={handleSelect}
         budgetByCategory={budgetByCategory}
       />
+        </>
+      ) : null}
     </div>
   );
 }

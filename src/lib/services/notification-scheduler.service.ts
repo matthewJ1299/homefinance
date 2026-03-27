@@ -2,7 +2,7 @@ import cron from "node-cron";
 import { format, parseISO, subMinutes, addDays } from "date-fns";
 import { CalendarService } from "@/lib/services/calendar.service";
 import { NotificationService, isNotificationConfigured } from "@/lib/services/notification.service";
-import { getSentReminderRepository } from "@/lib/repositories";
+import { getSentReminderRepository, getUserRepository } from "@/lib/repositories";
 import { formatEventLine } from "@/lib/utils/format-time";
 import type { CalendarEventOccurrence } from "@/lib/services/calendar.service";
 
@@ -24,18 +24,19 @@ async function runDailySummary(): Promise<void> {
   try {
     const today = format(new Date(), "yyyy-MM-dd");
     const calendarService = new CalendarService();
-    const occurrences = await calendarService.getByDateRange(today, today);
-    if (occurrences.length === 0) return;
-    const title = "HomeFinance";
-    const body =
-      occurrences.length === 1
-        ? `You have an upcoming event: ${formatEventLine(occurrences[0].name, occurrences[0].time)}.`
-        : `You have upcoming events: ${occurrences.map((o) => formatEventLine(o.name, o.time)).join("; ")}.`;
+    const userRepo = getUserRepository();
+    const users = await userRepo.findAll();
     const notificationService = new NotificationService();
-    await notificationService.sendToAll(
-      { title, body, url: "/calendar" },
-      { ttl: 86400 }
-    );
+    const title = "HomeFinance";
+    for (const user of users) {
+      const occurrences = await calendarService.getByDateRange(today, today, user.id);
+      if (occurrences.length === 0) continue;
+      const body =
+        occurrences.length === 1
+          ? `You have an upcoming event: ${formatEventLine(occurrences[0].name, occurrences[0].time)}.`
+          : `You have upcoming events: ${occurrences.map((o) => formatEventLine(o.name, o.time)).join("; ")}.`;
+      await notificationService.sendToUser(user.id, { title, body, url: "/calendar" }, { ttl: 86400 });
+    }
   } catch (err) {
     console.error("[NotificationScheduler] Daily summary failed:", err);
   }
@@ -71,7 +72,7 @@ async function runPerEventReminders(): Promise<void> {
     const minuteStr = format(now, "HH:mm");
     const calendarService = new CalendarService();
     const sentReminderRepo = getSentReminderRepository();
-    const occurrences = await calendarService.getByDateRange(todayStr, tomorrowStr);
+    const occurrences = await calendarService.getAllOccurrencesInRange(todayStr, tomorrowStr);
     for (const occ of occurrences) {
       const reminder = getReminderTime(occ);
       if (!reminder || reminder.time !== minuteStr) continue;
@@ -81,10 +82,15 @@ async function runPerEventReminders(): Promise<void> {
       const title = "HomeFinance";
       const body = `Reminder: ${formatEventLine(occ.name, occ.time)}`;
       const notificationService = new NotificationService();
-      await notificationService.sendToAll(
-        { title, body, url: "/calendar" },
-        { ttl: 3600 }
-      );
+      if (occ.isShared) {
+        await notificationService.sendToAll({ title, body, url: "/calendar" }, { ttl: 3600 });
+      } else {
+        await notificationService.sendToUser(
+          occ.createdByUserId,
+          { title, body, url: "/calendar" },
+          { ttl: 3600 }
+        );
+      }
       await sentReminderRepo.markSent(occ.eventId, occ.date);
     }
   } catch (err) {

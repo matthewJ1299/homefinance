@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { optionalCoercedAccountId } from "./coerce-account-id";
 
 export const splitTypeSchema = z.enum(["equal", "full", "exact"]);
 
@@ -12,7 +13,7 @@ export const createSplitExpenseSchema = z
     myShareCents: z.number().int().min(0).optional(),
     otherShareCents: z.number().int().min(0).optional(),
     groupId: z.number().int().positive().optional().nullable(),
-    accountId: z.number().int().positive().optional(),
+    accountId: optionalCoercedAccountId,
   })
   .refine(
     (data) => {

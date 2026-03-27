@@ -21,6 +21,8 @@ export interface GoalContributionTotals {
 export interface IGoalContributionRepository {
   create(input: CreateGoalContributionInput): Promise<{ id: number }>;
   findByGoal(goalId: number, ownerUserId: number, limit: number, offset: number): Promise<GoalContribution[]>;
+  findByGoalChronologicalAsc(goalId: number, ownerUserId: number): Promise<GoalContribution[]>;
+  countByGoal(goalId: number, ownerUserId: number): Promise<number>;
   totalsByGoal(goalId: number, ownerUserId: number): Promise<GoalContributionTotals>;
   totalsByGoalForMonth(goalId: number, ownerUserId: number, month: string): Promise<GoalContributionTotals>;
 }

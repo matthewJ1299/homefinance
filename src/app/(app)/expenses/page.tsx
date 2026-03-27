@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { getCategoryRepository, getUserRepository, getSplitGroupRepository } from "@/lib/repositories";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { IncomeService } from "@/lib/services/income.service";
-import { getCurrentMonth } from "@/lib/utils/date";
+import { getDefaultBudgetMonthForUser } from "@/lib/utils/budget-month-for-user";
 import { MonthNavigator } from "@/components/layout/month-navigator";
 import { ExpensesPageClient } from "@/components/expenses/expenses-page-client";
 import { parseExpensesView, type ExpensesView } from "@/lib/utils/expenses-view";
@@ -16,7 +16,7 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
   if (!session?.user?.id) return null;
   const currentUserId = Number(session.user.id);
   const { month: monthParam, view: viewParam } = await searchParams;
-  const month = monthParam ?? getCurrentMonth();
+  const month = monthParam ?? (await getDefaultBudgetMonthForUser(currentUserId));
   const initialView: ExpensesView = parseExpensesView(viewParam, currentUserId);
 
   const categoryRepo = getCategoryRepository();
@@ -28,8 +28,8 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
     categoryRepo.findAll(),
     userRepo.findAll(),
     splitGroupRepo.findAll(),
-    expenseService.getByMonth(month),
-    incomeService.getByMonth(month),
+    expenseService.getByMonth(month, currentUserId),
+    incomeService.getByMonth(month, currentUserId),
   ]);
 
   return (

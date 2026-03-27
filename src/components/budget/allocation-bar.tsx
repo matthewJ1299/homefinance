@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { formatRand } from "@/lib/utils/currency";
 
 interface AllocationBarProps {
   allocated: number;
@@ -13,29 +14,29 @@ export function AllocationBar({
   totalIncome,
   className,
 }: AllocationBarProps) {
-  if (totalIncome <= 0) return null;
-  const allocatedPct = (allocated / totalIncome) * 100;
-  const spentPct = allocated > 0 ? (spent / allocated) * 100 : 0;
-  const isOverspent = spent > allocated;
-  const isApproaching = !isOverspent && allocated > 0 && spent / allocated >= 0.8;
+  const isOverspent = allocated > 0 ? spent > allocated : spent > 0;
+  const pct = allocated > 0 ? spent / allocated : spent > 0 ? 1 : 0;
+  const widthPct = Math.min(100, Math.round(pct * 100) / 100);
+
+  // Keep the guard for weird cases, but prefer showing the bar even when totalIncome is 0.
+  if (totalIncome < 0) return null;
+
   return (
     <div className={cn("space-y-1", className)}>
       <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted">
         <div
           className={cn(
             "h-full transition-all",
-            isOverspent ? "bg-destructive" : isApproaching ? "bg-amber-500" : "bg-primary"
+            isOverspent ? "bg-destructive" : "bg-primary"
           )}
-          style={{ width: `${Math.min(100, (spent / totalIncome) * 100)}%` }}
+          style={{ width: `${widthPct}%` }}
         />
       </div>
       <div className="flex justify-between text-xs text-muted-foreground">
-        <span>Spent vs allocated</span>
-        {allocated > 0 && (
-          <span className={isOverspent ? "text-destructive font-medium" : ""}>
-            {Math.round(spentPct)}% of allocation
-          </span>
-        )}
+        <span>Spent / Allocated</span>
+        <span className={isOverspent ? "text-destructive font-medium" : "text-primary font-medium"}>
+          {formatRand(spent)} / {formatRand(allocated)}
+        </span>
       </div>
     </div>
   );

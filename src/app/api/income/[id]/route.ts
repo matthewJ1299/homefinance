@@ -20,8 +20,9 @@ export async function PUT(
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid input", issues: parsed.error.issues }, { status: 400 });
   }
+  const userId = Number(session.user.id);
   const service = new IncomeService();
-  await service.update(id, parsed.data);
+  await service.update(id, userId, parsed.data);
   return new NextResponse(null, { status: 204 });
 }
 

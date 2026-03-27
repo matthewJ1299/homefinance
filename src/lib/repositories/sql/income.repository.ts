@@ -1,4 +1,5 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
+import type { BudgetMonthPeriod } from "@/lib/types/budget-month";
 import type { IncomeEntry } from "../interfaces/income.repository";
 import type {
   IIncomeRepository,
@@ -7,7 +8,8 @@ import type {
 } from "../interfaces/income.repository";
 
 const SELECT_INCOME_ENTRY = `
-  SELECT i.id, i.user_id AS "userId", u.name AS "userName", i.amount, i.type, i.description, i.date
+  SELECT i.id, i.user_id AS "userId", u.name AS "userName", i.amount, i.type, i.description, i.date,
+         i.month AS "month", i.account_id AS "accountId", i.created_at AS "createdAt"
   FROM income i
   INNER JOIN users u ON i.user_id = u.id
 `;
@@ -20,6 +22,9 @@ interface IncomeEntryRow {
   type: string;
   description: string | null;
   date: string;
+  month: string;
+  accountId: number | null;
+  createdAt: string;
 }
 
 function toIncomeEntry(r: IncomeEntryRow): IncomeEntry {
@@ -31,13 +36,28 @@ function toIncomeEntry(r: IncomeEntryRow): IncomeEntry {
     type: r.type as "salary" | "ad_hoc",
     description: r.description,
     date: r.date,
+    month: r.month,
+    accountId: r.accountId ?? undefined,
+    createdAt: r.createdAt,
   };
 }
 
 export class IncomeRepository implements IIncomeRepository {
-  async findByMonth(month: string, userId?: number, accountId?: number): Promise<IncomeEntry[]> {
-    let sql = `${SELECT_INCOME_ENTRY} WHERE i.month = ?`;
-    const params: (string | number)[] = [month];
+  async findByMonth(
+    month: string,
+    userId?: number,
+    accountId?: number,
+    period?: BudgetMonthPeriod
+  ): Promise<IncomeEntry[]> {
+    let sql = `${SELECT_INCOME_ENTRY} WHERE `;
+    const params: (string | number)[] = [];
+    if (period) {
+      sql += "i.date >= ? AND i.date <= ?";
+      params.push(period.start, period.end);
+    } else {
+      sql += "i.month = ?";
+      params.push(month);
+    }
     if (userId != null) {
       sql += " AND i.user_id = ?";
       params.push(userId);
@@ -54,6 +74,12 @@ export class IncomeRepository implements IIncomeRepository {
   async findById(id: number): Promise<IncomeEntry | null> {
     const row = await get<IncomeEntryRow>(`${SELECT_INCOME_ENTRY} WHERE i.id = ?`, [id]);
     return row ? toIncomeEntry(row) : null;
+  }
+
+  async findAllByUserId(userId: number): Promise<IncomeEntry[]> {
+    const sql = `${SELECT_INCOME_ENTRY} WHERE i.user_id = ? ORDER BY i.date ASC, i.created_at ASC, i.id ASC`;
+    const rows = await all<IncomeEntryRow>(sql, [userId]);
+    return rows.map(toIncomeEntry);
   }
 
   async create(data: CreateIncomeInput): Promise<{ id: number }> {

@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN budget_month_start_day INTEGER NOT NULL DEFAULT 1;

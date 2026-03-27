@@ -6,13 +6,15 @@ import Link from "next/link";
 import { deleteList } from "@/lib/actions/shared-list.actions";
 import { Button } from "@/components/ui/button";
 import type { SharedList } from "@/lib/repositories/interfaces/shared-list.repository";
+import { toast } from "sonner";
 
 interface ListPickerProps {
   lists: SharedList[];
   title?: string;
+  onOptimisticRemoveList?: (list: SharedList) => () => void;
 }
 
-export function ListPicker({ lists, title }: ListPickerProps) {
+export function ListPicker({ lists, title, onOptimisticRemoveList }: ListPickerProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<"saved" | "error" | null>(null);
@@ -23,12 +25,17 @@ export function ListPicker({ lists, title }: ListPickerProps) {
       return;
     setErrorText("");
     startTransition(async () => {
+      const list = lists.find((l) => l.id === id) ?? null;
+      const rollback = list ? onOptimisticRemoveList?.(list) : undefined;
       const result = await deleteList(id);
       if (result.success) {
-        router.refresh();
+        toast.success("List deleted.");
+        void router.refresh();
       } else {
+        rollback?.();
         setErrorText(result.error);
         setMessage("error");
+        toast.error(result.error);
       }
     });
   };

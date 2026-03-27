@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toMinorUnits } from "@/lib/utils/currency";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 export function ExtraPaymentForm() {
   const router = useRouter();
@@ -38,10 +39,12 @@ export function ExtraPaymentForm() {
         setNote("");
         setMessage("saved");
         setTimeout(() => setMessage(null), 2000);
-        router.refresh();
+        toast.success("Extra payment recorded.");
+        void router.refresh();
       } else {
         setMessage("error");
         setTimeout(() => setMessage(null), 3000);
+        toast.error(result.error);
       }
     });
   };

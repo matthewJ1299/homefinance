@@ -13,6 +13,8 @@ import { Label } from "@/components/ui/label";
 import { formatRand } from "@/lib/utils/currency";
 import type { RecurringExpense } from "@/lib/types";
 import type { Category } from "@/lib/types";
+import { usePropSyncedState } from "@/hooks/use-prop-synced-state";
+import { toast } from "sonner";
 
 interface RecurringExpenseManageProps {
   items: RecurringExpense[];
@@ -33,6 +35,7 @@ export function RecurringExpenseManage({ items, categories }: RecurringExpenseMa
   const [editAmountRands, setEditAmountRands] = useState("");
   const [editNote, setEditNote] = useState("");
   const [editDayOfMonth, setEditDayOfMonth] = useState("1");
+  const [itemsState, setItemsState] = usePropSyncedState(items);
 
   const toCents = (r: string) => Math.round(parseFloat(r.replace(/\s/g, "").replace(",", ".")) * 100) || 0;
   const categoryById = new Map(categories.map((c) => [c.id, c]));
@@ -57,6 +60,19 @@ export function RecurringExpenseManage({ items, categories }: RecurringExpenseMa
       return;
     }
     setErrorText("");
+    const tempId = -Date.now();
+    const snapshot = itemsState;
+    setItemsState((prev) => [
+      ...prev,
+      {
+        id: tempId,
+        userId: prev[0]?.userId ?? 0,
+        categoryId,
+        amount: cents,
+        note: note.trim() || null,
+        dayOfMonth: day,
+      },
+    ]);
     startTransition(async () => {
       const result = await createRecurringExpense({
         categoryId,
@@ -71,10 +87,16 @@ export function RecurringExpenseManage({ items, categories }: RecurringExpenseMa
         setCategoryId(categories[0]?.id ?? 0);
         setMessage("saved");
         setTimeout(() => setMessage(null), 2000);
-        router.refresh();
+        if (result.id != null) {
+          setItemsState((prev) => prev.map((i) => (i.id === tempId ? { ...i, id: result.id! } : i)));
+        }
+        toast.success("Recurring expense created.");
+        void router.refresh();
       } else {
+        setItemsState(snapshot);
         setErrorText(result.error);
         setMessage("error");
+        toast.error(result.error);
       }
     });
   };
@@ -100,6 +122,14 @@ export function RecurringExpenseManage({ items, categories }: RecurringExpenseMa
       return;
     }
     setErrorText("");
+    const snapshot = itemsState;
+    setItemsState((prev) =>
+      prev.map((i) =>
+        i.id === editingId
+          ? { ...i, categoryId: editCategoryId, amount: cents, note: editNote.trim() || null, dayOfMonth: day }
+          : i
+      )
+    );
     startTransition(async () => {
       const result = await updateRecurringExpense(editingId, {
         categoryId: editCategoryId,
@@ -111,24 +141,32 @@ export function RecurringExpenseManage({ items, categories }: RecurringExpenseMa
         setEditingId(null);
         setMessage("saved");
         setTimeout(() => setMessage(null), 2000);
-        router.refresh();
+        toast.success("Recurring expense updated.");
+        void router.refresh();
       } else {
+        setItemsState(snapshot);
         setErrorText(result.error);
         setMessage("error");
+        toast.error(result.error);
       }
     });
   };
 
   const handleDelete = (id: number) => {
     if (!confirm("Delete this recurring expense?")) return;
+    const snapshot = itemsState;
+    setItemsState((prev) => prev.filter((i) => i.id !== id));
     startTransition(async () => {
       const result = await deleteRecurringExpense(id);
       if (result.success) {
         if (editingId === id) setEditingId(null);
-        router.refresh();
+        toast.success("Recurring expense deleted.");
+        void router.refresh();
       } else {
+        setItemsState(snapshot);
         setErrorText(result.error);
         setMessage("error");
+        toast.error(result.error);
       }
     });
   };
@@ -190,11 +228,11 @@ export function RecurringExpenseManage({ items, categories }: RecurringExpenseMa
 
       <section>
         <h2 className="font-medium text-sm text-muted-foreground mb-3">Templates</h2>
-        {items.length === 0 ? (
+        {itemsState.length === 0 ? (
           <p className="text-sm text-muted-foreground">No recurring expenses yet.</p>
         ) : (
           <ul className="space-y-2">
-            {items.map((item) => (
+            {itemsState.map((item) => (
               <li key={item.id} className="rounded-lg border bg-card p-3 text-sm flex items-center justify-between gap-2 flex-wrap">
                 {editingId === item.id ? (
                   <>

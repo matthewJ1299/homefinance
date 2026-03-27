@@ -2,15 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { IncomeService } from "@/lib/services/income.service";
 import { createIncomeSchema } from "@/lib/validators/income.schema";
-import { getCurrentMonth } from "@/lib/utils/date";
+import { getDefaultBudgetMonthForUser } from "@/lib/utils/budget-month-for-user";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const month = request.nextUrl.searchParams.get("month") ?? getCurrentMonth();
   const userId = Number(session.user.id);
+  const month =
+    request.nextUrl.searchParams.get("month") ?? (await getDefaultBudgetMonthForUser(userId));
   const service = new IncomeService();
   const result = await service.getByMonth(month, userId);
   return NextResponse.json(result);

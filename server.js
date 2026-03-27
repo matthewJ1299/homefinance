@@ -3,7 +3,7 @@
  * Use: npx tsx server.js (or npm run start:server). Plain "node server.js" runs this file
  * but the DB module is TypeScript, so tsx is required in production.
  * Set PORT in the environment (cPanel often provides it).
- * Uses sql.js (no native bindings); DB is initialized asynchronously before listening.
+ * Initializes the database connection before listening.
  */
 import next from "next";
 import http from "http";
@@ -31,9 +31,8 @@ function parseRequestUrl(req, port) {
 async function start() {
   await app.prepare();
 
-  const { initDb, startPersistLoop } = await import("./src/lib/db/index.ts");
+  const { initDb } = await import("./src/lib/db/index.ts");
   await initDb();
-  startPersistLoop(60_000);
 
   const server = http.createServer(async (req, res) => {
     const parsedUrl = parseRequestUrl(req, port);

@@ -1,21 +1,15 @@
 "use client";
 
-import { useState, useRef, useEffect, useTransition } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Category, SplitGroup } from "@/lib/types";
-import type {
-  ListVisibility,
-  SharedList,
-} from "@/lib/repositories/interfaces/shared-list.repository";
+import type { SharedList } from "@/lib/repositories/interfaces/shared-list.repository";
 import { QuickAddForm } from "@/components/expenses/quick-add-form";
-import { EventFormDialog } from "@/components/calendar/event-form-dialog";
-import { createListItem } from "@/lib/actions/shared-list.actions";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogHeader, DialogFooter } from "@/components/ui/dialog";
+import { EventFormDialog, buildCalendarEventApiBody } from "@/components/calendar/event-form-dialog";
+import { AddListItemDialog } from "@/components/shared-lists/add-list-item-dialog";
+import { Dialog, DialogHeader } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 export interface QuickAddFabProps {
@@ -29,9 +23,11 @@ export interface QuickAddFabProps {
 type ModalType = "expense" | "list-item" | "calendar" | null;
 
 interface QuickAddTriggerProps extends QuickAddFabProps {
-  /** Renders the trigger button (e.g. center nav item). Receives open state and onClick. */
-  children: (props: { menuOpen: boolean; onClick: () => void }) => React.ReactNode;
-  /** When true, menu is positioned above the trigger (e.g. above bottom nav). */
+  children: (props: {
+    menuOpen: boolean;
+    onClick: () => void;
+    triggerRef: React.RefObject<HTMLButtonElement | null>;
+  }) => React.ReactNode;
   menuAbove?: boolean;
 }
 
@@ -50,17 +46,19 @@ export function QuickAddTrigger({
   const [modal, setModal] = useState<ModalType>(null);
   const [mounted, setMounted] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
     if (!menuOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
+    const handlePointerDown = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (menuRef.current?.contains(t)) return;
+      if (triggerRef.current?.contains(t)) return;
+      setMenuOpen(false);
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [menuOpen]);
 
   const openModal = (type: ModalType) => {
@@ -73,14 +71,14 @@ export function QuickAddTrigger({
       <div
         ref={menuRef}
         className={cn(
-          "flex flex-col rounded-lg border bg-background shadow-lg py-1 min-w-[160px] z-[60]",
-          menuAbove && "fixed bottom-14 left-1/2 -translate-x-1/2"
+          "flex flex-col rounded-lg border bg-background shadow-lg py-1 min-w-[180px] z-[60]",
+          menuAbove && "fixed bottom-[4.5rem] left-1/2 -translate-x-1/2"
         )}
         role="menu"
       >
         <button
           type="button"
-          className="px-4 py-2.5 text-left text-sm hover:bg-accent rounded-none first:rounded-t-lg"
+          className="px-4 py-2.5 text-left text-sm hover:bg-accent rounded-none first:rounded-t-lg cursor-pointer"
           onClick={() => openModal("expense")}
           role="menuitem"
         >
@@ -88,7 +86,7 @@ export function QuickAddTrigger({
         </button>
         <button
           type="button"
-          className="px-4 py-2.5 text-left text-sm hover:bg-accent rounded-none"
+          className="px-4 py-2.5 text-left text-sm hover:bg-accent rounded-none cursor-pointer"
           onClick={() => openModal("list-item")}
           role="menuitem"
         >
@@ -96,7 +94,7 @@ export function QuickAddTrigger({
         </button>
         <button
           type="button"
-          className="px-4 py-2.5 text-left text-sm hover:bg-accent rounded-none last:rounded-b-lg"
+          className="px-4 py-2.5 text-left text-sm hover:bg-accent rounded-none last:rounded-b-lg cursor-pointer"
           onClick={() => openModal("calendar")}
           role="menuitem"
         >
@@ -110,6 +108,7 @@ export function QuickAddTrigger({
       {children({
         menuOpen,
         onClick: () => setMenuOpen((o) => !o),
+        triggerRef,
       })}
       {mounted && menuContent !== null && createPortal(menuContent, document.body)}
 
@@ -120,7 +119,10 @@ export function QuickAddTrigger({
           userId={userId}
           otherUserName={otherUserName}
           splitGroups={splitGroups}
-          onAfterSave={() => setModal(null)}
+          onAfterSave={() => {
+            setModal(null);
+            router.push("/dashboard");
+          }}
         />
       </Dialog>
 
@@ -129,9 +131,9 @@ export function QuickAddTrigger({
           lists={lists}
           open={modal === "list-item"}
           onOpenChange={(open) => !open && setModal(null)}
-          onSuccess={() => {
+          onSuccess={({ listId }) => {
             setModal(null);
-            router.refresh();
+            router.push(`/lists/${listId}`);
           }}
         />
       )}
@@ -146,15 +148,7 @@ export function QuickAddTrigger({
             const res = await fetch("/api/calendar/events", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                name: values.name,
-                location: values.location ?? null,
-                date: values.date,
-                time: values.time ?? null,
-                notes: values.notes ?? null,
-                recurrenceType: values.recurrenceType,
-                recurrenceDayOfMonth: values.recurrenceDayOfMonth ?? null,
-              }),
+              body: JSON.stringify(buildCalendarEventApiBody(values)),
             });
             if (!res.ok) {
               const data = await res.json().catch(() => ({}));
@@ -162,144 +156,10 @@ export function QuickAddTrigger({
             }
             queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
             setModal(null);
-            router.refresh();
+            router.push("/calendar");
           }}
         />
       )}
     </>
-  );
-}
-
-interface AddListItemDialogProps {
-  lists: SharedList[];
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSuccess: () => void;
-}
-
-function AddListItemDialog({
-  lists,
-  open,
-  onOpenChange,
-  onSuccess,
-}: AddListItemDialogProps) {
-  const [isPending, startTransition] = useTransition();
-  const [listVisibility, setListVisibility] = useState<ListVisibility>("shared");
-  const filteredLists = lists.filter((l) => l.visibility === listVisibility);
-  const [listId, setListId] = useState<number | "">(
-    filteredLists[0]?.id ?? ""
-  );
-  const [label, setLabel] = useState("");
-  const [quantity, setQuantity] = useState("1");
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    setListId(lists.find((l) => l.visibility === listVisibility)?.id ?? "");
-  }, [listVisibility, lists]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = label.trim();
-    if (!trimmed) return;
-    const id = listId === "" ? null : Number(listId);
-    if (id == null) {
-      setError("Select a list");
-      return;
-    }
-    const qty = Math.max(1, parseInt(quantity, 10) || 1);
-    setError("");
-    startTransition(async () => {
-      const result = await createListItem(id, { label: trimmed, quantity: qty });
-      if (result.success) {
-        setLabel("");
-        setQuantity("1");
-        setListId(filteredLists[0]?.id ?? "");
-        onSuccess();
-      } else {
-        setError(result.error);
-      }
-    });
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <DialogHeader>Add list item</DialogHeader>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            type="button"
-            size="sm"
-            variant={listVisibility === "shared" ? "default" : "outline"}
-            onClick={() => setListVisibility("shared")}
-          >
-            Shared
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={listVisibility === "personal" ? "default" : "outline"}
-            onClick={() => setListVisibility("personal")}
-          >
-            Personal
-          </Button>
-        </div>
-        {filteredLists.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No {listVisibility} lists yet. Create a list in Settings first.
-          </p>
-        ) : (
-          <>
-            <div className="space-y-2">
-              <Label htmlFor="fab-list">List</Label>
-              <select
-                id="fab-list"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={listId}
-                onChange={(e) =>
-                  setListId(e.target.value === "" ? "" : Number(e.target.value))
-                }
-              >
-                {filteredLists.map((list) => (
-                  <option key={list.id} value={list.id}>
-                    {list.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="fab-item-label">Item</Label>
-              <Input
-                id="fab-item-label"
-                type="text"
-                value={label}
-                onChange={(e) => setLabel(e.target.value)}
-                placeholder="e.g. Milk"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="fab-item-qty">Quantity</Label>
-              <Input
-                id="fab-item-qty"
-                type="number"
-                min={1}
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-              />
-            </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-          </>
-        )}
-        <DialogFooter className="justify-between">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          {filteredLists.length > 0 && (
-            <Button type="submit" disabled={isPending}>
-              {isPending ? "Adding..." : "Add"}
-            </Button>
-          )}
-        </DialogFooter>
-      </form>
-    </Dialog>
   );
 }

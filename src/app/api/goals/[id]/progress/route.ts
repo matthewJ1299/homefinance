@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getCurrentMonth } from "@/lib/utils/date";
+import { getDefaultBudgetMonthForUser } from "@/lib/utils/budget-month-for-user";
 import { GoalProjectionService } from "@/lib/services/goal-projection.service";
 import { GoalService } from "@/lib/services/goal.service";
 
@@ -23,7 +23,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   const projectionService = new GoalProjectionService();
   if (goal.type === "savings") {
-    const month = request.nextUrl.searchParams.get("month") ?? getCurrentMonth();
+    const month =
+      request.nextUrl.searchParams.get("month") ?? (await getDefaultBudgetMonthForUser(userId));
     const progress = await projectionService.getSavingsProgress(userId, goalId, month);
     return NextResponse.json(progress);
   }

@@ -1,0 +1,25 @@
+# Local development image for `docker compose --profile watch up --watch`.
+# Runs Next.js dev server (not standalone production build).
+FROM node:20-alpine
+
+WORKDIR /app
+
+ENV NODE_ENV=development
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+
+RUN apk add --no-cache libc6-compat
+
+COPY package.json package-lock.json* ./
+RUN npm ci
+
+COPY . .
+
+# Same as production Dockerfile; icons may already exist in repo
+RUN node scripts/generate-pwa-icons.mjs
+
+EXPOSE 3000
+
+# Apply migrations then start dev server (Turbopack)
+CMD ["sh", "-c", "npx tsx src/lib/db/push.ts && npm run dev"]

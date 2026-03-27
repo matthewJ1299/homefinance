@@ -31,6 +31,8 @@ export interface AccountTransaction {
 export interface IAccountTransactionRepository {
   create(input: CreateAccountTransactionInput): Promise<{ id: number }>;
   getBalance(accountId: number): Promise<number>;
+  findById(id: number): Promise<AccountTransaction | null>;
+  findByIds(ids: number[]): Promise<AccountTransaction[]>;
   findByAccount(
     accountId: number,
     limit: number,

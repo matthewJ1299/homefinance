@@ -1,4 +1,4 @@
-import { all, run, lastInsertId } from "@/lib/db";
+import { all, get, run, lastInsertId } from "@/lib/db";
 import type {
   ITransferRepository,
   CreateTransferInput,
@@ -26,6 +26,14 @@ function toTransfer(row: TransferRow): Transfer {
 }
 
 export class TransferRepository implements ITransferRepository {
+  async findById(id: number): Promise<Transfer | null> {
+    const row = await get<TransferRow>(
+      "SELECT id, from_account_id, to_account_id, amount, note, created_at FROM transfers WHERE id = ?",
+      [id]
+    );
+    return row ? toTransfer(row) : null;
+  }
+
   async create(input: CreateTransferInput): Promise<{ id: number }> {
     await run(
       "INSERT INTO transfers (from_account_id, to_account_id, amount, note) VALUES (?, ?, ?, ?)",

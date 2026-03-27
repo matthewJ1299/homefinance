@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   createSplitGroup,
@@ -13,6 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import type { SplitGroup } from "@/lib/types";
+import { usePropSyncedState } from "@/hooks/use-prop-synced-state";
+import { toast } from "sonner";
 
 interface SplitGroupsManageProps {
   groups: SplitGroup[];
@@ -28,6 +30,16 @@ export function SplitGroupsManage({ groups }: SplitGroupsManageProps) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [editIsDefault, setEditIsDefault] = useState(false);
+  const [groupsState, setGroupsState] = usePropSyncedState(groups);
+
+  const optimisticRemoveGroup = useCallback(
+    (groupId: number) => {
+      const snapshot = groupsState;
+      setGroupsState((prev) => prev.filter((g) => g.id !== groupId));
+      return () => setGroupsState(snapshot);
+    },
+    [groupsState, setGroupsState]
+  );
 
   const startEdit = (g: SplitGroup) => {
     setEditingId(g.id);
@@ -44,6 +56,12 @@ export function SplitGroupsManage({ groups }: SplitGroupsManageProps) {
     const name = newName.trim();
     if (!name) return;
     setErrorText("");
+    const tempId = -Date.now();
+    const snapshot = groupsState;
+    setGroupsState((prev) => [
+      ...prev,
+      { id: tempId, name, isDefault: newIsDefault, sortOrder: prev.length + 1 },
+    ]);
     startTransition(async () => {
       const result = await createSplitGroup({
         name,
@@ -54,10 +72,16 @@ export function SplitGroupsManage({ groups }: SplitGroupsManageProps) {
         setNewIsDefault(false);
         setMessage("saved");
         setTimeout(() => setMessage(null), 2000);
-        router.refresh();
+        if (result.id != null) {
+          setGroupsState((prev) => prev.map((g) => (g.id === tempId ? { ...g, id: result.id! } : g)));
+        }
+        toast.success("Split group created.");
+        void router.refresh();
       } else {
+        setGroupsState(snapshot);
         setErrorText(result.error);
         setMessage("error");
+        toast.error(result.error);
       }
     });
   };
@@ -67,6 +91,8 @@ export function SplitGroupsManage({ groups }: SplitGroupsManageProps) {
     const name = editName.trim();
     if (!name) return;
     setErrorText("");
+    const snapshot = groupsState;
+    setGroupsState((prev) => prev.map((g) => (g.id === editingId ? { ...g, name, isDefault: editIsDefault } : g)));
     startTransition(async () => {
       const result = await updateSplitGroup(editingId, {
         name,
@@ -76,22 +102,40 @@ export function SplitGroupsManage({ groups }: SplitGroupsManageProps) {
         setEditingId(null);
         setMessage("saved");
         setTimeout(() => setMessage(null), 2000);
-        router.refresh();
+        toast.success("Split group updated.");
+        void router.refresh();
       } else {
+        setGroupsState(snapshot);
         setErrorText(result.error);
         setMessage("error");
+        toast.error(result.error);
       }
     });
   };
 
   const handleReorder = (id: number, direction: "up" | "down") => {
+    const snapshot = groupsState;
+    setGroupsState((prev) => {
+      const idx = prev.findIndex((g) => g.id === id);
+      if (idx === -1) return prev;
+      const nextIdx = direction === "up" ? idx - 1 : idx + 1;
+      if (nextIdx < 0 || nextIdx >= prev.length) return prev;
+      const copy = [...prev];
+      const tmp = copy[idx]!;
+      copy[idx] = copy[nextIdx]!;
+      copy[nextIdx] = tmp;
+      return copy;
+    });
     startTransition(async () => {
       const result = await reorderSplitGroup(id, direction);
       if (result.success) {
-        router.refresh();
+        toast.success("Split groups reordered.");
+        void router.refresh();
       } else {
+        setGroupsState(snapshot);
         setErrorText(result.error ?? "Failed to reorder");
         setMessage("error");
+        toast.error(result.error ?? "Failed to reorder split groups.");
       }
     });
   };
@@ -99,14 +143,18 @@ export function SplitGroupsManage({ groups }: SplitGroupsManageProps) {
   const handleDelete = (id: number, name: string) => {
     if (!confirm(`Delete "${name}"? This will fail if the group has expenses or settlements.`)) return;
     setErrorText("");
+    const rollback = optimisticRemoveGroup(id);
     startTransition(async () => {
       const result = await deleteSplitGroup(id);
       if (result.success) {
         if (editingId === id) setEditingId(null);
-        router.refresh();
+        toast.success("Split group deleted.");
+        void router.refresh();
       } else {
+        rollback();
         setErrorText(result.error);
         setMessage("error");
+        toast.error(result.error);
       }
     });
   };
@@ -153,11 +201,11 @@ export function SplitGroupsManage({ groups }: SplitGroupsManageProps) {
 
       <section>
         <h2 className="font-medium text-sm text-muted-foreground mb-3">Groups</h2>
-        {groups.length === 0 ? (
+        {groupsState.length === 0 ? (
           <p className="text-sm text-muted-foreground">No split groups yet. Add one above.</p>
         ) : (
           <ul className="space-y-2">
-            {groups.map((g, index) => (
+            {groupsState.map((g, index) => (
               <li
                 key={g.id}
                 className="flex items-center gap-2 rounded-lg border bg-card p-3 text-sm"

@@ -1,4 +1,5 @@
 import type { IncomeType } from "@/lib/types";
+import type { BudgetMonthPeriod } from "@/lib/types/budget-month";
 
 export interface IncomeEntry {
   id: number;
@@ -8,6 +9,9 @@ export interface IncomeEntry {
   type: IncomeType;
   description: string | null;
   date: string;
+  month: string;
+  accountId?: number | null;
+  createdAt: string;
 }
 
 export interface CreateIncomeInput {
@@ -31,8 +35,14 @@ export interface UpdateIncomeInput {
 }
 
 export interface IIncomeRepository {
-  findByMonth(month: string, userId?: number, accountId?: number): Promise<IncomeEntry[]>;
+  findByMonth(
+    month: string,
+    userId?: number,
+    accountId?: number,
+    period?: BudgetMonthPeriod
+  ): Promise<IncomeEntry[]>;
   findById(id: number): Promise<IncomeEntry | null>;
+  findAllByUserId(userId: number): Promise<IncomeEntry[]>;
   create(data: CreateIncomeInput): Promise<{ id: number }>;
   update(id: number, data: UpdateIncomeInput): Promise<void>;
   delete(id: number): Promise<void>;

@@ -1,4 +1,5 @@
 import type { ExpenseWithDetails } from "@/lib/types";
+import type { BudgetMonthPeriod } from "@/lib/types/budget-month";
 
 export interface CreateExpenseInput {
   userId: number;
@@ -24,17 +25,30 @@ export interface UpdateExpenseInput {
 }
 
 export interface IExpenseRepository {
-  findByMonth(month: string, userId?: number, accountId?: number): Promise<ExpenseWithDetails[]>;
+  findByMonth(
+    month: string,
+    userId?: number,
+    accountId?: number,
+    period?: BudgetMonthPeriod
+  ): Promise<ExpenseWithDetails[]>;
   findByMonthPaginated(
     month: string,
     limit: number,
     offset: number,
     userId?: number,
-    accountId?: number
+    accountId?: number,
+    period?: BudgetMonthPeriod
   ): Promise<ExpenseWithDetails[]>;
-  countByMonth(month: string, userId?: number, accountId?: number): Promise<number>;
+  countByMonth(month: string, userId?: number, accountId?: number, period?: BudgetMonthPeriod): Promise<number>;
   findById(id: number): Promise<ExpenseWithDetails | null>;
-  getSpendingByCategoryForMonths(months: string[], userId?: number): Promise<Record<number, number>>;
+  findAllByUserId(userId: number): Promise<ExpenseWithDetails[]>;
+  getSpendingByCategoryForMonths(
+    months: string[],
+    userId?: number,
+    budgetMonthStartDay?: number
+  ): Promise<Record<number, number>>;
+  /** Count of expenses per category (all time). */
+  getUsageCountsByCategory(userId?: number): Promise<Record<number, number>>;
   create(data: CreateExpenseInput): Promise<{ id: number }>;
   update(id: number, data: UpdateExpenseInput): Promise<void>;
   delete(id: number): Promise<void>;

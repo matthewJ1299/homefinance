@@ -49,6 +49,8 @@ export interface ExpenseWithDetails {
   amount: number;
   note: string | null;
   date: string;
+  /** Budget month key (yyyy-MM) stored on the expense row. */
+  month: string;
   createdAt: string;
   splitGroupId?: string | null;
   paidByUserId?: number | null;

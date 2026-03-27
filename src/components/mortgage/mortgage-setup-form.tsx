@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toMinorUnits } from "@/lib/utils/currency";
 import { fromMinorUnits } from "@/lib/utils/currency";
+import { toast } from "sonner";
 
 interface UserOption {
   id: number;
@@ -107,9 +108,11 @@ export function MortgageSetupForm({ users, initialValues, submitLabel }: Mortgag
         ],
       });
       if (result.success) {
-        router.refresh();
+        toast.success("Mortgage settings saved.");
+        void router.refresh();
       } else {
         setError(result.error);
+        toast.error(result.error);
       }
     });
   };

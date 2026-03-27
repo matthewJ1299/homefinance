@@ -5,6 +5,10 @@ import {
   monthFromDate,
   isValidMonth,
   formatMonth,
+  normalizeBudgetMonthStartDay,
+  getBudgetPeriodForMonthKey,
+  budgetMonthKeyFromIsoDate,
+  formatBudgetMonthLabel,
 } from "./date";
 
 describe("date utils", () => {
@@ -62,6 +66,56 @@ describe("date utils", () => {
       const result = formatMonth("2024-03");
       expect(result).toMatch(/March|Mar/);
       expect(result).toMatch("2024");
+    });
+  });
+
+  describe("normalizeBudgetMonthStartDay", () => {
+    it("clamps to 1-28", () => {
+      expect(normalizeBudgetMonthStartDay(0)).toBe(1);
+      expect(normalizeBudgetMonthStartDay(25)).toBe(25);
+      expect(normalizeBudgetMonthStartDay(31)).toBe(28);
+    });
+  });
+
+  describe("getBudgetPeriodForMonthKey", () => {
+    it("uses calendar month when start day is 1", () => {
+      const { start, end } = getBudgetPeriodForMonthKey("2024-03", 1);
+      expect(start).toBe("2024-03-01");
+      expect(end).toBe("2024-03-31");
+    });
+
+    it("uses 25th to next 24th when start day is 25", () => {
+      const { start, end } = getBudgetPeriodForMonthKey("2024-03", 25);
+      expect(start).toBe("2024-03-25");
+      expect(end).toBe("2024-04-24");
+    });
+  });
+
+  describe("budgetMonthKeyFromIsoDate", () => {
+    it("maps dates before start day to previous key", () => {
+      expect(budgetMonthKeyFromIsoDate("2024-03-20", 25)).toBe("2024-02");
+    });
+
+    it("maps dates on or after start day to current key", () => {
+      expect(budgetMonthKeyFromIsoDate("2024-03-25", 25)).toBe("2024-03");
+      expect(budgetMonthKeyFromIsoDate("2024-03-26", 25)).toBe("2024-03");
+    });
+
+    it("matches calendar month when start day is 1", () => {
+      expect(budgetMonthKeyFromIsoDate("2024-03-15", 1)).toBe("2024-03");
+    });
+  });
+
+  describe("formatBudgetMonthLabel", () => {
+    it("matches formatMonth for calendar months", () => {
+      expect(formatBudgetMonthLabel("2024-03", 1)).toBe(formatMonth("2024-03"));
+    });
+
+    it("shows date range for custom start", () => {
+      const label = formatBudgetMonthLabel("2024-03", 25);
+      expect(label).toContain("25");
+      expect(label).toContain("24");
+      expect(label).toContain("2024");
     });
   });
 });

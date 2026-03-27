@@ -1,11 +1,12 @@
 import { z } from "zod";
+import { optionalCoercedAccountId } from "./coerce-account-id";
 
 export const createIncomeSchema = z.object({
   amount: z.number().int().positive(),
   type: z.enum(["salary", "ad_hoc"]),
   description: z.string().max(500).optional().nullable(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  accountId: z.number().int().positive().optional(),
+  accountId: optionalCoercedAccountId,
 });
 
 export const updateIncomeSchema = z.object({
@@ -13,5 +14,5 @@ export const updateIncomeSchema = z.object({
   type: z.enum(["salary", "ad_hoc"]).optional(),
   description: z.string().max(500).optional().nullable(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  accountId: z.number().int().positive().optional(),
+  accountId: optionalCoercedAccountId,
 });

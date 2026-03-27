@@ -9,8 +9,8 @@ export async function GET() {
   }
   const userId = Number(session.user.id);
   const service = new AccountService();
-  const accounts = await service.listAccountsForUser(userId);
-  return NextResponse.json({ accounts });
+  const { accounts, primaryAccountId } = await service.listAccountsForUser(userId);
+  return NextResponse.json({ accounts, primaryAccountId });
 }
 
 export async function POST(request: NextRequest) {

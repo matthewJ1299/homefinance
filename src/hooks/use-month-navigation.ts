@@ -2,12 +2,19 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
-import { getCurrentMonth, prevMonth, nextMonth, formatMonth } from "@/lib/utils/date";
+import { useBudgetMonthStartDay } from "@/components/settings/budget-month-start-context";
+import {
+  getCurrentBudgetMonth,
+  prevMonth,
+  nextMonth,
+  formatBudgetMonthLabel,
+} from "@/lib/utils/date";
 
 export function useMonthNavigation() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const month = searchParams.get("month") ?? getCurrentMonth();
+  const budgetMonthStartDay = useBudgetMonthStartDay();
+  const month = searchParams.get("month") ?? getCurrentBudgetMonth(budgetMonthStartDay);
 
   const setMonth = useCallback(
     (newMonth: string) => {
@@ -26,8 +33,8 @@ export function useMonthNavigation() {
     setMonth(nextMonth(month));
   }, [month, setMonth]);
 
-  const label = formatMonth(month);
-  const canGoNext = month < getCurrentMonth(); // allow future? plan says month-by-month navigation
+  const label = formatBudgetMonthLabel(month, budgetMonthStartDay);
+  const canGoNext = month < getCurrentBudgetMonth(budgetMonthStartDay);
 
   return { month, setMonth, goPrev, goNext, label, canGoNext };
 }

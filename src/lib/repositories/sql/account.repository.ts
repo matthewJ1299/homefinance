@@ -43,6 +43,19 @@ export class AccountRepository implements IAccountRepository {
     return rows.map(toAccount);
   }
 
+  async findMainAccountIdForUser(ownerUserId: number): Promise<number | null> {
+    const bank = await get<{ id: number }>(
+      "SELECT id FROM accounts WHERE owner_user_id = ? AND type = 'bank' ORDER BY id ASC LIMIT 1",
+      [ownerUserId]
+    );
+    if (bank?.id != null) return bank.id;
+    const any = await get<{ id: number }>(
+      "SELECT id FROM accounts WHERE owner_user_id = ? ORDER BY id ASC LIMIT 1",
+      [ownerUserId]
+    );
+    return any?.id ?? null;
+  }
+
   async create(
     ownerUserId: number,
     data: CreateAccountInput

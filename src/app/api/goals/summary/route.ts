@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getCurrentMonth } from "@/lib/utils/date";
+import { getDefaultBudgetMonthForUser } from "@/lib/utils/budget-month-for-user";
 import { GoalProjectionService } from "@/lib/services/goal-projection.service";
 
 export async function GET(request: NextRequest) {
@@ -8,7 +8,8 @@ export async function GET(request: NextRequest) {
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = Number(session.user.id);
 
-  const month = request.nextUrl.searchParams.get("month") ?? getCurrentMonth();
+  const month =
+    request.nextUrl.searchParams.get("month") ?? (await getDefaultBudgetMonthForUser(userId));
   const service = new GoalProjectionService();
   const summary = await service.getDashboardSummary(userId, month);
   return NextResponse.json(summary);

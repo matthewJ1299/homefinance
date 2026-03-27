@@ -1,9 +1,9 @@
-import { CategoryRepository } from "./sqlite/category.repository";
-import { ExpenseRepository } from "./sqlite/expense.repository";
-import { IncomeRepository } from "./sqlite/income.repository";
-import { UserRepository } from "./sqlite/user.repository";
-import { SplitAllocationRepository } from "./sqlite/split-allocation.repository";
-import { SplitSettlementRepository } from "./sqlite/split-settlement.repository";
+import { CategoryRepository } from "./sql/category.repository";
+import { ExpenseRepository } from "./sql/expense.repository";
+import { IncomeRepository } from "./sql/income.repository";
+import { UserRepository } from "./sql/user.repository";
+import { SplitAllocationRepository } from "./sql/split-allocation.repository";
+import { SplitSettlementRepository } from "./sql/split-settlement.repository";
 import type { ICategoryRepository } from "./interfaces/category.repository";
 import type { IExpenseRepository } from "./interfaces/expense.repository";
 import type { IIncomeRepository } from "./interfaces/income.repository";
@@ -13,33 +13,35 @@ import type { ISplitSettlementRepository } from "./interfaces/split-settlement.r
 import type { ISplitGroupRepository } from "./interfaces/split-group.repository";
 import type { IRecurringIncomeRepository } from "./interfaces/recurring-income.repository";
 import type { IRecurringExpenseRepository } from "./interfaces/recurring-expense.repository";
-import { SplitGroupRepository } from "./sqlite/split-group.repository";
-import { RecurringIncomeRepository } from "./sqlite/recurring-income.repository";
-import { RecurringExpenseRepository } from "./sqlite/recurring-expense.repository";
-import { BudgetRepository } from "./sqlite/budget.repository";
-import { MortgageRepository } from "./sqlite/mortgage.repository";
+import { SplitGroupRepository } from "./sql/split-group.repository";
+import { RecurringIncomeRepository } from "./sql/recurring-income.repository";
+import { RecurringExpenseRepository } from "./sql/recurring-expense.repository";
+import { BudgetRepository } from "./sql/budget.repository";
+import { MortgageRepository } from "./sql/mortgage.repository";
 import type { IBudgetRepository } from "./interfaces/budget.repository";
 import type { IMortgageRepository } from "./interfaces/mortgage.repository";
 import type { ICalendarEventRepository } from "./interfaces/calendar-event.repository";
-import { CalendarEventRepository } from "./sqlite/calendar-event.repository";
+import type { ICalendarCategoryRepository } from "./interfaces/calendar-category.repository";
+import { CalendarEventRepository } from "./sql/calendar-event.repository";
+import { CalendarCategoryRepository } from "./sql/calendar-category.repository";
 import type { ISharedListRepository } from "./interfaces/shared-list.repository";
 import type { ISharedListItemRepository } from "./interfaces/shared-list-item.repository";
 import type { IPushSubscriptionRepository } from "./interfaces/push-subscription.repository";
 import type { ISentReminderRepository } from "./interfaces/sent-reminder.repository";
-import { SharedListRepository } from "./sqlite/shared-list.repository";
-import { SharedListItemRepository } from "./sqlite/shared-list-item.repository";
-import { PushSubscriptionRepository } from "./sqlite/push-subscription.repository";
-import { SentReminderRepository } from "./sqlite/sent-reminder.repository";
+import { SharedListRepository } from "./sql/shared-list.repository";
+import { SharedListItemRepository } from "./sql/shared-list-item.repository";
+import { PushSubscriptionRepository } from "./sql/push-subscription.repository";
+import { SentReminderRepository } from "./sql/sent-reminder.repository";
 import type { IAccountRepository } from "./interfaces/account.repository";
 import type { IAccountTransactionRepository } from "./interfaces/account-transaction.repository";
 import type { ITransferRepository } from "./interfaces/transfer.repository";
 import type { IGoalRepository } from "./interfaces/goal.repository";
 import type { IGoalContributionRepository } from "./interfaces/goal-contribution.repository";
-import { AccountRepository } from "./sqlite/account.repository";
-import { AccountTransactionRepository } from "./sqlite/account-transaction.repository";
-import { TransferRepository } from "./sqlite/transfer.repository";
-import { GoalRepository } from "./sqlite/goal.repository";
-import { GoalContributionRepository } from "./sqlite/goal-contribution.repository";
+import { AccountRepository } from "./sql/account.repository";
+import { AccountTransactionRepository } from "./sql/account-transaction.repository";
+import { TransferRepository } from "./sql/transfer.repository";
+import { GoalRepository } from "./sql/goal.repository";
+import { GoalContributionRepository } from "./sql/goal-contribution.repository";
 
 let categoryRepo: ICategoryRepository | null = null;
 let expenseRepo: IExpenseRepository | null = null;
@@ -53,6 +55,7 @@ let recurringExpenseRepo: IRecurringExpenseRepository | null = null;
 let budgetRepo: IBudgetRepository | null = null;
 let mortgageRepo: IMortgageRepository | null = null;
 let calendarEventRepo: ICalendarEventRepository | null = null;
+let calendarCategoryRepo: ICalendarCategoryRepository | null = null;
 let sharedListRepo: ISharedListRepository | null = null;
 let sharedListItemRepo: ISharedListItemRepository | null = null;
 let pushSubscriptionRepo: IPushSubscriptionRepository | null = null;
@@ -121,6 +124,11 @@ export function getMortgageRepository(): IMortgageRepository {
 export function getCalendarEventRepository(): ICalendarEventRepository {
   if (!calendarEventRepo) calendarEventRepo = new CalendarEventRepository();
   return calendarEventRepo;
+}
+
+export function getCalendarCategoryRepository(): ICalendarCategoryRepository {
+  if (!calendarCategoryRepo) calendarCategoryRepo = new CalendarCategoryRepository();
+  return calendarCategoryRepo;
 }
 
 export function getSharedListRepository(): ISharedListRepository {

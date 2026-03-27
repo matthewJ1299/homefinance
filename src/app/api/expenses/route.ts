@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { setRequestContext } from "@/lib/db/request-context";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { createExpenseSchema } from "@/lib/validators/expense.schema";
-import { getCurrentMonth } from "@/lib/utils/date";
+import { getDefaultBudgetMonthForUser } from "@/lib/utils/budget-month-for-user";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -11,9 +11,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
-  const month = request.nextUrl.searchParams.get("month") ?? getCurrentMonth();
+  const userId = Number(session.user.id);
+  const month =
+    request.nextUrl.searchParams.get("month") ?? (await getDefaultBudgetMonthForUser(userId));
   const service = new ExpenseService();
-  const result = await service.getByMonth(month);
+  const result = await service.getByMonth(month, userId);
   return NextResponse.json(result);
 }
 

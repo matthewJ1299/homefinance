@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import type { ExpenseWithDetails, AccountType } from "@/lib/types";
 import type { IncomeEntry } from "@/lib/repositories/interfaces/income.repository";
 import type { Category, SplitGroup } from "@/lib/types";
@@ -9,6 +9,8 @@ import { ExpensesViewToggle, viewToUserId, type ExpensesView } from "./expenses-
 import { ExpenseList } from "./expense-list";
 import { QuickAddForm } from "./quick-add-form";
 import { formatRand } from "@/lib/utils/currency";
+import { parseAccountsApiPayload } from "@/lib/utils/accounts-api";
+import { usePropSyncedState } from "@/hooks/use-prop-synced-state";
 
 interface ExpensesPageClientProps {
   month: string;
@@ -47,32 +49,34 @@ export function ExpensesPageClient({
 }: ExpensesPageClientProps) {
   const [view, setView] = useState<ExpensesView>(initialView);
   const [accountId, setAccountId] = useState<number | null>(null);
+  const [expensesState, setExpensesState] = usePropSyncedState(expenses);
+  const currentUserName = users.find((u) => u.id === currentUserId)?.name ?? "You";
   const [accounts, setAccounts] = useState<
     Array<{ id: number; name: string; type: AccountType }>
   >([]);
 
   useEffect(() => {
     fetch("/api/accounts")
-      .then((res) => (res.ok ? res.json() : { accounts: [] }))
-      .then((data) => setAccounts(data.accounts ?? []));
+      .then((res) => (res.ok ? res.json() : {}))
+      .then((data) => {
+        const { accounts: list } = parseAccountsApiPayload(data);
+        setAccounts(list);
+      });
   }, []);
 
   function filterByAccount<T extends { accountId?: number | null }>(
     items: T[],
     selectedAccountId: number | null
   ): T[] {
-    if (!selectedAccountId) return items;
-    return items.filter((e) => e.accountId === selectedAccountId);
+    if (selectedAccountId == null || selectedAccountId === 0) return items;
+    return items.filter(
+      (e) => e.accountId != null && Number(e.accountId) === selectedAccountId
+    );
   }
 
-  const filteredExpenses = useMemo(
-    () =>
-      filterByAccount(
-        filterByView(expenses, view, currentUserId),
-        accountId
-      ),
-    [expenses, view, currentUserId, accountId]
-  );
+  const filteredExpenses = useMemo(() => {
+    return filterByAccount(filterByView(expensesState, view, currentUserId), accountId);
+  }, [expensesState, view, currentUserId, accountId]);
   const filteredIncome = useMemo(
     () => filterByView(incomeEntries, view, currentUserId),
     [incomeEntries, view, currentUserId]
@@ -80,6 +84,41 @@ export function ExpensesPageClient({
   const expenseTotal = useMemo(() => sumAmount(filteredExpenses), [filteredExpenses]);
   const incomeTotal = useMemo(() => sumAmount(filteredIncome), [filteredIncome]);
   const balance = incomeTotal - expenseTotal;
+
+  const optimisticUpsertExpense = useCallback(
+    (next: ExpenseWithDetails) => {
+      const snapshot = expensesState;
+      setExpensesState((prev) => {
+        const idx = prev.findIndex((e) => e.id === next.id);
+        if (idx >= 0) {
+          const copy = [...prev];
+          copy[idx] = next;
+          return copy;
+        }
+        return [next, ...prev];
+      });
+      return () => setExpensesState(snapshot);
+    },
+    [expensesState, setExpensesState]
+  );
+
+  const optimisticReplaceExpenseId = useCallback(
+    (tempId: number, realId: number) => {
+      setExpensesState((prev) =>
+        prev.map((e) => (e.id === tempId ? { ...e, id: realId } : e))
+      );
+    },
+    [setExpensesState]
+  );
+
+  const optimisticRemoveExpense = useCallback(
+    (expense: ExpenseWithDetails) => {
+      const snapshot = expensesState;
+      setExpensesState((prev) => prev.filter((e) => e.id !== expense.id));
+      return () => setExpensesState(snapshot);
+    },
+    [expensesState, setExpensesState]
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -129,13 +168,23 @@ export function ExpensesPageClient({
       </div>
       <section>
         <h2 className="sr-only">Add expense</h2>
-        <QuickAddForm categories={categories} userId={currentUserId} splitGroups={splitGroups} />
+        <QuickAddForm
+          categories={categories}
+          userId={currentUserId}
+          currentUserName={currentUserName}
+          month={month}
+          splitGroups={splitGroups}
+          onOptimisticUpsertExpense={optimisticUpsertExpense}
+          onOptimisticReplaceExpenseId={optimisticReplaceExpenseId}
+        />
       </section>
       <ExpenseList
         expenses={filteredExpenses}
         showOwner={view === "combined"}
         categories={categories}
         otherUserName={users.find((u) => u.id !== currentUserId)?.name}
+        onOptimisticRemoveExpense={optimisticRemoveExpense}
+        onOptimisticUpsertExpense={optimisticUpsertExpense}
       />
     </div>
   );

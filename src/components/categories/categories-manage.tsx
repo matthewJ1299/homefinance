@@ -23,6 +23,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SortableCategoryRow } from "./sortable-category-row";
 import type { CategoryWithActive } from "@/lib/types";
+import { usePropSyncedState } from "@/hooks/use-prop-synced-state";
+import { toast } from "sonner";
 
 interface CategoriesManageProps {
   categories: CategoryWithActive[];
@@ -37,7 +39,8 @@ export function CategoriesManage({ categories }: CategoriesManageProps) {
   const [errorText, setErrorText] = useState("");
   const [reorderError, setReorderError] = useState<string | null>(null);
 
-  const categoryIds = categories.map((c) => c.id);
+  const [categoriesState, setCategoriesState] = usePropSyncedState(categories);
+  const categoryIds = categoriesState.map((c) => c.id);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -50,13 +53,18 @@ export function CategoriesManage({ categories }: CategoriesManageProps) {
     const newIndex = categoryIds.indexOf(over.id as number);
     if (oldIndex === -1 || newIndex === -1) return;
     const newOrder = arrayMove(categoryIds, oldIndex, newIndex);
+    const snapshot = categoriesState;
+    setCategoriesState((prev) => arrayMove(prev, oldIndex, newIndex));
     setReorderError(null);
     startTransition(async () => {
       const result = await reorderCategories(newOrder);
       if (result.success) {
-        router.refresh();
+        toast.success("Categories reordered.");
+        void router.refresh();
       } else {
+        setCategoriesState(snapshot);
         setReorderError(result.error ?? "Failed to reorder");
+        toast.error(result.error ?? "Failed to reorder categories.");
       }
     });
   };
@@ -103,6 +111,21 @@ export function CategoriesManage({ categories }: CategoriesManageProps) {
       return;
     }
     setErrorText("");
+    const tempId = -Date.now();
+    const snapshot = categoriesState;
+    setCategoriesState((prev) => [
+      ...prev,
+      {
+        id: tempId,
+        name,
+        groupName,
+        icon: null,
+        sortOrder: prev.length + 1,
+        isActive: true,
+        costType: newCostType,
+        defaultAmount: newCostType === "fixed" ? defaultAmountCents : null,
+      },
+    ]);
     startTransition(async () => {
       const result = await createCategory({
         name,
@@ -117,10 +140,13 @@ export function CategoriesManage({ categories }: CategoriesManageProps) {
         setNewDefaultAmountRands("");
         setMessage("saved");
         setTimeout(() => setMessage(null), 2000);
-        router.refresh();
+        toast.success("Category created.");
+        void router.refresh();
       } else {
+        setCategoriesState(snapshot);
         setErrorText(result.error);
         setMessage("error");
+        toast.error(result.error);
       }
     });
   };
@@ -144,6 +170,20 @@ export function CategoriesManage({ categories }: CategoriesManageProps) {
       return;
     }
     setErrorText("");
+    const snapshot = categoriesState;
+    setCategoriesState((prev) =>
+      prev.map((c) =>
+        c.id === editingId
+          ? {
+              ...c,
+              name,
+              groupName,
+              costType: editCostType,
+              defaultAmount: editCostType === "fixed" ? defaultAmountCents : null,
+            }
+          : c
+      )
+    );
     startTransition(async () => {
       const result = await updateCategory(editingId, {
         name,
@@ -155,23 +195,31 @@ export function CategoriesManage({ categories }: CategoriesManageProps) {
         setEditingId(null);
         setMessage("saved");
         setTimeout(() => setMessage(null), 2000);
-        router.refresh();
+        toast.success("Category updated.");
+        void router.refresh();
       } else {
+        setCategoriesState(snapshot);
         setErrorText(result.error);
         setMessage("error");
+        toast.error(result.error);
       }
     });
   };
 
   const handleSetActive = (id: number, isActive: boolean) => {
+    const snapshot = categoriesState;
+    setCategoriesState((prev) => prev.map((c) => (c.id === id ? { ...c, isActive } : c)));
     startTransition(async () => {
       const result = await updateCategory(id, { isActive });
       if (result.success) {
         if (editingId === id) setEditingId(null);
-        router.refresh();
+        toast.success("Category updated.");
+        void router.refresh();
       } else {
+        setCategoriesState(snapshot);
         setErrorText(result.error);
         setMessage("error");
+        toast.error(result.error);
       }
     });
   };
@@ -179,14 +227,19 @@ export function CategoriesManage({ categories }: CategoriesManageProps) {
   const handleDelete = (id: number, name: string) => {
     if (!confirm(`Permanently delete "${name}"? This cannot be undone.`)) return;
     setErrorText("");
+    const snapshot = categoriesState;
+    setCategoriesState((prev) => prev.filter((c) => c.id !== id));
     startTransition(async () => {
       const result = await deleteCategory(id);
       if (result.success) {
         if (editingId === id) setEditingId(null);
-        router.refresh();
+        toast.success("Category deleted.");
+        void router.refresh();
       } else {
+        setCategoriesState(snapshot);
         setErrorText(result.error);
         setMessage("error");
+        toast.error(result.error);
       }
     });
   };
@@ -286,7 +339,7 @@ export function CategoriesManage({ categories }: CategoriesManageProps) {
             strategy={verticalListSortingStrategy}
           >
             <ul className="space-y-2">
-              {categories.map((c) => (
+              {categoriesState.map((c) => (
                 <SortableCategoryRow key={c.id} category={c}>
                   {editingId === c.id ? (
                 <>
