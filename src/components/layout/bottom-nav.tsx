@@ -49,9 +49,9 @@ export function BottomNav() {
   const addActive = pathname === "/add" || pathname.startsWith("/add/");
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm md:left-auto md:right-0 md:top-14 md:bottom-0 md:w-56 md:border-l md:border-t-0 supports-[padding:max(0px)]:pb-[max(0px,env(safe-area-inset-bottom))]">
-      <div className="flex h-[3.25rem] justify-around md:h-[calc(100vh-3.5rem)] md:flex-col md:justify-start md:gap-1 md:p-2">
-        <div className="flex flex-1 justify-around items-end md:hidden pb-[max(2px,env(safe-area-inset-bottom))]">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm md:left-auto md:right-0 md:top-14 md:bottom-0 md:w-56 md:border-l md:border-t-0">
+      <div className="flex h-[calc(3.25rem+env(safe-area-inset-bottom))] justify-around md:h-[calc(100vh-3.5rem)] md:flex-col md:justify-start md:gap-1 md:p-2">
+        <div className="flex flex-1 justify-around items-end md:hidden pb-[env(safe-area-inset-bottom)]">
           <NavLinks items={mobileLeftItems} pathname={pathname} />
           <Link
             href="/add"
