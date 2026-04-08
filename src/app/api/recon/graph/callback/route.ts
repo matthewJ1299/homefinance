@@ -22,8 +22,11 @@ export async function GET(request: NextRequest) {
   }
 
   let userIdFromState: number;
+  let pkceVerifier: string;
   try {
-    userIdFromState = parseReconOAuthState(state);
+    const parsed = parseReconOAuthState(state);
+    userIdFromState = parsed.userId;
+    pkceVerifier = parsed.pkceVerifier;
   } catch {
     return NextResponse.redirect(toReconUrl(request, "/recon?error=invalid_oauth_state"));
   }
@@ -40,7 +43,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const service = new ReconService();
-    await service.saveInitialGraphTokens(userIdFromState, code);
+    await service.saveInitialGraphTokens(userIdFromState, code, pkceVerifier);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "token_save_failed";
     return NextResponse.redirect(toReconUrl(request, `/recon?error=${encodeURIComponent(msg)}`));

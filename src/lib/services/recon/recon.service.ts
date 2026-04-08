@@ -44,8 +44,8 @@ export class ReconService {
     private expenseService = new ExpenseService()
   ) {}
 
-  async saveInitialGraphTokens(userId: number, code: string): Promise<void> {
-    const tokens = await exchangeCodeForTokens(code);
+  async saveInitialGraphTokens(userId: number, code: string, pkceVerifier: string): Promise<void> {
+    const tokens = await exchangeCodeForTokens(code, pkceVerifier);
     if (!tokens.refresh_token) {
       throw new Error("No refresh token returned; ensure offline_access scope and prompt=consent.");
     }

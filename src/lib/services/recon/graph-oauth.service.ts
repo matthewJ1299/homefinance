@@ -1,4 +1,5 @@
 import { encryptString, decryptString } from "./token-crypto";
+import crypto from "node:crypto";
 
 const DEFAULT_SCOPE = "offline_access Mail.Read User.Read";
 
@@ -8,6 +9,12 @@ export interface GraphTokenResponse {
   expires_in: number;
   token_type: string;
   scope?: string;
+}
+
+interface ReconOAuthStatePayload {
+  userId: number;
+  exp: number;
+  pkceVerifier: string;
 }
 
 function getEnv(): { clientId: string; clientSecret: string; tenant: string } {
@@ -34,7 +41,23 @@ export function getGraphRedirectUri(): string {
   return `${getBaseUrl()}/api/recon/graph/callback`;
 }
 
-export function buildAuthorizeUrl(state: string): string {
+function base64UrlEncode(buf: Buffer): string {
+  return buf
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+function createPkceVerifier(): string {
+  return base64UrlEncode(crypto.randomBytes(32));
+}
+
+function createPkceChallengeS256(verifier: string): string {
+  return base64UrlEncode(crypto.createHash("sha256").update(verifier).digest());
+}
+
+export function buildAuthorizeUrl(state: string, codeChallenge: string): string {
   const { clientId, tenant } = getEnv();
   const redirectUri = getGraphRedirectUri();
   const params = new URLSearchParams({
@@ -45,26 +68,33 @@ export function buildAuthorizeUrl(state: string): string {
     scope: DEFAULT_SCOPE,
     state,
     prompt: "consent",
+    code_challenge: codeChallenge,
+    code_challenge_method: "S256",
   });
   return `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize?${params.toString()}`;
 }
 
-export function createReconOAuthState(userId: number): string {
-  return encryptString(JSON.stringify({ userId, exp: Date.now() + 10 * 60 * 1000 }));
+export function createReconOAuthState(userId: number): { state: string; codeChallenge: string } {
+  const pkceVerifier = createPkceVerifier();
+  const payload: ReconOAuthStatePayload = { userId, exp: Date.now() + 10 * 60 * 1000, pkceVerifier };
+  return { state: encryptString(JSON.stringify(payload)), codeChallenge: createPkceChallengeS256(pkceVerifier) };
 }
 
-export function parseReconOAuthState(state: string): number {
-  const raw = JSON.parse(decryptString(state)) as { userId: number; exp: number };
+export function parseReconOAuthState(state: string): { userId: number; pkceVerifier: string } {
+  const raw = JSON.parse(decryptString(state)) as ReconOAuthStatePayload;
   if (typeof raw.userId !== "number" || !Number.isFinite(raw.userId)) {
     throw new Error("Invalid OAuth state");
   }
   if (Date.now() > raw.exp) {
     throw new Error("OAuth state expired");
   }
-  return raw.userId;
+  if (typeof raw.pkceVerifier !== "string" || raw.pkceVerifier.length < 20) {
+    throw new Error("Invalid OAuth state");
+  }
+  return { userId: raw.userId, pkceVerifier: raw.pkceVerifier };
 }
 
-export async function exchangeCodeForTokens(code: string): Promise<GraphTokenResponse> {
+export async function exchangeCodeForTokens(code: string, pkceVerifier: string): Promise<GraphTokenResponse> {
   const { clientId, clientSecret, tenant } = getEnv();
   const redirectUri = getGraphRedirectUri();
   const body = new URLSearchParams({
@@ -74,6 +104,7 @@ export async function exchangeCodeForTokens(code: string): Promise<GraphTokenRes
     redirect_uri: redirectUri,
     grant_type: "authorization_code",
     scope: DEFAULT_SCOPE,
+    code_verifier: pkceVerifier,
   });
   const res = await fetch(`https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`, {
     method: "POST",

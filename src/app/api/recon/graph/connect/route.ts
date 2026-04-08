@@ -8,6 +8,6 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
   const userId = Number(session.user.id);
-  const state = createReconOAuthState(userId);
-  return NextResponse.redirect(buildAuthorizeUrl(state));
+  const { state, codeChallenge } = createReconOAuthState(userId);
+  return NextResponse.redirect(buildAuthorizeUrl(state, codeChallenge));
 }
