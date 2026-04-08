@@ -6,7 +6,8 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm ci 2>/dev/null || npm install \
+# --no-audit/--no-fund slightly reduce I/O; ENOSPC here means the *host* disk is full—free space on the build server (see DEPLOY.md).
+RUN npm ci --no-audit --no-fund 2>/dev/null || npm install --no-audit --no-fund \
  && npm cache clean --force
 
 COPY . .

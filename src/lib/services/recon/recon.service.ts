@@ -21,7 +21,9 @@ import {
 } from "./parsers";
 import { parseDateToYyyyMmDd, parseMinorFromRandText } from "./parsers/parse-helpers";
 import type { ParsedBankEmail } from "./parsers/parsed-bank-email";
-import type { ReconImportItemRow } from "@/lib/repositories/interfaces/recon-import-item.repository";
+import type { ReconMatchedExpenseSummary, ReconPendingListItem } from "@/lib/types/recon";
+
+export type { ReconMatchedExpenseSummary, ReconPendingListItem } from "@/lib/types/recon";
 
 export type ReconSyncDebugMessageOutcome =
   | "not_bank"
@@ -118,8 +120,29 @@ export class ReconService {
     };
   }
 
-  async listPendingItems(userId: number): Promise<ReconImportItemRow[]> {
-    return this.importRepo.findPendingByUserId(userId);
+  async listPendingItems(userId: number): Promise<ReconPendingListItem[]> {
+    const items = await this.importRepo.findPendingByUserId(userId);
+    const allIds = [...new Set(items.flatMap((i) => i.matchedExpenseIds ?? []))];
+    if (allIds.length === 0) {
+      return items.map((i) => ({ ...i, matchedExpenses: [] }));
+    }
+    const expenses = await this.expenseRepo.findByIdsForUser(allIds, userId);
+    const byId = new Map(expenses.map((e) => [e.id, e]));
+    return items.map((item) => {
+      const matchedExpenses: ReconMatchedExpenseSummary[] = [];
+      for (const id of item.matchedExpenseIds ?? []) {
+        const e = byId.get(id);
+        if (!e) continue;
+        matchedExpenses.push({
+          id: e.id,
+          categoryName: e.categoryName,
+          amount: e.amount,
+          note: e.note,
+          date: e.date,
+        });
+      }
+      return { ...item, matchedExpenses };
+    });
   }
 
   async syncFromGraph(

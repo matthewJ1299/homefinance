@@ -13,6 +13,7 @@ import {
 } from "./event-form-dialog";
 import type { CalendarEventOccurrence } from "@/lib/services/calendar.service";
 import { occurrenceCoversDate } from "@/lib/utils/calendar-occurrence";
+import { useMonthGridSwipeNavigation } from "@/hooks/use-month-grid-swipe-navigation";
 import { MonthGrid } from "./month-grid";
 import { DaySchedule } from "./day-schedule";
 
@@ -290,6 +291,14 @@ export function CalendarClientCustom() {
   const scheduleTitle = format(new Date(selectedDate + "T12:00:00"), "MMM d");
   const monthLabel = format(currentDate, "MMMM yyyy");
 
+  const goPrevMonth = useCallback(() => setCurrentDate((d) => addMonths(d, -1)), []);
+  const goNextMonth = useCallback(() => setCurrentDate((d) => addMonths(d, 1)), []);
+
+  const { monthGridSwipeProps } = useMonthGridSwipeNavigation({
+    onPrevMonth: goPrevMonth,
+    onNextMonth: goNextMonth,
+  });
+
   return (
     <div className="relative p-4 pb-28 space-y-5">
       <h1 className="sr-only">Calendar</h1>
@@ -300,7 +309,7 @@ export function CalendarClientCustom() {
           variant="secondary"
           size="icon"
           className="rounded-xl h-10 w-10 shrink-0 cursor-pointer"
-          onClick={() => setCurrentDate((d) => addMonths(d, -1))}
+          onClick={goPrevMonth}
           aria-label="Previous month"
         >
           <ChevronLeft className="h-5 w-5" />
@@ -313,7 +322,7 @@ export function CalendarClientCustom() {
           variant="secondary"
           size="icon"
           className="rounded-xl h-10 w-10 shrink-0 cursor-pointer"
-          onClick={() => setCurrentDate((d) => addMonths(d, 1))}
+          onClick={goNextMonth}
           aria-label="Next month"
         >
           <ChevronRight className="h-5 w-5" />
@@ -322,7 +331,10 @@ export function CalendarClientCustom() {
 
       <Card className="border-border/60 bg-card/90 shadow-md rounded-2xl overflow-hidden">
         <CardContent className="pt-5 pb-6 space-y-6">
-          <div className="w-full min-w-0 rounded-2xl border border-border/50 bg-background/35 px-2 py-3 sm:px-3 sm:py-4">
+          <div
+            className="w-full min-w-0 rounded-2xl border border-border/50 bg-background/35 px-2 py-3 sm:px-3 sm:py-4"
+            {...monthGridSwipeProps}
+          >
             <MonthGrid
               currentDate={currentDate}
               selectedDate={selectedDate}

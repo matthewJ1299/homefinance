@@ -4,7 +4,11 @@
 
 ### Changed
 
-- **Docker (Coolify / VPS builds)**: After `npm run build`, the image runs `npm prune --omit=dev` and clears the npm cache before copying `node_modules` into the runtime stage. This drops dev-only packages (TypeScript, ESLint, Vitest, Tailwind, etc.) from that layer so the copy is much smaller and less likely to hit **no space left on device** on small build hosts. Runtime still has production deps, `tsx`, and DB scripts for `npx tsx src/lib/db/...`.
+- **Recon possible duplicates**: Pending rows with status **Possible duplicate** show the matching expense(s) from your ledger (**category**, **amount**, **note**, **date**) on a sub-row under the bank notification. `GET /api/recon/items` includes `matchedExpenses` (from `ExpenseRepository.findByIdsForUser`).
+
+- **Docker (Coolify / VPS builds)**: `npm ci` uses `--no-audit` and `--no-fund` to trim install overhead. After `npm ci`, the builder clears the npm cache; after `npm run build`, it runs `npm prune --omit=dev` and clears the cache again before copying `node_modules` into the runtime stage. **ENOSPC during `npm ci`** means the build server disk is full—DEPLOY.md now explains minimum expectations, pruning Docker, and building the image in CI then pulling on Coolify.
+
+- **Recon pending list**: The **Mark** column uses a radio group (**None** / **Ignore** / **Accept**) instead of a dropdown. **None** skips the row for **Process marked**.
 
 ### Fixed
 
@@ -15,6 +19,8 @@
 
 ### Added
 
+- **Calendar (mobile)**: On viewports **767px and below**, swipe horizontally on the **month grid** to go to the previous or next month (swipe left → next month, swipe right → previous). Chevron buttons unchanged. Implemented via `useMonthGridSwipeNavigation` in `calendar-client-custom.tsx`.
+
 - **Recon feature toggle (Settings)**: **Bank email reconciliation (Recon)** must be turned on under **Settings** (`users.recon_enabled`, migration `0015_users_recon_enabled_pg.sql`). When off, **Recon** is hidden from the nav, `/recon` explains how to enable, Outlook connect/callback redirect to Settings, and mutating Recon APIs return **403**. Graph **disconnect** remains available without the toggle so stored tokens can be cleared if needed.
 
 - **Recon (`/recon`)**: Bank email reconciliation via **Microsoft Graph** (OAuth). Connect Outlook, sync recent messages, parse two configurable bank email templates (`type_a` / `type_b`), flag **possible duplicates** when an expense exists on the same calendar day with the same amount, suggest categories from **vendor_category_mappings**, and **manually** accept as duplicate, accept and add (expense via `ExpenseService`), or ignore. New tables: `recon_graph_connections`, `recon_import_items`, `vendor_category_mappings` (migration `0013_recon_pg.sql`). APIs under `/api/recon/*`. Nav: **Recon** in desktop/hamburger. See [docs/recon.md](./docs/recon.md) and README (Graph setup).
@@ -23,7 +29,7 @@
 
 ### Changed
 
-- **Recon pending bulk actions**: Each pending row has a **Mark** dropdown (— / Ignore / Accept). **Process marked** applies ignores and accepts in bulk; **accept** on needs-add rows without a category is skipped with a toast so you can categorize and retry. **Clear marks** resets dropdowns. The **View matches** modal (expense details) was removed; duplicate rows only show a **possible match count** under status.
+- **Recon pending bulk actions**: Each pending row has **None** / **Ignore** / **Accept** radios in **Mark**. **Process marked** applies ignores and accepts in bulk; **accept** on needs-add rows without a category is skipped with a toast so you can categorize and retry. **Clear marks** resets radios to **None**. The **View matches** modal was removed; possible duplicates instead show matching expense **category, amount, note, and date** on a sub-row (see **Recon possible duplicates** above).
 
 - **Recon fetched emails**: After sync, the **Fetched emails** table can filter to **bank sender addresses only** (same `from` substrings as type A & B in `parse-type-a.ts` / `parse-type-b.ts`, exported as `RECON_TYPE_*_FROM_SUBSTRINGS`) and by **outcome** (All / Imported / Parse failed / Not bank). Counts and pagination use the filtered rows.
 

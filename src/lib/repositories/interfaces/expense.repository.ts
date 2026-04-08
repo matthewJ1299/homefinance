@@ -41,6 +41,8 @@ export interface IExpenseRepository {
   ): Promise<ExpenseWithDetails[]>;
   countByMonth(month: string, userId?: number, accountId?: number, period?: BudgetMonthPeriod): Promise<number>;
   findById(id: number): Promise<ExpenseWithDetails | null>;
+  /** Loads expenses that belong to the user; ignores unknown ids. */
+  findByIdsForUser(ids: number[], userId: number): Promise<ExpenseWithDetails[]>;
   findAllByUserId(userId: number): Promise<ExpenseWithDetails[]>;
   getSpendingByCategoryForMonths(
     months: string[],

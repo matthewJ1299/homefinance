@@ -17,9 +17,9 @@ Recon is **off by default** per user (`users.recon_enabled`). Under **Settings**
 
 On **Pending items**, the **Description** cell is clickable: it opens the **Fetched mail detail** dialog (loads the message from Microsoft Graph). The dialog repeats the list **Description** line at the top, then shows from, subject, received time, and full body.
 
-Each row has a **Mark** control with three options: **—** (no bulk action), **Ignore**, or **Accept**. Use **Process marked** to apply: ignores run first; **Accept** on a possible-duplicate row calls **accept duplicate**; **Accept** on a needs-add row calls **accept add** (category and split 50/50 apply). Rows marked **Accept** that still need a category but have none selected are **skipped**; a toast explains how many were left so you can categorize and run again. **Clear marks** resets all Mark dropdowns. Per-row **Accept as duplicate**, **Accept and add**, and **Ignore** still work as shortcuts.
+Each row has a **Mark** column with a radio group: **None** (no bulk action for that row), **Ignore**, or **Accept**. Use **Process marked** to apply: ignores run first; **Accept** on a possible-duplicate row calls **accept duplicate**; **Accept** on a needs-add row calls **accept add** (category and split 50/50 apply). Rows marked **Accept** that still need a category but have none selected are **skipped**; a toast explains how many were left so you can categorize and run again. **Clear marks** sets every row back to **None**. Per-row **Accept as duplicate**, **Accept and add**, and **Ignore** still work as shortcuts.
 
-Possible duplicates show a line such as “N possible matches” under status; expense details are not loaded in the UI (no match preview modal).
+Possible duplicates list the **existing expense row(s)** that matched (same calendar day and amount): **category**, **amount**, **note**, and **date** appear in a block directly under the pending recon row. If those expenses were deleted since sync, a short message explains that the link is stale.
 
 ## Fetched emails (after sync)
 
@@ -60,7 +60,7 @@ See the main [README](../README.md) section **Recon and Microsoft Graph (Outlook
 | GET | `/api/recon/graph/status` | When Recon is off: `{ reconEnabled: false, connected: false, msAccountEmail: null, lastSyncedAt: null }`. When on: `{ reconEnabled: true, connected, msAccountEmail, lastSyncedAt }` |
 | POST | `/api/recon/graph/disconnect` | Remove stored connection |
 | POST | `/api/recon/sync` | Fetch mail + upsert `recon_import_items` (optional body `{ since?: "YYYY-MM-DD", top?: number, skip?: number }`; `skip` is Graph `$skip` for paging older messages) |
-| GET | `/api/recon/items` | When Recon off: `{ reconEnabled: false, items: [] }`. When on: `{ reconEnabled: true, items }` |
+| GET | `/api/recon/items` | When Recon off: `{ reconEnabled: false, items: [] }`. When on: each item includes `matchedExpenses` (category, amount, note, date for each id in `matchedExpenseIds`) when present |
 | POST | `/api/recon/items/[id]/accept-duplicate` | Mark duplicate resolved (no new expense) |
 | POST | `/api/recon/items/[id]/accept-add` | Body `{ categoryId, accountId?, split? }` — create expense (optionally split) |
 | POST | `/api/recon/items/[id]/ignore` | Ignore row |

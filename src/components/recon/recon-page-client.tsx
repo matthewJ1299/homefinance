@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -12,7 +12,7 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { formatRand } from "@/lib/utils/currency";
 import { parseAccountsApiPayload } from "@/lib/utils/accounts-api";
 import type { Category } from "@/lib/types";
-import type { ReconImportItemRow } from "@/lib/repositories/interfaces/recon-import-item.repository";
+import type { ReconPendingListItem } from "@/lib/types/recon";
 import {
   RECON_TYPE_A_FROM_SUBSTRINGS,
   RECON_TYPE_B_FROM_SUBSTRINGS,
@@ -169,7 +169,7 @@ export function ReconPageClient() {
 
   const itemsQuery = useQuery({
     queryKey: ["recon-items"],
-    queryFn: () => fetchJson<{ reconEnabled: boolean; items: ReconImportItemRow[] }>("/api/recon/items"),
+    queryFn: () => fetchJson<{ reconEnabled: boolean; items: ReconPendingListItem[] }>("/api/recon/items"),
   });
 
   const categoriesQuery = useQuery({
@@ -317,7 +317,7 @@ export function ReconPageClient() {
   }, []);
 
   const effectiveCategory = useCallback(
-    (item: ReconImportItemRow): number | "" => {
+    (item: ReconPendingListItem): number | "" => {
       const v = categoryByItemId[item.id];
       if (v !== undefined && v !== "") return v;
       return item.suggestedCategoryId ?? "";
@@ -436,7 +436,7 @@ export function ReconPageClient() {
     }
   }, []);
 
-  const openMessageFromPendingItem = useCallback(async (item: ReconImportItemRow) => {
+  const openMessageFromPendingItem = useCallback(async (item: ReconPendingListItem) => {
     const descriptionLine = item.rawSubject?.trim() || item.rawBodyPreview?.trim() || "—";
     const meta: FetchedMailDebugRow = {
       graphMessageId: item.graphMessageId,
@@ -488,7 +488,7 @@ export function ReconPageClient() {
     }
   }, [messageSyncMeta, messageDetail]);
 
-  const statusLabel = (s: ReconImportItemRow["status"]): string => {
+  const statusLabel = (s: ReconPendingListItem["status"]): string => {
     switch (s) {
       case "pending_duplicate":
         return "Possible duplicate";
@@ -808,8 +808,9 @@ export function ReconPageClient() {
               Clear marks
             </Button>
             <p className="text-xs text-muted-foreground sm:max-w-xl">
-              Use the Mark column: Ignore, Accept, or leave as —. Process marked runs ignores first, then accepts
-              (duplicates need no category; adds need a category or they stay pending).
+              In the Mark column, choose None, Ignore, or Accept (one radio group per row). None skips that row for bulk;
+              Process marked runs ignores first, then accepts (duplicates need no category; adds need a category or they
+              stay pending).
             </p>
           </div>
         ) : null}
@@ -822,7 +823,7 @@ export function ReconPageClient() {
             <table className="w-full text-sm border-collapse min-w-[760px]">
               <thead>
                 <tr className="border-b border-border text-left text-muted-foreground">
-                  <th className="py-2 pr-2 font-medium w-[120px]">Mark</th>
+                  <th className="py-2 pr-2 font-medium w-[148px] min-w-[148px]">Mark</th>
                   <th className="py-2 pr-3 font-medium">Date</th>
                   <th className="py-2 pr-3 font-medium">Vendor</th>
                   <th className="py-2 pr-3 font-medium">Description</th>
@@ -830,7 +831,7 @@ export function ReconPageClient() {
                   <th className="py-2 pr-3 font-medium">Status</th>
                   <th className="py-2 pr-3 font-medium">Category</th>
                   <th className="py-2 pr-3 font-medium">Split</th>
-                  <th className="py-2 font-medium">Actions</th>
+                  <th className="py-2 font-medium min-w-[200px]">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -840,21 +841,53 @@ export function ReconPageClient() {
                   const acc =
                     accountId === "" ? undefined : typeof accountId === "number" ? accountId : undefined;
                   const split = splitByItemId[item.id] ?? false;
+                  const markGroup = `recon-mark-${item.id}`;
+                  const markValue = bulkIntentByItemId[item.id] ?? "none";
+                  const showMatchedDetails =
+                    item.status === "pending_duplicate" && (item.matchedExpenses?.length ?? 0) > 0;
                   return (
-                    <tr key={item.id} className="border-b border-border/60 align-top">
-                      <td className="py-3 pr-2">
-                        <select
-                          className="w-full max-w-[7.5rem] rounded-md border border-input bg-background px-2 py-1.5 text-sm"
-                          value={bulkIntentByItemId[item.id] ?? "none"}
-                          onChange={(e) =>
-                            setBulkIntent(item.id, e.target.value as ReconBulkIntent)
-                          }
-                          aria-label={`Bulk mark for recon item ${item.id}`}
+                    <Fragment key={item.id}>
+                    <tr className="border-b border-border/60 align-top">
+                      <td className="py-3 pr-2 align-top">
+                        <div
+                          className="flex flex-col gap-1.5"
+                          role="radiogroup"
+                          aria-label={`Mark for recon item ${item.id}`}
                         >
-                          <option value="none">—</option>
-                          <option value="ignore">Ignore</option>
-                          <option value="accept">Accept</option>
-                        </select>
+                          <label className="flex items-center gap-2 cursor-pointer text-sm leading-none">
+                            <input
+                              type="radio"
+                              name={markGroup}
+                              value="none"
+                              className="h-4 w-4 shrink-0 border-input accent-primary"
+                              checked={markValue === "none"}
+                              onChange={() => setBulkIntent(item.id, "none")}
+                            />
+                            None
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer text-sm leading-none">
+                            <input
+                              type="radio"
+                              name={markGroup}
+                              value="ignore"
+                              className="h-4 w-4 shrink-0 border-input accent-primary"
+                              checked={markValue === "ignore"}
+                              onChange={() => setBulkIntent(item.id, "ignore")}
+                            />
+                            Ignore
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer text-sm leading-none">
+                            <input
+                              type="radio"
+                              name={markGroup}
+                              value="accept"
+                              className="h-4 w-4 shrink-0 border-input accent-primary"
+                              checked={markValue === "accept"}
+                              onChange={() => setBulkIntent(item.id, "accept")}
+                            />
+                            Accept
+                          </label>
+                        </div>
                       </td>
                       <td className="py-3 pr-3 whitespace-nowrap">{item.txnDate}</td>
                       <td className="py-3 pr-3 max-w-[200px]">
@@ -875,12 +908,6 @@ export function ReconPageClient() {
                       <td className="py-3 pr-3 tabular-nums">{formatRand(item.amount)}</td>
                       <td className="py-3 pr-3">
                         <div>{statusLabel(item.status)}</div>
-                        {item.status === "pending_duplicate" && item.matchedExpenseIds?.length ? (
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {item.matchedExpenseIds.length} possible match
-                            {item.matchedExpenseIds.length === 1 ? "" : "es"}
-                          </p>
-                        ) : null}
                       </td>
                       <td className="py-3 pr-3 min-w-[160px]">
                         <select
@@ -913,53 +940,52 @@ export function ReconPageClient() {
                           </Label>
                         </div>
                       </td>
-                      <td className="py-3">
-                        <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap">
-                          {item.status === "pending_duplicate" ? (
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              size="sm"
-                              className="w-full sm:w-auto"
-                              disabled={actDuplicate.isPending}
-                              onClick={() => actDuplicate.mutate(item.id)}
-                            >
-                              Accept as duplicate
-                            </Button>
-                          ) : null}
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="w-full sm:w-auto"
-                            disabled={!canAdd || actAdd.isPending}
-                            onClick={() => {
-                              if (!canAdd || typeof cat !== "number") {
-                                toast.error("Choose a category before adding.");
-                                return;
-                              }
-                              actAdd.mutate({
-                                itemId: item.id,
-                                categoryId: cat,
-                                accountId: acc ?? null,
-                                split,
-                              });
-                            }}
-                          >
-                            Accept and add
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="w-full sm:w-auto"
-                            disabled={actIgnore.isPending}
-                            onClick={() => actIgnore.mutate(item.id)}
-                          >
-                            Ignore
-                          </Button>
-                        </div>
-                      </td>
                     </tr>
+                    {showMatchedDetails ? (
+                      <tr className="border-b border-border/60 bg-muted/20">
+                        <td colSpan={9} className="py-2 px-3 pb-3 align-top">
+                          <p className="text-xs font-medium text-muted-foreground mb-2">
+                            Possible duplicate — expense already on file (same calendar day and amount)
+                          </p>
+                          <ul className="space-y-2">
+                            {(item.matchedExpenses ?? []).map((m) => (
+                              <li
+                                key={m.id}
+                                className="rounded-md border border-border/70 bg-background px-3 py-2 text-sm"
+                              >
+                                <dl className="grid gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-4">
+                                  <div>
+                                    <dt className="text-xs text-muted-foreground">Category</dt>
+                                    <dd className="font-medium">{m.categoryName}</dd>
+                                  </div>
+                                  <div>
+                                    <dt className="text-xs text-muted-foreground">Amount</dt>
+                                    <dd className="tabular-nums font-medium">{formatRand(m.amount)}</dd>
+                                  </div>
+                                  <div className="sm:col-span-2 lg:col-span-2">
+                                    <dt className="text-xs text-muted-foreground">Note</dt>
+                                    <dd className="break-words">{m.note?.trim() ? m.note : "—"}</dd>
+                                  </div>
+                                  <div>
+                                    <dt className="text-xs text-muted-foreground">Date</dt>
+                                    <dd className="tabular-nums">{m.date}</dd>
+                                  </div>
+                                </dl>
+                              </li>
+                            ))}
+                          </ul>
+                        </td>
+                      </tr>
+                    ) : item.status === "pending_duplicate" &&
+                      (item.matchedExpenseIds?.length ?? 0) > 0 &&
+                      (item.matchedExpenses?.length ?? 0) === 0 ? (
+                      <tr className="border-b border-border/60 bg-muted/20">
+                        <td colSpan={9} className="py-2 px-3 text-xs text-muted-foreground">
+                          Possible duplicate: linked expense(s) are no longer found (they may have been deleted).
+                        </td>
+                      </tr>
+                    ) : null}
+                    </Fragment>
                   );
                 })}
               </tbody>

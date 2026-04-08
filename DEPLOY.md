@@ -188,17 +188,32 @@ No DNS record exists for `finance.dev.triadtech.co.za`. Add an A record pointing
 
 Ensure the runner stage copies the builder `node_modules` after **production** pruning (`npm prune --omit=dev` in the Dockerfile) so runtime dependencies and db scripts are present.
 
-### Build fails: `no space left on device` / `ResourceExhausted` (often on `COPY ... node_modules`)
+### Build fails: `no space left on device` / `ENOSPC` / `ResourceExhausted`
 
-The Docker build needs enough free disk on the **host** for layers and the `node_modules` copy. The Dockerfile prunes devDependencies after `npm run build` to keep that copy smaller.
+This always means **insufficient free disk on the machine that runs `docker compose build`** (your Coolify host), not a bug in the app. It can appear:
 
-**On the Coolify server**, if builds still fail:
+- During **`npm ci`** (`TAR_ENTRY_ERROR ENOSPC`) while extracting packages into `node_modules`, or
+- Later during **`COPY ... node_modules`** between build stages.
 
-- Free space: `df -h` on the VPS.
-- Prune unused Docker data (run as root or with sudo): `docker system prune -af` and optionally `docker builder prune -af` (removes unused images, build cache, and stopped containers; **destructive** to unused images—review before running on a shared host).
-- Increase the VPS disk or move Docker’s data root to a larger volume if the server is genuinely full.
+A Next.js app with dev and prod dependencies typically needs **several gigabytes** of free space for a single clean build (extracted `node_modules`, build output, Docker layers, BuildKit cache). If the VPS is small or Docker has accumulated images and cache, the build can fail before any Dockerfile tweak would help.
 
-Redeploy after freeing space.
+**You must free disk or use a larger disk / remote build.** The Dockerfile only trims what is copied *after* a successful install (e.g. `npm prune --omit=dev` after `npm run build`); it cannot make `npm ci` use dramatically less space.
+
+**On the Coolify server (SSH as root or a user with Docker access):**
+
+1. Check space: `df -h` and `docker system df`.
+2. Remove unused Docker data ( **destructive** to stopped containers and unused images—review on shared hosts ):
+   - `docker system prune -af`
+   - `docker builder prune -af` (BuildKit build cache can be large)
+3. If still tight: enlarge the VPS volume, or move Docker’s data directory to a bigger disk (advanced; depends on your OS).
+4. Redeploy from Coolify.
+
+**Alternative (recommended on small VPS):** build the image **elsewhere** and deploy only the image:
+
+- Use **GitHub Actions** (or similar) to `docker build` and push to **GHCR**, **Docker Hub**, or another registry.
+- In Coolify, configure the app to **pull** that image instead of building on the server (no `npm ci` on the VPS).
+
+That avoids large builds on a disk-constrained host entirely.
 
 ### Build fails with "standalone not found"
 

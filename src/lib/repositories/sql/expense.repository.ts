@@ -206,6 +206,17 @@ export class ExpenseRepository implements IExpenseRepository {
     return row ? toExpenseWithDetails(row) : null;
   }
 
+  async findByIdsForUser(ids: number[], userId: number): Promise<ExpenseWithDetails[]> {
+    const unique = [...new Set(ids.filter((id) => Number.isInteger(id) && id > 0))];
+    if (unique.length === 0) return [];
+    const placeholders = unique.map(() => "?").join(", ");
+    const rows = await all<ExpenseDetailsRow>(
+      `${SELECT_EXPENSE_DETAILS} WHERE e.user_id = ? AND e.id IN (${placeholders})`,
+      [userId, ...unique]
+    );
+    return rows.map(toExpenseWithDetails);
+  }
+
   async findAllByUserId(userId: number): Promise<ExpenseWithDetails[]> {
     const sql = `${SELECT_EXPENSE_DETAILS} WHERE e.user_id = ? ORDER BY e.date ASC, e.created_at ASC, e.id ASC`;
     const rows = await all<ExpenseDetailsRow>(sql, [userId]);
