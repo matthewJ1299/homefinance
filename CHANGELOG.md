@@ -4,6 +4,8 @@
 
 ### Changed
 
+- **Recon Process marked**: Rows marked **Ignore** or **Accept** are shaded. After a successful run, a **summary** dialog shows the **transaction date range**, **how many rows** were processed, **accepted** vs **ignored** counts (with new vs duplicate breakdown), **totals by category** for newly added expenses, subtotals for duplicates resolved and ignored, and **grand total** of processed bank amounts. Accept-marked rows without a category are skipped and called out in the summary and a toast.
+
 - **Recon possible duplicates**: Pending rows with status **Possible duplicate** show the matching expense(s) from your ledger (**category**, **amount**, **note**, **date**) on a sub-row under the bank notification. `GET /api/recon/items` includes `matchedExpenses` (from `ExpenseRepository.findByIdsForUser`).
 
 - **Docker (Coolify / VPS builds)**: `npm ci` uses `--no-audit` and `--no-fund` to trim install overhead. After `npm ci`, the builder clears the npm cache; after `npm run build`, it runs `npm prune --omit=dev` and clears the cache again before copying `node_modules` into the runtime stage. **ENOSPC during `npm ci`** means the build server disk is full—DEPLOY.md now explains minimum expectations, pruning Docker, and building the image in CI then pulling on Coolify.

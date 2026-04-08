@@ -10,6 +10,7 @@ import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Label } from "@/components/ui/label";
 import { SectionHeader } from "@/components/ui/section-header";
 import { formatRand } from "@/lib/utils/currency";
+import { cn } from "@/lib/utils";
 import { parseAccountsApiPayload } from "@/lib/utils/accounts-api";
 import type { Category } from "@/lib/types";
 import type { ReconPendingListItem } from "@/lib/types/recon";
@@ -53,6 +54,34 @@ type DebugOutcomeFilter = "all" | "imported" | "parse_failed" | "not_bank";
 
 /** Per-row bulk queue: none = no bulk action; ignore / accept apply when you click Process marked. */
 type ReconBulkIntent = "none" | "ignore" | "accept";
+
+interface ProcessMarkedSummary {
+  dateRangeLabel: string;
+  /** Rows completed successfully (ignore + duplicate + add). */
+  processedCount: number;
+  totalMinor: number;
+  ignoredCount: number;
+  ignoredMinor: number;
+  acceptedDuplicateCount: number;
+  duplicateMinor: number;
+  acceptedAddCount: number;
+  addMinor: number;
+  addByCategory: { categoryName: string; count: number; totalMinor: number }[];
+  skippedNoCategory: number;
+}
+
+function formatReconDateRange(dates: string[]): string {
+  if (dates.length === 0) return "—";
+  const sorted = [...dates].sort();
+  const lo = sorted[0]!;
+  const hi = sorted[sorted.length - 1]!;
+  if (lo === hi) return lo;
+  return `${lo} – ${hi}`;
+}
+
+function categoryNameForId(categories: Category[], categoryId: number): string {
+  return categories.find((c) => c.id === categoryId)?.name ?? `Category #${categoryId}`;
+}
 
 function filterFetchedMailRow(
   m: FetchedMailDebugRow,
@@ -144,6 +173,8 @@ export function ReconPageClient() {
   }>(null);
   const [bulkIntentByItemId, setBulkIntentByItemId] = useState<Record<number, ReconBulkIntent>>({});
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [processMarkedSummaryOpen, setProcessMarkedSummaryOpen] = useState(false);
+  const [processMarkedSummary, setProcessMarkedSummary] = useState<ProcessMarkedSummary | null>(null);
 
   useEffect(() => {
     const err = searchParams.get("error");
@@ -188,7 +219,10 @@ export function ReconPageClient() {
   });
 
   const items = useMemo(() => itemsQuery.data?.items ?? [], [itemsQuery.data?.items]);
-  const categories = categoriesQuery.data?.categories ?? [];
+  const categories = useMemo(
+    () => categoriesQuery.data?.categories ?? [],
+    [categoriesQuery.data?.categories]
+  );
   const { accounts, primaryAccountId } = accountsQuery.data ?? { accounts: [], primaryAccountId: null };
 
   useEffect(() => {
@@ -341,11 +375,18 @@ export function ReconPageClient() {
     let added = 0;
     let skippedNoCat = 0;
     const processedIds: number[] = [];
+    const processedDates: string[] = [];
+    let ignoredMinor = 0;
+    let duplicateMinor = 0;
+    let addMinor = 0;
+    const addCategoryMap = new Map<string, { count: number; totalMinor: number }>();
     try {
       for (const item of toIgnore) {
         await fetchJson<{ ok: boolean }>(`/api/recon/items/${item.id}/ignore`, { method: "POST" });
         ignored++;
         processedIds.push(item.id);
+        processedDates.push(item.txnDate);
+        ignoredMinor += item.amount;
       }
       for (const item of toAccept) {
         if (item.status === "pending_duplicate") {
@@ -354,6 +395,8 @@ export function ReconPageClient() {
           });
           duped++;
           processedIds.push(item.id);
+          processedDates.push(item.txnDate);
+          duplicateMinor += item.amount;
           continue;
         }
         const cat = effectiveCategory(item);
@@ -372,6 +415,14 @@ export function ReconPageClient() {
         });
         added++;
         processedIds.push(item.id);
+        processedDates.push(item.txnDate);
+        addMinor += item.amount;
+        const cname = categoryNameForId(categories, cat);
+        const prev = addCategoryMap.get(cname) ?? { count: 0, totalMinor: 0 };
+        addCategoryMap.set(cname, {
+          count: prev.count + 1,
+          totalMinor: prev.totalMinor + item.amount,
+        });
       }
       void queryClient.invalidateQueries({ queryKey: ["recon-items"] });
       setBulkIntentByItemId((prev) => {
@@ -381,16 +432,32 @@ export function ReconPageClient() {
         }
         return next;
       });
-      const parts: string[] = [];
-      if (ignored > 0) parts.push(`${ignored} ignored`);
-      if (duped > 0) parts.push(`${duped} accepted as duplicate`);
-      if (added > 0) parts.push(`${added} added`);
-      if (parts.length > 0) {
-        toast.success(parts.join(" · "));
-      }
+      const processedCount = ignored + duped + added;
+      const totalMinor = ignoredMinor + duplicateMinor + addMinor;
+      const addByCategory = [...addCategoryMap.entries()]
+        .map(([categoryName, v]) => ({
+          categoryName,
+          count: v.count,
+          totalMinor: v.totalMinor,
+        }))
+        .sort((a, b) => a.categoryName.localeCompare(b.categoryName));
+      setProcessMarkedSummary({
+        dateRangeLabel: formatReconDateRange(processedDates),
+        processedCount,
+        totalMinor,
+        ignoredCount: ignored,
+        ignoredMinor,
+        acceptedDuplicateCount: duped,
+        duplicateMinor,
+        acceptedAddCount: added,
+        addMinor,
+        addByCategory,
+        skippedNoCategory: skippedNoCat,
+      });
+      setProcessMarkedSummaryOpen(true);
       if (skippedNoCat > 0) {
         toast.message(
-          `Left ${skippedNoCat} accept-marked row(s) without a category. Choose a category and process again or use row actions.`
+          `${skippedNoCat} accept-marked row(s) had no category and were skipped. Fix categories and run Process marked again if needed.`
         );
       }
     } catch (e) {
@@ -406,6 +473,7 @@ export function ReconPageClient() {
     splitByItemId,
     effectiveCategory,
     queryClient,
+    categories,
   ]);
 
   const openMessage = useCallback(async (row: FetchedMailDebugRow) => {
@@ -808,9 +876,10 @@ export function ReconPageClient() {
               Clear marks
             </Button>
             <p className="text-xs text-muted-foreground sm:max-w-xl">
-              In the Mark column, choose None, Ignore, or Accept (one radio group per row). None skips that row for bulk;
-              Process marked runs ignores first, then accepts (duplicates need no category; adds need a category or they
-              stay pending).
+              In the Mark column, choose None, Ignore, or Accept (one radio group per row). Rows marked Ignore or Accept
+              are shaded. None skips that row for bulk. Process marked runs ignores first, then accepts (duplicates need
+              no category; adds need a category or they stay pending), then opens a summary: date range, counts, totals
+              by category for new expenses, and overall total.
             </p>
           </div>
         ) : null}
@@ -845,9 +914,15 @@ export function ReconPageClient() {
                   const markValue = bulkIntentByItemId[item.id] ?? "none";
                   const showMatchedDetails =
                     item.status === "pending_duplicate" && (item.matchedExpenses?.length ?? 0) > 0;
+                  const isMarked = markValue === "ignore" || markValue === "accept";
                   return (
                     <Fragment key={item.id}>
-                    <tr className="border-b border-border/60 align-top">
+                    <tr
+                      className={cn(
+                        "border-b border-border/60 align-top",
+                        isMarked && "bg-muted/45 text-muted-foreground"
+                      )}
+                    >
                       <td className="py-3 pr-2 align-top">
                         <div
                           className="flex flex-col gap-1.5"
@@ -940,9 +1015,60 @@ export function ReconPageClient() {
                           </Label>
                         </div>
                       </td>
+                      <td className="py-3">
+                        <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap">
+                          {item.status === "pending_duplicate" ? (
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              className="w-full sm:w-auto"
+                              disabled={actDuplicate.isPending}
+                              onClick={() => actDuplicate.mutate(item.id)}
+                            >
+                              Accept as duplicate
+                            </Button>
+                          ) : null}
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="w-full sm:w-auto"
+                            disabled={!canAdd || actAdd.isPending}
+                            onClick={() => {
+                              if (!canAdd || typeof cat !== "number") {
+                                toast.error("Choose a category before adding.");
+                                return;
+                              }
+                              actAdd.mutate({
+                                itemId: item.id,
+                                categoryId: cat,
+                                accountId: acc ?? null,
+                                split,
+                              });
+                            }}
+                          >
+                            Accept and add
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="w-full sm:w-auto"
+                            disabled={actIgnore.isPending}
+                            onClick={() => actIgnore.mutate(item.id)}
+                          >
+                            Ignore
+                          </Button>
+                        </div>
+                      </td>
                     </tr>
                     {showMatchedDetails ? (
-                      <tr className="border-b border-border/60 bg-muted/20">
+                      <tr
+                        className={cn(
+                          "border-b border-border/60",
+                          isMarked ? "bg-muted/40 text-muted-foreground" : "bg-muted/20"
+                        )}
+                      >
                         <td colSpan={9} className="py-2 px-3 pb-3 align-top">
                           <p className="text-xs font-medium text-muted-foreground mb-2">
                             Possible duplicate — expense already on file (same calendar day and amount)
@@ -979,7 +1105,12 @@ export function ReconPageClient() {
                     ) : item.status === "pending_duplicate" &&
                       (item.matchedExpenseIds?.length ?? 0) > 0 &&
                       (item.matchedExpenses?.length ?? 0) === 0 ? (
-                      <tr className="border-b border-border/60 bg-muted/20">
+                      <tr
+                        className={cn(
+                          "border-b border-border/60",
+                          isMarked ? "bg-muted/40 text-muted-foreground" : "bg-muted/20"
+                        )}
+                      >
                         <td colSpan={9} className="py-2 px-3 text-xs text-muted-foreground">
                           Possible duplicate: linked expense(s) are no longer found (they may have been deleted).
                         </td>
@@ -1093,6 +1224,104 @@ export function ReconPageClient() {
             Copy debug text
           </Button>
           <Button type="button" variant="secondary" onClick={() => setMessageDialogOpen(false)}>
+            Close
+          </Button>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog
+        open={processMarkedSummaryOpen}
+        onOpenChange={(open) => {
+          setProcessMarkedSummaryOpen(open);
+          if (!open) setProcessMarkedSummary(null);
+        }}
+        className="max-w-lg"
+      >
+        <DialogHeader>Process marked — summary</DialogHeader>
+        {processMarkedSummary ? (
+          <div className="space-y-4 text-sm">
+            <div className="space-y-1">
+              <p>
+                <span className="text-muted-foreground">Date range (transaction dates)</span>
+                <br />
+                <span className="font-medium">{processMarkedSummary.dateRangeLabel}</span>
+              </p>
+              <p>
+                <span className="text-muted-foreground">Transactions in this run</span>{" "}
+                <span className="font-medium tabular-nums">{processMarkedSummary.processedCount}</span>
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-x-6 gap-y-1 border-y border-border py-2">
+              <span>
+                Accepted{" "}
+                <span className="font-semibold tabular-nums">
+                  {processMarkedSummary.acceptedDuplicateCount + processMarkedSummary.acceptedAddCount}
+                </span>
+                <span className="text-muted-foreground text-xs block sm:inline sm:ml-1">
+                  ({processMarkedSummary.acceptedAddCount} new expense
+                  {processMarkedSummary.acceptedAddCount === 1 ? "" : "s"},{" "}
+                  {processMarkedSummary.acceptedDuplicateCount} duplicate
+                  {processMarkedSummary.acceptedDuplicateCount === 1 ? "" : "s"})
+                </span>
+              </span>
+              <span>
+                Ignored{" "}
+                <span className="font-semibold tabular-nums">{processMarkedSummary.ignoredCount}</span>
+              </span>
+              {processMarkedSummary.skippedNoCategory > 0 ? (
+                <span className="text-amber-700 dark:text-amber-500">
+                  Skipped (no category on row) {processMarkedSummary.skippedNoCategory}
+                </span>
+              ) : null}
+            </div>
+            {processMarkedSummary.addByCategory.length > 0 ? (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">New expenses by category</p>
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="border-b border-border text-left text-muted-foreground">
+                      <th className="py-1.5 pr-2 font-medium">Category</th>
+                      <th className="py-1.5 pr-2 font-medium tabular-nums">Count</th>
+                      <th className="py-1.5 font-medium tabular-nums">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {processMarkedSummary.addByCategory.map((row) => (
+                      <tr key={row.categoryName} className="border-b border-border/60">
+                        <td className="py-1.5 pr-2">{row.categoryName}</td>
+                        <td className="py-1.5 pr-2 tabular-nums">{row.count}</td>
+                        <td className="py-1.5 tabular-nums">{formatRand(row.totalMinor)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+            {(processMarkedSummary.acceptedDuplicateCount > 0 || processMarkedSummary.ignoredCount > 0) && (
+              <ul className="space-y-1 text-muted-foreground">
+                {processMarkedSummary.acceptedDuplicateCount > 0 ? (
+                  <li>
+                    Resolved as duplicate: {processMarkedSummary.acceptedDuplicateCount} ·{" "}
+                    {formatRand(processMarkedSummary.duplicateMinor)}
+                  </li>
+                ) : null}
+                {processMarkedSummary.ignoredCount > 0 ? (
+                  <li>
+                    Ignored: {processMarkedSummary.ignoredCount} · {formatRand(processMarkedSummary.ignoredMinor)}
+                  </li>
+                ) : null}
+              </ul>
+            )}
+            <p className="text-base font-semibold border-t border-border pt-3">
+              Total (all processed bank amounts){" "}
+              <span className="tabular-nums">{formatRand(processMarkedSummary.totalMinor)}</span>
+            </p>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No summary.</p>
+        )}
+        <DialogFooter>
+          <Button type="button" onClick={() => setProcessMarkedSummaryOpen(false)}>
             Close
           </Button>
         </DialogFooter>
