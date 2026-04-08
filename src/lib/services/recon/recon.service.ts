@@ -11,7 +11,7 @@ import {
   exchangeCodeForTokens,
   refreshAccessToken,
 } from "./graph-oauth.service";
-import { fetchGraphUserEmail, fetchMessagesSince, fetchRecentMessages } from "./graph-mail.client";
+import { fetchGraphUserEmail, fetchMessageById, fetchMessagesSince, fetchRecentMessages } from "./graph-mail.client";
 import {
   matchesTypeA,
   parseTypeA,
@@ -21,6 +21,23 @@ import {
 } from "./parsers";
 import type { ParsedBankEmail } from "./parsers/parsed-bank-email";
 import type { ReconImportItemRow } from "@/lib/repositories/interfaces/recon-import-item.repository";
+
+export type ReconSyncDebugMessageOutcome =
+  | "not_bank"
+  | "parse_failed"
+  | "imported_pending_add"
+  | "imported_pending_duplicate";
+
+export interface ReconSyncDebugMessage {
+  graphMessageId: string;
+  receivedDateTime: string;
+  fromAddress: string;
+  subject: string;
+  bodyPreview?: string;
+  outcome: ReconSyncDebugMessageOutcome;
+  parseType?: ParsedBankEmail["parseType"];
+  matchedExpenseCount?: number;
+}
 
 function parseBankMessage(
   fromAddress: string,
@@ -75,15 +92,59 @@ export class ReconService {
     return this.importRepo.findPendingByUserId(userId);
   }
 
-  async syncFromGraph(userId: number, since?: string): Promise<{ imported: number }> {
+  async syncFromGraph(
+    userId: number,
+    since?: string,
+    debug?: boolean
+  ): Promise<{ imported: number; scanned: number; debug?: { truncated: boolean; messages: ReconSyncDebugMessage[] } }> {
     const accessToken = await this.getValidAccessToken(userId);
     const messages = since
       ? await fetchMessagesSince(accessToken, `${since}T00:00:00.000Z`)
       : await fetchRecentMessages(accessToken, 40);
+    const scanned = messages.length;
     let imported = 0;
+    const debugMessages: ReconSyncDebugMessage[] = [];
+    const debugLimit = 300;
+    let truncated = false;
     for (const msg of messages) {
+      const typeA = matchesTypeA(msg.fromAddress, msg.subject);
+      const typeB = !typeA && matchesTypeB(msg.fromAddress, msg.subject);
+      if (!typeA && !typeB) {
+        if (debug) {
+          if (debugMessages.length < debugLimit) {
+            debugMessages.push({
+              graphMessageId: msg.id,
+              receivedDateTime: msg.receivedDateTime,
+              fromAddress: msg.fromAddress,
+              subject: msg.subject,
+              bodyPreview: msg.bodyPreview,
+              outcome: "not_bank",
+            });
+          } else {
+            truncated = true;
+          }
+        }
+        continue;
+      }
+
       const parsed = parseBankMessage(msg.fromAddress, msg.subject, msg.bodyContent);
-      if (!parsed) continue;
+      if (!parsed) {
+        if (debug) {
+          if (debugMessages.length < debugLimit) {
+            debugMessages.push({
+              graphMessageId: msg.id,
+              receivedDateTime: msg.receivedDateTime,
+              fromAddress: msg.fromAddress,
+              subject: msg.subject,
+              bodyPreview: msg.bodyPreview,
+              outcome: "parse_failed",
+            });
+          } else {
+            truncated = true;
+          }
+        }
+        continue;
+      }
       const merchantKey = normalizeMerchantKey(parsed.vendor);
       const matches = await this.expenseRepo.findByUserDateAndAmount(
         userId,
@@ -109,9 +170,43 @@ export class ReconService {
         rawBodyPreview: msg.bodyPreview.slice(0, 2000),
       });
       imported += 1;
+
+      if (debug) {
+        if (debugMessages.length < debugLimit) {
+          debugMessages.push({
+            graphMessageId: msg.id,
+            receivedDateTime: msg.receivedDateTime,
+            fromAddress: msg.fromAddress,
+            subject: msg.subject,
+            bodyPreview: msg.bodyPreview,
+            outcome: matchedIds.length > 0 ? "imported_pending_duplicate" : "imported_pending_add",
+            parseType: parsed.parseType,
+            matchedExpenseCount: matchedIds.length,
+          });
+        } else {
+          truncated = true;
+        }
+      }
     }
     await this.graphConnRepo.setLastSyncedAt(userId, new Date());
-    return { imported };
+    return debug
+      ? { imported, scanned, debug: { truncated, messages: debugMessages } }
+      : { imported, scanned };
+  }
+
+  async getGraphMessageBody(
+    userId: number,
+    graphMessageId: string
+  ): Promise<{ id: string; subject: string; fromAddress: string; receivedDateTime: string; bodyContent: string }> {
+    const accessToken = await this.getValidAccessToken(userId);
+    const msg = await fetchMessageById(accessToken, graphMessageId);
+    return {
+      id: msg.id,
+      subject: msg.subject,
+      fromAddress: msg.fromAddress,
+      receivedDateTime: msg.receivedDateTime,
+      bodyContent: msg.bodyContent,
+    };
   }
 
   async acceptDuplicate(userId: number, itemId: number): Promise<void> {

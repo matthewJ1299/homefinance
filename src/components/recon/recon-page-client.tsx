@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter, DialogHeader } from "@/components/ui/dialog";
+import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Label } from "@/components/ui/label";
 import { SectionHeader } from "@/components/ui/section-header";
 import { formatRand } from "@/lib/utils/currency";
@@ -31,6 +32,32 @@ export function ReconPageClient() {
   const [splitByItemId, setSplitByItemId] = useState<Record<number, boolean>>({});
   const [accountId, setAccountId] = useState<number | "">("");
   const [syncSince, setSyncSince] = useState<string>("");
+  const [syncDebug, setSyncDebug] = useState<
+    null | {
+      truncated: boolean;
+      messages: Array<{
+        graphMessageId: string;
+        receivedDateTime: string;
+        fromAddress: string;
+        subject: string;
+        bodyPreview?: string;
+        outcome: "not_bank" | "parse_failed" | "imported_pending_add" | "imported_pending_duplicate";
+        parseType?: string;
+        matchedExpenseCount?: number;
+      }>;
+    }
+  >(null);
+  const [debugPage, setDebugPage] = useState(1);
+  const debugPageSize = 25;
+  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
+  const [messageLoading, setMessageLoading] = useState(false);
+  const [messageDetail, setMessageDetail] = useState<null | {
+    id: string;
+    subject: string;
+    fromAddress: string;
+    receivedDateTime: string;
+    bodyContent: string;
+  }>(null);
   const [matchesDialogOpen, setMatchesDialogOpen] = useState(false);
   const [matchesForItemId, setMatchesForItemId] = useState<number | null>(null);
   const [matchedExpenses, setMatchedExpenses] = useState<ExpenseWithDetails[] | null>(null);
@@ -98,12 +125,19 @@ export function ReconPageClient() {
 
   const syncMutation = useMutation({
     mutationFn: () =>
-      fetchJson<{ imported: number }>("/api/recon/sync", {
+      fetchJson<{ imported: number; scanned: number; debug?: { truncated: boolean; messages: unknown[] } }>("/api/recon/sync", {
         method: "POST",
-        body: JSON.stringify({ since: syncSince || undefined }),
+        body: JSON.stringify({ since: syncSince || undefined, debug: true }),
       }),
     onSuccess: (data) => {
       toast.success(`Synced: ${data.imported} bank email(s) matched.`);
+      if (data.debug && typeof data.debug === "object") {
+        setSyncDebug(data.debug as typeof syncDebug);
+        setDebugPage(1);
+      } else {
+        setSyncDebug(null);
+        setDebugPage(1);
+      }
       void queryClient.invalidateQueries({ queryKey: ["recon-items"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -194,6 +228,29 @@ export function ReconPageClient() {
       setMatchedExpenses([]);
     } finally {
       setMatchesLoading(false);
+    }
+  }, []);
+
+  const openMessage = useCallback(async (graphMessageId: string) => {
+    setMessageDialogOpen(true);
+    setMessageLoading(true);
+    setMessageDetail(null);
+    try {
+      const data = await fetchJson<{ message: { id: string; subject: string; fromAddress: string; receivedDateTime: string; bodyContent: string } }>(
+        `/api/recon/messages/${encodeURIComponent(graphMessageId)}`
+      );
+      setMessageDetail(data.message);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to load email body.");
+      setMessageDetail({
+        id: graphMessageId,
+        subject: "",
+        fromAddress: "",
+        receivedDateTime: "",
+        bodyContent: "",
+      });
+    } finally {
+      setMessageLoading(false);
     }
   }, []);
 
@@ -294,6 +351,120 @@ export function ReconPageClient() {
           </p>
         </div>
       </section>
+
+      {syncDebug ? (
+        <CollapsibleSection
+          title={`Fetched emails (${syncDebug.messages.length}${syncDebug.truncated ? "+" : ""})`}
+        >
+          <p className="text-xs text-muted-foreground mb-3">
+            Highlighting: green = imported, amber = imported + duplicate, red = matched bank template but parse failed.
+            {syncDebug.truncated ? " (List is truncated.)" : ""}
+          </p>
+          {(() => {
+            const total = syncDebug.messages.length;
+            const totalPages = Math.max(1, Math.ceil(total / debugPageSize));
+            const safePage = Math.min(Math.max(1, debugPage), totalPages);
+            const start = (safePage - 1) * debugPageSize;
+            const pageRows = syncDebug.messages.slice(start, start + debugPageSize);
+            const canPrev = safePage > 1;
+            const canNext = safePage < totalPages;
+            return (
+              <div className="space-y-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    Showing {start + 1}-{Math.min(start + debugPageSize, total)} of {total}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      disabled={!canPrev}
+                      onClick={() => setDebugPage((p) => Math.max(1, p - 1))}
+                    >
+                      Prev
+                    </Button>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      Page {safePage} / {totalPages}
+                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      disabled={!canNext}
+                      onClick={() => setDebugPage((p) => p + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse min-w-[920px]">
+                    <thead>
+                      <tr className="border-b border-border text-left text-muted-foreground">
+                        <th className="py-2 pr-3 font-medium">Received</th>
+                        <th className="py-2 pr-3 font-medium">From</th>
+                        <th className="py-2 pr-3 font-medium">Subject</th>
+                        <th className="py-2 pr-3 font-medium">Preview</th>
+                        <th className="py-2 font-medium">Outcome</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pageRows.map((m) => {
+                        const cls =
+                          m.outcome === "imported_pending_duplicate"
+                            ? "bg-amber-500/10"
+                            : m.outcome === "imported_pending_add"
+                              ? "bg-emerald-500/10"
+                              : m.outcome === "parse_failed"
+                                ? "bg-red-500/10"
+                                : "";
+                        const outcomeLabel =
+                          m.outcome === "not_bank"
+                            ? "Not bank (sender/subject)"
+                            : m.outcome === "parse_failed"
+                              ? "Bank match but parse failed"
+                              : m.outcome === "imported_pending_duplicate"
+                                ? `Imported (duplicate${m.matchedExpenseCount ? `: ${m.matchedExpenseCount}` : ""})`
+                                : "Imported (needs add)";
+                        const preview = (m.bodyPreview ?? "").trim();
+                        return (
+                          <tr key={m.graphMessageId} className={`border-b border-border/60 align-top ${cls}`}>
+                            <td className="py-2 pr-3 whitespace-nowrap">{m.receivedDateTime || "—"}</td>
+                            <td className="py-2 pr-3 max-w-[220px]">
+                              <span className="line-clamp-2" title={m.fromAddress}>
+                                {m.fromAddress || "—"}
+                              </span>
+                            </td>
+                            <td className="py-2 pr-3 max-w-[300px]">
+                              <span className="line-clamp-2" title={m.subject}>
+                                {m.subject || "—"}
+                              </span>
+                            </td>
+                            <td className="py-2 pr-3 max-w-[320px]">
+                              <button
+                                type="button"
+                                className="text-left w-full"
+                                onClick={() => void openMessage(m.graphMessageId)}
+                                title="Click to view full body"
+                              >
+                                <span className="line-clamp-2 text-muted-foreground">
+                                  {preview || "—"}
+                                </span>
+                              </button>
+                            </td>
+                            <td className="py-2">{outcomeLabel}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+        </CollapsibleSection>
+      ) : null}
 
       <section className="rounded-xl border border-border bg-card p-4 space-y-3">
         <SectionHeader title="Pending items" />
@@ -473,6 +644,42 @@ export function ReconPageClient() {
         )}
         <DialogFooter>
           <Button type="button" variant="secondary" onClick={() => setMatchesDialogOpen(false)}>
+            Close
+          </Button>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog
+        open={messageDialogOpen}
+        onOpenChange={(open) => {
+          setMessageDialogOpen(open);
+          if (!open) {
+            setMessageLoading(false);
+            setMessageDetail(null);
+          }
+        }}
+        className="max-w-3xl"
+      >
+        <DialogHeader>Email</DialogHeader>
+        {messageLoading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : messageDetail ? (
+          <div className="space-y-3">
+            <div className="rounded-md border border-border p-3">
+              <p className="text-sm font-medium">{messageDetail.subject || "—"}</p>
+              <p className="text-xs text-muted-foreground">
+                {messageDetail.receivedDateTime || "—"} · {messageDetail.fromAddress || "—"}
+              </p>
+            </div>
+            <pre className="whitespace-pre-wrap text-sm rounded-md border border-border bg-muted/30 p-3 max-h-[60vh] overflow-auto">
+{messageDetail.bodyContent || "—"}
+            </pre>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No data.</p>
+        )}
+        <DialogFooter>
+          <Button type="button" variant="secondary" onClick={() => setMessageDialogOpen(false)}>
             Close
           </Button>
         </DialogFooter>

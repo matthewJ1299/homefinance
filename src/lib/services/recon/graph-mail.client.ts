@@ -7,6 +7,14 @@ export interface GraphMessageSummary {
   fromAddress: string;
 }
 
+export interface GraphMessageDetail {
+  id: string;
+  subject: string;
+  receivedDateTime: string;
+  fromAddress: string;
+  bodyContent: string;
+}
+
 interface GraphMessagesResponse {
   value: Array<{
     id: string;
@@ -88,6 +96,40 @@ export async function fetchMessagesSince(
   }
 
   return out.slice(0, maxMessages);
+}
+
+export async function fetchMessageById(
+  accessToken: string,
+  messageId: string
+): Promise<GraphMessageDetail> {
+  const url = new URL(`https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(messageId)}`);
+  url.searchParams.set("$select", "id,subject,body,receivedDateTime,from");
+  const res = await fetch(url.toString(), {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Prefer: 'outlook.body-content-type="text"',
+    },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Graph message failed: ${res.status} ${text}`);
+  }
+  const m = (await res.json()) as {
+    id: string;
+    subject?: string;
+    body?: { content?: string; contentType?: string };
+    receivedDateTime?: string;
+    from?: { emailAddress?: { address?: string; name?: string } };
+  };
+  const rawBody = m.body?.content ?? "";
+  const content = m.body?.contentType?.toLowerCase() === "html" ? stripHtml(rawBody) : rawBody;
+  return {
+    id: m.id,
+    subject: m.subject ?? "",
+    receivedDateTime: m.receivedDateTime ?? "",
+    fromAddress: m.from?.emailAddress?.address?.toLowerCase() ?? "",
+    bodyContent: content || "",
+  };
 }
 
 export async function fetchGraphUserEmail(accessToken: string): Promise<string | null> {
