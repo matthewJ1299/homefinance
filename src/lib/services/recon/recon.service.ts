@@ -11,7 +11,7 @@ import {
   exchangeCodeForTokens,
   refreshAccessToken,
 } from "./graph-oauth.service";
-import { fetchGraphUserEmail, fetchRecentMessages } from "./graph-mail.client";
+import { fetchGraphUserEmail, fetchMessagesSince, fetchRecentMessages } from "./graph-mail.client";
 import {
   matchesTypeA,
   parseTypeA,
@@ -60,11 +60,14 @@ export class ReconService {
     await this.graphConnRepo.deleteByUserId(userId);
   }
 
-  async isGraphConnected(userId: number): Promise<{ connected: boolean; msAccountEmail: string | null }> {
+  async isGraphConnected(
+    userId: number
+  ): Promise<{ connected: boolean; msAccountEmail: string | null; lastSyncedAt: string | null }> {
     const row = await this.graphConnRepo.findByUserId(userId);
     return {
       connected: !!row,
       msAccountEmail: row?.msAccountEmail ?? null,
+      lastSyncedAt: row?.lastSyncedAt ?? null,
     };
   }
 
@@ -72,9 +75,11 @@ export class ReconService {
     return this.importRepo.findPendingByUserId(userId);
   }
 
-  async syncFromGraph(userId: number): Promise<{ imported: number }> {
+  async syncFromGraph(userId: number, since?: string): Promise<{ imported: number }> {
     const accessToken = await this.getValidAccessToken(userId);
-    const messages = await fetchRecentMessages(accessToken, 40);
+    const messages = since
+      ? await fetchMessagesSince(accessToken, `${since}T00:00:00.000Z`)
+      : await fetchRecentMessages(accessToken, 40);
     let imported = 0;
     for (const msg of messages) {
       const parsed = parseBankMessage(msg.fromAddress, msg.subject, msg.bodyContent);
@@ -105,6 +110,7 @@ export class ReconService {
       });
       imported += 1;
     }
+    await this.graphConnRepo.setLastSyncedAt(userId, new Date());
     return { imported };
   }
 

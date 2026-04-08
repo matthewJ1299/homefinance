@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { setRequestContext } from "@/lib/db/request-context";
 import { ReconService } from "@/lib/services/recon/recon.service";
 
-export async function POST() {
+export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -11,8 +11,10 @@ export async function POST() {
   setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   const userId = Number(session.user.id);
   try {
+    const body = (await request.json().catch(() => ({}))) as { since?: string };
+    const since = typeof body.since === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.since) ? body.since : undefined;
     const service = new ReconService();
-    const result = await service.syncFromGraph(userId);
+    const result = await service.syncFromGraph(userId, since);
     return NextResponse.json(result);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "sync_failed";

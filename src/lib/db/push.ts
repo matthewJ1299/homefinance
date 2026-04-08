@@ -288,6 +288,24 @@ async function pushPostgres(): Promise<void> {
         console.log("Postgres migration 0013 (recon + vendor_category_mappings) applied.");
       }
     }
+
+    const hasReconLastSyncedAt = await client.query(
+      "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'recon_graph_connections' AND column_name = 'last_synced_at'"
+    );
+    if (hasReconLastSyncedAt.rows.length === 0) {
+      const migration0014Path = path.join(process.cwd(), "drizzle", "0014_recon_last_synced_pg.sql");
+      if (fs.existsSync(migration0014Path)) {
+        const sql0014 = fs.readFileSync(migration0014Path, "utf-8");
+        const statements0014 = sql0014
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statements0014) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration 0014 (recon last_synced_at) applied.");
+      }
+    }
   } finally {
     await client.end();
   }

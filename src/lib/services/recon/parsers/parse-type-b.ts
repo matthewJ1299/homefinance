@@ -2,8 +2,8 @@ import type { ParsedBankEmail } from "./parsed-bank-email";
 import { parseDateToYyyyMmDd, parseMinorFromRandText } from "./parse-helpers";
 
 /** Edit these to match your second bank email template (type B). */
-const FROM_SUBSTRINGS = ["fnb", "inContact"];
-const SUBJECT_SUBSTRINGS = ["FNB:-)", "purchase", "debit"];
+const FROM_SUBSTRINGS = ["incontact@fnb.co.za"];
+const SUBJECT_SUBSTRINGS = ["fnb"];
 
 export function matchesTypeB(fromAddress: string, subject: string): boolean {
   const f = fromAddress.toLowerCase();
@@ -23,12 +23,16 @@ export function parseTypeB(body: string, subject: string): ParsedBankEmail | nul
   const date = parseDateToYyyyMmDd(combined);
   if (!date) return null;
   let vendor = "";
+  const atVendor = combined.match(/@\s*([A-Za-z0-9][^\n\r.]{1,80}?)(?:\s+from|\s+using|\s+on|\s*$|[.\n\r])/i);
+  if (atVendor?.[1]) {
+    vendor = atVendor[1].trim();
+  }
   const quoted = combined.match(/["']([^"']{2,80})["']/);
-  if (quoted?.[1]) {
+  if (!vendor && quoted?.[1]) {
     vendor = quoted[1].trim();
   } else {
     const fromLine = combined.match(/from\s+([A-Za-z0-9\s\-&.]+?)(?:\s+on|\s+for|\s*$|\n)/i);
-    vendor = fromLine?.[1]?.trim() ?? "";
+    if (!vendor) vendor = fromLine?.[1]?.trim() ?? "";
   }
   if (!vendor) vendor = "Unknown";
   return {
