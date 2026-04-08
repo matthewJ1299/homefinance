@@ -5,6 +5,7 @@ import {
   getVendorCategoryMappingRepository,
 } from "@/lib/repositories";
 import { ExpenseService } from "@/lib/services/expense.service";
+import { SplitService } from "@/lib/services/split.service";
 import { encryptString, decryptString } from "./token-crypto";
 import {
   exchangeCodeForTokens,
@@ -41,7 +42,8 @@ export class ReconService {
     private importRepo = getReconImportItemRepository(),
     private vendorMapRepo = getVendorCategoryMappingRepository(),
     private expenseRepo = getExpenseRepository(),
-    private expenseService = new ExpenseService()
+    private expenseService = new ExpenseService(),
+    private splitService = new SplitService()
   ) {}
 
   async saveInitialGraphTokens(userId: number, code: string, pkceVerifier: string): Promise<void> {
@@ -128,7 +130,8 @@ export class ReconService {
     userId: number,
     itemId: number,
     categoryId: number,
-    accountId?: number | null
+    accountId?: number | null,
+    split?: boolean
   ): Promise<{ expenseId: number }> {
     const item = await this.importRepo.findByIdForUser(itemId, userId);
     if (!item) throw new Error("Recon item not found");
@@ -136,13 +139,24 @@ export class ReconService {
       throw new Error("Item is not awaiting action");
     }
     const note = item.vendor ? `Recon: ${item.vendor}` : "Recon";
-    const { id } = await this.expenseService.create(userId, {
-      categoryId,
-      amount: item.amount,
-      note,
-      date: item.txnDate,
-      accountId: accountId ?? null,
-    });
+    const { id } = split
+      ? await this.splitService.createSplit(
+          userId,
+          item.amount,
+          categoryId,
+          note,
+          item.txnDate,
+          { type: "equal" },
+          undefined,
+          accountId ?? undefined
+        )
+      : await this.expenseService.create(userId, {
+          categoryId,
+          amount: item.amount,
+          note,
+          date: item.txnDate,
+          accountId: accountId ?? null,
+        });
     await this.vendorMapRepo.upsertIncrement(userId, item.merchantKeyNormalized, categoryId);
     await this.importRepo.updateStatusById(itemId, userId, "accepted_add");
     return { expenseId: id };

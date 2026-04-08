@@ -2,8 +2,8 @@ import type { ParsedBankEmail } from "./parsed-bank-email";
 import { parseDateToYyyyMmDd, parseMinorFromRandText } from "./parse-helpers";
 
 /** Edit these to match your second bank email template (type B). */
-const FROM_SUBSTRINGS = ["fnb", "firstrand"];
-const SUBJECT_SUBSTRINGS = ["card", "purchase", "debit"];
+const FROM_SUBSTRINGS = ["fnb", "inContact"];
+const SUBJECT_SUBSTRINGS = ["FNB:-)", "purchase", "debit"];
 
 export function matchesTypeB(fromAddress: string, subject: string): boolean {
   const f = fromAddress.toLowerCase();

@@ -5,6 +5,7 @@
 ### Added
 
 - **Recon (`/recon`)**: Bank email reconciliation via **Microsoft Graph** (OAuth). Connect Outlook, sync recent messages, parse two configurable bank email templates (`type_a` / `type_b`), flag **possible duplicates** when an expense exists on the same calendar day with the same amount, suggest categories from **vendor_category_mappings**, and **manually** accept as duplicate, accept and add (expense via `ExpenseService`), or ignore. New tables: `recon_graph_connections`, `recon_import_items`, `vendor_category_mappings` (migration `0013_recon_pg.sql`). APIs under `/api/recon/*`. Nav: **Recon** in desktop/hamburger. See [docs/recon.md](./docs/recon.md) and README (Graph setup).
+- **Recon approval split**: When approving a recon item you can now tick **Split 50/50** so **Accept and add** creates a split expense (equal split) using the existing Splits feature.
 
 ### Changed
 

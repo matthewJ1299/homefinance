@@ -2,8 +2,8 @@ import type { ParsedBankEmail } from "./parsed-bank-email";
 import { parseDateToYyyyMmDd, parseMinorFromRandText } from "./parse-helpers";
 
 /** Edit these to match your bank’s notification email (type A). */
-const FROM_SUBSTRINGS = ["standardbank", "standard bank", "mystandardbank"];
-const SUBJECT_SUBSTRINGS = ["purchase", "transaction", "card"];
+const FROM_SUBSTRINGS = ["absa", "mystandardbank"];
+const SUBJECT_SUBSTRINGS = ["NotifyMe", "card"];
 
 export function matchesTypeA(fromAddress: string, subject: string): boolean {
   const f = fromAddress.toLowerCase();

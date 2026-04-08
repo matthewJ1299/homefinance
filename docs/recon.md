@@ -5,6 +5,7 @@ Recon pulls **recent mail** from your connected Outlook account using **Microsof
 ## Related features
 
 - **Expenses**: Accepted rows create expenses through `ExpenseService.create` (same path as manual entry).
+- **Splits**: When **Split 50/50** is selected on approval, accepted rows create a split expense through `SplitService.createSplit` (equal split; uses the default split group).
 - **Accounts**: Optional **default account** on the Recon page is used when you click **Accept and add** (links the new expense to that account).
 - **Categories**: **Vendor category mappings** (`vendor_category_mappings`) learn a merchant key → category from each **Accept and add**; future syncs pre-fill the suggested category.
 
@@ -40,7 +41,7 @@ See the main [README](../README.md) section **Recon and Microsoft Graph (Outlook
 | POST | `/api/recon/sync` | Fetch mail + upsert `recon_import_items` |
 | GET | `/api/recon/items` | List pending items |
 | POST | `/api/recon/items/[id]/accept-duplicate` | Mark duplicate resolved (no new expense) |
-| POST | `/api/recon/items/[id]/accept-add` | Body `{ categoryId, accountId? }` — create expense |
+| POST | `/api/recon/items/[id]/accept-add` | Body `{ categoryId, accountId?, split? }` — create expense (optionally split) |
 | POST | `/api/recon/items/[id]/ignore` | Ignore row |
 
 ## Database

@@ -33,5 +33,39 @@ export function parseDateToYyyyMmDd(text: string): string | null {
     const dd = String(d).padStart(2, "0");
     return `${y}-${mm}-${dd}`;
   }
+  // Bank templates sometimes omit the year, e.g. "31Mar 11:11" or "31 Mar".
+  // We assume current year; if that would land too far in the future, use previous year.
+  const dMon = text.match(/\b(\d{1,2})\s*([A-Za-z]{3,9})\b/);
+  if (dMon) {
+    const d = Number(dMon[1]);
+    const monRaw = (dMon[2] ?? "").toLowerCase();
+    const mon3 = monRaw.slice(0, 3);
+    const monthBy3: Record<string, number> = {
+      jan: 1,
+      feb: 2,
+      mar: 3,
+      apr: 4,
+      may: 5,
+      jun: 6,
+      jul: 7,
+      aug: 8,
+      sep: 9,
+      oct: 10,
+      nov: 11,
+      dec: 12,
+    };
+    const mo = monthBy3[mon3];
+    if (!mo || d <= 0 || d > 31) return null;
+    const now = new Date();
+    let y = now.getUTCFullYear();
+    const candidate = new Date(Date.UTC(y, mo - 1, d));
+    const maxFutureDays = 7;
+    if (candidate.getTime() - now.getTime() > maxFutureDays * 24 * 60 * 60 * 1000) {
+      y -= 1;
+    }
+    const mm = String(mo).padStart(2, "0");
+    const dd = String(d).padStart(2, "0");
+    return `${y}-${mm}-${dd}`;
+  }
   return null;
 }

@@ -29,7 +29,8 @@ export async function POST(
       userId,
       itemId,
       parsed.data.categoryId,
-      parsed.data.accountId ?? null
+      parsed.data.accountId ?? null,
+      parsed.data.split ?? false
     );
     return NextResponse.json(result);
   } catch (e) {

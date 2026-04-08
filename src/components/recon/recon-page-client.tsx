@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { SectionHeader } from "@/components/ui/section-header";
 import { formatRand } from "@/lib/utils/currency";
 import { parseAccountsApiPayload } from "@/lib/utils/accounts-api";
@@ -25,6 +26,7 @@ export function ReconPageClient() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [categoryByItemId, setCategoryByItemId] = useState<Record<number, number | "">>({});
+  const [splitByItemId, setSplitByItemId] = useState<Record<number, boolean>>({});
   const [accountId, setAccountId] = useState<number | "">("");
 
   useEffect(() => {
@@ -115,12 +117,13 @@ export function ReconPageClient() {
   });
 
   const actAdd = useMutation({
-    mutationFn: (vars: { itemId: number; categoryId: number; accountId?: number | null }) =>
+    mutationFn: (vars: { itemId: number; categoryId: number; accountId?: number | null; split?: boolean }) =>
       fetchJson<{ expenseId: number }>(`/api/recon/items/${vars.itemId}/accept-add`, {
         method: "POST",
         body: JSON.stringify({
           categoryId: vars.categoryId,
           accountId: vars.accountId ?? undefined,
+          split: vars.split ?? false,
         }),
       }),
     onSuccess: () => {
@@ -141,6 +144,10 @@ export function ReconPageClient() {
 
   const setCategory = useCallback((itemId: number, value: number | "") => {
     setCategoryByItemId((p) => ({ ...p, [itemId]: value }));
+  }, []);
+
+  const setSplit = useCallback((itemId: number, value: boolean) => {
+    setSplitByItemId((p) => ({ ...p, [itemId]: value }));
   }, []);
 
   const effectiveCategory = useCallback(
@@ -251,6 +258,7 @@ export function ReconPageClient() {
                   <th className="py-2 pr-3 font-medium tabular-nums">Amount</th>
                   <th className="py-2 pr-3 font-medium">Status</th>
                   <th className="py-2 pr-3 font-medium">Category</th>
+                  <th className="py-2 pr-3 font-medium">Split</th>
                   <th className="py-2 font-medium">Actions</th>
                 </tr>
               </thead>
@@ -260,6 +268,7 @@ export function ReconPageClient() {
                   const canAdd = typeof cat === "number" && cat > 0;
                   const acc =
                     accountId === "" ? undefined : typeof accountId === "number" ? accountId : undefined;
+                  const split = splitByItemId[item.id] ?? false;
                   return (
                     <tr key={item.id} className="border-b border-border/60 align-top">
                       <td className="py-3 pr-3 whitespace-nowrap">{item.txnDate}</td>
@@ -286,6 +295,20 @@ export function ReconPageClient() {
                             </option>
                           ))}
                         </select>
+                      </td>
+                      <td className="py-3 pr-3 min-w-[140px]">
+                        <div className="flex items-center gap-2">
+                          <input
+                            id={`recon-split-${item.id}`}
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-input"
+                            checked={split}
+                            onChange={(e) => setSplit(item.id, e.target.checked)}
+                          />
+                          <Label htmlFor={`recon-split-${item.id}`} className="text-sm">
+                            Split 50/50
+                          </Label>
+                        </div>
                       </td>
                       <td className="py-3">
                         <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap">
@@ -315,6 +338,7 @@ export function ReconPageClient() {
                                 itemId: item.id,
                                 categoryId: cat,
                                 accountId: acc ?? null,
+                                split,
                               });
                             }}
                           >
