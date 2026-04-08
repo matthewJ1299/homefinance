@@ -1,12 +1,39 @@
-import { format } from "date-fns";
 import { formatBudgetMonthLabel } from "@/lib/utils/date";
 import { AvatarCircle } from "@/components/ui/avatar-circle";
 import { formatRand } from "@/lib/utils/currency";
+
+/** IANA zone for UTC+2 year-round (SAST). Dashboard greeting and date use this, not the device clock. */
+const DASHBOARD_TIMEZONE = "Africa/Johannesburg";
 
 function getFirstName(name: string | undefined | null): string {
   const trimmed = (name ?? "").trim();
   if (!trimmed) return "there";
   return trimmed.split(/\s+/g)[0] ?? "there";
+}
+
+function getHourInTimezone(now: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hour: "numeric",
+    hour12: false,
+  }).formatToParts(now);
+  const hourPart = parts.find((p) => p.type === "hour")?.value;
+  return hourPart != null ? parseInt(hourPart, 10) : 0;
+}
+
+function formatDashboardDateLine(now: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    timeZone,
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(now);
+}
+
+function getTimeGreeting(hour: number): string {
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
 }
 
 export function HomeGreetingBar({
@@ -24,9 +51,12 @@ export function HomeGreetingBar({
   /** Optional: month-to-date balance hint under the greeting. */
   monthBalanceCents?: number;
 }) {
+  const now = new Date();
   const monthLabel = formatBudgetMonthLabel(month, budgetMonthStartDay).toUpperCase();
   const firstName = getFirstName(userName);
-  const todayLine = format(new Date(), "EEEE, MMMM d");
+  const todayLine = formatDashboardDateLine(now, DASHBOARD_TIMEZONE);
+  const hourUtc2 = getHourInTimezone(now, DASHBOARD_TIMEZONE);
+  const greeting = getTimeGreeting(hourUtc2);
 
   return (
     <section className="space-y-4">
@@ -37,7 +67,7 @@ export function HomeGreetingBar({
           </div>
           <div className="text-xs text-muted-foreground">{todayLine}</div>
           <div className="pt-1 text-2xl sm:text-3xl font-semibold tracking-tight">
-            Good morning, {firstName}
+            {greeting}, {firstName}
           </div>
           {monthBalanceCents != null ? (
             <p className="text-sm text-muted-foreground pt-1">

@@ -42,6 +42,12 @@ import { AccountTransactionRepository } from "./sql/account-transaction.reposito
 import { TransferRepository } from "./sql/transfer.repository";
 import { GoalRepository } from "./sql/goal.repository";
 import { GoalContributionRepository } from "./sql/goal-contribution.repository";
+import type { IReconGraphConnectionRepository } from "./interfaces/recon-graph-connection.repository";
+import type { IReconImportItemRepository } from "./interfaces/recon-import-item.repository";
+import type { IVendorCategoryMappingRepository } from "./interfaces/vendor-category-mapping.repository";
+import { ReconGraphConnectionRepository } from "./sql/recon-graph-connection.repository";
+import { ReconImportItemRepository } from "./sql/recon-import-item.repository";
+import { VendorCategoryMappingRepository } from "./sql/vendor-category-mapping.repository";
 
 let categoryRepo: ICategoryRepository | null = null;
 let expenseRepo: IExpenseRepository | null = null;
@@ -65,6 +71,9 @@ let accountTransactionRepo: IAccountTransactionRepository | null = null;
 let transferRepo: ITransferRepository | null = null;
 let goalRepo: IGoalRepository | null = null;
 let goalContributionRepo: IGoalContributionRepository | null = null;
+let reconGraphConnectionRepo: IReconGraphConnectionRepository | null = null;
+let reconImportItemRepo: IReconImportItemRepository | null = null;
+let vendorCategoryMappingRepo: IVendorCategoryMappingRepository | null = null;
 
 export function getCategoryRepository(): ICategoryRepository {
   if (!categoryRepo) categoryRepo = new CategoryRepository();
@@ -175,5 +184,20 @@ export function getGoalRepository(): IGoalRepository {
 export function getGoalContributionRepository(): IGoalContributionRepository {
   if (!goalContributionRepo) goalContributionRepo = new GoalContributionRepository();
   return goalContributionRepo;
+}
+
+export function getReconGraphConnectionRepository(): IReconGraphConnectionRepository {
+  if (!reconGraphConnectionRepo) reconGraphConnectionRepo = new ReconGraphConnectionRepository();
+  return reconGraphConnectionRepo;
+}
+
+export function getReconImportItemRepository(): IReconImportItemRepository {
+  if (!reconImportItemRepo) reconImportItemRepo = new ReconImportItemRepository();
+  return reconImportItemRepo;
+}
+
+export function getVendorCategoryMappingRepository(): IVendorCategoryMappingRepository {
+  if (!vendorCategoryMappingRepo) vendorCategoryMappingRepo = new VendorCategoryMappingRepository();
+  return vendorCategoryMappingRepo;
 }
 

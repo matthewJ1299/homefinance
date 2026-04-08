@@ -3,14 +3,13 @@
 import { useMemo, useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { Category, ExpenseWithDetails, SplitGroup } from "@/lib/types";
-import type { CategoryBudgetHint } from "@/components/expenses/category-picker";
+import { CategoryPicker, type CategoryBudgetHint } from "@/components/expenses/category-picker";
 import { addExpense, addSplitExpense } from "@/lib/actions/expense.actions";
 import { useOfflineQueue } from "@/hooks/use-offline-queue";
 import { toMinorUnits, formatRand } from "@/lib/utils/currency";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { parseAccountsApiPayload } from "@/lib/utils/accounts-api";
 
@@ -92,6 +91,8 @@ export function HomeInlineQuickAddExpense({
     if (Number.isNaN(parsed) || parsed <= 0) return null;
     return toMinorUnits(parsed);
   };
+  const parseShareCents = (value: string): number =>
+    toMinorUnits(parseFloat(value.replace(/\s/g, "").replace(",", ".")) || 0);
 
   const effectiveAccountId = accountId ?? primaryAccountId ?? undefined;
 
@@ -99,6 +100,10 @@ export function HomeInlineQuickAddExpense({
     () => categories.find((c) => c.id === categoryId) ?? null,
     [categories, categoryId]
   );
+  const totalCentsForExact = parseAmountCents();
+  const myCentsExact = parseShareCents(myShareRand);
+  const otherCentsExact = parseShareCents(otherShareRand);
+  const exactRemainingCents = (totalCentsForExact ?? 0) - myCentsExact - otherCentsExact;
 
   const add = () => {
     const cents = parseAmountCents();
@@ -151,8 +156,8 @@ export function HomeInlineQuickAddExpense({
     startTransition(async () => {
       if (splitEnabled) {
         if (splitType === "exact") {
-          const myCents = toMinorUnits(parseFloat(myShareRand.replace(/\s/g, "").replace(",", ".")) || 0);
-          const otherCents = toMinorUnits(parseFloat(otherShareRand.replace(/\s/g, "").replace(",", ".")) || 0);
+          const myCents = parseShareCents(myShareRand);
+          const otherCents = parseShareCents(otherShareRand);
           if (myCents + otherCents !== cents) {
             setMessage("My share + other share must equal total amount.");
             rollback?.();
@@ -169,8 +174,8 @@ export function HomeInlineQuickAddExpense({
           groupId,
           accountId: effectiveAccountId,
           ...(splitType === "exact" && {
-            myShareCents: toMinorUnits(parseFloat(myShareRand.replace(/\s/g, "").replace(",", ".")) || 0),
-            otherShareCents: toMinorUnits(parseFloat(otherShareRand.replace(/\s/g, "").replace(",", ".")) || 0),
+            myShareCents: parseShareCents(myShareRand),
+            otherShareCents: parseShareCents(otherShareRand),
           }),
         });
         if (result.success) {
@@ -221,10 +226,6 @@ export function HomeInlineQuickAddExpense({
     });
   };
 
-  const chips = useMemo(() => {
-    return [...categories].sort((a, b) => a.sortOrder - b.sortOrder);
-  }, [categories]);
-
   return (
     <section className="space-y-4">
       <div className="rounded-xl border bg-card p-3 sm:p-4 shadow-sm">
@@ -265,31 +266,14 @@ export function HomeInlineQuickAddExpense({
         </div>
 
         <div className="mt-3">
-          <div className="text-xs text-muted-foreground mb-2 font-medium">Category</div>
-          <div className="flex flex-wrap gap-2">
-            {chips.map((c) => {
-              const hint = budgetByCategory?.get(c.id);
-              const isOverspent = hint?.isOverspent ?? false;
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setCategoryId(c.id)}
-                  className={cn(
-                    "rounded-full px-3 py-1.5 text-sm font-medium transition-colors border",
-                    categoryId === c.id
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-background border-input hover:bg-accent",
-                    isOverspent && categoryId !== c.id && "text-destructive border-destructive/50"
-                  )}
-                  title={hint?.isOverspent ? "Over budget" : undefined}
-                >
-                  {c.name}
-                  {isOverspent && categoryId !== c.id ? " !" : ""}
-                </button>
-              );
-            })}
-          </div>
+          <span className="text-xs text-muted-foreground block mb-1">Category</span>
+          <CategoryPicker
+            categories={categories}
+            value={categoryId}
+            onChange={setCategoryId}
+            budgetByCategory={budgetByCategory}
+            showBudgetOnPills={false}
+          />
           {selectedCategory && budgetByCategory && budgetByCategory.get(selectedCategory.id)?.isOverspent ? (
             <p className="mt-2 text-xs text-destructive">
               {selectedCategory.name} is over budget this month.
@@ -373,31 +357,50 @@ export function HomeInlineQuickAddExpense({
                 </label>
               </div>
               {splitType === "exact" ? (
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">My share (R)</Label>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="0.00"
-                      value={myShareRand}
-                      onChange={(e) => setMyShareRand(e.target.value)}
-                      className="text-sm mt-1"
-                    />
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">My share (R)</Label>
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="0.00"
+                        value={myShareRand}
+                        onChange={(e) => setMyShareRand(e.target.value)}
+                        className="text-sm mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">
+                        {otherUserName ? `${otherUserName}'s share (R)` : "Other share (R)"}
+                      </Label>
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="0.00"
+                        value={otherShareRand}
+                        onChange={(e) => setOtherShareRand(e.target.value)}
+                        className="text-sm mt-1"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">
-                      {otherUserName ? `${otherUserName}'s share (R)` : "Other share (R)"}
-                    </Label>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="0.00"
-                      value={otherShareRand}
-                      onChange={(e) => setOtherShareRand(e.target.value)}
-                      className="text-sm mt-1"
-                    />
-                  </div>
+                  <p
+                    className={`text-xs ${
+                      totalCentsForExact == null
+                        ? "text-muted-foreground"
+                        : exactRemainingCents < 0
+                          ? "text-destructive"
+                          : "text-muted-foreground"
+                    }`}
+                  >
+                    {totalCentsForExact == null
+                      ? "Enter total amount above to calculate remaining."
+                      : exactRemainingCents > 0
+                        ? `Remaining to allocate: ${formatRand(exactRemainingCents)}`
+                        : exactRemainingCents < 0
+                          ? `Over allocated by ${formatRand(Math.abs(exactRemainingCents))}`
+                          : "Fully allocated."}
+                  </p>
                 </div>
               ) : null}
             </div>

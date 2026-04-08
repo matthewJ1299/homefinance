@@ -8,7 +8,8 @@ All database writes use **optimistic UI**: the UI updates immediately, then a to
 
 - **Income**: Record salary and ad-hoc income per month. **Dashboard income** shows only the signed-in user's income for the selected month.
 - **Expenses**: Log expenses by category with optional notes.
-  - **Dashboard**: The "Recent" expenses section shows only the signed-in user’s expenses on the **primary account** (set under **Settings** > **Accounts**; with several accounts, use **Set as primary**). If you have only one account, it is always primary. If primary is unset and you have multiple accounts, the app defaults to the oldest bank account, then the oldest account by id. **Quick add expense** uses that same primary account and an expense date for the **budget month you are viewing** (today when it falls in that month, otherwise the start or end of that period), so new rows appear in **Recent expenses** after save. With **Split with partner** enabled, you can choose split **group**, equal split, full amount owed to you, or exact shares (same behavior as the expense quick-add flow). Use the **Expenses** page to view all accounts or filter by account. A strip of **Tasks / Events / Budget** stats links to Lists, Calendar, and Budget. An **Upcoming events** tile highlights today’s events or the next event and links to the Calendar page.
+  - **Dashboard**: The "Recent" expenses section shows only the signed-in user’s expenses on the **primary account** (set under **Settings** > **Accounts**; with several accounts, use **Set as primary**). If you have only one account, it is always primary. If primary is unset and you have multiple accounts, the app defaults to the oldest bank account, then the oldest account by id. **Quick add expense** uses that same primary account and an expense date for the **budget month you are viewing** (today when it falls in that month, otherwise the start or end of that period), so new rows appear in **Recent expenses** after save. **Category** selection uses the same **CategoryPicker** as the **`/add`** expense step (most-used strip, optional **Show more** for variable vs fixed groups); on the dashboard, pills show **names only**, not budget amounts on each pill. With **Split with partner** enabled, you can choose split **group**, equal split, full amount owed to you, or exact shares (same behavior as the expense quick-add flow). Use the **Expenses** page to view all accounts or filter by account. A strip of **Tasks / Events / Budget** stats links to Lists, Calendar, and Budget. An **Upcoming events** tile highlights today’s events or the next event and links to the Calendar page.
+  - **Exact split helper**: In **Split by exact amount**, the form shows a live helper for remaining amount to allocate (or over-allocated amount) so shares can be balanced before save.
   - **Expenses page**: Toggle to view **My expenses**, another user's expenses (e.g. partner's), or **Combined** income and expenses for the selected view. Income and expense totals are shown for the active filter. Use the **Account** dropdown to show only expenses linked to a specific account (or **All**).
 - **Goals (Intent)**: Track intent separately from spending.
   - **Savings goals**: Set a target amount and monthly target, link to an account (recommended). Add contributions manually; the dashboard shows progress, monthly compliance, and a projected completion month.
@@ -20,6 +21,7 @@ All database writes use **optimistic UI**: the UI updates immediately, then a to
   - **Fixed**: Same amount each month (e.g. Utilities, Insurance). You can set a default amount (R) in Manage categories; that amount is auto-allocated for new months until you change it.
   - **Variable**: Amount varies by month (e.g. Groceries, Dining out).
 - **Budget**: **Per-user**: each signed-in user has their own budget. You see only your income, your expenses, your category allocations, and your transfers. Allocate income to categories per month. **Budget-expense integration**: After adding an expense, a toast shows how much remains in that category for the month (or a warning with link to Budget if over). The dashboard shows an over-budget warning tile when any category is overspent. The category picker (e.g. on quick-add) shows remaining amount per category when budget data is available. Category order can be changed by **drag and drop** (grip handle on the left of each category card); the order is saved and used app-wide (e.g. Manage categories, category pickers). Allocations **carry over**: if a month has no allocation set for a category, the last set allocation from a previous month is used. So you only need to change an allocation when you want it to differ from the previous month.
+  - **To be allocated summary (Option 2)**: The headline amount uses `toBeAllocated = (current month income - allocated) + rolloverAdjustment`, where `rolloverAdjustment` is the negative of prior-month cash overspending (combined-safe source: category negatives first, top-level fallback). The summary now clearly shows **to allocate**, **fully allocated**, or **over allocated**.
   - When there is unallocated income, use **Auto-allocate** to distribute the remainder:
     - If you have already set amounts for some categories, the remainder is added to those categories only.
     - If historical expense data exists (past 6 months), the remainder is split in proportion to past spending.
@@ -31,15 +33,17 @@ All database writes use **optimistic UI**: the UI updates immediately, then a to
 - **Accounts**: Track bank balances, savings, and credit. Create accounts under **Settings** > **Accounts** (Bank, Savings, Credit types). The **primary** account is listed **first** and shows a **Primary** badge (used for dashboard **Recent expenses**, **Quick add expense**, and as the default account in expense/income quick-add flows, with no “none” option when you have accounts). If you have exactly one account, it is always primary; with more than one, use **Set as primary** to choose which account is first. Link income and expenses to accounts when adding them; balances are computed from a ledger (`account_transactions`). Use **Transfer Money** (dashboard tile or Settings > Accounts) to move funds between accounts (e.g. bank to savings, or pay down credit). Credit accounts show balance, limit, and available credit. All financial movement flows through `account_transactions`; balances are never stored directly.
 - **Splits**: Track shared expenses and who owes whom. **Split groups** (e.g. Home, Wedding) let you keep balances separate: create groups under **Split groups**, then when adding a split expense choose a group (defaults to "Default"). On the **Splits** page you see a summary tile per group and can switch the active group to see "How much each person owes" and **Split history** for that group only. Settling is per group: use **Settle** and the amount is applied to the current group's balance. You can also settle from the dashboard by adding an expense with category **Splits** (applies to the default group).
 - **Summary**: Per-user monthly snapshot (your income, expenses, and budget adherence) and household trends.
-- **Add / quick-create (`/add`)**: On **mobile**, the **center Add** control (floating pill in the bottom bar) opens the **Create new** hub: cards for **New task** (list item), **New event**, and **New expense**, plus a **Quick add** line (type + optional text for tasks). For **Expense**, you can enter a leading amount and optional note (e.g. `120 groceries`); after **Add**, the category step shows that **amount** at the top and pre-fills the note. Desktop users can open the same screen from the sidebar **Add** link. After a successful save from this hub (or the same flows from the **+** quick-add menu when shown), you are taken to **Dashboard** for an expense, **`/lists/[id]`** for a task (the list you picked), or **Calendar** for an event. The dashboard **Quick add expense** section is unchanged for fast logging without leaving Home.
-- **Mobile bottom bar**: **Home**, **Calendar**, **Add** (center), **Lists**, **Budget**. The **hamburger menu** (header, small screens) lists the same destinations as the **desktop sidebar** (Dashboard, Calendar, Add, Lists, Expenses, Splits, Budget, Accounts, Mortgage, Goals, Summary, Settings).
+- **Add / quick-create (`/add`)**: On **mobile**, the **center Add** control (floating pill in the bottom bar) opens the **Create new** hub: cards for **New task** (list item), **New event**, and **New expense**, plus a **Quick add** line (type + optional text for tasks). For **Expense**, you can enter a leading amount and optional note (e.g. `120 groceries`); after **Add**, the category step shows that **amount** at the top and pre-fills the note. Desktop users can open the same screen from the sidebar **Add** link. After a successful save from this hub (or the same flows from the **+** quick-add menu when shown), you are taken to **Dashboard** for an expense, **`/lists/[id]`** for a task (the list you picked), or **Calendar** for an event. The dashboard **Quick add expense** tile keeps one-screen logging on Home; its category UI matches this step (same **CategoryPicker**).
+- **Mobile bottom bar**: **Home**, **Calendar**, **Add** (center), **Lists**, **Budget**. The **hamburger menu** (header, small screens) lists the same destinations as the **desktop sidebar** (Dashboard, Calendar, Add, Lists, Expenses, **Recon**, Splits, Budget, Accounts, Mortgage, Goals, Summary, Settings).
+- **Dashboard greeting**: The greeting and displayed weekday/date use **UTC+2** (IANA `Africa/Johannesburg`), not the device timezone (**Good morning**, **Good afternoon**, **Good evening** by that clock).
 - **Calendar**: Month grid and day schedule (see `/calendar`). Events support optional **end date** (multi-day spans shown as a **pill across days** in the month grid), optional **end time**, **calendar category** (color-coded dots, bars, and span pills; separate from budget categories), **shared vs personal** visibility, **priority**, name, location, start date, start time, notes, and **reminder** (None, at event time, or 5/10/15/30 min, 1–2 hours, 1 day before). **End date** applies when recurrence is **none**; recurring events use one day per occurrence. **Shared** events are visible to both users; **personal** events only to the creator (list, dashboard tile, daily summary). Recurrence: none, weekly, monthly (optional day of month), or yearly. Any user can edit or delete any event (household model); change API checks if you need creator-only edits. Push: partner is notified when someone adds a **shared** event; reminders go to everyone for shared events and only to the creator for personal events.
 - **Lists**: Shared lists (household-wide) and personal lists (per-user only). **Lists** in the nav opens **My lists**: filter chips (**All** + one per list), progress per list, and inline items with check-to-complete, quantity, and **Open** for full detail. Under **Settings** > **Lists**, create and delete lists, and use **List items** to pick a list and add or remove checklist rows (same controls as the list detail page). The list detail page (`/lists/[id]`) has the list switcher, add-item form, and **Delete all completed**.
 - **Mortgage**: Optional mortgage tracking. The page uses plain-language labels and a single at-a-glance summary (what you still owe - balance after last payment - total per month, when you will be done paying, each person’s share of the home). The amortisation table and form to change the loan or who pays what are in a collapsible **More details** section below.
   - **Past vs future**: Months in which you have recorded payments show **actual** amounts paid (e.g. 10k one month, 5k another). When you change the interest rate or payment (config or user shares), only **future** months are recalculated; past months stay as paid. The projection runs from the current remaining balance, so payoff date and equity reflect the new rate and payment from “today” onward.
 
-- **Recurring income and expenses**: Under **Recurring income** and **Recurring expenses** you define templates (amount, category for expenses, day of month). Each month, use **Populate this month** at the **bottom** of the dashboard to create actual income and expense rows from those templates. Population is idempotent: it only creates entries that do not already exist for that month, so you can run it again safely.
+- **Recurring income and expenses**: Under **Recurring income** and **Recurring expenses** you define templates (amount, category for expenses, day of month). Each month, use **Populate this month** in **Settings** to create actual income and expense rows from those templates. Population is idempotent: it only creates entries that do not already exist for that month, so you can run it again safely. If you use a custom budget-month start day (for example 25th), recurring items are placed on the correct calendar date inside that budget period.
 - **AI expense analysis (optional)**: If `GEMINI_API_KEY` is set, the dashboard shows an "Analyze spending" button. It sends the current month's budget summary to Google Gemini and returns a short analysis (patterns, advice, anomalies). Rate-limited to 5 calls per user per hour.
+- **Recon (`/recon`)**: Optional bank-email reconciliation via **Microsoft Graph** (the HTTP REST API; not GraphQL). After you connect Outlook and sync, the app fetches recent messages, parses bank-style notifications, flags potential duplicates against your expenses, and lets you **manually** accept or ignore each item. See [docs/recon.md](./docs/recon.md) and [Recon and Microsoft Graph (Outlook)](#recon-and-microsoft-graph-outlook) below.
 
 ## Setup
 
@@ -64,6 +68,54 @@ docker compose --profile watch up db app-dev --watch
 - Starts Postgres and **app-dev** on [http://localhost:3000](http://localhost:3000) with `next dev` (Turbopack).
 - Edits under `src/`, `public/`, and `drizzle/` sync into the container; changes to `next.config.ts`, `postcss.config.mjs`, `server.js`, or `tsconfig.json` sync and restart the dev process; `package.json` / `package-lock.json` changes trigger an image rebuild.
 - Do not run `app` and **app-dev** together (both use port 3000). Default `docker compose up --build` still uses the production **app** image for parity with deploys.
+
+### Recon and Microsoft Graph (Outlook)
+
+The Recon feature uses **Microsoft Graph** (OAuth 2.0 + REST) to read mail. It is **not** GraphQL; you register an app in Microsoft Entra ID (Azure AD) and grant delegated **Mail.Read** (and optional **User.Read** for profile display).
+
+### Azure app registration (one-time)
+
+1. In [Azure Portal](https://portal.azure.com) → **Microsoft Entra ID** → **App registrations** → **New registration**.
+2. **Name**: e.g. `HomeFinance Recon`. **Supported account types**: choose **Accounts in any organizational directory and personal Microsoft accounts** (or **Personal Microsoft accounts only** if you only use `@outlook.com` / `@live.com`).
+3. **Redirect URI**: platform **Web**, URI exactly:
+   - `{NEXTAUTH_URL}/api/recon/graph/callback`  
+   Example production: `https://your-domain.com/api/recon/graph/callback`  
+   Example local: `http://localhost:3000/api/recon/graph/callback`
+4. After creation, open **Certificates & secrets** → **New client secret**; copy the value (shown once).
+5. **API permissions** → **Add a permission** → **Microsoft Graph** → **Delegated permissions** → add:
+   - `Mail.Read`
+   - `User.Read` (optional; used to show the mailbox address after connect)
+   - `offline_access` is requested in code so refresh tokens work; consent covers it when you grant Mail.Read.
+6. **Grant admin consent** is not required for personal Microsoft accounts; the first user who connects will see the Microsoft consent screen.
+
+### Environment variables
+
+Add to `.env.local` (or your deployment env):
+
+| Variable | Purpose |
+|----------|--------|
+| `NEXTAUTH_URL` | Public base URL of the app (**no trailing slash**). Required for OAuth redirect and callback. Use `http://localhost:3000` in dev. |
+| `GRAPH_OAUTH_CLIENT_ID` | Application (client) ID from the app registration. |
+| `GRAPH_OAUTH_CLIENT_SECRET` | Client secret value. |
+| `GRAPH_OAUTH_TENANT` | Optional. Default `common` (work + personal Microsoft accounts). Use a specific tenant ID if you only use one org. |
+| `RECON_TOKEN_ENCRYPTION_KEY` | Optional. Strong secret used to encrypt stored Graph refresh tokens. If omitted, `AUTH_SECRET` is used (must be at least 16 characters). |
+
+Aliases supported in code: `MICROSOFT_GRAPH_CLIENT_ID`, `MICROSOFT_GRAPH_CLIENT_SECRET`, `MICROSOFT_GRAPH_TENANT` for the same values.
+
+### How authentication works
+
+1. You sign in to Home Finance with **email + password** (existing credentials).
+2. Open **Recon** and choose **Connect Outlook** (or visit `/api/recon/graph/connect` while logged in). The app redirects to Microsoft’s login page.
+3. You sign in with your Microsoft account (e.g. `matthew.j@live.com`) and **consent** to Mail.Read.
+4. Microsoft redirects back to `/api/recon/graph/callback` with an authorization code. The server exchanges it for tokens, stores an **encrypted refresh token** per user, and redirects you to `/recon`.
+5. **Sync** uses the refresh token to obtain short-lived access tokens and calls Graph `GET /me/messages` (read-only). Disconnect removes the stored connection from the database.
+
+**Troubleshooting**: If redirect URI does not match exactly (http vs https, port, path), or `NEXTAUTH_URL` is wrong, OAuth fails. Ensure the app registration redirect URI matches `getGraphRedirectUri()` = `{NEXTAUTH_URL}/api/recon/graph/callback`.
+
+### Database migrations and existing data
+
+- **`npm run db:push`** (used on deploy and in Docker entrypoint) runs **additive** migrations only: it creates tables or columns when they are **missing**. It does **not** `DROP` tables, `TRUNCATE` data, or wipe rows. Your existing expenses, users, and other data stay intact when new migrations (e.g. Recon tables in `drizzle/0013_recon_pg.sql`) are applied.
+- **Destructive operations** (only when you explicitly want to reset): `npm run db:reset` drops and recreates the public schema; `npm run db:seed` clears application data; `npm run db:fresh` combines reset + seed. Do not use those on production databases you care about.
 
 ## Seed data
 
@@ -90,6 +142,7 @@ HomeFinance can be installed as a Progressive Web App (PWA) on phones and deskto
   This creates `icon-180x180.png`, `icon-192x192.png`, `icon-512x512.png`, `icon-maskable-512x512.png`, and iOS `splash-*` images for common device sizes. To use your own icon, replace the PNGs (see `public/icons/README.md`). Maskable icons should keep important content in the center 80%.
 - **Install prompt**: When the app meets install criteria (HTTPS, valid manifest, service worker, icons), supported browsers show a custom install banner. The app detects standalone mode and hides the prompt when already installed. **On iOS Safari**: the prompt appears after a 3-second delay; tap "How to Install" to expand step-by-step instructions (Share, Add to Home Screen, Add). Dismiss is per-session. **On Android/desktop**: the native install prompt is shown when the user taps Install. An apple-touch-icon and iOS splash screens ensure a proper home-screen launch on iOS.
 - **Push notifications**: The app can send Web Push notifications when the PWA is in the background or closed. In **Settings**, use the "Push notifications" section to enable (browser will ask for permission), send a test, or disable. The service worker handles incoming push and notification clicks (opens the app or a URL). Set VAPID keys: run `npm run generate-vapid-keys` and add `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` to your environment. Push requires HTTPS and a supporting browser (Chrome, Edge, Firefox; iOS 16.4+ when installed as PWA from home screen).
+- **Push notifications (reopen behavior)**: On reopen/resume, settings now re-check permission/subscription and re-sync existing subscriptions to the server to reduce Android/PWA cases where users needed to disable/enable again.
 - **Scheduled notifications**: An in-process scheduler (runs when the server starts) sends:
   - **Daily 9am summary**: If there is at least one calendar event today, a single push at 9am (configurable: `DAILY_NOTIFICATION_HOUR`, default 9; timezone: `TZ`, default UTC) to all users with notifications enabled, listing event name(s) and time(s).
   - **Per-event reminders**: For events with a reminder set (e.g. 15 minutes before), a push is sent to all users when that reminder time is reached. Set the reminder in the calendar event form (create/edit).
@@ -114,7 +167,7 @@ See [DEPLOY.md](./DEPLOY.md) for deploying to a VPS with Coolify (Docker + Traef
 
 - `npm run dev` – Start dev server (Turbopack)
 - `npm run build` / `npm run start` – Production build and start
-- `npm run db:push` – Apply schema and migrations. Runs Postgres migrations (`0000_init_pg.sql` through `0010_calendar_event_end_date_pg.sql` and related steps) when tables or columns are missing. Use this after deploying or if you see "groupId missing" on the Splits page.
+- `npm run db:push` – Apply **additive** schema and migrations (creates missing tables/columns; does not delete existing data). Runs Postgres migrations from `drizzle/` (including numbered steps like `0013_recon_pg.sql`) when tables or columns are missing. Use this after deploying or if you see "groupId missing" on the Splits page.
 - `npm run db:reset` – Recreate DB from scratch (drop/recreate public schema). Then run push (and optionally seed). Do not run while the app is using the DB.
 - `npm run db:seed` – Clear all data, then seed users, categories, 3 months of income/expenses, and sample split expenses
 - `npm run db:fresh` – Reset DB then seed (recreate from scratch and seed in one go)

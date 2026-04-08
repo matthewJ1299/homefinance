@@ -7,6 +7,7 @@ import {
   subscribeToPush,
   unsubscribeFromPush,
   getCurrentSubscription,
+  syncPushSubscriptionWithServer,
 } from "@/lib/push/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -23,14 +24,47 @@ export function PushNotificationsSettings() {
   } | null>(null);
 
   const updateState = useCallback(async () => {
-    setSupported(isPushSupported());
+    const pushSupported = isPushSupported();
+    setSupported(pushSupported);
     setPermission(getNotificationPermission());
-    const sub = await getCurrentSubscription();
-    setSubscribed(!!sub);
+    if (!pushSupported) {
+      setSubscribed(false);
+      return;
+    }
+    try {
+      const sub = await syncPushSubscriptionWithServer();
+      setSubscribed(!!sub);
+    } catch {
+      const sub = await getCurrentSubscription();
+      setSubscribed(!!sub);
+    }
   }, []);
 
   useEffect(() => {
     updateState();
+  }, [updateState]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void updateState();
+      }
+    };
+    const onFocus = () => {
+      void updateState();
+    };
+    const onPageShow = () => {
+      void updateState();
+    };
+
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("pageshow", onPageShow);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("pageshow", onPageShow);
+    };
   }, [updateState]);
 
   const handleEnable = async () => {

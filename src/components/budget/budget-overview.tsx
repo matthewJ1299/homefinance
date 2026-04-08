@@ -42,6 +42,9 @@ export function BudgetOverview({
     categoryName: c.categoryName,
     remaining: c.remaining,
   }));
+  const toBeAllocated = data.toBeAllocated ?? data.unallocated;
+  const allocationStatus =
+    toBeAllocated > 0 ? "to_allocate" : toBeAllocated < 0 ? "over_allocated" : "balanced";
 
   return (
     <div className="space-y-6 pb-8">
@@ -65,7 +68,7 @@ export function BudgetOverview({
             <span className="font-medium tabular-nums">{formatRand(data.totalAllocated)}</span>
           </div>
         </div>
-        {!data.isBalanced && <UnallocatedBanner unallocated={data.unallocated} />}
+        {!data.isBalanced && <UnallocatedBanner toBeAllocated={toBeAllocated} />}
       </div>
 
       <BudgetCategorySummaryTile categories={data.categories} />
@@ -90,12 +93,12 @@ export function BudgetOverview({
           </p>
         )}
         <div className="flex justify-between items-center gap-2 flex-wrap">
-          <span className="text-sm text-muted-foreground">Yet to allocate</span>
+          <span className="text-sm text-muted-foreground">To be allocated</span>
           <div className="flex items-center gap-2">
             <span className="font-semibold tabular-nums">
-              {data.unallocated > 0 ? formatRand(data.unallocated) : "Fully allocated"}
+              {allocationStatus === "balanced" ? "Fully allocated" : formatRand(toBeAllocated)}
             </span>
-            {data.unallocated > 0 && (
+            {toBeAllocated > 0 && (
               <Button
                 variant="secondary"
                 size="sm"
@@ -120,6 +123,13 @@ export function BudgetOverview({
             )}
           </div>
         </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {allocationStatus === "to_allocate"
+            ? "Assign the remaining amount to categories."
+            : allocationStatus === "over_allocated"
+              ? "You have allocated more than this month's available amount."
+              : "All available funds are assigned."}
+        </p>
       </div>
 
       <div className="space-y-4">

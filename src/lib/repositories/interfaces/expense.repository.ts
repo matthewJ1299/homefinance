@@ -55,4 +55,6 @@ export interface IExpenseRepository {
   deleteBySplitGroupId(splitGroupId: string): Promise<void>;
   findSplitExpenses(groupId?: number): Promise<ExpenseWithDetails[]>;
   hasExpenseFromRecurring(recurringExpenseId: number, month: string): Promise<boolean>;
+  /** Same calendar day and exact amount (minor units). Used for recon duplicate detection. */
+  findByUserDateAndAmount(userId: number, date: string, amount: number): Promise<ExpenseWithDetails[]>;
 }

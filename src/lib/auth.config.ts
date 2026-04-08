@@ -16,7 +16,8 @@ export const authConfig: NextAuthConfig = {
         nextUrl.pathname.startsWith("/budget") ||
         nextUrl.pathname.startsWith("/mortgage") ||
         nextUrl.pathname.startsWith("/summary") ||
-        nextUrl.pathname.startsWith("/categories");
+        nextUrl.pathname.startsWith("/categories") ||
+        nextUrl.pathname.startsWith("/recon");
       if (isOnApp && !isLoggedIn) {
         return false;
       }

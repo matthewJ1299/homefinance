@@ -57,6 +57,8 @@ interface CategoryPickerProps {
   onChange: (categoryId: number) => void;
   /** Optional per-category budget remaining (cents) for the current month. When set, shows e.g. "Groceries (R450 left)" or overspent in red. */
   budgetByCategory?: Map<number, CategoryBudgetHint>;
+  /** When false, pills show category names only; budget hints still affect overspent styling if `budgetByCategory` is set. Default true. */
+  showBudgetOnPills?: boolean;
   className?: string;
 }
 
@@ -66,6 +68,7 @@ function PillSection({
   value,
   onSelect,
   budgetByCategory,
+  showBudgetOnPills,
   className,
   pillsClassName,
 }: {
@@ -74,6 +77,7 @@ function PillSection({
   value: number | null;
   onSelect: (id: number) => void;
   budgetByCategory?: Map<number, CategoryBudgetHint>;
+  showBudgetOnPills: boolean;
   className?: string;
   pillsClassName?: string;
 }) {
@@ -84,11 +88,12 @@ function PillSection({
       <div className={cn("flex flex-wrap gap-2", pillsClassName)}>
         {categories.map((c) => {
           const hint = budgetByCategory?.get(c.id);
-          const labelText = hint
-            ? hint.isOverspent
-              ? `${c.name} (${formatRand(-hint.remaining)} over)`
-              : `${c.name} (${formatRand(hint.remaining)} left)`
-            : c.name;
+          const labelText =
+            showBudgetOnPills && hint
+              ? hint.isOverspent
+                ? `${c.name} (${formatRand(-hint.remaining)} over)`
+                : `${c.name} (${formatRand(hint.remaining)} left)`
+              : c.name;
           return (
             <button
               key={c.id}
@@ -111,7 +116,14 @@ function PillSection({
   );
 }
 
-export function CategoryPicker({ categories, value, onChange, budgetByCategory, className }: CategoryPickerProps) {
+export function CategoryPicker({
+  categories,
+  value,
+  onChange,
+  budgetByCategory,
+  showBudgetOnPills = true,
+  className,
+}: CategoryPickerProps) {
   const [usageCounts, setUsageCounts] = useState<Record<number, number> | null>(null);
   const [expanded, setExpanded] = useState(false);
 
@@ -164,6 +176,7 @@ export function CategoryPicker({ categories, value, onChange, budgetByCategory, 
         value={value}
         onSelect={handleSelect}
         budgetByCategory={budgetByCategory}
+        showBudgetOnPills={showBudgetOnPills}
         pillsClassName="flex-nowrap overflow-x-auto no-scrollbar pb-1"
       />
       <div className="flex justify-start">
@@ -185,6 +198,7 @@ export function CategoryPicker({ categories, value, onChange, budgetByCategory, 
         value={value}
         onSelect={handleSelect}
         budgetByCategory={budgetByCategory}
+        showBudgetOnPills={showBudgetOnPills}
       />
       <PillSection
         label="Fixed costs"
@@ -192,6 +206,7 @@ export function CategoryPicker({ categories, value, onChange, budgetByCategory, 
         value={value}
         onSelect={handleSelect}
         budgetByCategory={budgetByCategory}
+        showBudgetOnPills={showBudgetOnPills}
       />
         </>
       ) : null}

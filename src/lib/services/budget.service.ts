@@ -38,6 +38,15 @@ export interface BudgetOverviewResult {
   totalExpenses: number;
   balance: number;
   totalAllocated: number;
+  /** Current-month only income minus allocations (before rollover adjustment). */
+  baseToAssign: number;
+  /** Positive prior-month cash overspending amount used by rollover logic. */
+  priorMonthCashOverspend: number;
+  /** Adjustment applied to base-to-assign (negative when prior month was overspent). */
+  rolloverAdjustment: number;
+  /** Final amount to allocate for this month after rollover adjustment. */
+  toBeAllocated: number;
+  /** Backward-compatible alias for toBeAllocated. */
   unallocated: number;
   isBalanced: boolean;
   categories: BudgetCategoryRow[];
@@ -90,7 +99,17 @@ export class BudgetService {
       expenses: expenseResult.expenses,
       spentByCategory,
     });
-    const { balance, totalAllocated, categoryRows, unallocated, isBalanced } = budgetArithmetic;
+    const { balance, totalAllocated, categoryRows, unallocated: baseToAssign } = budgetArithmetic;
+    const priorMonthCashOverspend = await this.computePriorMonthCashOverspend({
+      month,
+      userId,
+      categories,
+      monthsToLoad,
+      allocationsForMonths,
+    });
+    const rolloverAdjustment = -priorMonthCashOverspend;
+    const toBeAllocated = baseToAssign + rolloverAdjustment;
+    const isBalanced = toBeAllocated === 0;
 
     const transferDisplays: BudgetTransferDisplay[] = await Promise.all(
       transfers.map(async (t) => {
@@ -119,7 +138,11 @@ export class BudgetService {
       totalExpenses,
       balance,
       totalAllocated,
-      unallocated,
+      baseToAssign,
+      priorMonthCashOverspend,
+      rolloverAdjustment,
+      toBeAllocated,
+      unallocated: toBeAllocated,
       isBalanced,
       categories: categoryRows,
       transfers: transferDisplays,
@@ -188,6 +211,57 @@ export class BudgetService {
     );
     const map = new Map(rows.map((r) => [r.id, r.name]));
     return userIds.map((id) => map.get(id) ?? "?");
+  }
+
+  /**
+   * Option 2 rollover (combined-safe):
+   * - Prefer prior-month sum of category negatives: max(0, spent - allocated) across categories.
+   * - If that is zero, fallback to top-level gap: max(0, totalAllocated - totalIncome).
+   */
+  private async computePriorMonthCashOverspend(input: {
+    month: string;
+    userId: number;
+    categories: Category[];
+    monthsToLoad: string[];
+    allocationsForMonths: BudgetAllocationWithMonth[];
+  }): Promise<number> {
+    const previousMonth = prevMonth(input.month);
+    const [incomeResult, expenseResult] = await Promise.all([
+      this.incomeService.getByMonth(previousMonth, input.userId),
+      this.expenseService.getByMonth(previousMonth, input.userId),
+    ]);
+    const hasPriorAllocation = input.allocationsForMonths.some((a) => a.month === previousMonth);
+    const hasPriorExpense = expenseResult.expenses.some((e) => e.date.startsWith(previousMonth));
+    if (!hasPriorAllocation && !hasPriorExpense) {
+      return 0;
+    }
+
+    const monthsForPrevious = input.monthsToLoad.slice(1);
+    const previousAllocationMap = this.resolveEffectiveAllocations(
+      previousMonth,
+      monthsForPrevious,
+      input.allocationsForMonths,
+      input.categories
+    );
+
+    let categoryNegatives = 0;
+    for (const category of input.categories) {
+      const allocated = previousAllocationMap.get(category.id) ?? 0;
+      const spent = expenseResult.totals.byCategory[category.id] ?? 0;
+      if (spent > allocated) {
+        categoryNegatives += spent - allocated;
+      }
+    }
+    if (categoryNegatives > 0) {
+      return categoryNegatives;
+    }
+
+    let totalAllocated = 0;
+    for (const amount of previousAllocationMap.values()) {
+      totalAllocated += amount;
+    }
+    const topLevelGap = totalAllocated - incomeResult.totals.overall;
+    return topLevelGap > 0 ? topLevelGap : 0;
   }
 
   async setAllocation(categoryId: number, month: string, amount: number, userId: number): Promise<void> {

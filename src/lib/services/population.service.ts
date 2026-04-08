@@ -3,8 +3,9 @@ import {
   getRecurringExpenseRepository,
   getIncomeRepository,
   getExpenseRepository,
+  getUserRepository,
 } from "@/lib/repositories";
-import { dateForMonthAndDay } from "@/lib/utils/date";
+import { dateForMonthAndDay, nextMonth } from "@/lib/utils/date";
 
 export interface PopulateMonthResult {
   incomeCreated: number;
@@ -13,11 +14,14 @@ export interface PopulateMonthResult {
 }
 
 export class PopulationService {
+  private readonly budgetStartDayByUserId = new Map<number, number>();
+
   constructor(
     private recurringIncomeRepo = getRecurringIncomeRepository(),
     private recurringExpenseRepo = getRecurringExpenseRepository(),
     private incomeRepo = getIncomeRepository(),
-    private expenseRepo = getExpenseRepository()
+    private expenseRepo = getExpenseRepository(),
+    private userRepo = getUserRepository()
   ) {}
 
   /**
@@ -37,7 +41,7 @@ export class PopulationService {
       try {
         const exists = await this.incomeRepo.hasIncomeFromRecurring(rec.id, month);
         if (exists) continue;
-        const date = dateForMonthAndDay(month, rec.dayOfMonth);
+        const date = await this.getRecurringDateForBudgetMonth(month, rec.userId, rec.dayOfMonth);
         await this.incomeRepo.create({
           userId: rec.userId,
           amount: rec.amount,
@@ -63,7 +67,7 @@ export class PopulationService {
       try {
         const exists = await this.expenseRepo.hasExpenseFromRecurring(rec.id, month);
         if (exists) continue;
-        const date = dateForMonthAndDay(month, rec.dayOfMonth);
+        const date = await this.getRecurringDateForBudgetMonth(month, rec.userId, rec.dayOfMonth);
         await this.expenseRepo.create({
           userId: rec.userId,
           categoryId: rec.categoryId,
@@ -82,5 +86,23 @@ export class PopulationService {
     }
 
     return result;
+  }
+
+  private async getRecurringDateForBudgetMonth(
+    month: string,
+    userId: number,
+    dayOfMonth: number
+  ): Promise<string> {
+    const budgetStartDay = await this.getBudgetMonthStartDay(userId);
+    const dateMonth = dayOfMonth >= budgetStartDay ? month : nextMonth(month);
+    return dateForMonthAndDay(dateMonth, dayOfMonth);
+  }
+
+  private async getBudgetMonthStartDay(userId: number): Promise<number> {
+    const cached = this.budgetStartDayByUserId.get(userId);
+    if (cached != null) return cached;
+    const startDay = await this.userRepo.getBudgetMonthStartDay(userId);
+    this.budgetStartDayByUserId.set(userId, startDay);
+    return startDay;
   }
 }

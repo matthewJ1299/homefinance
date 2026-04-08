@@ -270,6 +270,24 @@ async function pushPostgres(): Promise<void> {
         console.log("Postgres migration 0012 (users.primary_account_id) applied.");
       }
     }
+
+    const hasReconGraphConnections = await client.query(
+      "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'recon_graph_connections'"
+    );
+    if (hasReconGraphConnections.rows.length === 0) {
+      const migration0013Path = path.join(process.cwd(), "drizzle", "0013_recon_pg.sql");
+      if (fs.existsSync(migration0013Path)) {
+        const sql0013 = fs.readFileSync(migration0013Path, "utf-8");
+        const statements0013 = sql0013
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statements0013) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration 0013 (recon + vendor_category_mappings) applied.");
+      }
+    }
   } finally {
     await client.end();
   }

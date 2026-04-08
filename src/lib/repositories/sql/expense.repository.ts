@@ -240,6 +240,14 @@ export class ExpenseRepository implements IExpenseRepository {
     return !!row;
   }
 
+  async findByUserDateAndAmount(userId: number, date: string, amount: number): Promise<ExpenseWithDetails[]> {
+    const rows = await all<ExpenseDetailsRow>(
+      `${SELECT_EXPENSE_DETAILS} WHERE e.user_id = ? AND e.date = ? AND e.amount = ? ORDER BY e.id ASC`,
+      [userId, date, amount]
+    );
+    return rows.map(toExpenseWithDetails);
+  }
+
   async update(id: number, data: UpdateExpenseInput): Promise<void> {
     const updates: string[] = [];
     const params: (string | number | null)[] = [];

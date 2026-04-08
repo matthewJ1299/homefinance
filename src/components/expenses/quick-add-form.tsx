@@ -87,6 +87,8 @@ export function QuickAddForm({
   const [primaryAccountId, setPrimaryAccountId] = useState<number | null>(null);
   const [accountsReady, setAccountsReady] = useState(false);
   const noteSeedForCategoryStepRef = useRef<string | null>(null);
+  const parseShareCents = (value: string): number =>
+    toMinorUnits(parseFloat(value.replace(/\s/g, "").replace(",", ".")) || 0);
 
   useEffect(() => {
     if (quickSeed == null || !String(quickSeed).trim()) return;
@@ -157,14 +159,18 @@ export function QuickAddForm({
     accounts.length === 0
       ? undefined
       : (accountId ?? primaryAccountId ?? accounts[0]?.id ?? undefined);
+  const totalCentsForExact = pendingCents ?? 0;
+  const myCentsExact = parseShareCents(myShareRand);
+  const otherCentsExact = parseShareCents(otherShareRand);
+  const exactRemainingCents = totalCentsForExact - myCentsExact - otherCentsExact;
 
   const handleConfirmCategory = () => {
     if (pendingCents === null || !categoryId) return;
 
     if (splitEnabled && pendingCents > 0) {
       if (splitType === "exact") {
-        const myCents = toMinorUnits(parseFloat(myShareRand.replace(/\s/g, "").replace(",", ".")) || 0);
-        const otherCents = toMinorUnits(parseFloat(otherShareRand.replace(/\s/g, "").replace(",", ".")) || 0);
+        const myCents = parseShareCents(myShareRand);
+        const otherCents = parseShareCents(otherShareRand);
         if (myCents + otherCents !== pendingCents) {
           setErrorDetail("My share + other share must equal total amount.");
           setTimeout(() => setErrorDetail(null), 5000);
@@ -224,8 +230,8 @@ export function QuickAddForm({
           groupId: splitGroupId ?? undefined,
           accountId: effectiveAccountId,
           ...(splitType === "exact" && {
-            myShareCents: toMinorUnits(parseFloat(myShareRand.replace(/\s/g, "").replace(",", ".")) || 0),
-            otherShareCents: toMinorUnits(parseFloat(otherShareRand.replace(/\s/g, "").replace(",", ".")) || 0),
+            myShareCents: parseShareCents(myShareRand),
+            otherShareCents: parseShareCents(otherShareRand),
           }),
         });
         if (result.success) {
@@ -480,29 +486,42 @@ export function QuickAddForm({
                     </label>
                   </div>
                   {splitType === "exact" && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className="text-xs">My share (R)</Label>
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          placeholder="0.00"
-                          value={myShareRand}
-                          onChange={(e) => setMyShareRand(e.target.value)}
-                          className="text-sm"
-                        />
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">My share (R)</Label>
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            value={myShareRand}
+                            onChange={(e) => setMyShareRand(e.target.value)}
+                            className="text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">{otherUserName ? `${otherUserName}'s share (R)` : "Other share (R)"}</Label>
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            value={otherShareRand}
+                            onChange={(e) => setOtherShareRand(e.target.value)}
+                            className="text-sm"
+                          />
+                        </div>
                       </div>
-                      <div>
-                        <Label className="text-xs">{otherUserName ? `${otherUserName}'s share (R)` : "Other share (R)"}</Label>
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          placeholder="0.00"
-                          value={otherShareRand}
-                          onChange={(e) => setOtherShareRand(e.target.value)}
-                          className="text-sm"
-                        />
-                      </div>
+                      <p
+                        className={`text-xs ${
+                          exactRemainingCents < 0 ? "text-destructive" : "text-muted-foreground"
+                        }`}
+                      >
+                        {exactRemainingCents > 0
+                          ? `Remaining to allocate: ${formatRand(exactRemainingCents)}`
+                          : exactRemainingCents < 0
+                            ? `Over allocated by ${formatRand(Math.abs(exactRemainingCents))}`
+                            : "Fully allocated."}
+                      </p>
                     </div>
                   )}
                 </div>

@@ -13,6 +13,19 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
+async function registerSubscriptionOnServer(subscriptionJson: PushSubscriptionJSON): Promise<void> {
+  const subRes = await fetch("/api/push/subscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(subscriptionJson),
+    credentials: "same-origin",
+  });
+  if (!subRes.ok) {
+    const data = await subRes.json().catch(() => ({}));
+    throw new Error(data.error ?? "Failed to register subscription");
+  }
+}
+
 export interface PushSubscriptionState {
   supported: boolean;
   permission: NotificationPermission | null;
@@ -59,24 +72,20 @@ export async function subscribeToPush(): Promise<PushSubscriptionJSON> {
   if (!publicKey) throw new Error("No VAPID public key");
 
   const reg = await navigator.serviceWorker.ready;
+  const existing = await reg.pushManager.getSubscription();
+  if (existing) {
+    const existingJson = existing.toJSON() as PushSubscriptionJSON;
+    await registerSubscriptionOnServer(existingJson);
+    return existingJson;
+  }
+
   const keyBytes = urlBase64ToUint8Array(publicKey);
   const sub = await reg.pushManager.subscribe({
     userVisibleOnly: true,
     applicationServerKey: keyBytes as BufferSource,
   });
-
   const subscriptionJson = sub.toJSON() as PushSubscriptionJSON;
-
-  const subRes = await fetch("/api/push/subscribe", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(subscriptionJson),
-    credentials: "same-origin",
-  });
-  if (!subRes.ok) {
-    const data = await subRes.json().catch(() => ({}));
-    throw new Error(data.error ?? "Failed to register subscription");
-  }
+  await registerSubscriptionOnServer(subscriptionJson);
 
   return subscriptionJson;
 }
@@ -102,6 +111,21 @@ export async function unsubscribeFromPush(endpoint: string): Promise<void> {
  */
 export async function getCurrentSubscription(): Promise<PushSubscription | null> {
   if (!isPushSupported()) return null;
-  const reg = await navigator.serviceWorker.ready;
-  return reg.pushManager.getSubscription();
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    return reg.pushManager.getSubscription();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Re-sync existing browser subscription with the server on app reopen/resume.
+ */
+export async function syncPushSubscriptionWithServer(): Promise<PushSubscription | null> {
+  if (!isPushSupported()) return null;
+  const sub = await getCurrentSubscription();
+  if (!sub) return null;
+  await registerSubscriptionOnServer(sub.toJSON() as PushSubscriptionJSON);
+  return sub;
 }
