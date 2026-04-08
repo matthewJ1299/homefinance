@@ -19,6 +19,7 @@ import {
   parseTypeB,
   normalizeMerchantKey,
 } from "./parsers";
+import { parseDateToYyyyMmDd, parseMinorFromRandText } from "./parsers/parse-helpers";
 import type { ParsedBankEmail } from "./parsers/parsed-bank-email";
 import type { ReconImportItemRow } from "@/lib/repositories/interfaces/recon-import-item.repository";
 
@@ -37,6 +38,34 @@ export interface ReconSyncDebugMessage {
   outcome: ReconSyncDebugMessageOutcome;
   parseType?: ParsedBankEmail["parseType"];
   matchedExpenseCount?: number;
+  parseFailedReasons?: string[];
+  parseAttempt?: {
+    amountMinorUnits: number | null;
+    date: string | null;
+    vendor: string | null;
+  };
+}
+
+function attemptVendorTypeA(combined: string): string | null {
+  const merchantLine =
+    combined.match(/merchant\s*:\s*([^\n\r]+)/i) ??
+    combined.match(/at\s+([A-Za-z0-9\s\-&.]+)(?:\s+on|\s+for|\s*$)/i);
+  const v = merchantLine?.[1]?.trim();
+  return v ? v.slice(0, 200) : null;
+}
+
+function attemptVendorTypeB(combined: string): string | null {
+  const atVendor = combined.match(
+    /@\s*([A-Za-z0-9][^\n\r.]{1,80}?)(?:\s+from|\s+using|\s+on|\s*$|[.\n\r])/i
+  );
+  const v1 = atVendor?.[1]?.trim();
+  if (v1) return v1.slice(0, 200);
+  const quoted = combined.match(/["']([^"']{2,80})["']/);
+  const v2 = quoted?.[1]?.trim();
+  if (v2) return v2.slice(0, 200);
+  const fromLine = combined.match(/from\s+([A-Za-z0-9\s\-&.]+?)(?:\s+on|\s+for|\s*$|\n)/i);
+  const v3 = fromLine?.[1]?.trim();
+  return v3 ? v3.slice(0, 200) : null;
 }
 
 function parseBankMessage(
@@ -133,6 +162,15 @@ export class ReconService {
       if (!parsed) {
         if (debug) {
           if (debugMessages.length < debugLimit) {
+            const combined = `${msg.subject}\n${msg.bodyContent}`;
+            const amount = parseMinorFromRandText(combined);
+            const date = parseDateToYyyyMmDd(combined);
+            const vendor = typeA ? attemptVendorTypeA(combined) : attemptVendorTypeB(combined);
+            const reasons: string[] = [];
+            if (amount == null) reasons.push("amount_not_found");
+            if (!date) reasons.push("date_not_found");
+            if (!vendor) reasons.push("vendor_not_found");
+
             debugMessages.push({
               graphMessageId: msg.id,
               receivedDateTime: msg.receivedDateTime,
@@ -140,6 +178,13 @@ export class ReconService {
               subject: msg.subject,
               bodyPreview: msg.bodyPreview,
               outcome: "parse_failed",
+              parseType: typeA ? "type_a" : "type_b",
+              parseFailedReasons: reasons,
+              parseAttempt: {
+                amountMinorUnits: amount,
+                date,
+                vendor,
+              },
             });
           } else {
             truncated = true;

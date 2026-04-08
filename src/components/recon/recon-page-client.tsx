@@ -45,6 +45,8 @@ export function ReconPageClient() {
         outcome: "not_bank" | "parse_failed" | "imported_pending_add" | "imported_pending_duplicate";
         parseType?: string;
         matchedExpenseCount?: number;
+        parseFailedReasons?: string[];
+        parseAttempt?: { amountMinorUnits: number | null; date: string | null; vendor: string | null };
       }>;
     }
   >(null);
@@ -440,7 +442,7 @@ export function ReconPageClient() {
                           m.outcome === "not_bank"
                             ? "Not bank (sender/subject)"
                             : m.outcome === "parse_failed"
-                              ? "Bank match but parse failed"
+                              ? `Parse failed${m.parseFailedReasons?.length ? ` (${m.parseFailedReasons.join(", ")})` : ""}`
                               : m.outcome === "imported_pending_duplicate"
                                 ? `Imported (duplicate${m.matchedExpenseCount ? `: ${m.matchedExpenseCount}` : ""})`
                                 : "Imported (needs add)";
