@@ -2,12 +2,20 @@
 
 Recon pulls **recent mail** from your connected Outlook account using **Microsoft Graph** (REST, not GraphQL), parses bank notification emails, compares them to existing expenses, and lets you **manually** decide each row.
 
+## Feature toggle (Settings)
+
+Recon is **off by default** per user (`users.recon_enabled`). Under **Settings**, enable **Bank email reconciliation (Recon)** before the **Recon** nav item and full UI appear. This is independent of push notifications or other settings. If the toggle is off, `/api/recon/graph/connect` and the OAuth callback redirect to **Settings**; mutating APIs return **403**. **POST `/api/recon/graph/disconnect`** can still be called to clear stored Graph tokens without the toggle (e.g. after disabling the feature).
+
 ## Related features
 
 - **Expenses**: Accepted rows create expenses through `ExpenseService.create` (same path as manual entry).
 - **Splits**: When **Split 50/50** is selected on approval, accepted rows create a split expense through `SplitService.createSplit` (equal split; uses the default split group).
 - **Accounts**: Optional **default account** on the Recon page is used when you click **Accept and add** (links the new expense to that account).
 - **Categories**: **Vendor category mappings** (`vendor_category_mappings`) learn a merchant key → category from each **Accept and add**; future syncs pre-fill the suggested category.
+
+## Pending list UX
+
+On **Pending items**, the **Description** cell is clickable: it opens the **Fetched mail detail** dialog (loads the message from Microsoft Graph). The dialog repeats the list **Description** line at the top, then shows from, subject, received time, and full body.
 
 ## Matching rule
 
@@ -38,10 +46,10 @@ See the main [README](../README.md) section **Recon and Microsoft Graph (Outlook
 |--------|------|---------|
 | GET | `/api/recon/graph/connect` | Start OAuth (redirect to Microsoft) |
 | GET | `/api/recon/graph/callback` | OAuth callback (stores encrypted refresh token) |
-| GET | `/api/recon/graph/status` | `{ connected, msAccountEmail }` |
+| GET | `/api/recon/graph/status` | When Recon is off: `{ reconEnabled: false, connected: false, msAccountEmail: null, lastSyncedAt: null }`. When on: `{ reconEnabled: true, connected, msAccountEmail, lastSyncedAt }` |
 | POST | `/api/recon/graph/disconnect` | Remove stored connection |
 | POST | `/api/recon/sync` | Fetch mail + upsert `recon_import_items` (optional body `{ since?: "YYYY-MM-DD", top?: number, skip?: number }`; `skip` is Graph `$skip` for paging older messages) |
-| GET | `/api/recon/items` | List pending items |
+| GET | `/api/recon/items` | When Recon off: `{ reconEnabled: false, items: [] }`. When on: `{ reconEnabled: true, items }` |
 | POST | `/api/recon/items/[id]/accept-duplicate` | Mark duplicate resolved (no new expense) |
 | POST | `/api/recon/items/[id]/accept-add` | Body `{ categoryId, accountId?, split? }` — create expense (optionally split) |
 | POST | `/api/recon/items/[id]/ignore` | Ignore row |

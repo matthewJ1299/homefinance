@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { bottomNavItemsMobile, fullNavItems } from "./nav-items";
+import { bottomNavItemsMobile, fullNavItems, navItemsForReconPreference, type NavItem } from "./nav-items";
 import { cn } from "@/lib/utils";
 
 const mobileLeftItems = bottomNavItemsMobile.slice(0, 2);
@@ -13,7 +13,7 @@ function NavLinks({
   pathname,
   className,
 }: {
-  items: typeof bottomNavItemsMobile;
+  items: NavItem[];
   pathname: string;
   className?: string;
 }) {
@@ -44,9 +44,10 @@ function NavLinks({
   );
 }
 
-export function BottomNav() {
+export function BottomNav({ reconEnabled }: { reconEnabled: boolean }) {
   const pathname = usePathname();
   const addActive = pathname === "/add" || pathname.startsWith("/add/");
+  const desktopItems = navItemsForReconPreference(fullNavItems, reconEnabled);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm md:left-auto md:right-0 md:top-14 md:bottom-0 md:w-[20%] md:border-l md:border-t-0">
@@ -69,7 +70,7 @@ export function BottomNav() {
           <NavLinks items={mobileRightItems} pathname={pathname} />
         </div>
         <div className="hidden md:flex md:flex-col md:flex-1 md:gap-1">
-          <NavLinks items={fullNavItems} pathname={pathname} />
+          <NavLinks items={desktopItems} pathname={pathname} />
         </div>
       </div>
     </nav>

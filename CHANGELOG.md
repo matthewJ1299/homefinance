@@ -9,11 +9,15 @@
 
 ### Added
 
+- **Recon feature toggle (Settings)**: **Bank email reconciliation (Recon)** must be turned on under **Settings** (`users.recon_enabled`, migration `0015_users_recon_enabled_pg.sql`). When off, **Recon** is hidden from the nav, `/recon` explains how to enable, Outlook connect/callback redirect to Settings, and mutating Recon APIs return **403**. Graph **disconnect** remains available without the toggle so stored tokens can be cleared if needed.
+
 - **Recon (`/recon`)**: Bank email reconciliation via **Microsoft Graph** (OAuth). Connect Outlook, sync recent messages, parse two configurable bank email templates (`type_a` / `type_b`), flag **possible duplicates** when an expense exists on the same calendar day with the same amount, suggest categories from **vendor_category_mappings**, and **manually** accept as duplicate, accept and add (expense via `ExpenseService`), or ignore. New tables: `recon_graph_connections`, `recon_import_items`, `vendor_category_mappings` (migration `0013_recon_pg.sql`). APIs under `/api/recon/*`. Nav: **Recon** in desktop/hamburger. See [docs/recon.md](./docs/recon.md) and README (Graph setup).
 - **Recon approval split**: When approving a recon item you can now tick **Split 50/50** so **Accept and add** creates a split expense (equal split) using the existing Splits feature.
 - **Recon UX**: Recon rows now show a **Description** (subject/body preview), a **View matches** action for duplicates, and Sync controls (**Sync from** date + **Max emails to scan** + **Fetch next N** using Graph `$skip`) with a full-screen loading overlay during sync. The fetched-mail preview modal includes parse-failure context and **Copy debug text** (subject, from, received, body, reasons) for support.
 
 ### Changed
+
+- **Recon pending items**: The **Description** column opens the same **Fetched mail detail** modal as the sync debug table (full from, subject, received, body via Graph). The modal shows a **Description** block at the top with the same list line as the table; **Copy debug text** includes that line when present.
 
 - **Desktop layout split**: On desktop, the main content area now uses **80%** width and the side navigation uses **20%** width (mobile layout unchanged).
 - **Dashboard quick add (categories)**: The **Quick add expense** tile uses the same **`CategoryPicker`** as the `/add` expense flow: **Most used** (from usage stats), **Show more** for **Variable** / **Fixed** groups. Pill labels show **category names only** (no budget amounts on the tile); overspent styling and the below-the-picker warning still use budget data when available.

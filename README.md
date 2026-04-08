@@ -43,7 +43,7 @@ All database writes use **optimistic UI**: the UI updates immediately, then a to
 
 - **Recurring income and expenses**: Under **Recurring income** and **Recurring expenses** you define templates (amount, category for expenses, day of month). Each month, use **Populate this month** in **Settings** to create actual income and expense rows from those templates. Population is idempotent: it only creates entries that do not already exist for that month, so you can run it again safely. If you use a custom budget-month start day (for example 25th), recurring items are placed on the correct calendar date inside that budget period.
 - **AI expense analysis (optional)**: If `GEMINI_API_KEY` is set, the dashboard shows an "Analyze spending" button. It sends the current month's budget summary to Google Gemini and returns a short analysis (patterns, advice, anomalies). Rate-limited to 5 calls per user per hour.
-- **Recon (`/recon`)**: Optional bank-email reconciliation via **Microsoft Graph** (the HTTP REST API; not GraphQL). After you connect Outlook and sync, the app fetches recent messages, parses bank-style notifications (amount, merchant, and yearless **DDMon** dates such as `8Apr 15:52`, with logic to skip spurious matches on text like `.00 paid`), flags potential duplicates against your expenses, and lets you **manually** accept or ignore each item. When approving an item, you can optionally tick **Split 50/50** so the created expense is a split expense. See [docs/recon.md](./docs/recon.md) and [Recon and Microsoft Graph (Outlook)](#recon-and-microsoft-graph-outlook) below.
+- **Recon (`/recon`)**: Optional bank-email reconciliation via **Microsoft Graph** (the HTTP REST API; not GraphQL). Turn **Bank email reconciliation (Recon)** **on** under **Settings** first; the **Recon** nav item and page stay hidden until then (separate from push or other mail-related settings). After you connect Outlook and sync, the app fetches recent messages, parses bank-style notifications (amount, merchant, and yearless **DDMon** dates such as `8Apr 15:52`, with logic to skip spurious matches on text like `.00 paid`), flags potential duplicates against your expenses, and lets you **manually** accept or ignore each item. On the pending list, click **Description** to open the full email in a modal (same detail view as after sync). When approving an item, you can optionally tick **Split 50/50** so the created expense is a split expense. See [docs/recon.md](./docs/recon.md) and [Recon and Microsoft Graph (Outlook)](#recon-and-microsoft-graph-outlook) below.
 
 ## Setup
 
@@ -105,10 +105,11 @@ Aliases supported in code: `MICROSOFT_GRAPH_CLIENT_ID`, `MICROSOFT_GRAPH_CLIENT_
 ### How authentication works
 
 1. You sign in to Home Finance with **email + password** (existing credentials).
-2. Open **Recon** and choose **Connect Outlook** (or visit `/api/recon/graph/connect` while logged in). The app redirects to Microsoft’s login page.
-3. You sign in with your Microsoft account (e.g. `matthew.j@live.com`) and **consent** to Mail.Read.
-4. Microsoft redirects back to `/api/recon/graph/callback` with an authorization code. The server exchanges it for tokens, stores an **encrypted refresh token** per user, and redirects you to `/recon`.
-5. **Sync** uses the refresh token to obtain short-lived access tokens and calls Graph `GET /me/messages` (read-only). Disconnect removes the stored connection from the database.
+2. Under **Settings**, enable **Bank email reconciliation (Recon)** so the **Recon** page appears in the menu.
+3. Open **Recon** and choose **Connect Outlook** (or visit `/api/recon/graph/connect` while logged in). The app redirects to Microsoft’s login page.
+4. You sign in with your Microsoft account (e.g. `matthew.j@live.com`) and **consent** to Mail.Read.
+5. Microsoft redirects back to `/api/recon/graph/callback` with an authorization code. The server exchanges it for tokens, stores an **encrypted refresh token** per user, and redirects you to `/recon`.
+6. **Sync** uses the refresh token to obtain short-lived access tokens and calls Graph `GET /me/messages` (read-only). Disconnect removes the stored connection from the database.
 
 **Troubleshooting**: If redirect URI does not match exactly (http vs https, port, path), or `NEXTAUTH_URL` is wrong, OAuth fails. Ensure the app registration redirect URI matches `getGraphRedirectUri()` = `{NEXTAUTH_URL}/api/recon/graph/callback`.
 

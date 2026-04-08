@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { setRequestContext } from "@/lib/db/request-context";
+import { getUserRepository } from "@/lib/repositories";
 import { parseReconOAuthState } from "@/lib/services/recon/graph-oauth.service";
 import { ReconService } from "@/lib/services/recon/recon.service";
 
@@ -41,6 +42,11 @@ export async function GET(request: NextRequest) {
     userId: session.user.id,
     userName: session.user.name ?? undefined,
   });
+
+  const reconEnabled = await getUserRepository().getReconEnabled(userIdFromState);
+  if (!reconEnabled) {
+    return NextResponse.redirect(toReconUrl(request, "/settings?recon=off"));
+  }
 
   try {
     const service = new ReconService();

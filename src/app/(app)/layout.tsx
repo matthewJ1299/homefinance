@@ -20,11 +20,15 @@ export default async function AppLayout({
   });
 
   const userId = Number(session.user.id);
-  const budgetMonthStartDay = await getUserRepository().getBudgetMonthStartDay(userId);
+  const userRepo = getUserRepository();
+  const [budgetMonthStartDay, reconEnabled] = await Promise.all([
+    userRepo.getBudgetMonthStartDay(userId),
+    userRepo.getReconEnabled(userId),
+  ]);
 
   return (
     <BudgetMonthStartDayProvider value={budgetMonthStartDay}>
-      <AppShell>{children}</AppShell>
+      <AppShell reconEnabled={reconEnabled}>{children}</AppShell>
     </BudgetMonthStartDayProvider>
   );
 }

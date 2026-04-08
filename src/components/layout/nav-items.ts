@@ -45,3 +45,9 @@ export const fullNavItems: NavItem[] = [
   { href: "/summary", label: "Summary", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
+
+/** When Recon is off in Settings, the Recon route is hidden from navigation. */
+export function navItemsForReconPreference(items: NavItem[], reconEnabled: boolean): NavItem[] {
+  if (reconEnabled) return items;
+  return items.filter((i) => i.href !== "/recon");
+}

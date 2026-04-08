@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { setRequestContext } from "@/lib/db/request-context";
+import { getUserRepository } from "@/lib/repositories";
 import { ReconService } from "@/lib/services/recon/recon.service";
 
 export async function GET() {
@@ -10,7 +11,16 @@ export async function GET() {
   }
   setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   const userId = Number(session.user.id);
+  const reconEnabled = await getUserRepository().getReconEnabled(userId);
+  if (!reconEnabled) {
+    return NextResponse.json({
+      reconEnabled: false,
+      connected: false,
+      msAccountEmail: null,
+      lastSyncedAt: null,
+    });
+  }
   const service = new ReconService();
   const s = await service.isGraphConnected(userId);
-  return NextResponse.json(s);
+  return NextResponse.json({ reconEnabled: true, ...s });
 }

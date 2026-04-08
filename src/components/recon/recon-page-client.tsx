@@ -31,6 +31,8 @@ type FetchedMailDebugRow = {
   fromAddress: string;
   subject: string;
   bodyPreview?: string;
+  /** Same line as the Recon list "Description" column (subject vs preview precedence varies by source). */
+  descriptionLine?: string;
   outcome: "not_bank" | "parse_failed" | "imported_pending_add" | "imported_pending_duplicate";
   parseType?: string;
   matchedExpenseCount?: number;
@@ -41,6 +43,9 @@ type FetchedMailDebugRow = {
 function buildReconDebugBundle(meta: FetchedMailDebugRow, detail: { subject: string; fromAddress: string; receivedDateTime: string; bodyContent: string; id: string }): string {
   const lines: string[] = ["--- HomeFinance Recon debug bundle ---", ""];
   lines.push(`Graph message id: ${detail.id}`);
+  if (meta.descriptionLine?.trim()) {
+    lines.push(`Description (list): ${meta.descriptionLine.trim()}`);
+  }
   lines.push(`Outcome: ${meta.outcome}`);
   if (meta.parseType) lines.push(`Template: ${meta.parseType}`);
   if (meta.outcome === "parse_failed") {
@@ -73,7 +78,7 @@ export function ReconPageClient() {
   const [splitByItemId, setSplitByItemId] = useState<Record<number, boolean>>({});
   const [accountId, setAccountId] = useState<number | "">("");
   const [syncSince, setSyncSince] = useState<string>("");
-  const [syncTop, setSyncTop] = useState<number>(200);
+  const [syncTop, setSyncTop] = useState<number>(50);
   /** After a successful "Sync from mailbox", this is the Graph `$skip` for the next "Fetch next batch". */
   const [nextBatchSkip, setNextBatchSkip] = useState<number | null>(null);
   const [syncDebug, setSyncDebug] = useState<null | { truncated: boolean; messages: FetchedMailDebugRow[] }>(null);
@@ -107,12 +112,18 @@ export function ReconPageClient() {
 
   const statusQuery = useQuery({
     queryKey: ["recon-graph-status"],
-    queryFn: () => fetchJson<{ connected: boolean; msAccountEmail: string | null }>("/api/recon/graph/status"),
+    queryFn: () =>
+      fetchJson<{
+        reconEnabled: boolean;
+        connected: boolean;
+        msAccountEmail: string | null;
+        lastSyncedAt: string | null;
+      }>("/api/recon/graph/status"),
   });
 
   const itemsQuery = useQuery({
     queryKey: ["recon-items"],
-    queryFn: () => fetchJson<{ items: ReconImportItemRow[] }>("/api/recon/items"),
+    queryFn: () => fetchJson<{ reconEnabled: boolean; items: ReconImportItemRow[] }>("/api/recon/items"),
   });
 
   const categoriesQuery = useQuery({
@@ -276,7 +287,11 @@ export function ReconPageClient() {
   }, []);
 
   const openMessage = useCallback(async (row: FetchedMailDebugRow) => {
-    setMessageSyncMeta(row);
+    const meta: FetchedMailDebugRow = {
+      ...row,
+      descriptionLine: row.descriptionLine ?? (row.bodyPreview?.trim() || row.subject?.trim() || "—"),
+    };
+    setMessageSyncMeta(meta);
     setMessageDialogOpen(true);
     setMessageLoading(true);
     setMessageDetail(null);
@@ -293,6 +308,44 @@ export function ReconPageClient() {
         fromAddress: row.fromAddress,
         receivedDateTime: row.receivedDateTime,
         bodyContent: "",
+      });
+    } finally {
+      setMessageLoading(false);
+    }
+  }, []);
+
+  const openMessageFromPendingItem = useCallback(async (item: ReconImportItemRow) => {
+    const descriptionLine = item.rawSubject?.trim() || item.rawBodyPreview?.trim() || "—";
+    const meta: FetchedMailDebugRow = {
+      graphMessageId: item.graphMessageId,
+      receivedDateTime: "",
+      fromAddress: "",
+      subject: item.rawSubject ?? "",
+      bodyPreview: item.rawBodyPreview ?? undefined,
+      descriptionLine,
+      outcome: item.status === "pending_duplicate" ? "imported_pending_duplicate" : "imported_pending_add",
+      parseType: item.parseType,
+      matchedExpenseCount: item.matchedExpenseIds?.length ?? undefined,
+    };
+    setMessageSyncMeta(meta);
+    setMessageDialogOpen(true);
+    setMessageLoading(true);
+    setMessageDetail(null);
+    try {
+      const data = await fetchJson<{ message: { id: string; subject: string; fromAddress: string; receivedDateTime: string; bodyContent: string } }>(
+        `/api/recon/messages/${encodeURIComponent(item.graphMessageId)}`
+      );
+      setMessageDetail(data.message);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to load email body.");
+      setMessageDetail({
+        id: item.graphMessageId,
+        subject: item.rawSubject ?? "",
+        fromAddress: "",
+        receivedDateTime: "",
+        bodyContent: item.rawBodyPreview
+          ? `${item.rawBodyPreview}\n\n(Unable to load full body from mailbox.)`
+          : "",
       });
     } finally {
       setMessageLoading(false);
@@ -606,12 +659,14 @@ export function ReconPageClient() {
                         </span>
                       </td>
                       <td className="py-3 pr-3 max-w-[260px]">
-                        <span
-                          className="line-clamp-2 text-muted-foreground"
-                          title={item.rawSubject ?? item.rawBodyPreview ?? undefined}
+                        <button
+                          type="button"
+                          className="w-full text-left line-clamp-2 text-muted-foreground hover:text-foreground hover:underline decoration-dotted underline-offset-2"
+                          title="View full email"
+                          onClick={() => void openMessageFromPendingItem(item)}
                         >
                           {item.rawSubject ?? item.rawBodyPreview ?? "—"}
-                        </span>
+                        </button>
                       </td>
                       <td className="py-3 pr-3 tabular-nums">{formatRand(item.amount)}</td>
                       <td className="py-3 pr-3">{statusLabel(item.status)}</td>
@@ -765,6 +820,17 @@ export function ReconPageClient() {
         className="max-w-3xl"
       >
         <DialogHeader>Fetched mail detail</DialogHeader>
+        {messageSyncMeta ? (
+          <div className="mb-3 rounded-md border border-border bg-muted/20 p-3 text-sm">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+            <p className="whitespace-pre-wrap break-words">
+              {messageSyncMeta.descriptionLine?.trim() ||
+                messageSyncMeta.bodyPreview?.trim() ||
+                messageSyncMeta.subject?.trim() ||
+                "—"}
+            </p>
+          </div>
+        ) : null}
         {messageSyncMeta?.outcome === "parse_failed" ? (
           <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm space-y-2">
             <p className="font-medium text-destructive">Parse failed</p>

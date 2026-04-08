@@ -21,4 +21,7 @@ export interface IUserRepository {
   /** Dashboard default spending account; null if none set or no accounts. */
   getPrimaryAccountId(userId: number): Promise<number | null>;
   setPrimaryAccountId(userId: number, accountId: number | null): Promise<void>;
+  /** Bank email reconciliation (Recon). Off until enabled in Settings. */
+  getReconEnabled(userId: number): Promise<boolean>;
+  setReconEnabled(userId: number, enabled: boolean): Promise<void>;
 }

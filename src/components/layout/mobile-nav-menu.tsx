@@ -6,11 +6,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { Menu, X, LogOut } from "lucide-react";
-import { fullNavItems } from "./nav-items";
+import { fullNavItems, navItemsForReconPreference } from "./nav-items";
 import { cn } from "@/lib/utils";
 
-export function MobileNavMenu() {
+export function MobileNavMenu({ reconEnabled }: { reconEnabled: boolean }) {
   const [open, setOpen] = useState(false);
+  const menuItems = navItemsForReconPreference(fullNavItems, reconEnabled);
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
 
@@ -45,7 +46,7 @@ export function MobileNavMenu() {
             </button>
           </div>
           <nav className="flex flex-col p-2 gap-0.5 overflow-auto flex-1">
-            {fullNavItems.map(({ href, label, icon: Icon }) => {
+            {menuItems.map(({ href, label, icon: Icon }) => {
               const isActive =
                 pathname === href || pathname.startsWith(href + "/");
               return (

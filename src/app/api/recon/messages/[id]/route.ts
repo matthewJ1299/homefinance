@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { setRequestContext } from "@/lib/db/request-context";
+import { reconDisabledResponse } from "@/lib/api/recon-enabled";
 import { ReconService } from "@/lib/services/recon/recon.service";
 
 export async function GET(
@@ -13,6 +14,8 @@ export async function GET(
   }
   setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   const userId = Number(session.user.id);
+  const blocked = await reconDisabledResponse(userId);
+  if (blocked) return blocked;
   const messageId = (await params).id;
   if (!messageId || typeof messageId !== "string") {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });

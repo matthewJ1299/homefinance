@@ -24,6 +24,7 @@ import { DashboardTilesSettings } from "@/components/settings/dashboard-tiles-se
 import { AccountsManage } from "@/components/accounts/accounts-manage";
 import { BudgetMonthRangeSettings } from "@/components/settings/budget-month-range-settings";
 import { ExportTransactionsSettings } from "@/components/settings/export-transactions-settings";
+import { ReconSettings } from "@/components/settings/recon-settings";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -47,6 +48,7 @@ export default async function SettingsPage() {
   const categoriesForRecurring = await getCategoryRepository().findAll();
 
   const budgetMonthStartDay = await getUserRepository().getBudgetMonthStartDay(userId);
+  const reconEnabled = await getUserRepository().getReconEnabled(userId);
   const currentMonth = await getDefaultBudgetMonthForUser(userId);
 
   return (
@@ -57,6 +59,7 @@ export default async function SettingsPage() {
       </p>
 
       <PushNotificationsSettings />
+      <ReconSettings reconEnabled={reconEnabled} />
       <ExportTransactionsSettings />
       <BudgetMonthRangeSettings currentStartDay={budgetMonthStartDay} />
       <DashboardTilesSettings />

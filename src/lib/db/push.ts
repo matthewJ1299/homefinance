@@ -306,6 +306,24 @@ async function pushPostgres(): Promise<void> {
         console.log("Postgres migration 0014 (recon last_synced_at) applied.");
       }
     }
+
+    const hasReconEnabled = await client.query(
+      "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'recon_enabled'"
+    );
+    if (hasReconEnabled.rows.length === 0) {
+      const migration0015Path = path.join(process.cwd(), "drizzle", "0015_users_recon_enabled_pg.sql");
+      if (fs.existsSync(migration0015Path)) {
+        const sql0015 = fs.readFileSync(migration0015Path, "utf-8");
+        const statements0015 = sql0015
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statements0015) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration 0015 (users.recon_enabled) applied.");
+      }
+    }
   } finally {
     await client.end();
   }

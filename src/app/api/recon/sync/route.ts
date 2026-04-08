@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { setRequestContext } from "@/lib/db/request-context";
+import { reconDisabledResponse } from "@/lib/api/recon-enabled";
 import { ReconService } from "@/lib/services/recon/recon.service";
 
 export async function POST(request: Request) {
@@ -10,6 +11,8 @@ export async function POST(request: Request) {
   }
   setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   const userId = Number(session.user.id);
+  const blocked = await reconDisabledResponse(userId);
+  if (blocked) return blocked;
   try {
     const body = (await request.json().catch(() => ({}))) as { since?: string; debug?: boolean; top?: number; skip?: number };
     const since = typeof body.since === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.since) ? body.since : undefined;
