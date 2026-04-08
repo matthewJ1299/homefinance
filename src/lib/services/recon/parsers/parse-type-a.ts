@@ -19,7 +19,9 @@ export function matchesTypeA(fromAddress: string, subject: string): boolean {
  */
 export function parseTypeA(body: string, subject: string): ParsedBankEmail | null {
   const combined = `${subject}\n${body}`;
-  const amount = parseMinorFromRandText(combined);
+  // ABSA NotifyMe uses "Reserved : R..." and "Available : R...". Prefer Reserved when present.
+  const reservedLine = combined.match(/reserved\s*:\s*(R\s*[\d\s.,]+)/i);
+  const amount = reservedLine?.[1] ? parseMinorFromRandText(reservedLine[1]) : parseMinorFromRandText(combined);
   if (amount == null) return null;
   const date = parseDateToYyyyMmDd(combined);
   if (!date) return null;

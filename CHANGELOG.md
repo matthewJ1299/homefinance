@@ -10,6 +10,7 @@
 
 ### Changed
 
+- **Desktop layout split**: On desktop, the main content area now uses **80%** width and the side navigation uses **20%** width (mobile layout unchanged).
 - **Dashboard quick add (categories)**: The **Quick add expense** tile uses the same **`CategoryPicker`** as the `/add` expense flow: **Most used** (from usage stats), **Show more** for **Variable** / **Fixed** groups. Pill labels show **category names only** (no budget amounts on the tile); overspent styling and the below-the-picker warning still use budget data when available.
 
 ### Fixed

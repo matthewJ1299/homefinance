@@ -33,9 +33,9 @@ export function parseDateToYyyyMmDd(text: string): string | null {
     const dd = String(d).padStart(2, "0");
     return `${y}-${mm}-${dd}`;
   }
-  // Bank templates sometimes omit the year, e.g. "31Mar 11:11" or "31 Mar".
+  // Bank templates sometimes omit the year, e.g. "31Mar 11:11" / "8Apr 15:52" / "31 Mar".
   // We assume current year; if that would land too far in the future, use previous year.
-  const dMon = text.match(/\b(\d{1,2})\s*([A-Za-z]{3,9})\b/);
+  const dMon = text.match(/\b(\d{1,2})\s*([A-Za-z]{3,9})(?:\s*\d{1,2}:\d{2})?\b/);
   if (dMon) {
     const d = Number(dMon[1]);
     const monRaw = (dMon[2] ?? "").toLowerCase();
