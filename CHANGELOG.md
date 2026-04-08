@@ -5,6 +5,7 @@
 ### Fixed
 
 - **Recon parsers**: FNB inContact `8Apr 15:52`-style dates match more reliably (DDMon + optional time, fallback DDMon). Rand amounts accept **`-R55.00`** (absolute cents). ABSA NotifyMe **settlement / Amount** lines (`Amount : -R…`) and **Transaction:** vendor fallback when **Merchant** is absent.
+- **Recon parsers (dates)**: `parseDateToYyyyMmDd` evaluates **every** `DDMon` (+ optional time) match in the text and uses the first with a real month abbreviation and day 1–31. This avoids false first matches on FNB copy such as **`.00 paid`** / **`.00 reserved`** (which previously hid the real `8Apr` / `6Apr` and yielded **`date_not_found`**).
 
 ### Added
 

@@ -26,6 +26,8 @@ Two templates are implemented in code:
 
 Edit the `FROM_SUBSTRINGS`, `SUBJECT_SUBSTRINGS`, and body regex patterns to match your bank’s notification emails. **Sync** only ingests messages that pass one of the type matchers and then parse successfully.
 
+Shared helper `parse-helpers.ts` **`parseDateToYyyyMmDd`** resolves yearless **DDMon** strings (e.g. `8Apr 15:52`) by scanning **all** such tokens in the combined subject/body and taking the first where the day is 1–31 and the letters are a known month. That skips accidental matches on amounts like **`.00 paid`** before the real bank timestamp.
+
 ## Environment and setup
 
 See the main [README](../README.md) section **Recon and Microsoft Graph (Outlook)** for Azure app registration, redirect URI, and environment variables (`GRAPH_OAUTH_*`, `NEXTAUTH_URL`, optional `RECON_TOKEN_ENCRYPTION_KEY`).
