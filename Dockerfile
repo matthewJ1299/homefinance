@@ -6,7 +6,8 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm ci 2>/dev/null || npm install
+RUN npm ci 2>/dev/null || npm install \
+ && npm cache clean --force
 
 COPY . .
 
@@ -14,7 +15,9 @@ COPY . .
 RUN node scripts/generate-pwa-icons.mjs
 
 ENV NODE_ENV=production
-RUN npm run build
+RUN npm run build \
+ && npm prune --omit=dev \
+ && npm cache clean --force
 
 # ---------------------------------------------------------------------------
 # Run stage
@@ -36,7 +39,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Full node_modules (tsx and deps for db scripts so you can run db:seed in container)
+# Production node_modules only (devDeps pruned in builder) + tsx/db scripts
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 
 # package.json and db scripts for running seed/migrations on server (e.g. docker exec ... npx tsx src/lib/db/seed.ts)

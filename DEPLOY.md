@@ -186,7 +186,19 @@ No DNS record exists for `finance.dev.triadtech.co.za`. Add an A record pointing
 
 ### ENOENT during runtime
 
-Ensure the runner stage copies the full builder `node_modules` so runtime dependencies and db scripts are present.
+Ensure the runner stage copies the builder `node_modules` after **production** pruning (`npm prune --omit=dev` in the Dockerfile) so runtime dependencies and db scripts are present.
+
+### Build fails: `no space left on device` / `ResourceExhausted` (often on `COPY ... node_modules`)
+
+The Docker build needs enough free disk on the **host** for layers and the `node_modules` copy. The Dockerfile prunes devDependencies after `npm run build` to keep that copy smaller.
+
+**On the Coolify server**, if builds still fail:
+
+- Free space: `df -h` on the VPS.
+- Prune unused Docker data (run as root or with sudo): `docker system prune -af` and optionally `docker builder prune -af` (removes unused images, build cache, and stopped containers; **destructive** to unused images—review before running on a shared host).
+- Increase the VPS disk or move Docker’s data root to a larger volume if the server is genuinely full.
+
+Redeploy after freeing space.
 
 ### Build fails with "standalone not found"
 

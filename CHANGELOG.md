@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Docker (Coolify / VPS builds)**: After `npm run build`, the image runs `npm prune --omit=dev` and clears the npm cache before copying `node_modules` into the runtime stage. This drops dev-only packages (TypeScript, ESLint, Vitest, Tailwind, etc.) from that layer so the copy is much smaller and less likely to hit **no space left on device** on small build hosts. Runtime still has production deps, `tsx`, and DB scripts for `npx tsx src/lib/db/...`.
+
 ### Fixed
 
 - **Splits / Recon (Postgres)**: `split_groups.is_default` is a **boolean** column; `SplitGroupRepository.findDefault()` used `is_default = 1`, which caused **`operator does not exist: boolean = integer`** when **Accept and add** with **Split 50/50** resolved the default split group. Queries and writes now use boolean-typed values (`IS TRUE`, `true`/`false`).

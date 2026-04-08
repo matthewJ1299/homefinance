@@ -155,7 +155,7 @@ HomeFinance can be installed as a Progressive Web App (PWA) on phones and deskto
 
 ## Deploy
 
-See [DEPLOY.md](./DEPLOY.md) for deploying to a VPS with Coolify (Docker + Traefik). The guide covers DNS, Dockerfile, **Docker Compose** (app + Postgres with persistent volume), optional Coolify Postgres resource, environment variables, and troubleshooting.
+See [DEPLOY.md](./DEPLOY.md) for deploying to a VPS with Coolify (Docker + Traefik). The guide covers DNS, Dockerfile, **Docker Compose** (app + Postgres with persistent volume), optional Coolify Postgres resource, environment variables, and troubleshooting. If the build fails with **no space left on device** during `COPY ... node_modules`, the Dockerfile prunes devDependencies after `npm run build` to shrink that layer; you may still need to free disk or prune Docker on the server (see DEPLOY.md).
 
 ## Testing
 
