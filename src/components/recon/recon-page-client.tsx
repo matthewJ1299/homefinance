@@ -32,6 +32,7 @@ export function ReconPageClient() {
   const [splitByItemId, setSplitByItemId] = useState<Record<number, boolean>>({});
   const [accountId, setAccountId] = useState<number | "">("");
   const [syncSince, setSyncSince] = useState<string>("");
+  const [syncTop, setSyncTop] = useState<number>(200);
   const [syncDebug, setSyncDebug] = useState<
     null | {
       truncated: boolean;
@@ -127,7 +128,7 @@ export function ReconPageClient() {
     mutationFn: () =>
       fetchJson<{ imported: number; scanned: number; debug?: { truncated: boolean; messages: unknown[] } }>("/api/recon/sync", {
         method: "POST",
-        body: JSON.stringify({ since: syncSince || undefined, debug: true }),
+        body: JSON.stringify({ since: syncSince || undefined, debug: true, top: syncTop }),
       }),
     onSuccess: (data) => {
       toast.success(`Synced: ${data.imported} bank email(s) matched.`);
@@ -344,6 +345,22 @@ export function ReconPageClient() {
               className="h-9 w-full max-w-[220px] rounded-md border border-input bg-background px-2 text-sm"
               value={syncSince}
               onChange={(e) => setSyncSince(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="recon-sync-top">Max emails to scan</Label>
+            <input
+              id="recon-sync-top"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={1000}
+              className="h-9 w-full max-w-[160px] rounded-md border border-input bg-background px-2 text-sm"
+              value={String(syncTop)}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                setSyncTop(Number.isFinite(n) ? Math.min(Math.max(1, Math.floor(n)), 1000) : 200);
+              }}
             />
           </div>
           <p className="text-xs text-muted-foreground">
@@ -684,6 +701,16 @@ export function ReconPageClient() {
           </Button>
         </DialogFooter>
       </Dialog>
+
+      {syncMutation.isPending ? (
+        <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center">
+          <div className="rounded-xl border border-border bg-card p-5 shadow-lg flex flex-col items-center gap-3">
+            <div className="h-10 w-10 rounded-full border-4 border-muted border-t-primary animate-spin" />
+            <div className="text-sm font-medium">Syncing mailbox…</div>
+            <div className="text-xs text-muted-foreground">Fetching emails in pages and matching bank templates.</div>
+          </div>
+        </div>
+      ) : null}
 
       {accounts.length > 0 ? (
         <section className="rounded-xl border border-border bg-card p-4 space-y-2">

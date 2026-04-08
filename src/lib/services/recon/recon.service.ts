@@ -95,12 +95,14 @@ export class ReconService {
   async syncFromGraph(
     userId: number,
     since?: string,
-    debug?: boolean
+    debug?: boolean,
+    top?: number
   ): Promise<{ imported: number; scanned: number; debug?: { truncated: boolean; messages: ReconSyncDebugMessage[] } }> {
     const accessToken = await this.getValidAccessToken(userId);
+    const maxMessages = top != null && top > 0 ? top : since ? 1000 : 40;
     const messages = since
-      ? await fetchMessagesSince(accessToken, `${since}T00:00:00.000Z`)
-      : await fetchRecentMessages(accessToken, 40);
+      ? await fetchMessagesSince(accessToken, `${since}T00:00:00.000Z`, maxMessages)
+      : await fetchRecentMessages(accessToken, maxMessages);
     const scanned = messages.length;
     let imported = 0;
     const debugMessages: ReconSyncDebugMessage[] = [];

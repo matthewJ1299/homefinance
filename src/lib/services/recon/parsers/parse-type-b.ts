@@ -3,13 +3,14 @@ import { parseDateToYyyyMmDd, parseMinorFromRandText } from "./parse-helpers";
 
 /** Edit these to match your second bank email template (type B). */
 const FROM_SUBSTRINGS = ["incontact@fnb.co.za"];
-const SUBJECT_SUBSTRINGS = ["fnb"];
+const SUBJECT_SUBSTRINGS = ["fnb", ":-)", "paid", "payment", "deposit"];
 
 export function matchesTypeB(fromAddress: string, subject: string): boolean {
   const f = fromAddress.toLowerCase();
   const s = subject.toLowerCase();
   const fromOk = FROM_SUBSTRINGS.some((x) => f.includes(x));
-  const subjOk = SUBJECT_SUBSTRINGS.some((x) => s.includes(x));
+  const subjOk =
+    SUBJECT_SUBSTRINGS.length === 0 ? true : SUBJECT_SUBSTRINGS.some((x) => s.includes(x));
   return fromOk && subjOk;
 }
 

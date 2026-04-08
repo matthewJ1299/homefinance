@@ -66,12 +66,22 @@ async function fetchMessagesPage(accessToken: string, url: string): Promise<Grap
 }
 
 export async function fetchRecentMessages(accessToken: string, top: number): Promise<GraphMessageSummary[]> {
-  const url = new URL("https://graph.microsoft.com/v1.0/me/messages");
-  url.searchParams.set("$top", String(top));
-  url.searchParams.set("$orderby", "receivedDateTime desc");
-  url.searchParams.set("$select", "id,subject,bodyPreview,body,receivedDateTime,from");
-  const data = await fetchMessagesPage(accessToken, url.toString());
-  return mapMessages(data.value ?? []);
+  const first = new URL("https://graph.microsoft.com/v1.0/me/messages");
+  first.searchParams.set("$top", "50");
+  first.searchParams.set("$orderby", "receivedDateTime desc");
+  first.searchParams.set("$select", "id,subject,bodyPreview,body,receivedDateTime,from");
+
+  let nextUrl: string | undefined = first.toString();
+  const out: GraphMessageSummary[] = [];
+
+  while (nextUrl && out.length < top) {
+    const page = await fetchMessagesPage(accessToken, nextUrl);
+    out.push(...mapMessages(page.value ?? []));
+    nextUrl = page["@odata.nextLink"];
+    if (!page.value?.length) break;
+  }
+
+  return out.slice(0, top);
 }
 
 export async function fetchMessagesSince(
