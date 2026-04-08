@@ -7,15 +7,17 @@ export function normalizeMerchantKey(vendor: string): string {
     .replace(/\s+/g, " ");
 }
 
-/** Parse South-African style currency text to minor units (cents). */
+/** Parse South-African style currency text to minor units (cents). Uses absolute value (debits may be "-R55.00"). */
 export function parseMinorFromRandText(text: string): number | null {
-  const m = text.match(/R\s*([\d\s.,]+)/i) ?? text.match(/ZAR\s*([\d\s.,]+)/i);
+  const m =
+    text.match(/-?\s*R\s*([\d\s.,]+)/i) ??
+    text.match(/ZAR\s*([\d\s.,]+)/i);
   const raw = (m?.[1] ?? text).replace(/\s/g, "").trim();
   if (!raw) return null;
   const normalized = raw.includes(",") && !raw.includes(".") ? raw.replace(",", ".") : raw.replace(",", "");
   const n = Number.parseFloat(normalized);
-  if (!Number.isFinite(n) || n < 0) return null;
-  return Math.round(n * 100);
+  if (!Number.isFinite(n)) return null;
+  return Math.round(Math.abs(n) * 100);
 }
 
 /** Try ISO date, then DD/MM/YYYY, then DD-MM-YYYY. */
@@ -35,7 +37,10 @@ export function parseDateToYyyyMmDd(text: string): string | null {
   }
   // Bank templates sometimes omit the year, e.g. "31Mar 11:11" / "8Apr 15:52" / "31 Mar".
   // We assume current year; if that would land too far in the future, use previous year.
-  const dMon = text.match(/\b(\d{1,2})\s*([A-Za-z]{3,9})(?:\s*\d{1,2}:\d{2})?\b/);
+  // Try with optional time first; fallback without time (some clients collapse spaces oddly).
+  let dMon =
+    text.match(/\b(\d{1,2})\s*([A-Za-z]{3,9})(?:\s+\d{1,2}:\d{2})?\b/) ??
+    text.match(/\b(\d{1,2})\s*([A-Za-z]{3})\b/);
   if (dMon) {
     const d = Number(dMon[1]);
     const monRaw = (dMon[2] ?? "").toLowerCase();

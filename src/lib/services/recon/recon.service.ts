@@ -49,6 +49,7 @@ export interface ReconSyncDebugMessage {
 function attemptVendorTypeA(combined: string): string | null {
   const merchantLine =
     combined.match(/merchant\s*:\s*([^\n\r]+)/i) ??
+    combined.match(/transaction\s*:\s*([^\n\r]+)/i) ??
     combined.match(/at\s+([A-Za-z0-9\s\-&.]+)(?:\s+on|\s+for|\s*$)/i);
   const v = merchantLine?.[1]?.trim();
   return v ? v.slice(0, 200) : null;
