@@ -5,12 +5,14 @@ import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogFooter, DialogHeader } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { SectionHeader } from "@/components/ui/section-header";
 import { formatRand } from "@/lib/utils/currency";
 import { parseAccountsApiPayload } from "@/lib/utils/accounts-api";
 import type { Category } from "@/lib/types";
 import type { ReconImportItemRow } from "@/lib/repositories/interfaces/recon-import-item.repository";
+import type { ExpenseWithDetails } from "@/lib/types";
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { ...init, headers: { "Content-Type": "application/json", ...init?.headers } });
@@ -28,6 +30,11 @@ export function ReconPageClient() {
   const [categoryByItemId, setCategoryByItemId] = useState<Record<number, number | "">>({});
   const [splitByItemId, setSplitByItemId] = useState<Record<number, boolean>>({});
   const [accountId, setAccountId] = useState<number | "">("");
+  const [syncSince, setSyncSince] = useState<string>("");
+  const [matchesDialogOpen, setMatchesDialogOpen] = useState(false);
+  const [matchesForItemId, setMatchesForItemId] = useState<number | null>(null);
+  const [matchedExpenses, setMatchedExpenses] = useState<ExpenseWithDetails[] | null>(null);
+  const [matchesLoading, setMatchesLoading] = useState(false);
 
   useEffect(() => {
     const err = searchParams.get("error");
@@ -90,7 +97,11 @@ export function ReconPageClient() {
   }, [itemsForCategoryInit]);
 
   const syncMutation = useMutation({
-    mutationFn: () => fetchJson<{ imported: number }>("/api/recon/sync", { method: "POST" }),
+    mutationFn: () =>
+      fetchJson<{ imported: number }>("/api/recon/sync", {
+        method: "POST",
+        body: JSON.stringify({ since: syncSince || undefined }),
+      }),
     onSuccess: (data) => {
       toast.success(`Synced: ${data.imported} bank email(s) matched.`);
       void queryClient.invalidateQueries({ queryKey: ["recon-items"] });
@@ -158,6 +169,33 @@ export function ReconPageClient() {
     },
     [categoryByItemId]
   );
+
+  const openMatches = useCallback(async (item: ReconImportItemRow) => {
+    const ids = item.matchedExpenseIds ?? [];
+    if (!ids.length) {
+      toast.message("No matches stored for this row.");
+      return;
+    }
+    setMatchesForItemId(item.id);
+    setMatchesDialogOpen(true);
+    setMatchesLoading(true);
+    setMatchedExpenses(null);
+    try {
+      const results = await Promise.all(
+        ids.map((id) =>
+          fetchJson<{ expense: ExpenseWithDetails }>(`/api/expenses/${id}`, { method: "GET" }).then(
+            (r) => r.expense
+          )
+        )
+      );
+      setMatchedExpenses(results);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to load matches.");
+      setMatchedExpenses([]);
+    } finally {
+      setMatchesLoading(false);
+    }
+  }, []);
 
   const statusLabel = (s: ReconImportItemRow["status"]): string => {
     switch (s) {
@@ -240,6 +278,21 @@ export function ReconPageClient() {
         <p className="text-sm text-muted-foreground">
           Fetches recent messages and parses bank templates (see docs). No transactions are added until you accept them below.
         </p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="recon-sync-since">Sync from (optional)</Label>
+            <input
+              id="recon-sync-since"
+              type="date"
+              className="h-9 w-full max-w-[220px] rounded-md border border-input bg-background px-2 text-sm"
+              value={syncSince}
+              onChange={(e) => setSyncSince(e.target.value)}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Limits mailbox scanning to messages received on/after this date.
+          </p>
+        </div>
       </section>
 
       <section className="rounded-xl border border-border bg-card p-4 space-y-3">
@@ -255,6 +308,7 @@ export function ReconPageClient() {
                 <tr className="border-b border-border text-left text-muted-foreground">
                   <th className="py-2 pr-3 font-medium">Date</th>
                   <th className="py-2 pr-3 font-medium">Vendor</th>
+                  <th className="py-2 pr-3 font-medium">Description</th>
                   <th className="py-2 pr-3 font-medium tabular-nums">Amount</th>
                   <th className="py-2 pr-3 font-medium">Status</th>
                   <th className="py-2 pr-3 font-medium">Category</th>
@@ -275,6 +329,14 @@ export function ReconPageClient() {
                       <td className="py-3 pr-3 max-w-[200px]">
                         <span className="line-clamp-2" title={item.vendor}>
                           {item.vendor}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-3 max-w-[260px]">
+                        <span
+                          className="line-clamp-2 text-muted-foreground"
+                          title={item.rawSubject ?? item.rawBodyPreview ?? undefined}
+                        >
+                          {item.rawSubject ?? item.rawBodyPreview ?? "—"}
                         </span>
                       </td>
                       <td className="py-3 pr-3 tabular-nums">{formatRand(item.amount)}</td>
@@ -312,6 +374,17 @@ export function ReconPageClient() {
                       </td>
                       <td className="py-3">
                         <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap">
+                          {item.matchedExpenseIds?.length ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="w-full sm:w-auto"
+                              onClick={() => void openMatches(item)}
+                            >
+                              View matches ({item.matchedExpenseIds.length})
+                            </Button>
+                          ) : null}
                           {item.status === "pending_duplicate" ? (
                             <Button
                               type="button"
@@ -364,6 +437,46 @@ export function ReconPageClient() {
           </div>
         )}
       </section>
+
+      <Dialog
+        open={matchesDialogOpen}
+        onOpenChange={(open) => {
+          setMatchesDialogOpen(open);
+          if (!open) {
+            setMatchesForItemId(null);
+            setMatchedExpenses(null);
+            setMatchesLoading(false);
+          }
+        }}
+      >
+        <DialogHeader>Matched expenses{matchesForItemId != null ? ` (recon #${matchesForItemId})` : ""}</DialogHeader>
+        {matchesLoading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : matchedExpenses && matchedExpenses.length > 0 ? (
+          <div className="space-y-2">
+            {matchedExpenses.map((e) => (
+              <div key={e.id} className="rounded-md border border-border p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{e.categoryName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {e.date} · {e.note?.trim() ? e.note : "—"}
+                    </p>
+                  </div>
+                  <p className="text-sm tabular-nums whitespace-nowrap">{formatRand(e.amount)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No matches found.</p>
+        )}
+        <DialogFooter>
+          <Button type="button" variant="secondary" onClick={() => setMatchesDialogOpen(false)}>
+            Close
+          </Button>
+        </DialogFooter>
+      </Dialog>
 
       {accounts.length > 0 ? (
         <section className="rounded-xl border border-border bg-card p-4 space-y-2">
