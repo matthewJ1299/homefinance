@@ -4,6 +4,8 @@
 
 ### Fixed
 
+- **Splits / Recon (Postgres)**: `split_groups.is_default` is a **boolean** column; `SplitGroupRepository.findDefault()` used `is_default = 1`, which caused **`operator does not exist: boolean = integer`** when **Accept and add** with **Split 50/50** resolved the default split group. Queries and writes now use boolean-typed values (`IS TRUE`, `true`/`false`).
+
 - **Recon parsers**: FNB inContact `8Apr 15:52`-style dates match more reliably (DDMon + optional time, fallback DDMon). Rand amounts accept **`-R55.00`** (absolute cents). ABSA NotifyMe **settlement / Amount** lines (`Amount : -R…`) and **Transaction:** vendor fallback when **Merchant** is absent.
 - **Recon parsers (dates)**: `parseDateToYyyyMmDd` evaluates **every** `DDMon` (+ optional time) match in the text and uses the first with a real month abbreviation and day 1–31. This avoids false first matches on FNB copy such as **`.00 paid`** / **`.00 reserved`** (which previously hid the real `8Apr` / `6Apr` and yielded **`date_not_found`**).
 
@@ -16,6 +18,8 @@
 - **Recon UX**: Recon rows now show a **Description** (subject/body preview), a **View matches** action for duplicates, and Sync controls (**Sync from** date + **Max emails to scan** + **Fetch next N** using Graph `$skip`) with a full-screen loading overlay during sync. The fetched-mail preview modal includes parse-failure context and **Copy debug text** (subject, from, received, body, reasons) for support.
 
 ### Changed
+
+- **Recon pending bulk actions**: Each pending row has a **Mark** dropdown (— / Ignore / Accept). **Process marked** applies ignores and accepts in bulk; **accept** on needs-add rows without a category is skipped with a toast so you can categorize and retry. **Clear marks** resets dropdowns. The **View matches** modal (expense details) was removed; duplicate rows only show a **possible match count** under status.
 
 - **Recon fetched emails**: After sync, the **Fetched emails** table can filter to **bank sender addresses only** (same `from` substrings as type A & B in `parse-type-a.ts` / `parse-type-b.ts`, exported as `RECON_TYPE_*_FROM_SUBSTRINGS`) and by **outcome** (All / Imported / Parse failed / Not bank). Counts and pagination use the filtered rows.
 

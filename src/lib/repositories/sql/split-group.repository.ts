@@ -5,15 +5,18 @@ import type { ISplitGroupRepository } from "../interfaces/split-group.repository
 interface SplitGroupRow {
   id: number;
   name: string;
-  is_default: number;
+  /** Postgres uses BOOLEAN; legacy SQLite used 0/1. */
+  is_default: boolean | number;
   sort_order: number;
 }
 
 function toSplitGroup(r: SplitGroupRow): SplitGroup {
+  const d = r.is_default;
+  const isDefault = d === true || d === 1;
   return {
     id: r.id,
     name: r.name,
-    isDefault: r.is_default === 1,
+    isDefault,
     sortOrder: r.sort_order,
   };
 }
@@ -36,7 +39,7 @@ export class SplitGroupRepository implements ISplitGroupRepository {
 
   async findDefault(): Promise<SplitGroup | null> {
     const row = await get<SplitGroupRow>(
-      "SELECT id, name, is_default, sort_order FROM split_groups WHERE is_default = 1 LIMIT 1",
+      "SELECT id, name, is_default, sort_order FROM split_groups WHERE is_default IS TRUE LIMIT 1",
       []
     );
     return row ? toSplitGroup(row) : null;
@@ -57,7 +60,7 @@ export class SplitGroupRepository implements ISplitGroupRepository {
   }): Promise<SplitGroup> {
     await run(
       "INSERT INTO split_groups (name, is_default, sort_order) VALUES (?, ?, ?)",
-      [data.name, data.isDefault ? 1 : 0, data.sortOrder ?? 0]
+      [data.name, data.isDefault ?? false, data.sortOrder ?? 0]
     );
     const id = await lastInsertId();
     const row = (await get<SplitGroupRow>(
@@ -79,7 +82,7 @@ export class SplitGroupRepository implements ISplitGroupRepository {
     }
     if (data.isDefault !== undefined) {
       updates.push("is_default = ?");
-      params.push(data.isDefault ? 1 : 0);
+      params.push(data.isDefault);
     }
     if (data.sortOrder !== undefined) {
       updates.push("sort_order = ?");

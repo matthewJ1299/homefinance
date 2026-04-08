@@ -13,7 +13,6 @@ import { formatRand } from "@/lib/utils/currency";
 import { parseAccountsApiPayload } from "@/lib/utils/accounts-api";
 import type { Category } from "@/lib/types";
 import type { ReconImportItemRow } from "@/lib/repositories/interfaces/recon-import-item.repository";
-import type { ExpenseWithDetails } from "@/lib/types";
 import {
   RECON_TYPE_A_FROM_SUBSTRINGS,
   RECON_TYPE_B_FROM_SUBSTRINGS,
@@ -51,6 +50,9 @@ const RECON_BANK_FROM_SUBSTRINGS = [
 ] as readonly string[];
 
 type DebugOutcomeFilter = "all" | "imported" | "parse_failed" | "not_bank";
+
+/** Per-row bulk queue: none = no bulk action; ignore / accept apply when you click Process marked. */
+type ReconBulkIntent = "none" | "ignore" | "accept";
 
 function filterFetchedMailRow(
   m: FetchedMailDebugRow,
@@ -140,10 +142,8 @@ export function ReconPageClient() {
     receivedDateTime: string;
     bodyContent: string;
   }>(null);
-  const [matchesDialogOpen, setMatchesDialogOpen] = useState(false);
-  const [matchesForItemId, setMatchesForItemId] = useState<number | null>(null);
-  const [matchedExpenses, setMatchedExpenses] = useState<ExpenseWithDetails[] | null>(null);
-  const [matchesLoading, setMatchesLoading] = useState(false);
+  const [bulkIntentByItemId, setBulkIntentByItemId] = useState<Record<number, ReconBulkIntent>>({});
+  const [bulkProcessing, setBulkProcessing] = useState(false);
 
   useEffect(() => {
     const err = searchParams.get("error");
@@ -187,7 +187,7 @@ export function ReconPageClient() {
     },
   });
 
-  const items = itemsQuery.data?.items ?? [];
+  const items = useMemo(() => itemsQuery.data?.items ?? [], [itemsQuery.data?.items]);
   const categories = categoriesQuery.data?.categories ?? [];
   const { accounts, primaryAccountId } = accountsQuery.data ?? { accounts: [], primaryAccountId: null };
 
@@ -210,6 +210,18 @@ export function ReconPageClient() {
       return next;
     });
   }, [itemsForCategoryInit]);
+
+  useEffect(() => {
+    const valid = new Set(items.map((i) => i.id));
+    setBulkIntentByItemId((prev) => {
+      const next: Record<number, ReconBulkIntent> = {};
+      for (const [k, v] of Object.entries(prev)) {
+        const id = Number(k);
+        if (valid.has(id)) next[id] = v;
+      }
+      return next;
+    });
+  }, [items]);
 
   const syncMutation = useMutation({
     mutationFn: (vars: { skip: number }) =>
@@ -288,6 +300,14 @@ export function ReconPageClient() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const setBulkIntent = useCallback((itemId: number, v: ReconBulkIntent) => {
+    setBulkIntentByItemId((p) => ({ ...p, [itemId]: v }));
+  }, []);
+
+  const clearBulkMarks = useCallback(() => {
+    setBulkIntentByItemId({});
+  }, []);
+
   const setCategory = useCallback((itemId: number, value: number | "") => {
     setCategoryByItemId((p) => ({ ...p, [itemId]: value }));
   }, []);
@@ -305,32 +325,88 @@ export function ReconPageClient() {
     [categoryByItemId]
   );
 
-  const openMatches = useCallback(async (item: ReconImportItemRow) => {
-    const ids = item.matchedExpenseIds ?? [];
-    if (!ids.length) {
-      toast.message("No matches stored for this row.");
+  const processMarked = useCallback(async () => {
+    if (bulkProcessing) return;
+    const toIgnore = items.filter((i) => (bulkIntentByItemId[i.id] ?? "none") === "ignore");
+    const toAccept = items.filter((i) => (bulkIntentByItemId[i.id] ?? "none") === "accept");
+    if (toIgnore.length === 0 && toAccept.length === 0) {
+      toast.message("No rows marked to process.");
       return;
     }
-    setMatchesForItemId(item.id);
-    setMatchesDialogOpen(true);
-    setMatchesLoading(true);
-    setMatchedExpenses(null);
+    const acc =
+      accountId === "" ? undefined : typeof accountId === "number" ? accountId : undefined;
+    setBulkProcessing(true);
+    let ignored = 0;
+    let duped = 0;
+    let added = 0;
+    let skippedNoCat = 0;
+    const processedIds: number[] = [];
     try {
-      const results = await Promise.all(
-        ids.map((id) =>
-          fetchJson<{ expense: ExpenseWithDetails }>(`/api/expenses/${id}`, { method: "GET" }).then(
-            (r) => r.expense
-          )
-        )
-      );
-      setMatchedExpenses(results);
+      for (const item of toIgnore) {
+        await fetchJson<{ ok: boolean }>(`/api/recon/items/${item.id}/ignore`, { method: "POST" });
+        ignored++;
+        processedIds.push(item.id);
+      }
+      for (const item of toAccept) {
+        if (item.status === "pending_duplicate") {
+          await fetchJson<{ ok: boolean }>(`/api/recon/items/${item.id}/accept-duplicate`, {
+            method: "POST",
+          });
+          duped++;
+          processedIds.push(item.id);
+          continue;
+        }
+        const cat = effectiveCategory(item);
+        if (typeof cat !== "number" || !cat) {
+          skippedNoCat++;
+          continue;
+        }
+        const split = splitByItemId[item.id] ?? false;
+        await fetchJson<{ expenseId: number }>(`/api/recon/items/${item.id}/accept-add`, {
+          method: "POST",
+          body: JSON.stringify({
+            categoryId: cat,
+            accountId: acc ?? undefined,
+            split,
+          }),
+        });
+        added++;
+        processedIds.push(item.id);
+      }
+      void queryClient.invalidateQueries({ queryKey: ["recon-items"] });
+      setBulkIntentByItemId((prev) => {
+        const next = { ...prev };
+        for (const id of processedIds) {
+          delete next[id];
+        }
+        return next;
+      });
+      const parts: string[] = [];
+      if (ignored > 0) parts.push(`${ignored} ignored`);
+      if (duped > 0) parts.push(`${duped} accepted as duplicate`);
+      if (added > 0) parts.push(`${added} added`);
+      if (parts.length > 0) {
+        toast.success(parts.join(" · "));
+      }
+      if (skippedNoCat > 0) {
+        toast.message(
+          `Left ${skippedNoCat} accept-marked row(s) without a category. Choose a category and process again or use row actions.`
+        );
+      }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to load matches.");
-      setMatchedExpenses([]);
+      toast.error(e instanceof Error ? e.message : "Bulk action failed.");
     } finally {
-      setMatchesLoading(false);
+      setBulkProcessing(false);
     }
-  }, []);
+  }, [
+    items,
+    bulkIntentByItemId,
+    bulkProcessing,
+    accountId,
+    splitByItemId,
+    effectiveCategory,
+    queryClient,
+  ]);
 
   const openMessage = useCallback(async (row: FetchedMailDebugRow) => {
     const meta: FetchedMailDebugRow = {
@@ -712,15 +788,41 @@ export function ReconPageClient() {
 
       <section className="rounded-xl border border-border bg-card p-4 space-y-3">
         <SectionHeader title="Pending items" />
+        {!itemsQuery.isLoading && items.length > 0 ? (
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <Button
+              type="button"
+              size="sm"
+              disabled={bulkProcessing}
+              onClick={() => void processMarked()}
+            >
+              {bulkProcessing ? "Working…" : "Process marked"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={bulkProcessing}
+              onClick={clearBulkMarks}
+            >
+              Clear marks
+            </Button>
+            <p className="text-xs text-muted-foreground sm:max-w-xl">
+              Use the Mark column: Ignore, Accept, or leave as —. Process marked runs ignores first, then accepts
+              (duplicates need no category; adds need a category or they stay pending).
+            </p>
+          </div>
+        ) : null}
         {itemsQuery.isLoading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : items.length === 0 ? (
           <p className="text-sm text-muted-foreground">No pending recon items. Sync after connecting Outlook.</p>
         ) : (
           <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-            <table className="w-full text-sm border-collapse min-w-[640px]">
+            <table className="w-full text-sm border-collapse min-w-[760px]">
               <thead>
                 <tr className="border-b border-border text-left text-muted-foreground">
+                  <th className="py-2 pr-2 font-medium w-[120px]">Mark</th>
                   <th className="py-2 pr-3 font-medium">Date</th>
                   <th className="py-2 pr-3 font-medium">Vendor</th>
                   <th className="py-2 pr-3 font-medium">Description</th>
@@ -740,6 +842,20 @@ export function ReconPageClient() {
                   const split = splitByItemId[item.id] ?? false;
                   return (
                     <tr key={item.id} className="border-b border-border/60 align-top">
+                      <td className="py-3 pr-2">
+                        <select
+                          className="w-full max-w-[7.5rem] rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+                          value={bulkIntentByItemId[item.id] ?? "none"}
+                          onChange={(e) =>
+                            setBulkIntent(item.id, e.target.value as ReconBulkIntent)
+                          }
+                          aria-label={`Bulk mark for recon item ${item.id}`}
+                        >
+                          <option value="none">—</option>
+                          <option value="ignore">Ignore</option>
+                          <option value="accept">Accept</option>
+                        </select>
+                      </td>
                       <td className="py-3 pr-3 whitespace-nowrap">{item.txnDate}</td>
                       <td className="py-3 pr-3 max-w-[200px]">
                         <span className="line-clamp-2" title={item.vendor}>
@@ -757,7 +873,15 @@ export function ReconPageClient() {
                         </button>
                       </td>
                       <td className="py-3 pr-3 tabular-nums">{formatRand(item.amount)}</td>
-                      <td className="py-3 pr-3">{statusLabel(item.status)}</td>
+                      <td className="py-3 pr-3">
+                        <div>{statusLabel(item.status)}</div>
+                        {item.status === "pending_duplicate" && item.matchedExpenseIds?.length ? (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {item.matchedExpenseIds.length} possible match
+                            {item.matchedExpenseIds.length === 1 ? "" : "es"}
+                          </p>
+                        ) : null}
+                      </td>
                       <td className="py-3 pr-3 min-w-[160px]">
                         <select
                           className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm"
@@ -791,17 +915,6 @@ export function ReconPageClient() {
                       </td>
                       <td className="py-3">
                         <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap">
-                          {item.matchedExpenseIds?.length ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="w-full sm:w-auto"
-                              onClick={() => void openMatches(item)}
-                            >
-                              View matches ({item.matchedExpenseIds.length})
-                            </Button>
-                          ) : null}
                           {item.status === "pending_duplicate" ? (
                             <Button
                               type="button"
@@ -854,46 +967,6 @@ export function ReconPageClient() {
           </div>
         )}
       </section>
-
-      <Dialog
-        open={matchesDialogOpen}
-        onOpenChange={(open) => {
-          setMatchesDialogOpen(open);
-          if (!open) {
-            setMatchesForItemId(null);
-            setMatchedExpenses(null);
-            setMatchesLoading(false);
-          }
-        }}
-      >
-        <DialogHeader>Matched expenses{matchesForItemId != null ? ` (recon #${matchesForItemId})` : ""}</DialogHeader>
-        {matchesLoading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : matchedExpenses && matchedExpenses.length > 0 ? (
-          <div className="space-y-2">
-            {matchedExpenses.map((e) => (
-              <div key={e.id} className="rounded-md border border-border p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{e.categoryName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {e.date} · {e.note?.trim() ? e.note : "—"}
-                    </p>
-                  </div>
-                  <p className="text-sm tabular-nums whitespace-nowrap">{formatRand(e.amount)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">No matches found.</p>
-        )}
-        <DialogFooter>
-          <Button type="button" variant="secondary" onClick={() => setMatchesDialogOpen(false)}>
-            Close
-          </Button>
-        </DialogFooter>
-      </Dialog>
 
       <Dialog
         open={messageDialogOpen}
@@ -1026,7 +1099,7 @@ export function ReconPageClient() {
               </option>
             ))}
           </select>
-          <p className="text-xs text-muted-foreground">Used when you click Accept and add.</p>
+          <p className="text-xs text-muted-foreground">Used when you accept and add an expense (single row or bulk Process marked).</p>
         </section>
       ) : null}
     </div>
