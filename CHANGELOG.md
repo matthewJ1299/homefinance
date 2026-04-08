@@ -11,6 +11,10 @@
 
 - **Dashboard quick add (categories)**: The **Quick add expense** tile uses the same **`CategoryPicker`** as the `/add` expense flow: **Most used** (from usage stats), **Show more** for **Variable** / **Fixed** groups. Pill labels show **category names only** (no budget amounts on the tile); overspent styling and the below-the-picker warning still use budget data when available.
 
+### Fixed
+
+- **Recon Graph OAuth (production)**: Added PKCE to the Microsoft Graph authorization-code flow and made the callback redirect prefer `NEXTAUTH_URL` over the request origin to avoid invalid redirects like `0.0.0.0` behind proxies.
+
 - **Budget summary (YNAB-style Option 2)**: Budget overview now uses `toBeAllocated = (totalIncome - totalAllocated) + rolloverAdjustment`, where `rolloverAdjustment` is the negative of prior-month cash overspending (combined-safe: category negatives first, top-level gap fallback). The summary and banner now clearly show **to allocate**, **fully allocated**, or **over allocated** states, including negative values.
 - **Dashboard greeting**: Home greeting and the date line use **UTC+2** (`Africa/Johannesburg`), not the device timezone: **Good morning**, **Good afternoon**, or **Good evening** by that clock.
 - **Split exact-amount UX**: Exact split inputs (dashboard quick add, add flow modal, edit dialog) now show a live helper line for **remaining to allocate**, **fully allocated**, or **over allocated** so users can balance shares before saving.

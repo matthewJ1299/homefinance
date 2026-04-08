@@ -112,6 +112,8 @@ Aliases supported in code: `MICROSOFT_GRAPH_CLIENT_ID`, `MICROSOFT_GRAPH_CLIENT_
 
 **Troubleshooting**: If redirect URI does not match exactly (http vs https, port, path), or `NEXTAUTH_URL` is wrong, OAuth fails. Ensure the app registration redirect URI matches `getGraphRedirectUri()` = `{NEXTAUTH_URL}/api/recon/graph/callback`.
 
+If you see redirects to `https://0.0.0.0:3000/...` in production, your reverse proxy is not providing a correct request origin (Host / `x-forwarded-*` headers) to Next.js, or the app is using the request origin for redirects. Set `NEXTAUTH_URL` correctly and ensure the proxy forwards `x-forwarded-host` and `x-forwarded-proto` (Coolify/Traefik defaults are usually fine). The Recon Graph callback redirects now prefer `NEXTAUTH_URL` over the request origin.
+
 ### Database migrations and existing data
 
 - **`npm run db:push`** (used on deploy and in Docker entrypoint) runs **additive** migrations only: it creates tables or columns when they are **missing**. It does **not** `DROP` tables, `TRUNCATE` data, or wipe rows. Your existing expenses, users, and other data stay intact when new migrations (e.g. Recon tables in `drizzle/0013_recon_pg.sql`) are applied.

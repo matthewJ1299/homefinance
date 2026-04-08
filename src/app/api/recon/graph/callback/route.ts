@@ -5,7 +5,8 @@ import { parseReconOAuthState } from "@/lib/services/recon/graph-oauth.service";
 import { ReconService } from "@/lib/services/recon/recon.service";
 
 function toReconUrl(request: NextRequest, path: string): URL {
-  return new URL(path, request.nextUrl.origin);
+  const baseUrl = process.env.NEXTAUTH_URL ?? process.env.APP_BASE_URL ?? request.nextUrl.origin;
+  return new URL(path, baseUrl);
 }
 
 export async function GET(request: NextRequest) {
