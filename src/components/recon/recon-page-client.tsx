@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -14,6 +14,10 @@ import { parseAccountsApiPayload } from "@/lib/utils/accounts-api";
 import type { Category } from "@/lib/types";
 import type { ReconImportItemRow } from "@/lib/repositories/interfaces/recon-import-item.repository";
 import type { ExpenseWithDetails } from "@/lib/types";
+import {
+  RECON_TYPE_A_FROM_SUBSTRINGS,
+  RECON_TYPE_B_FROM_SUBSTRINGS,
+} from "@/lib/services/recon/parsers";
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { ...init, headers: { "Content-Type": "application/json", ...init?.headers } });
@@ -39,6 +43,35 @@ type FetchedMailDebugRow = {
   parseFailedReasons?: string[];
   parseAttempt?: { amountMinorUnits: number | null; date: string | null; vendor: string | null };
 };
+
+/** Substrings matched against `fromAddress` for the “bank senders only” fetched-mail filter (type A + B). */
+const RECON_BANK_FROM_SUBSTRINGS = [
+  ...RECON_TYPE_A_FROM_SUBSTRINGS,
+  ...RECON_TYPE_B_FROM_SUBSTRINGS,
+] as readonly string[];
+
+type DebugOutcomeFilter = "all" | "imported" | "parse_failed" | "not_bank";
+
+function filterFetchedMailRow(
+  m: FetchedMailDebugRow,
+  bankSendersOnly: boolean,
+  outcomeFilter: DebugOutcomeFilter
+): boolean {
+  if (bankSendersOnly) {
+    const f = (m.fromAddress ?? "").toLowerCase();
+    if (!RECON_BANK_FROM_SUBSTRINGS.some((sub) => f.includes(sub.toLowerCase()))) return false;
+  }
+  switch (outcomeFilter) {
+    case "all":
+      return true;
+    case "imported":
+      return m.outcome === "imported_pending_add" || m.outcome === "imported_pending_duplicate";
+    case "parse_failed":
+      return m.outcome === "parse_failed";
+    case "not_bank":
+      return m.outcome === "not_bank";
+  }
+}
 
 function buildReconDebugBundle(meta: FetchedMailDebugRow, detail: { subject: string; fromAddress: string; receivedDateTime: string; bodyContent: string; id: string }): string {
   const lines: string[] = ["--- HomeFinance Recon debug bundle ---", ""];
@@ -82,8 +115,21 @@ export function ReconPageClient() {
   /** After a successful "Sync from mailbox", this is the Graph `$skip` for the next "Fetch next batch". */
   const [nextBatchSkip, setNextBatchSkip] = useState<number | null>(null);
   const [syncDebug, setSyncDebug] = useState<null | { truncated: boolean; messages: FetchedMailDebugRow[] }>(null);
+  const [debugBankSendersOnly, setDebugBankSendersOnly] = useState(false);
+  const [debugOutcomeFilter, setDebugOutcomeFilter] = useState<DebugOutcomeFilter>("all");
   const [debugPage, setDebugPage] = useState(1);
   const debugPageSize = 25;
+
+  const filteredSyncMessages = useMemo(() => {
+    if (!syncDebug?.messages.length) return [];
+    return syncDebug.messages.filter((m) =>
+      filterFetchedMailRow(m, debugBankSendersOnly, debugOutcomeFilter)
+    );
+  }, [syncDebug, debugBankSendersOnly, debugOutcomeFilter]);
+
+  useEffect(() => {
+    setDebugPage(1);
+  }, [debugBankSendersOnly, debugOutcomeFilter, syncDebug?.messages]);
   const [messageDialogOpen, setMessageDialogOpen] = useState(false);
   const [messageLoading, setMessageLoading] = useState(false);
   const [messageSyncMeta, setMessageSyncMeta] = useState<FetchedMailDebugRow | null>(null);
@@ -510,63 +556,103 @@ export function ReconPageClient() {
 
       {syncDebug ? (
         <CollapsibleSection
-          title={`Fetched emails (${syncDebug.messages.length}${syncDebug.truncated ? "+" : ""})`}
+          title={`Fetched emails (${
+            debugBankSendersOnly || debugOutcomeFilter !== "all"
+              ? `${filteredSyncMessages.length} of ${syncDebug.messages.length}${syncDebug.truncated ? "+" : ""}`
+              : `${syncDebug.messages.length}${syncDebug.truncated ? "+" : ""}`
+          })`}
         >
           <p className="text-xs text-muted-foreground mb-3">
             Highlighting: green = imported, amber = imported + duplicate, red = matched bank template but parse failed.
             {syncDebug.truncated ? " (List is truncated.)" : ""}
           </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end mb-3">
+            <label
+              className="flex items-center gap-2 text-sm cursor-pointer select-none"
+              title={`From contains: ${RECON_BANK_FROM_SUBSTRINGS.join(", ")}`}
+            >
+              <input
+                type="checkbox"
+                className="h-4 w-4 shrink-0 rounded border-input"
+                checked={debugBankSendersOnly}
+                onChange={(e) => setDebugBankSendersOnly(e.target.checked)}
+              />
+              <span>Bank sender addresses only (type A &amp; B)</span>
+            </label>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="recon-debug-outcome">Outcome</Label>
+              <select
+                id="recon-debug-outcome"
+                className="h-9 min-w-[200px] rounded-md border border-input bg-background px-2 text-sm"
+                value={debugOutcomeFilter}
+                onChange={(e) => setDebugOutcomeFilter(e.target.value as DebugOutcomeFilter)}
+              >
+                <option value="all">All</option>
+                <option value="imported">Imported</option>
+                <option value="parse_failed">Parse failed</option>
+                <option value="not_bank">Not bank</option>
+              </select>
+            </div>
+          </div>
           {(() => {
-            const total = syncDebug.messages.length;
+            const total = filteredSyncMessages.length;
             const totalPages = Math.max(1, Math.ceil(total / debugPageSize));
             const safePage = Math.min(Math.max(1, debugPage), totalPages);
             const start = (safePage - 1) * debugPageSize;
-            const pageRows = syncDebug.messages.slice(start, start + debugPageSize);
+            const pageRows = filteredSyncMessages.slice(start, start + debugPageSize);
             const canPrev = safePage > 1;
             const canNext = safePage < totalPages;
             return (
               <div className="space-y-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-xs text-muted-foreground">
-                    Showing {start + 1}-{Math.min(start + debugPageSize, total)} of {total}
+                {total === 0 ? (
+                  <p className="text-sm text-muted-foreground py-2">
+                    {syncDebug.messages.length === 0
+                      ? "No messages in this sync batch."
+                      : "No messages match the current filters."}
                   </p>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      disabled={!canPrev}
-                      onClick={() => setDebugPage((p) => Math.max(1, p - 1))}
-                    >
-                      Prev
-                    </Button>
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                      Page {safePage} / {totalPages}
-                    </span>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      disabled={!canNext}
-                      onClick={() => setDebugPage((p) => p + 1)}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm border-collapse min-w-[920px]">
-                    <thead>
-                      <tr className="border-b border-border text-left text-muted-foreground">
-                        <th className="py-2 pr-3 font-medium">Received</th>
-                        <th className="py-2 pr-3 font-medium">From</th>
-                        <th className="py-2 pr-3 font-medium">Subject</th>
-                        <th className="py-2 pr-3 font-medium">Preview</th>
-                        <th className="py-2 font-medium">Outcome</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pageRows.map((m) => {
+                ) : (
+                  <>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-xs text-muted-foreground">
+                        Showing {start + 1}-{Math.min(start + debugPageSize, total)} of {total}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          disabled={!canPrev}
+                          onClick={() => setDebugPage((p) => Math.max(1, p - 1))}
+                        >
+                          Prev
+                        </Button>
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                          Page {safePage} / {totalPages}
+                        </span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          disabled={!canNext}
+                          onClick={() => setDebugPage((p) => p + 1)}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm border-collapse min-w-[920px]">
+                        <thead>
+                          <tr className="border-b border-border text-left text-muted-foreground">
+                            <th className="py-2 pr-3 font-medium">Received</th>
+                            <th className="py-2 pr-3 font-medium">From</th>
+                            <th className="py-2 pr-3 font-medium">Subject</th>
+                            <th className="py-2 pr-3 font-medium">Preview</th>
+                            <th className="py-2 font-medium">Outcome</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pageRows.map((m) => {
                         const cls =
                           m.outcome === "imported_pending_duplicate"
                             ? "bg-amber-500/10"
@@ -612,10 +698,12 @@ export function ReconPageClient() {
                             <td className="py-2">{outcomeLabel}</td>
                           </tr>
                         );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
               </div>
             );
           })()}

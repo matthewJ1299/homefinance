@@ -1,8 +1,11 @@
 import type { ParsedBankEmail } from "./parsed-bank-email";
 import { parseDateToYyyyMmDd, parseMinorFromRandText } from "./parse-helpers";
 
+/** Sender address substrings for type B (FNB inContact). Used by matchers and Recon fetched-mail filters. */
+export const RECON_TYPE_B_FROM_SUBSTRINGS = ["incontact@fnb.co.za"] as const;
+
 /** Edit these to match your second bank email template (type B). */
-const FROM_SUBSTRINGS = ["incontact@fnb.co.za"];
+const FROM_SUBSTRINGS: readonly string[] = RECON_TYPE_B_FROM_SUBSTRINGS;
 const SUBJECT_SUBSTRINGS = ["fnb", ":-)", "paid", "payment", "deposit"];
 
 export function matchesTypeB(fromAddress: string, subject: string): boolean {

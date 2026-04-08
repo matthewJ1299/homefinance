@@ -1,8 +1,11 @@
 import type { ParsedBankEmail } from "./parsed-bank-email";
 import { parseDateToYyyyMmDd, parseMinorFromRandText } from "./parse-helpers";
 
+/** Sender address substrings for type A (ABSA NotifyMe). Used by matchers and Recon fetched-mail filters. */
+export const RECON_TYPE_A_FROM_SUBSTRINGS = ["notifyme@absa.co.za"] as const;
+
 /** Edit these to match your bank’s notification email (type A). */
-const FROM_SUBSTRINGS = ["notifyme@absa.co.za"];
+const FROM_SUBSTRINGS: readonly string[] = RECON_TYPE_A_FROM_SUBSTRINGS;
 const SUBJECT_SUBSTRINGS = ["notifyme"];
 
 export function matchesTypeA(fromAddress: string, subject: string): boolean {

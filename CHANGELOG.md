@@ -17,6 +17,8 @@
 
 ### Changed
 
+- **Recon fetched emails**: After sync, the **Fetched emails** table can filter to **bank sender addresses only** (same `from` substrings as type A & B in `parse-type-a.ts` / `parse-type-b.ts`, exported as `RECON_TYPE_*_FROM_SUBSTRINGS`) and by **outcome** (All / Imported / Parse failed / Not bank). Counts and pagination use the filtered rows.
+
 - **Recon pending items**: The **Description** column opens the same **Fetched mail detail** modal as the sync debug table (full from, subject, received, body via Graph). The modal shows a **Description** block at the top with the same list line as the table; **Copy debug text** includes that line when present.
 
 - **Desktop layout split**: On desktop, the main content area now uses **80%** width and the side navigation uses **20%** width (mobile layout unchanged).

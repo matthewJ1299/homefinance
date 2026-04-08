@@ -17,6 +17,13 @@ Recon is **off by default** per user (`users.recon_enabled`). Under **Settings**
 
 On **Pending items**, the **Description** cell is clickable: it opens the **Fetched mail detail** dialog (loads the message from Microsoft Graph). The dialog repeats the list **Description** line at the top, then shows from, subject, received time, and full body.
 
+## Fetched emails (after sync)
+
+The collapsible **Fetched emails** list (returned with debug data from sync) supports:
+
+- **Bank sender addresses only (type A & B)**: When enabled, only rows whose **From** address contains a substring from `RECON_TYPE_A_FROM_SUBSTRINGS` or `RECON_TYPE_B_FROM_SUBSTRINGS` in `parse-type-a.ts` / `parse-type-b.ts` are shown. This filters by sender only (not subject); it helps focus on the same addresses the parsers use for “from”.
+- **Outcome**: **All**, **Imported** (pending add or duplicate), **Parse failed**, or **Not bank**. Pagination and counts apply to the filtered list; the section title shows `shown of total` when any filter is active.
+
 ## Matching rule
 
 - **Possible duplicate**: same signed-in user, **same calendar date** (`txn_date`), **same amount** (minor units) as at least one existing expense.
@@ -29,8 +36,8 @@ Two templates are implemented in code:
 
 | File | Role |
 |------|------|
-| `src/lib/services/recon/parsers/parse-type-a.ts` | Sender/subject filters + body regex for amount, date, merchant |
-| `src/lib/services/recon/parsers/parse-type-b.ts` | Second bank template |
+| `src/lib/services/recon/parsers/parse-type-a.ts` | Sender/subject filters + body regex for amount, date, merchant (`RECON_TYPE_A_FROM_SUBSTRINGS` exported for UI filters) |
+| `src/lib/services/recon/parsers/parse-type-b.ts` | Second bank template (`RECON_TYPE_B_FROM_SUBSTRINGS` exported for UI filters) |
 
 Edit the `FROM_SUBSTRINGS`, `SUBJECT_SUBSTRINGS`, and body regex patterns to match your bank’s notification emails. **Sync** only ingests messages that pass one of the type matchers and then parse successfully.
 
