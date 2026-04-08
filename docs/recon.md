@@ -38,7 +38,7 @@ See the main [README](../README.md) section **Recon and Microsoft Graph (Outlook
 | GET | `/api/recon/graph/callback` | OAuth callback (stores encrypted refresh token) |
 | GET | `/api/recon/graph/status` | `{ connected, msAccountEmail }` |
 | POST | `/api/recon/graph/disconnect` | Remove stored connection |
-| POST | `/api/recon/sync` | Fetch mail + upsert `recon_import_items` (optional body `{ since?: "YYYY-MM-DD", top?: number }`) |
+| POST | `/api/recon/sync` | Fetch mail + upsert `recon_import_items` (optional body `{ since?: "YYYY-MM-DD", top?: number, skip?: number }`; `skip` is Graph `$skip` for paging older messages) |
 | GET | `/api/recon/items` | List pending items |
 | POST | `/api/recon/items/[id]/accept-duplicate` | Mark duplicate resolved (no new expense) |
 | POST | `/api/recon/items/[id]/accept-add` | Body `{ categoryId, accountId?, split? }` — create expense (optionally split) |

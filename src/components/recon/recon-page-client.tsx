@@ -25,6 +25,47 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
+type FetchedMailDebugRow = {
+  graphMessageId: string;
+  receivedDateTime: string;
+  fromAddress: string;
+  subject: string;
+  bodyPreview?: string;
+  outcome: "not_bank" | "parse_failed" | "imported_pending_add" | "imported_pending_duplicate";
+  parseType?: string;
+  matchedExpenseCount?: number;
+  parseFailedReasons?: string[];
+  parseAttempt?: { amountMinorUnits: number | null; date: string | null; vendor: string | null };
+};
+
+function buildReconDebugBundle(meta: FetchedMailDebugRow, detail: { subject: string; fromAddress: string; receivedDateTime: string; bodyContent: string; id: string }): string {
+  const lines: string[] = ["--- HomeFinance Recon debug bundle ---", ""];
+  lines.push(`Graph message id: ${detail.id}`);
+  lines.push(`Outcome: ${meta.outcome}`);
+  if (meta.parseType) lines.push(`Template: ${meta.parseType}`);
+  if (meta.outcome === "parse_failed") {
+    lines.push(
+      `Parse failed reasons: ${meta.parseFailedReasons?.length ? meta.parseFailedReasons.join(", ") : "(none recorded)"}`
+    );
+    if (meta.parseAttempt) {
+      lines.push(
+        `Attempted extract: amountMinorUnits=${meta.parseAttempt.amountMinorUnits ?? "null"}, date=${meta.parseAttempt.date ?? "null"}, vendor=${meta.parseAttempt.vendor ?? "null"}`
+      );
+    }
+  }
+  if (meta.matchedExpenseCount != null) lines.push(`Matched expense count: ${meta.matchedExpenseCount}`);
+  lines.push("");
+  lines.push(`From (email): ${detail.fromAddress || meta.fromAddress || "—"}`);
+  lines.push(`Subject: ${detail.subject || meta.subject || "—"}`);
+  lines.push(`Received: ${detail.receivedDateTime || meta.receivedDateTime || "—"}`);
+  lines.push("");
+  lines.push("--- Body ---");
+  lines.push(detail.bodyContent || "—");
+  lines.push("");
+  lines.push("--- End ---");
+  return lines.join("\n");
+}
+
 export function ReconPageClient() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -33,27 +74,14 @@ export function ReconPageClient() {
   const [accountId, setAccountId] = useState<number | "">("");
   const [syncSince, setSyncSince] = useState<string>("");
   const [syncTop, setSyncTop] = useState<number>(200);
-  const [syncDebug, setSyncDebug] = useState<
-    null | {
-      truncated: boolean;
-      messages: Array<{
-        graphMessageId: string;
-        receivedDateTime: string;
-        fromAddress: string;
-        subject: string;
-        bodyPreview?: string;
-        outcome: "not_bank" | "parse_failed" | "imported_pending_add" | "imported_pending_duplicate";
-        parseType?: string;
-        matchedExpenseCount?: number;
-        parseFailedReasons?: string[];
-        parseAttempt?: { amountMinorUnits: number | null; date: string | null; vendor: string | null };
-      }>;
-    }
-  >(null);
+  /** After a successful "Sync from mailbox", this is the Graph `$skip` for the next "Fetch next batch". */
+  const [nextBatchSkip, setNextBatchSkip] = useState<number | null>(null);
+  const [syncDebug, setSyncDebug] = useState<null | { truncated: boolean; messages: FetchedMailDebugRow[] }>(null);
   const [debugPage, setDebugPage] = useState(1);
   const debugPageSize = 25;
   const [messageDialogOpen, setMessageDialogOpen] = useState(false);
   const [messageLoading, setMessageLoading] = useState(false);
+  const [messageSyncMeta, setMessageSyncMeta] = useState<FetchedMailDebugRow | null>(null);
   const [messageDetail, setMessageDetail] = useState<null | {
     id: string;
     subject: string;
@@ -127,15 +155,28 @@ export function ReconPageClient() {
   }, [itemsForCategoryInit]);
 
   const syncMutation = useMutation({
-    mutationFn: () =>
-      fetchJson<{ imported: number; scanned: number; debug?: { truncated: boolean; messages: unknown[] } }>("/api/recon/sync", {
-        method: "POST",
-        body: JSON.stringify({ since: syncSince || undefined, debug: true, top: syncTop }),
-      }),
-    onSuccess: (data) => {
+    mutationFn: (vars: { skip: number }) =>
+      fetchJson<{ imported: number; scanned: number; skip?: number; debug?: { truncated: boolean; messages: unknown[] } }>(
+        "/api/recon/sync",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            since: syncSince || undefined,
+            debug: true,
+            top: syncTop,
+            skip: vars.skip,
+          }),
+        }
+      ),
+    onSuccess: (data, vars) => {
       toast.success(`Synced: ${data.imported} bank email(s) matched.`);
+      if (vars.skip === 0) {
+        setNextBatchSkip(syncTop);
+      } else {
+        setNextBatchSkip((prev) => (prev ?? 0) + syncTop);
+      }
       if (data.debug && typeof data.debug === "object") {
-        setSyncDebug(data.debug as typeof syncDebug);
+        setSyncDebug(data.debug as { truncated: boolean; messages: FetchedMailDebugRow[] });
         setDebugPage(1);
       } else {
         setSyncDebug(null);
@@ -234,28 +275,43 @@ export function ReconPageClient() {
     }
   }, []);
 
-  const openMessage = useCallback(async (graphMessageId: string) => {
+  const openMessage = useCallback(async (row: FetchedMailDebugRow) => {
+    setMessageSyncMeta(row);
     setMessageDialogOpen(true);
     setMessageLoading(true);
     setMessageDetail(null);
     try {
       const data = await fetchJson<{ message: { id: string; subject: string; fromAddress: string; receivedDateTime: string; bodyContent: string } }>(
-        `/api/recon/messages/${encodeURIComponent(graphMessageId)}`
+        `/api/recon/messages/${encodeURIComponent(row.graphMessageId)}`
       );
       setMessageDetail(data.message);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to load email body.");
       setMessageDetail({
-        id: graphMessageId,
-        subject: "",
-        fromAddress: "",
-        receivedDateTime: "",
+        id: row.graphMessageId,
+        subject: row.subject,
+        fromAddress: row.fromAddress,
+        receivedDateTime: row.receivedDateTime,
         bodyContent: "",
       });
     } finally {
       setMessageLoading(false);
     }
   }, []);
+
+  const copyMessageDebugBundle = useCallback(async () => {
+    if (!messageSyncMeta || !messageDetail) {
+      toast.error("Nothing to copy yet.");
+      return;
+    }
+    const text = buildReconDebugBundle(messageSyncMeta, messageDetail);
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Debug bundle copied to clipboard.");
+    } catch {
+      toast.error("Could not copy to clipboard.");
+    }
+  }, [messageSyncMeta, messageDetail]);
 
   const statusLabel = (s: ReconImportItemRow["status"]): string => {
     switch (s) {
@@ -325,14 +381,33 @@ export function ReconPageClient() {
         <SectionHeader
           title="Sync"
           action={
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => syncMutation.mutate()}
-              disabled={!connected || syncMutation.isPending}
-            >
-              {syncMutation.isPending ? "Syncing…" : "Sync from mailbox"}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => syncMutation.mutate({ skip: 0 })}
+                disabled={!connected || syncMutation.isPending}
+              >
+                {syncMutation.isPending ? "Syncing…" : "Sync from mailbox"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  if (nextBatchSkip == null) return;
+                  syncMutation.mutate({ skip: nextBatchSkip });
+                }}
+                disabled={!connected || syncMutation.isPending || nextBatchSkip == null}
+                title={
+                  nextBatchSkip == null
+                    ? "Run Sync from mailbox first to set the starting offset."
+                    : `Fetch the next ${syncTop} messages (skip ${nextBatchSkip})`
+                }
+              >
+                {syncMutation.isPending ? "Syncing…" : `Fetch next ${syncTop}`}
+              </Button>
+            </div>
           }
         />
         <p className="text-sm text-muted-foreground">
@@ -369,6 +444,15 @@ export function ReconPageClient() {
             Limits mailbox scanning to messages received on/after this date.
           </p>
         </div>
+        {nextBatchSkip != null ? (
+          <p className="text-xs text-muted-foreground">
+            Next &quot;Fetch next {syncTop}&quot; uses Graph skip {nextBatchSkip} (older mail).
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Run <strong>Sync from mailbox</strong> once to enable <strong>Fetch next {syncTop}</strong> for older messages.
+          </p>
+        )}
       </section>
 
       {syncDebug ? (
@@ -464,7 +548,7 @@ export function ReconPageClient() {
                               <button
                                 type="button"
                                 className="text-left w-full"
-                                onClick={() => void openMessage(m.graphMessageId)}
+                                onClick={() => void openMessage(m)}
                                 title="Click to view full body"
                               >
                                 <span className="line-clamp-2 text-muted-foreground">
@@ -675,29 +759,86 @@ export function ReconPageClient() {
           if (!open) {
             setMessageLoading(false);
             setMessageDetail(null);
+            setMessageSyncMeta(null);
           }
         }}
         className="max-w-3xl"
       >
-        <DialogHeader>Email</DialogHeader>
+        <DialogHeader>Fetched mail detail</DialogHeader>
+        {messageSyncMeta?.outcome === "parse_failed" ? (
+          <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm space-y-2">
+            <p className="font-medium text-destructive">Parse failed</p>
+            <p className="text-muted-foreground">
+              Reasons:{" "}
+              {messageSyncMeta.parseFailedReasons?.length
+                ? messageSyncMeta.parseFailedReasons.join(", ")
+                : "unknown"}
+            </p>
+            {messageSyncMeta.parseType ? (
+              <p className="text-muted-foreground">Template attempted: {messageSyncMeta.parseType}</p>
+            ) : null}
+            {messageSyncMeta.parseAttempt ? (
+              <pre className="text-xs rounded-md border border-border bg-muted/40 p-2 overflow-auto">
+                {JSON.stringify(messageSyncMeta.parseAttempt, null, 2)}
+              </pre>
+            ) : null}
+          </div>
+        ) : null}
         {messageLoading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">Loading body from mailbox…</p>
+            {messageSyncMeta ? (
+              <div className="rounded-md border border-border p-3 space-y-1 text-sm">
+                <p>
+                  <span className="text-muted-foreground">From (email): </span>
+                  {messageSyncMeta.fromAddress || "—"}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Subject: </span>
+                  {messageSyncMeta.subject || "—"}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Received: </span>
+                  {messageSyncMeta.receivedDateTime || "—"}
+                </p>
+              </div>
+            ) : null}
+          </div>
         ) : messageDetail ? (
           <div className="space-y-3">
-            <div className="rounded-md border border-border p-3">
-              <p className="text-sm font-medium">{messageDetail.subject || "—"}</p>
-              <p className="text-xs text-muted-foreground">
-                {messageDetail.receivedDateTime || "—"} · {messageDetail.fromAddress || "—"}
+            <div className="rounded-md border border-border p-3 space-y-1 text-sm">
+              <p>
+                <span className="text-muted-foreground">From (email): </span>
+                <span className="select-all">{messageDetail.fromAddress || "—"}</span>
+              </p>
+              <p>
+                <span className="text-muted-foreground">Subject: </span>
+                <span className="select-all">{messageDetail.subject || "—"}</span>
+              </p>
+              <p>
+                <span className="text-muted-foreground">Received: </span>
+                <span className="select-all">{messageDetail.receivedDateTime || "—"}</span>
               </p>
             </div>
-            <pre className="whitespace-pre-wrap text-sm rounded-md border border-border bg-muted/30 p-3 max-h-[60vh] overflow-auto">
-{messageDetail.bodyContent || "—"}
-            </pre>
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Body</p>
+              <pre className="whitespace-pre-wrap text-sm rounded-md border border-border bg-muted/30 p-3 max-h-[50vh] overflow-auto select-all">
+                {messageDetail.bodyContent || "—"}
+              </pre>
+            </div>
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">No data.</p>
         )}
         <DialogFooter>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => void copyMessageDebugBundle()}
+            disabled={!messageSyncMeta || !messageDetail || messageLoading}
+          >
+            Copy debug text
+          </Button>
           <Button type="button" variant="secondary" onClick={() => setMessageDialogOpen(false)}>
             Close
           </Button>

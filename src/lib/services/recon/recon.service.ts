@@ -125,13 +125,15 @@ export class ReconService {
     userId: number,
     since?: string,
     debug?: boolean,
-    top?: number
-  ): Promise<{ imported: number; scanned: number; debug?: { truncated: boolean; messages: ReconSyncDebugMessage[] } }> {
+    top?: number,
+    skip?: number
+  ): Promise<{ imported: number; scanned: number; skip: number; debug?: { truncated: boolean; messages: ReconSyncDebugMessage[] } }> {
     const accessToken = await this.getValidAccessToken(userId);
     const maxMessages = top != null && top > 0 ? top : since ? 1000 : 40;
+    const safeSkip = skip != null && skip > 0 ? skip : 0;
     const messages = since
-      ? await fetchMessagesSince(accessToken, `${since}T00:00:00.000Z`, maxMessages)
-      : await fetchRecentMessages(accessToken, maxMessages);
+      ? await fetchMessagesSince(accessToken, `${since}T00:00:00.000Z`, maxMessages, safeSkip)
+      : await fetchRecentMessages(accessToken, maxMessages, safeSkip);
     const scanned = messages.length;
     let imported = 0;
     const debugMessages: ReconSyncDebugMessage[] = [];
@@ -237,8 +239,8 @@ export class ReconService {
     }
     await this.graphConnRepo.setLastSyncedAt(userId, new Date());
     return debug
-      ? { imported, scanned, debug: { truncated, messages: debugMessages } }
-      : { imported, scanned };
+      ? { imported, scanned, skip: safeSkip, debug: { truncated, messages: debugMessages } }
+      : { imported, scanned, skip: safeSkip };
   }
 
   async getGraphMessageBody(

@@ -65,11 +65,18 @@ async function fetchMessagesPage(accessToken: string, url: string): Promise<Grap
   return (await res.json()) as GraphMessagesResponse;
 }
 
-export async function fetchRecentMessages(accessToken: string, top: number): Promise<GraphMessageSummary[]> {
+export async function fetchRecentMessages(
+  accessToken: string,
+  top: number,
+  skip = 0
+): Promise<GraphMessageSummary[]> {
   const first = new URL("https://graph.microsoft.com/v1.0/me/messages");
   first.searchParams.set("$top", "50");
   first.searchParams.set("$orderby", "receivedDateTime desc");
   first.searchParams.set("$select", "id,subject,bodyPreview,body,receivedDateTime,from");
+  if (skip > 0) {
+    first.searchParams.set("$skip", String(skip));
+  }
 
   let nextUrl: string | undefined = first.toString();
   const out: GraphMessageSummary[] = [];
@@ -87,13 +94,17 @@ export async function fetchRecentMessages(accessToken: string, top: number): Pro
 export async function fetchMessagesSince(
   accessToken: string,
   sinceIso: string,
-  maxMessages = 1000
+  maxMessages = 1000,
+  skip = 0
 ): Promise<GraphMessageSummary[]> {
   const first = new URL("https://graph.microsoft.com/v1.0/me/messages");
   first.searchParams.set("$top", "50");
   first.searchParams.set("$orderby", "receivedDateTime desc");
   first.searchParams.set("$select", "id,subject,bodyPreview,body,receivedDateTime,from");
   first.searchParams.set("$filter", `receivedDateTime ge ${sinceIso}`);
+  if (skip > 0) {
+    first.searchParams.set("$skip", String(skip));
+  }
 
   let nextUrl: string | undefined = first.toString();
   const out: GraphMessageSummary[] = [];
