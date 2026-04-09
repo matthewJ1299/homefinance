@@ -90,14 +90,29 @@ export class UserRepository implements IUserRepository {
   }
 
   async getAiUsePaid(userId: number): Promise<boolean> {
-    const row = await get<{ ai_use_paid: boolean | null }>(
-      "SELECT ai_use_paid FROM users WHERE id = ?",
-      [userId]
-    );
-    return row?.ai_use_paid === true;
+    try {
+      const row = await get<{ ai_use_paid: boolean | null }>(
+        "SELECT ai_use_paid FROM users WHERE id = ?",
+        [userId]
+      );
+      return row?.ai_use_paid === true;
+    } catch (err) {
+      // Backwards-compatible: older DBs won't have the column until migrations are applied.
+      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
+        return false;
+      }
+      throw err;
+    }
   }
 
   async setAiUsePaid(userId: number, usePaid: boolean): Promise<void> {
-    await run("UPDATE users SET ai_use_paid = ? WHERE id = ?", [usePaid, userId]);
+    try {
+      await run("UPDATE users SET ai_use_paid = ? WHERE id = ?", [usePaid, userId]);
+    } catch (err) {
+      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
+        throw new Error('Database is missing column "users.ai_use_paid". Run `npm run db:push` to apply migrations.');
+      }
+      throw err;
+    }
   }
 }

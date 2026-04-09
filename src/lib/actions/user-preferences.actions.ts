@@ -69,7 +69,12 @@ export async function updateAiUsePaidAction(usePaid: boolean): Promise<UpdateAiU
   }
 
   const userId = Number(session.user.id);
-  await getUserRepository().setAiUsePaid(userId, usePaid);
+  try {
+    await getUserRepository().setAiUsePaid(userId, usePaid);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to update AI preference.";
+    return { success: false, error: message };
+  }
   revalidatePath("/dashboard");
   revalidatePath("/settings");
   revalidatePath("/summary");
