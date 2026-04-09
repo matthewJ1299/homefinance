@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { BudgetMonthStartDayProvider } from "@/components/settings/budget-month-start-context";
 import { getUserRepository } from "@/lib/repositories";
+import { resolveReconInteractiveEnabled } from "@/lib/services/feature-access.service";
 
 export default async function AppLayout({
   children,
@@ -23,7 +24,7 @@ export default async function AppLayout({
   const userRepo = getUserRepository();
   const [budgetMonthStartDay, reconEnabled] = await Promise.all([
     userRepo.getBudgetMonthStartDay(userId),
-    userRepo.getReconEnabled(userId),
+    resolveReconInteractiveEnabled(userId),
   ]);
 
   return (

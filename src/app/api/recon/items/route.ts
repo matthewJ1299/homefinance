@@ -11,7 +11,12 @@ export async function GET() {
   }
   setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   const userId = Number(session.user.id);
-  const reconEnabled = await getUserRepository().getReconEnabled(userId);
+  const userRepo = getUserRepository();
+  const [reconFeatureAllowed, reconEnabledPref] = await Promise.all([
+    userRepo.getReconFeatureAllowed(userId),
+    userRepo.getReconEnabled(userId),
+  ]);
+  const reconEnabled = reconFeatureAllowed && reconEnabledPref;
   if (!reconEnabled) {
     return NextResponse.json({ reconEnabled: false, items: [] });
   }

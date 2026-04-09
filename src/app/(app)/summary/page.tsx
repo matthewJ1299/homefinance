@@ -13,6 +13,7 @@ import { getUserRepository } from "@/lib/repositories";
 import { AccountsSummaryTile } from "@/components/dashboard/accounts-summary-tile";
 import { AiAnalysisButton } from "@/components/dashboard/ai-analysis-button";
 import { isAIConfiguredForTier } from "@/lib/services/ai.service";
+import { resolveAiInteractiveEnabled } from "@/lib/services/feature-access.service";
 
 interface SummaryPageProps {
   searchParams: Promise<{ month?: string; from?: string; to?: string }>;
@@ -39,10 +40,9 @@ export default async function SummaryPage({ searchParams }: SummaryPageProps) {
   const userRepo = getUserRepository();
   const userRows = await userRepo.findAll();
   const userNames = Object.fromEntries(userRows.map((u) => [u.id, u.name]));
-  const aiEnabledPref = await userRepo.getAiEnabled(userId);
   const aiUsePaid = await userRepo.getAiUsePaid(userId);
   const aiConfigured = aiUsePaid ? isAIConfiguredForTier("paid") : isAIConfiguredForTier("free");
-  const aiEnabled = aiEnabledPref && aiConfigured;
+  const aiEnabled = await resolveAiInteractiveEnabled(userId, aiConfigured);
 
   const mortgageService = new MortgageService();
   const mortgageSchedule = await mortgageService.getSchedule();

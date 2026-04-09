@@ -13,7 +13,16 @@ export async function analyzeExpenses(month: string): Promise<AnalyzeExpensesOut
   }
   const userId = Number(session.user.id);
   const userRepo = getUserRepository();
-  const aiEnabled = await userRepo.getAiEnabled(userId);
+  const [aiFeatureAllowed, aiEnabled] = await Promise.all([
+    userRepo.getAiFeatureAllowed(userId),
+    userRepo.getAiEnabled(userId),
+  ]);
+  if (!aiFeatureAllowed) {
+    return {
+      success: false,
+      error: "AI analysis is not enabled for your account. An administrator can grant access.",
+    };
+  }
   if (!aiEnabled) {
     return { success: false, error: "AI is disabled for your user. Enable it under Settings → AI analysis." };
   }

@@ -9,6 +9,7 @@ import {
 } from "@/lib/repositories";
 import { BudgetService } from "@/lib/services/budget.service";
 import { isAIConfiguredForTier } from "@/lib/services/ai.service";
+import { resolveAiInteractiveEnabled } from "@/lib/services/feature-access.service";
 import {
   CalendarService,
   type CalendarEventOccurrence,
@@ -125,10 +126,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   );
   const otherUserName = otherUsers[0]?.name;
   const budgetMonthStartDay = await userRepo.getBudgetMonthStartDay(userId);
-  const aiEnabledPref = await userRepo.getAiEnabled(userId);
   const aiUsePaid = await userRepo.getAiUsePaid(userId);
   const aiConfigured = aiUsePaid ? isAIConfiguredForTier("paid") : isAIConfiguredForTier("free");
-  const aiEnabled = aiEnabledPref && aiConfigured;
+  const aiEnabled = await resolveAiInteractiveEnabled(userId, aiConfigured);
   const monthLabelPretty = formatBudgetMonthLabel(month, budgetMonthStartDay);
   return (
     <div className="p-3 sm:p-4 space-y-5 sm:space-y-6 pb-24 md:pb-6">

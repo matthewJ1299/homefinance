@@ -4,6 +4,8 @@
 
 ### Added
 
+- **Per-user feature access (AI and Recon)**: Added `users.ai_feature_allowed` and `users.recon_feature_allowed` (migration `0020_users_feature_access_pg.sql`, wired in `db:push`). Both must be true **and** the existing Settings toggles must be on for the corresponding feature. Migration grants both flags only to **`users.id = 1`** by default (edit the migration or use SQL / a future admin UI for other users). See [docs/feature-access.md](./docs/feature-access.md).
+
 - **AI toggle (off by default)**: AI features are now **disabled by default** per user (`users.ai_enabled`, migration `0019_users_ai_enabled_pg.sql`). Enable **AI analysis** under **Settings** before AI buttons and report generation appear.
 - **OpenAI paid + Gemini free fallback**: Paid AI can now use **OpenAI** (`OPENAI_API_KEY`, optional `OPENAI_MODEL`). If OpenAI runs out of credit / returns an insufficient quota error, the app **automatically falls back** to the existing **Gemini free** configuration.
 - **AI provider label on reports**: The **Budget AI report** page now shows the **AI provider used** at the top of the report (recorded in the run’s stored prompt text).
@@ -21,6 +23,8 @@
 - **Recon ignore persistence**: Ignored recon items no longer reappear in **Pending items** after a mailbox re-sync (sync upsert preserves `ignored` / `accepted_*` statuses).
 
 ### Changed
+
+- **Feature-access migration `0020`**: After adding `ai_feature_allowed` / `recon_feature_allowed`, only **`users.id = 1`** is updated to allowed; other user rows stay `false` until granted (edit migration, SQL, or future admin UI).
 
 - **AI monthly budget analysis (Gemini)**: Spending analysis now sends a **YNAB-style JSON payload** (amounts in **cents**, `currency: "ZAR"`, category roll-up with `prev_month_spent_cents`, plus a **transactions** list in cents for recategorisation hints). The model uses **system + user** prompts, **`responseMimeType: application/json`**, and must return a fixed JSON report schema; the app **parses** the response and shows a readable report on **`/budget-ai-report`** (saved in Postgres; prompt template version for `expenses_monthly` is **3**).
 - **AI budget reports persistence**: Parsed AI report JSON is now stored in `ai_analysis_runs.output_json` (migration `0019_ai_analysis_runs_output_json_pg.sql`). The **Budget AI report** page loads reports from the database (latest shown by default) and includes a dropdown to switch between saved runs (month + generated timestamp).

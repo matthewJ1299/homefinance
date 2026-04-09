@@ -2,9 +2,9 @@
 
 Recon pulls **recent mail** from your connected Outlook account using **Microsoft Graph** (REST, not GraphQL), parses bank notification emails, compares them to existing expenses, and lets you **manually** decide each row.
 
-## Feature toggle (Settings)
+## Feature toggle (Settings and access)
 
-Recon is **off by default** per user (`users.recon_enabled`). Under **Settings**, enable **Bank email reconciliation (Recon)** before the **Recon** nav item and full UI appear. This is independent of push notifications or other settings. If the toggle is off, `/api/recon/graph/connect` and the OAuth callback redirect to **Settings**; mutating APIs return **403**. **POST `/api/recon/graph/disconnect`** can still be called to clear stored Graph tokens without the toggle (e.g. after disabling the feature).
+Recon requires **both** `users.recon_feature_allowed` (admin-style gate; see [feature access](./feature-access.md)) **and** `users.recon_enabled` (user preference under **Settings**). Without the allow flag, Settings explains that an administrator must grant access; connect and mutating APIs return **403** (or redirect to Settings with `?recon=no_access`). If only the preference is off, `/api/recon/graph/connect` and the OAuth callback redirect to **Settings**; mutating APIs return **403**. **POST `/api/recon/graph/disconnect`** remains callable when logged in to clear stored Graph tokens (cleanup).
 
 ## Related features
 

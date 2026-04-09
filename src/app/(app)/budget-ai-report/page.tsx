@@ -2,6 +2,7 @@ import { BudgetAiReportPageClient } from "@/components/budget-ai/budget-ai-repor
 import { auth } from "@/lib/auth";
 import { getAIAnalysisRunRepository, getUserRepository } from "@/lib/repositories";
 import { isAIConfiguredForTier } from "@/lib/services/ai.service";
+import { resolveAiInteractiveEnabled } from "@/lib/services/feature-access.service";
 import { getCurrentBudgetMonth } from "@/lib/utils/date";
 
 type BudgetAiReportPageProps = {
@@ -12,11 +13,11 @@ export default async function BudgetAiReportPage({ searchParams }: BudgetAiRepor
   const session = await auth();
   const userId = Number(session?.user?.id ?? 0);
   const userRepo = getUserRepository();
-  const [budgetMonthStartDay, aiEnabledPref, aiUsePaid] = userId
-    ? await Promise.all([userRepo.getBudgetMonthStartDay(userId), userRepo.getAiEnabled(userId), userRepo.getAiUsePaid(userId)])
-    : [1, false, false];
+  const [budgetMonthStartDay, aiUsePaid] = userId
+    ? await Promise.all([userRepo.getBudgetMonthStartDay(userId), userRepo.getAiUsePaid(userId)])
+    : [1, false];
   const aiConfigured = aiUsePaid ? isAIConfiguredForTier("paid") : isAIConfiguredForTier("free");
-  const aiEnabled = aiEnabledPref && aiConfigured;
+  const aiEnabled = userId ? await resolveAiInteractiveEnabled(userId, aiConfigured) : false;
 
   const { month: monthParam, runId: runIdParam } = await searchParams;
   const month = monthParam ?? getCurrentBudgetMonth(budgetMonthStartDay);

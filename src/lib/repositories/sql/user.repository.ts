@@ -89,6 +89,34 @@ export class UserRepository implements IUserRepository {
     await run("UPDATE users SET recon_enabled = ? WHERE id = ?", [enabled, userId]);
   }
 
+  async getReconFeatureAllowed(userId: number): Promise<boolean> {
+    try {
+      const row = await get<{ recon_feature_allowed: boolean | null }>(
+        "SELECT recon_feature_allowed FROM users WHERE id = ?",
+        [userId]
+      );
+      return row?.recon_feature_allowed === true;
+    } catch (err) {
+      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
+        return false;
+      }
+      throw err;
+    }
+  }
+
+  async setReconFeatureAllowed(userId: number, allowed: boolean): Promise<void> {
+    try {
+      await run("UPDATE users SET recon_feature_allowed = ? WHERE id = ?", [allowed, userId]);
+    } catch (err) {
+      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
+        throw new Error(
+          'Database is missing column "users.recon_feature_allowed". Run `npm run db:push` to apply migrations.'
+        );
+      }
+      throw err;
+    }
+  }
+
   async getAiEnabled(userId: number): Promise<boolean> {
     try {
       const row = await get<{ ai_enabled: boolean | null }>("SELECT ai_enabled FROM users WHERE id = ?", [userId]);
@@ -108,6 +136,34 @@ export class UserRepository implements IUserRepository {
     } catch (err) {
       if (err && typeof err === "object" && "code" in err && err.code === "42703") {
         throw new Error('Database is missing column "users.ai_enabled". Run `npm run db:push` to apply migrations.');
+      }
+      throw err;
+    }
+  }
+
+  async getAiFeatureAllowed(userId: number): Promise<boolean> {
+    try {
+      const row = await get<{ ai_feature_allowed: boolean | null }>(
+        "SELECT ai_feature_allowed FROM users WHERE id = ?",
+        [userId]
+      );
+      return row?.ai_feature_allowed === true;
+    } catch (err) {
+      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
+        return false;
+      }
+      throw err;
+    }
+  }
+
+  async setAiFeatureAllowed(userId: number, allowed: boolean): Promise<void> {
+    try {
+      await run("UPDATE users SET ai_feature_allowed = ? WHERE id = ?", [allowed, userId]);
+    } catch (err) {
+      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
+        throw new Error(
+          'Database is missing column "users.ai_feature_allowed". Run `npm run db:push` to apply migrations.'
+        );
       }
       throw err;
     }

@@ -7,9 +7,17 @@ import { ReconDisabledPlaceholder } from "@/components/recon/recon-disabled-plac
 export default async function ReconPage() {
   const session = await auth();
   if (!session?.user?.id) return null;
-  const reconEnabled = await getUserRepository().getReconEnabled(Number(session.user.id));
-  if (!reconEnabled) {
-    return <ReconDisabledPlaceholder />;
+  const userId = Number(session.user.id);
+  const userRepo = getUserRepository();
+  const [reconFeatureAllowed, reconPrefOn] = await Promise.all([
+    userRepo.getReconFeatureAllowed(userId),
+    userRepo.getReconEnabled(userId),
+  ]);
+  if (!reconFeatureAllowed) {
+    return <ReconDisabledPlaceholder reason="no_feature_access" />;
+  }
+  if (!reconPrefOn) {
+    return <ReconDisabledPlaceholder reason="preference" />;
   }
   return (
     <div className="p-4 max-w-5xl mx-auto">

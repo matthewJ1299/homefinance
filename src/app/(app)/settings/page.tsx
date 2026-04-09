@@ -48,10 +48,15 @@ export default async function SettingsPage() {
   );
   const categoriesForRecurring = await getCategoryRepository().findAll();
 
-  const budgetMonthStartDay = await getUserRepository().getBudgetMonthStartDay(userId);
-  const reconEnabled = await getUserRepository().getReconEnabled(userId);
-  const aiEnabled = await getUserRepository().getAiEnabled(userId);
-  const aiUsePaid = await getUserRepository().getAiUsePaid(userId);
+  const userRepoForSettings = getUserRepository();
+  const budgetMonthStartDay = await userRepoForSettings.getBudgetMonthStartDay(userId);
+  const [reconFeatureAllowed, reconEnabled, aiFeatureAllowed, aiEnabled, aiUsePaid] = await Promise.all([
+    userRepoForSettings.getReconFeatureAllowed(userId),
+    userRepoForSettings.getReconEnabled(userId),
+    userRepoForSettings.getAiFeatureAllowed(userId),
+    userRepoForSettings.getAiEnabled(userId),
+    userRepoForSettings.getAiUsePaid(userId),
+  ]);
   const currentMonth = await getDefaultBudgetMonthForUser(userId);
 
   return (
@@ -62,8 +67,8 @@ export default async function SettingsPage() {
       </p>
 
       <PushNotificationsSettings />
-      <ReconSettings reconEnabled={reconEnabled} />
-      <AiSettings aiEnabled={aiEnabled} aiUsePaid={aiUsePaid} />
+      <ReconSettings reconFeatureAllowed={reconFeatureAllowed} reconEnabled={reconEnabled} />
+      <AiSettings aiFeatureAllowed={aiFeatureAllowed} aiEnabled={aiEnabled} aiUsePaid={aiUsePaid} />
       <ExportTransactionsSettings />
       <BudgetMonthRangeSettings currentStartDay={budgetMonthStartDay} />
       <DashboardTilesSettings />

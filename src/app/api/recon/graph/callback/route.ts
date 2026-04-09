@@ -43,7 +43,14 @@ export async function GET(request: NextRequest) {
     userName: session.user.name ?? undefined,
   });
 
-  const reconEnabled = await getUserRepository().getReconEnabled(userIdFromState);
+  const userRepo = getUserRepository();
+  const [reconFeatureAllowed, reconEnabled] = await Promise.all([
+    userRepo.getReconFeatureAllowed(userIdFromState),
+    userRepo.getReconEnabled(userIdFromState),
+  ]);
+  if (!reconFeatureAllowed) {
+    return NextResponse.redirect(toReconUrl(request, "/settings?recon=no_access"));
+  }
   if (!reconEnabled) {
     return NextResponse.redirect(toReconUrl(request, "/settings?recon=off"));
   }

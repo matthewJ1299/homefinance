@@ -24,16 +24,14 @@ async function seedMinimal() {
   const user1Name = process.env.SEED_USER1_NAME ?? "Matt";
   const user2Name = process.env.SEED_USER2_NAME ?? "Sydney";
 
-  await run("INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)", [
-    user1Name,
-    user1Email,
-    passwordHash,
-  ]);
-  await run("INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)", [
-    user2Name,
-    user2Email,
-    passwordHash,
-  ]);
+  await run(
+    "INSERT INTO users (name, email, password_hash, ai_feature_allowed, recon_feature_allowed) VALUES (?, ?, ?, true, true)",
+    [user1Name, user1Email, passwordHash]
+  );
+  await run(
+    "INSERT INTO users (name, email, password_hash, ai_feature_allowed, recon_feature_allowed) VALUES (?, ?, ?, true, true)",
+    [user2Name, user2Email, passwordHash]
+  );
   console.log("Created 2 users:", user1Name + ",", user2Name + ".");
 
   for (const c of defaultCategories) {

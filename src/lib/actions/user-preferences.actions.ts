@@ -50,7 +50,19 @@ export async function updateReconEnabledAction(enabled: boolean): Promise<Update
   }
   setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
   const userId = Number(session.user.id);
-  await getUserRepository().setReconEnabled(userId, enabled);
+  const reconFeatureAllowed = await getUserRepository().getReconFeatureAllowed(userId);
+  if (!reconFeatureAllowed) {
+    return {
+      success: false,
+      error: "Recon is not enabled for your account. An administrator can grant access.",
+    };
+  }
+  try {
+    await getUserRepository().setReconEnabled(userId, enabled);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to update Recon setting.";
+    return { success: false, error: message };
+  }
   revalidatePath("/dashboard");
   revalidatePath("/settings");
   revalidatePath("/recon");
@@ -64,6 +76,15 @@ export async function updateAiUsePaidAction(usePaid: boolean): Promise<UpdateAiU
   }
   setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
 
+  const userId = Number(session.user.id);
+  const aiFeatureAllowed = await getUserRepository().getAiFeatureAllowed(userId);
+  if (!aiFeatureAllowed) {
+    return {
+      success: false,
+      error: "AI analysis is not enabled for your account. An administrator can grant access.",
+    };
+  }
+
   if (usePaid && !isAIConfiguredForTier("paid")) {
     return {
       success: false,
@@ -72,7 +93,6 @@ export async function updateAiUsePaidAction(usePaid: boolean): Promise<UpdateAiU
     };
   }
 
-  const userId = Number(session.user.id);
   try {
     await getUserRepository().setAiUsePaid(userId, usePaid);
   } catch (err) {
@@ -93,6 +113,13 @@ export async function updateAiEnabledAction(enabled: boolean): Promise<UpdateAiE
   setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
 
   const userId = Number(session.user.id);
+  const aiFeatureAllowed = await getUserRepository().getAiFeatureAllowed(userId);
+  if (!aiFeatureAllowed) {
+    return {
+      success: false,
+      error: "AI analysis is not enabled for your account. An administrator can grant access.",
+    };
+  }
   try {
     await getUserRepository().setAiEnabled(userId, enabled);
   } catch (err) {

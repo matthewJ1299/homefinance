@@ -24,9 +24,21 @@ export interface IUserRepository {
   /** Bank email reconciliation (Recon). Off until enabled in Settings. */
   getReconEnabled(userId: number): Promise<boolean>;
   setReconEnabled(userId: number, enabled: boolean): Promise<void>;
+  /**
+   * Admin-style gate: user may use Recon at all (Outlook connect, sync, APIs).
+   * Independent of {@link getReconEnabled} (user preference). Intended for a future admin UI.
+   */
+  getReconFeatureAllowed(userId: number): Promise<boolean>;
+  setReconFeatureAllowed(userId: number, allowed: boolean): Promise<void>;
   /** AI features toggle. Off until enabled in Settings. */
   getAiEnabled(userId: number): Promise<boolean>;
   setAiEnabled(userId: number, enabled: boolean): Promise<void>;
+  /**
+   * Admin-style gate: user may use AI analysis at all (API + Settings toggles).
+   * Independent of {@link getAiEnabled} (user preference). Intended for a future admin UI.
+   */
+  getAiFeatureAllowed(userId: number): Promise<boolean>;
+  setAiFeatureAllowed(userId: number, allowed: boolean): Promise<void>;
   /**
    * AI provider tier preference for this user.
    * - false: "Free AI" (default)

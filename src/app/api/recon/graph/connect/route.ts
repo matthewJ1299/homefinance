@@ -9,7 +9,14 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
   const userId = Number(session.user.id);
-  const reconEnabled = await getUserRepository().getReconEnabled(userId);
+  const userRepo = getUserRepository();
+  const [reconFeatureAllowed, reconEnabled] = await Promise.all([
+    userRepo.getReconFeatureAllowed(userId),
+    userRepo.getReconEnabled(userId),
+  ]);
+  if (!reconFeatureAllowed) {
+    return NextResponse.redirect(new URL("/settings?recon=no_access", request.url));
+  }
   if (!reconEnabled) {
     return NextResponse.redirect(new URL("/settings?recon=off", request.url));
   }

@@ -7,11 +7,13 @@ import { updateAiEnabledAction, updateAiUsePaidAction } from "@/lib/actions/user
 import { toast } from "sonner";
 
 interface AiSettingsProps {
+  /** Admin-style gate: user may use AI at all (see `users.ai_feature_allowed`). */
+  aiFeatureAllowed: boolean;
   aiEnabled: boolean;
   aiUsePaid: boolean;
 }
 
-export function AiSettings({ aiEnabled, aiUsePaid }: AiSettingsProps) {
+export function AiSettings({ aiFeatureAllowed, aiEnabled, aiUsePaid }: AiSettingsProps) {
   const router = useRouter();
   const [enabledChecked, setEnabledChecked] = useState(aiEnabled);
   const [tierChecked, setTierChecked] = useState(aiUsePaid);
@@ -49,6 +51,20 @@ export function AiSettings({ aiEnabled, aiUsePaid }: AiSettingsProps) {
       void router.refresh();
     });
   };
+
+  if (!aiFeatureAllowed) {
+    return (
+      <section className="rounded-lg border bg-card p-4 space-y-3">
+        <div>
+          <h2 className="text-sm font-medium">AI analysis</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            AI analysis is not enabled for your account. An administrator can grant access per user; after that, you can
+            turn it on here and choose free vs paid tier.
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="rounded-lg border bg-card p-4 space-y-3">

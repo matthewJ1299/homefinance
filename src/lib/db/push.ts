@@ -418,6 +418,24 @@ async function pushPostgres(): Promise<void> {
         console.log("Postgres migration (ai_analysis_runs.output_json) applied.");
       }
     }
+
+    const hasAiFeatureAllowed = await client.query(
+      "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'ai_feature_allowed'"
+    );
+    if (hasAiFeatureAllowed.rows.length === 0) {
+      const migration0020Path = path.join(process.cwd(), "drizzle", "0020_users_feature_access_pg.sql");
+      if (fs.existsSync(migration0020Path)) {
+        const sql0020 = fs.readFileSync(migration0020Path, "utf-8");
+        const statements0020 = sql0020
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statements0020) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration 0020 (users.ai_feature_allowed, users.recon_feature_allowed) applied.");
+      }
+    }
   } finally {
     await client.end();
   }
