@@ -75,7 +75,10 @@ export class ReconImportItemRepository implements IReconImportItemRepository {
         raw_subject, raw_body_preview, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
       ON CONFLICT (user_id, graph_message_id) DO UPDATE SET
-        status = EXCLUDED.status,
+        status = CASE
+          WHEN recon_import_items.status IN ('ignored','accepted_duplicate','accepted_add') THEN recon_import_items.status
+          ELSE EXCLUDED.status
+        END,
         parse_type = EXCLUDED.parse_type,
         amount = EXCLUDED.amount,
         txn_date = EXCLUDED.txn_date,

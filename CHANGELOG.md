@@ -5,6 +5,7 @@
 ### Fixed
 
 - **Recon Process marked summary**: The dialog no longer shows a single combined total of ignored plus accepted bank amounts. It now shows **Total accepted** (duplicate + new-add bank-line sums) and **Total ignored** separately.
+- **Recon ignore persistence**: Ignored recon items no longer reappear in **Pending items** after a mailbox re-sync (sync upsert preserves `ignored` / `accepted_*` statuses).
 
 ### Changed
 
