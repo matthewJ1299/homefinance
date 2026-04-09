@@ -8,7 +8,7 @@ import {
   getSharedListItemRepository,
 } from "@/lib/repositories";
 import { BudgetService } from "@/lib/services/budget.service";
-import { isAIConfigured } from "@/lib/services/ai.service";
+import { isAIConfiguredForTier } from "@/lib/services/ai.service";
 import {
   CalendarService,
   type CalendarEventOccurrence,
@@ -125,6 +125,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   );
   const otherUserName = otherUsers[0]?.name;
   const budgetMonthStartDay = await userRepo.getBudgetMonthStartDay(userId);
+  const aiUsePaid = await userRepo.getAiUsePaid(userId);
+  const aiEnabled = aiUsePaid ? isAIConfiguredForTier("paid") : isAIConfiguredForTier("free");
   const monthLabelPretty = formatBudgetMonthLabel(month, budgetMonthStartDay);
   return (
     <div className="p-3 sm:p-4 space-y-5 sm:space-y-6 pb-24 md:pb-6">
@@ -170,7 +172,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       />
 
       <WhenDashboardTileEnabled tile="aiAnalysis">
-        <AiAnalysisButton month={month} enabled={isAIConfigured()} />
+        <AiAnalysisButton month={month} enabled={aiEnabled} />
       </WhenDashboardTileEnabled>
     </div>
   );

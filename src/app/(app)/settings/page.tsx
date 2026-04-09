@@ -25,6 +25,7 @@ import { AccountsManage } from "@/components/accounts/accounts-manage";
 import { BudgetMonthRangeSettings } from "@/components/settings/budget-month-range-settings";
 import { ExportTransactionsSettings } from "@/components/settings/export-transactions-settings";
 import { ReconSettings } from "@/components/settings/recon-settings";
+import { AiSettings } from "@/components/settings/ai-settings";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -49,6 +50,7 @@ export default async function SettingsPage() {
 
   const budgetMonthStartDay = await getUserRepository().getBudgetMonthStartDay(userId);
   const reconEnabled = await getUserRepository().getReconEnabled(userId);
+  const aiUsePaid = await getUserRepository().getAiUsePaid(userId);
   const currentMonth = await getDefaultBudgetMonthForUser(userId);
 
   return (
@@ -60,6 +62,7 @@ export default async function SettingsPage() {
 
       <PushNotificationsSettings />
       <ReconSettings reconEnabled={reconEnabled} />
+      <AiSettings aiUsePaid={aiUsePaid} />
       <ExportTransactionsSettings />
       <BudgetMonthRangeSettings currentStartDay={budgetMonthStartDay} />
       <DashboardTilesSettings />

@@ -12,7 +12,7 @@ import { EquityGrowthChart } from "@/components/summary/equity-growth-chart";
 import { getUserRepository } from "@/lib/repositories";
 import { AccountsSummaryTile } from "@/components/dashboard/accounts-summary-tile";
 import { AiAnalysisButton } from "@/components/dashboard/ai-analysis-button";
-import { isAIConfigured } from "@/lib/services/ai.service";
+import { isAIConfiguredForTier } from "@/lib/services/ai.service";
 
 interface SummaryPageProps {
   searchParams: Promise<{ month?: string; from?: string; to?: string }>;
@@ -39,6 +39,8 @@ export default async function SummaryPage({ searchParams }: SummaryPageProps) {
   const userRepo = getUserRepository();
   const userRows = await userRepo.findAll();
   const userNames = Object.fromEntries(userRows.map((u) => [u.id, u.name]));
+  const aiUsePaid = await userRepo.getAiUsePaid(userId);
+  const aiEnabled = aiUsePaid ? isAIConfiguredForTier("paid") : isAIConfiguredForTier("free");
 
   const mortgageService = new MortgageService();
   const mortgageSchedule = await mortgageService.getSchedule();
@@ -72,7 +74,7 @@ export default async function SummaryPage({ searchParams }: SummaryPageProps) {
             High-level view of your income, expenses, budgets, and accounts.
           </p>
           <div className="mt-3">
-            <AiAnalysisButton month={month} enabled={isAIConfigured()} />
+            <AiAnalysisButton month={month} enabled={aiEnabled} />
           </div>
         </div>
         <section className="w-full max-w-xs">

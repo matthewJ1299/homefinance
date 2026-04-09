@@ -5,12 +5,17 @@ import { auth } from "@/lib/auth";
 import { setRequestContext } from "@/lib/db/request-context";
 import { getUserRepository } from "@/lib/repositories";
 import { normalizeBudgetMonthStartDay } from "@/lib/utils/date";
+import { isAIConfiguredForTier } from "@/lib/services/ai.service";
 
 export type UpdateBudgetMonthStartDayResult =
   | { success: true }
   | { success: false; error: string };
 
 export type UpdateReconEnabledResult =
+  | { success: true }
+  | { success: false; error: string };
+
+export type UpdateAiUsePaidResult =
   | { success: true }
   | { success: false; error: string };
 
@@ -45,5 +50,28 @@ export async function updateReconEnabledAction(enabled: boolean): Promise<Update
   revalidatePath("/dashboard");
   revalidatePath("/settings");
   revalidatePath("/recon");
+  return { success: true };
+}
+
+export async function updateAiUsePaidAction(usePaid: boolean): Promise<UpdateAiUsePaidResult> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, error: "Unauthorized" };
+  }
+  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+
+  if (usePaid && !isAIConfiguredForTier("paid")) {
+    return {
+      success: false,
+      error:
+        "Paid AI is not configured on this server. Set GEMINI_PAID_API_KEY (and optionally GEMINI_PAID_MODEL) in the environment.",
+    };
+  }
+
+  const userId = Number(session.user.id);
+  await getUserRepository().setAiUsePaid(userId, usePaid);
+  revalidatePath("/dashboard");
+  revalidatePath("/settings");
+  revalidatePath("/summary");
   return { success: true };
 }

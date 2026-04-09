@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN ai_use_paid BOOLEAN NOT NULL DEFAULT false;

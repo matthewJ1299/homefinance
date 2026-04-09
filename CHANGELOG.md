@@ -4,6 +4,7 @@
 
 ### Added
 
+- **AI tier toggle (Free vs Paid)**: AI analysis now supports separate **Free** and **Paid** Gemini configurations via env vars (`GEMINI_FREE_API_KEY` / `GEMINI_PAID_API_KEY` + optional `*_MODEL`). Each user can choose which tier to use under **Settings** > **AI analysis**.
 - **Expenses page category filter**: The **Expenses** page now includes a **Category** dropdown so you can filter the list to a single category (or view **All**).
 - **Recon split-purchase total toast**: After **Process marked**, a toast shows the **total value** of newly added purchases that were marked **Split 50/50**.
 

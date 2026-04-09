@@ -88,4 +88,16 @@ export class UserRepository implements IUserRepository {
   async setReconEnabled(userId: number, enabled: boolean): Promise<void> {
     await run("UPDATE users SET recon_enabled = ? WHERE id = ?", [enabled, userId]);
   }
+
+  async getAiUsePaid(userId: number): Promise<boolean> {
+    const row = await get<{ ai_use_paid: boolean | null }>(
+      "SELECT ai_use_paid FROM users WHERE id = ?",
+      [userId]
+    );
+    return row?.ai_use_paid === true;
+  }
+
+  async setAiUsePaid(userId: number, usePaid: boolean): Promise<void> {
+    await run("UPDATE users SET ai_use_paid = ? WHERE id = ?", [usePaid, userId]);
+  }
 }

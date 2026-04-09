@@ -5,8 +5,28 @@ import { IncomeService } from "@/lib/services/income.service";
 import { GoalProjectionService } from "@/lib/services/goal-projection.service";
 import { formatRand } from "@/lib/utils/currency";
 
-/** Best free-tier model: most capable, slower. Free tier: 5 RPM, 100 RPD. */
-const MODEL = "gemini-2.5-flash";
+export type AITier = "free" | "paid";
+
+const DEFAULT_FREE_MODEL = "gemini-2.5-flash";
+const DEFAULT_PAID_MODEL = "gemini-2.5-flash";
+
+function getModelForTier(tier: AITier): string {
+  if (tier === "paid") return (process.env.GEMINI_PAID_MODEL ?? "").trim() || DEFAULT_PAID_MODEL;
+  return (process.env.GEMINI_FREE_MODEL ?? "").trim() || DEFAULT_FREE_MODEL;
+}
+
+function getApiKeyForTier(tier: AITier): string | null {
+  if (tier === "paid") return process.env.GEMINI_PAID_API_KEY?.trim() || null;
+  return process.env.GEMINI_FREE_API_KEY?.trim() || process.env.GEMINI_API_KEY?.trim() || null;
+}
+
+export function isAIConfiguredForTier(tier: AITier): boolean {
+  return Boolean(getApiKeyForTier(tier));
+}
+
+export function isAIConfigured(): boolean {
+  return isAIConfiguredForTier("free") || isAIConfiguredForTier("paid");
+}
 
 export interface AnalyzeExpensesResult {
   success: true;
@@ -32,15 +52,21 @@ export interface AnalyzeGoalsError {
 
 export type AnalyzeGoalsOutcome = AnalyzeGoalsResult | AnalyzeGoalsError;
 
-export function isAIConfigured(): boolean {
-  return Boolean(process.env.GEMINI_API_KEY?.trim());
-}
-
 export class AIService {
-  async analyzeExpenses(month: string, userId: number): Promise<AnalyzeExpensesOutcome> {
-    const apiKey = process.env.GEMINI_API_KEY?.trim();
+  async analyzeExpenses(
+    month: string,
+    userId: number,
+    tier: AITier = "free"
+  ): Promise<AnalyzeExpensesOutcome> {
+    const apiKey = getApiKeyForTier(tier);
     if (!apiKey) {
-      return { success: false, error: "AI is not configured. Set GEMINI_API_KEY." };
+      return {
+        success: false,
+        error:
+          tier === "paid"
+            ? "Paid AI is not configured. Set GEMINI_PAID_API_KEY."
+            : "AI is not configured. Set GEMINI_FREE_API_KEY (or GEMINI_API_KEY).",
+      };
     }
 
     const budgetService = new BudgetService();
@@ -86,7 +112,7 @@ ${JSON.stringify(data, null, 2)}`;
 
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: MODEL });
+      const model = genAI.getGenerativeModel({ model: getModelForTier(tier) });
       const result = await model.generateContent(prompt);
       const text = result.response?.text() ?? "";
       if (typeof text !== "string" || !text.trim()) {
@@ -99,10 +125,20 @@ ${JSON.stringify(data, null, 2)}`;
     }
   }
 
-  async analyzeGoalsAndDebt(month: string, userId: number): Promise<AnalyzeGoalsOutcome> {
-    const apiKey = process.env.GEMINI_API_KEY?.trim();
+  async analyzeGoalsAndDebt(
+    month: string,
+    userId: number,
+    tier: AITier = "free"
+  ): Promise<AnalyzeGoalsOutcome> {
+    const apiKey = getApiKeyForTier(tier);
     if (!apiKey) {
-      return { success: false, error: "AI is not configured. Set GEMINI_API_KEY." };
+      return {
+        success: false,
+        error:
+          tier === "paid"
+            ? "Paid AI is not configured. Set GEMINI_PAID_API_KEY."
+            : "AI is not configured. Set GEMINI_FREE_API_KEY (or GEMINI_API_KEY).",
+      };
     }
 
     const budgetService = new BudgetService();
@@ -169,7 +205,7 @@ ${JSON.stringify(data, null, 2)}`;
 
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: MODEL });
+      const model = genAI.getGenerativeModel({ model: getModelForTier(tier) });
       const result = await model.generateContent(prompt);
       const text = result.response?.text() ?? "";
       if (typeof text !== "string" || !text.trim()) {

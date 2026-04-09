@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { AIService } from "@/lib/services/ai.service";
 import { checkRateLimit, recordCall } from "@/lib/services/ai-rate-limiter";
 import type { AnalyzeExpensesOutcome } from "@/lib/services/ai.service";
+import { getUserRepository } from "@/lib/repositories";
 
 export async function analyzeExpenses(month: string): Promise<AnalyzeExpensesOutcome> {
   const session = await auth();
@@ -22,7 +23,8 @@ export async function analyzeExpenses(month: string): Promise<AnalyzeExpensesOut
   }
 
   const service = new AIService();
-  const result = await service.analyzeExpenses(month, userId);
+  const usePaid = await getUserRepository().getAiUsePaid(userId);
+  const result = await service.analyzeExpenses(month, userId, usePaid ? "paid" : "free");
   if (result.success) {
     recordCall(userId);
   }
