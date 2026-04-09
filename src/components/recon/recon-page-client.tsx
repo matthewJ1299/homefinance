@@ -1008,7 +1008,6 @@ export function ReconPageClient() {
                   <th className="py-2 pr-3 font-medium">Category</th>
                   <th className="py-2 pr-3 font-medium min-w-[200px]">Expense note</th>
                   <th className="py-2 pr-3 font-medium">Split</th>
-                  <th className="py-2 font-medium min-w-[200px]">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1153,59 +1152,6 @@ export function ReconPageClient() {
                           <Label htmlFor={`recon-split-${item.id}`} className="text-sm">
                             Split 50/50
                           </Label>
-                        </div>
-                      </td>
-                      <td className="py-3">
-                        <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap">
-                          {item.status === "pending_duplicate" ? (
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              size="sm"
-                              className="w-full sm:w-auto"
-                              disabled={actDuplicate.isPending}
-                              onClick={() => actDuplicate.mutate(item.id)}
-                            >
-                              Accept as duplicate
-                            </Button>
-                          ) : null}
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="w-full sm:w-auto"
-                            disabled={!canAdd || actAdd.isPending}
-                            onClick={() => {
-                              if (!canAdd || typeof cat !== "number") {
-                                toast.error("Choose a category before adding.");
-                                return;
-                              }
-                              const parsedAmt = parseRandInputToMinor(amountRand);
-                              if (!parsedAmt.ok) {
-                                toast.error("Enter a valid positive amount in ZAR.");
-                                return;
-                              }
-                              actAdd.mutate({
-                                itemId: item.id,
-                                categoryId: cat,
-                                accountId: acc ?? null,
-                                split,
-                                note: expenseNote,
-                                amount: parsedAmt.minor,
-                              });
-                            }}
-                          >
-                            Accept and add
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="w-full sm:w-auto"
-                            disabled={actIgnore.isPending}
-                            onClick={() => actIgnore.mutate(item.id)}
-                          >
-                            Ignore
-                          </Button>
                         </div>
                       </td>
                     </tr>
