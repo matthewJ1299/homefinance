@@ -9,7 +9,7 @@ import { Dialog, DialogFooter, DialogHeader } from "@/components/ui/dialog";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Label } from "@/components/ui/label";
 import { SectionHeader } from "@/components/ui/section-header";
-import { formatRand } from "@/lib/utils/currency";
+import { formatRand, fromMinorUnits, toMinorUnits } from "@/lib/utils/currency";
 import { cn } from "@/lib/utils";
 import { parseAccountsApiPayload } from "@/lib/utils/accounts-api";
 import type { Category } from "@/lib/types";
@@ -59,7 +59,8 @@ interface ProcessMarkedSummary {
   dateRangeLabel: string;
   /** Rows completed successfully (ignore + duplicate + add). */
   processedCount: number;
-  totalMinor: number;
+  /** Sum of bank-line amounts for accepted duplicate + accepted add rows (not ignored). */
+  acceptedTotalMinor: number;
   ignoredCount: number;
   ignoredMinor: number;
   acceptedDuplicateCount: number;
@@ -68,6 +69,7 @@ interface ProcessMarkedSummary {
   addMinor: number;
   addByCategory: { categoryName: string; count: number; totalMinor: number }[];
   skippedNoCategory: number;
+  skippedInvalidAmount: number;
 }
 
 function formatReconDateRange(dates: string[]): string {
@@ -81,6 +83,23 @@ function formatReconDateRange(dates: string[]): string {
 
 function categoryNameForId(categories: Category[], categoryId: number): string {
   return categories.find((c) => c.id === categoryId)?.name ?? `Category #${categoryId}`;
+}
+
+function defaultExpenseNoteForReconItem(item: ReconPendingListItem): string {
+  return item.vendor ? `Recon: ${item.vendor}` : "Recon";
+}
+
+function defaultAmountRandForItem(item: ReconPendingListItem): string {
+  return fromMinorUnits(item.amount).toFixed(2);
+}
+
+/** Parses ZAR text to minor units; rejects non-positive or invalid input. */
+function parseRandInputToMinor(raw: string): { ok: true; minor: number } | { ok: false } {
+  const n = parseFloat(raw.replace(/\s/g, "").replace(",", ".")) || 0;
+  if (!Number.isFinite(n) || n <= 0) return { ok: false };
+  const minor = toMinorUnits(n);
+  if (!Number.isFinite(minor) || minor <= 0) return { ok: false };
+  return { ok: true, minor };
 }
 
 function filterFetchedMailRow(
@@ -139,6 +158,9 @@ export function ReconPageClient() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [categoryByItemId, setCategoryByItemId] = useState<Record<number, number | "">>({});
+  const [noteByItemId, setNoteByItemId] = useState<Record<number, string>>({});
+  /** Editable ZAR text per row; parsed with `parseRandInputToMinor` for accept-add. */
+  const [amountRandByItemId, setAmountRandByItemId] = useState<Record<number, string>>({});
   const [splitByItemId, setSplitByItemId] = useState<Record<number, boolean>>({});
   const [accountId, setAccountId] = useState<number | "">("");
   const [syncSince, setSyncSince] = useState<string>("");
@@ -243,12 +265,46 @@ export function ReconPageClient() {
       }
       return next;
     });
+    setNoteByItemId((prev) => {
+      const next = { ...prev };
+      for (const item of itemsForCategoryInit) {
+        if (next[item.id] === undefined) {
+          next[item.id] = defaultExpenseNoteForReconItem(item);
+        }
+      }
+      return next;
+    });
+    setAmountRandByItemId((prev) => {
+      const next = { ...prev };
+      for (const item of itemsForCategoryInit) {
+        if (next[item.id] === undefined) {
+          next[item.id] = defaultAmountRandForItem(item);
+        }
+      }
+      return next;
+    });
   }, [itemsForCategoryInit]);
 
   useEffect(() => {
     const valid = new Set(items.map((i) => i.id));
     setBulkIntentByItemId((prev) => {
       const next: Record<number, ReconBulkIntent> = {};
+      for (const [k, v] of Object.entries(prev)) {
+        const id = Number(k);
+        if (valid.has(id)) next[id] = v;
+      }
+      return next;
+    });
+    setNoteByItemId((prev) => {
+      const next: Record<number, string> = {};
+      for (const [k, v] of Object.entries(prev)) {
+        const id = Number(k);
+        if (valid.has(id)) next[id] = v;
+      }
+      return next;
+    });
+    setAmountRandByItemId((prev) => {
+      const next: Record<number, string> = {};
       for (const [k, v] of Object.entries(prev)) {
         const id = Number(k);
         if (valid.has(id)) next[id] = v;
@@ -309,13 +365,22 @@ export function ReconPageClient() {
   });
 
   const actAdd = useMutation({
-    mutationFn: (vars: { itemId: number; categoryId: number; accountId?: number | null; split?: boolean }) =>
+    mutationFn: (vars: {
+      itemId: number;
+      categoryId: number;
+      accountId?: number | null;
+      split?: boolean;
+      note: string;
+      amount: number;
+    }) =>
       fetchJson<{ expenseId: number }>(`/api/recon/items/${vars.itemId}/accept-add`, {
         method: "POST",
         body: JSON.stringify({
           categoryId: vars.categoryId,
           accountId: vars.accountId ?? undefined,
           split: vars.split ?? false,
+          note: vars.note,
+          amount: vars.amount,
         }),
       }),
     onSuccess: () => {
@@ -350,6 +415,14 @@ export function ReconPageClient() {
     setSplitByItemId((p) => ({ ...p, [itemId]: value }));
   }, []);
 
+  const setExpenseNote = useCallback((itemId: number, value: string) => {
+    setNoteByItemId((p) => ({ ...p, [itemId]: value }));
+  }, []);
+
+  const setAmountRand = useCallback((itemId: number, value: string) => {
+    setAmountRandByItemId((p) => ({ ...p, [itemId]: value }));
+  }, []);
+
   const effectiveCategory = useCallback(
     (item: ReconPendingListItem): number | "" => {
       const v = categoryByItemId[item.id];
@@ -374,6 +447,7 @@ export function ReconPageClient() {
     let duped = 0;
     let added = 0;
     let skippedNoCat = 0;
+    let skippedInvalidAmount = 0;
     const processedIds: number[] = [];
     const processedDates: string[] = [];
     let ignoredMinor = 0;
@@ -405,23 +479,34 @@ export function ReconPageClient() {
           continue;
         }
         const split = splitByItemId[item.id] ?? false;
+        const expenseNote = noteByItemId[item.id] ?? defaultExpenseNoteForReconItem(item);
+        const rawAmt =
+          amountRandByItemId[item.id] ?? defaultAmountRandForItem(item);
+        const parsedAmt = parseRandInputToMinor(rawAmt);
+        if (!parsedAmt.ok) {
+          skippedInvalidAmount++;
+          continue;
+        }
+        const expenseMinor = parsedAmt.minor;
         await fetchJson<{ expenseId: number }>(`/api/recon/items/${item.id}/accept-add`, {
           method: "POST",
           body: JSON.stringify({
             categoryId: cat,
             accountId: acc ?? undefined,
             split,
+            note: expenseNote,
+            amount: expenseMinor,
           }),
         });
         added++;
         processedIds.push(item.id);
         processedDates.push(item.txnDate);
-        addMinor += item.amount;
+        addMinor += expenseMinor;
         const cname = categoryNameForId(categories, cat);
         const prev = addCategoryMap.get(cname) ?? { count: 0, totalMinor: 0 };
         addCategoryMap.set(cname, {
           count: prev.count + 1,
-          totalMinor: prev.totalMinor + item.amount,
+          totalMinor: prev.totalMinor + expenseMinor,
         });
       }
       void queryClient.invalidateQueries({ queryKey: ["recon-items"] });
@@ -432,8 +517,22 @@ export function ReconPageClient() {
         }
         return next;
       });
+      setNoteByItemId((prev) => {
+        const next = { ...prev };
+        for (const id of processedIds) {
+          delete next[id];
+        }
+        return next;
+      });
+      setAmountRandByItemId((prev) => {
+        const next = { ...prev };
+        for (const id of processedIds) {
+          delete next[id];
+        }
+        return next;
+      });
       const processedCount = ignored + duped + added;
-      const totalMinor = ignoredMinor + duplicateMinor + addMinor;
+      const acceptedTotalMinor = duplicateMinor + addMinor;
       const addByCategory = [...addCategoryMap.entries()]
         .map(([categoryName, v]) => ({
           categoryName,
@@ -444,7 +543,7 @@ export function ReconPageClient() {
       setProcessMarkedSummary({
         dateRangeLabel: formatReconDateRange(processedDates),
         processedCount,
-        totalMinor,
+        acceptedTotalMinor,
         ignoredCount: ignored,
         ignoredMinor,
         acceptedDuplicateCount: duped,
@@ -453,11 +552,17 @@ export function ReconPageClient() {
         addMinor,
         addByCategory,
         skippedNoCategory: skippedNoCat,
+        skippedInvalidAmount,
       });
       setProcessMarkedSummaryOpen(true);
       if (skippedNoCat > 0) {
         toast.message(
           `${skippedNoCat} accept-marked row(s) had no category and were skipped. Fix categories and run Process marked again if needed.`
+        );
+      }
+      if (skippedInvalidAmount > 0) {
+        toast.message(
+          `${skippedInvalidAmount} accept-marked row(s) had an invalid amount and were skipped. Enter a positive amount in ZAR and try again.`
         );
       }
     } catch (e) {
@@ -474,6 +579,8 @@ export function ReconPageClient() {
     effectiveCategory,
     queryClient,
     categories,
+    noteByItemId,
+    amountRandByItemId,
   ]);
 
   const openMessage = useCallback(async (row: FetchedMailDebugRow) => {
@@ -889,7 +996,7 @@ export function ReconPageClient() {
           <p className="text-sm text-muted-foreground">No pending recon items. Sync after connecting Outlook.</p>
         ) : (
           <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-            <table className="w-full text-sm border-collapse min-w-[760px]">
+            <table className="w-full text-sm border-collapse min-w-[920px]">
               <thead>
                 <tr className="border-b border-border text-left text-muted-foreground">
                   <th className="py-2 pr-2 font-medium w-[148px] min-w-[148px]">Mark</th>
@@ -899,6 +1006,7 @@ export function ReconPageClient() {
                   <th className="py-2 pr-3 font-medium tabular-nums">Amount</th>
                   <th className="py-2 pr-3 font-medium">Status</th>
                   <th className="py-2 pr-3 font-medium">Category</th>
+                  <th className="py-2 pr-3 font-medium min-w-[200px]">Expense note</th>
                   <th className="py-2 pr-3 font-medium">Split</th>
                   <th className="py-2 font-medium min-w-[200px]">Actions</th>
                 </tr>
@@ -915,6 +1023,9 @@ export function ReconPageClient() {
                   const showMatchedDetails =
                     item.status === "pending_duplicate" && (item.matchedExpenses?.length ?? 0) > 0;
                   const isMarked = markValue === "ignore" || markValue === "accept";
+                  const expenseNote = noteByItemId[item.id] ?? defaultExpenseNoteForReconItem(item);
+                  const amountRand =
+                    amountRandByItemId[item.id] ?? defaultAmountRandForItem(item);
                   return (
                     <Fragment key={item.id}>
                     <tr
@@ -980,7 +1091,22 @@ export function ReconPageClient() {
                           {item.rawSubject ?? item.rawBodyPreview ?? "—"}
                         </button>
                       </td>
-                      <td className="py-3 pr-3 tabular-nums">{formatRand(item.amount)}</td>
+                      <td className="py-3 pr-3 min-w-[7.5rem]">
+                        <label htmlFor={`recon-amt-${item.id}`} className="sr-only">
+                          Amount (ZAR) for recon item {item.id}
+                        </label>
+                        <input
+                          id={`recon-amt-${item.id}`}
+                          type="text"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          className="w-full min-w-[6.5rem] rounded-md border border-input bg-background px-2 py-1.5 text-sm tabular-nums"
+                          value={amountRand}
+                          onChange={(e) => setAmountRand(item.id, e.target.value)}
+                          placeholder={fromMinorUnits(item.amount).toFixed(2)}
+                          title="Amount in ZAR for the new expense (defaults from parsed bank amount)"
+                        />
+                      </td>
                       <td className="py-3 pr-3">
                         <div>{statusLabel(item.status)}</div>
                       </td>
@@ -1000,6 +1126,20 @@ export function ReconPageClient() {
                             </option>
                           ))}
                         </select>
+                      </td>
+                      <td className="py-3 pr-3 min-w-[200px] max-w-[280px]">
+                        <label htmlFor={`recon-note-${item.id}`} className="sr-only">
+                          Expense note for recon item {item.id}
+                        </label>
+                        <textarea
+                          id={`recon-note-${item.id}`}
+                          rows={2}
+                          maxLength={500}
+                          className="w-full min-h-[2.75rem] rounded-md border border-input bg-background px-2 py-1.5 text-sm resize-y"
+                          value={expenseNote}
+                          onChange={(e) => setExpenseNote(item.id, e.target.value)}
+                          placeholder="Note on new expense"
+                        />
                       </td>
                       <td className="py-3 pr-3 min-w-[140px]">
                         <div className="flex items-center gap-2">
@@ -1039,11 +1179,18 @@ export function ReconPageClient() {
                                 toast.error("Choose a category before adding.");
                                 return;
                               }
+                              const parsedAmt = parseRandInputToMinor(amountRand);
+                              if (!parsedAmt.ok) {
+                                toast.error("Enter a valid positive amount in ZAR.");
+                                return;
+                              }
                               actAdd.mutate({
                                 itemId: item.id,
                                 categoryId: cat,
                                 accountId: acc ?? null,
                                 split,
+                                note: expenseNote,
+                                amount: parsedAmt.minor,
                               });
                             }}
                           >
@@ -1069,7 +1216,7 @@ export function ReconPageClient() {
                           isMarked ? "bg-muted/40 text-muted-foreground" : "bg-muted/20"
                         )}
                       >
-                        <td colSpan={9} className="py-2 px-3 pb-3 align-top">
+                        <td colSpan={10} className="py-2 px-3 pb-3 align-top">
                           <p className="text-xs font-medium text-muted-foreground mb-2">
                             Possible duplicate — expense already on file (same calendar day and amount)
                           </p>
@@ -1111,7 +1258,7 @@ export function ReconPageClient() {
                           isMarked ? "bg-muted/40 text-muted-foreground" : "bg-muted/20"
                         )}
                       >
-                        <td colSpan={9} className="py-2 px-3 text-xs text-muted-foreground">
+                        <td colSpan={10} className="py-2 px-3 text-xs text-muted-foreground">
                           Possible duplicate: linked expense(s) are no longer found (they may have been deleted).
                         </td>
                       </tr>
@@ -1273,6 +1420,11 @@ export function ReconPageClient() {
                   Skipped (no category on row) {processMarkedSummary.skippedNoCategory}
                 </span>
               ) : null}
+              {processMarkedSummary.skippedInvalidAmount > 0 ? (
+                <span className="text-amber-700 dark:text-amber-500">
+                  Skipped (invalid amount) {processMarkedSummary.skippedInvalidAmount}
+                </span>
+              ) : null}
             </div>
             {processMarkedSummary.addByCategory.length > 0 ? (
               <div>
@@ -1312,10 +1464,16 @@ export function ReconPageClient() {
                 ) : null}
               </ul>
             )}
-            <p className="text-base font-semibold border-t border-border pt-3">
-              Total (all processed bank amounts){" "}
-              <span className="tabular-nums">{formatRand(processMarkedSummary.totalMinor)}</span>
-            </p>
+            <div className="text-base border-t border-border pt-3 space-y-2">
+              <p className="font-semibold">
+                Total accepted (bank amounts){" "}
+                <span className="tabular-nums">{formatRand(processMarkedSummary.acceptedTotalMinor)}</span>
+              </p>
+              <p className="font-semibold">
+                Total ignored (bank amounts){" "}
+                <span className="tabular-nums">{formatRand(processMarkedSummary.ignoredMinor)}</span>
+              </p>
+            </div>
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">No summary.</p>

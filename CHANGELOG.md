@@ -2,9 +2,17 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **Recon Process marked summary**: The dialog no longer shows a single combined total of ignored plus accepted bank amounts. It now shows **Total accepted** (duplicate + new-add bank-line sums) and **Total ignored** separately.
+
 ### Changed
 
-- **Recon Process marked**: Rows marked **Ignore** or **Accept** are shaded. After a successful run, a **summary** dialog shows the **transaction date range**, **how many rows** were processed, **accepted** vs **ignored** counts (with new vs duplicate breakdown), **totals by category** for newly added expenses, subtotals for duplicates resolved and ignored, and **grand total** of processed bank amounts. Accept-marked rows without a category are skipped and called out in the summary and a toast.
+- **Recon amount**: The **Amount** column on the pending list is an editable ZAR field (defaults from the parsed bank amount). **Accept and add** and **Process marked** send `amount` in minor units (`POST /api/recon/items/[id]/accept-add` body `amount?`). Invalid or non-positive values are rejected on single accept (toast) or skipped in bulk (summary + toast).
+
+- **Recon expense note**: Pending list has an **Expense note** field per row (default `Recon` / `Recon: {vendor}`). It is sent on **Accept and add** and **Process marked** (`POST /api/recon/items/[id]/accept-add` body `note?`). Clearing the field stores a blank note on the new expense.
+
+- **Recon Process marked**: Rows marked **Ignore** or **Accept** are shaded. After a successful run, a **summary** dialog shows the **transaction date range**, **how many rows** were processed, **accepted** vs **ignored** counts (with new vs duplicate breakdown), **totals by category** for newly added expenses, subtotals for duplicates resolved and ignored, and **separate totals** for accepted vs ignored bank amounts. Accept-marked rows without a category are skipped and called out in the summary and a toast. Accept-marked rows with an invalid amount are skipped similarly.
 
 - **Recon possible duplicates**: Pending rows with status **Possible duplicate** show the matching expense(s) from your ledger (**category**, **amount**, **note**, **date**) on a sub-row under the bank notification. `GET /api/recon/items` includes `matchedExpenses` (from `ExpenseRepository.findByIdsForUser`).
 
@@ -20,6 +28,8 @@
 - **Recon parsers (dates)**: `parseDateToYyyyMmDd` evaluates **every** `DDMon` (+ optional time) match in the text and uses the first with a real month abbreviation and day 1–31. This avoids false first matches on FNB copy such as **`.00 paid`** / **`.00 reserved`** (which previously hid the real `8Apr` / `6Apr` and yielded **`date_not_found`**).
 
 ### Added
+
+- **Dashboard recent expenses**: A **View more** link next to the section total opens the **Expenses** page for the same budget month (`/expenses?month=…`).
 
 - **Calendar (mobile)**: On viewports **767px and below**, swipe horizontally on the **month grid** to go to the previous or next month (swipe left → next month, swipe right → previous). Chevron buttons unchanged. Implemented via `useMonthGridSwipeNavigation` in `calendar-client-custom.tsx`.
 

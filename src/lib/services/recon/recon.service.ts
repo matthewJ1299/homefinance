@@ -305,18 +305,33 @@ export class ReconService {
     itemId: number,
     categoryId: number,
     accountId?: number | null,
-    split?: boolean
+    split?: boolean,
+    noteOverride?: string,
+    amountMinorOverride?: number
   ): Promise<{ expenseId: number }> {
     const item = await this.importRepo.findByIdForUser(itemId, userId);
     if (!item) throw new Error("Recon item not found");
     if (item.status !== "pending_duplicate" && item.status !== "pending_add") {
       throw new Error("Item is not awaiting action");
     }
-    const note = item.vendor ? `Recon: ${item.vendor}` : "Recon";
+    const note =
+      noteOverride !== undefined
+        ? noteOverride.trim() === ""
+          ? null
+          : noteOverride.trim().slice(0, 500)
+        : item.vendor
+          ? `Recon: ${item.vendor}`
+          : "Recon";
+    const amountMinor =
+      amountMinorOverride !== undefined &&
+      Number.isInteger(amountMinorOverride) &&
+      amountMinorOverride > 0
+        ? amountMinorOverride
+        : item.amount;
     const { id } = split
       ? await this.splitService.createSplit(
           userId,
-          item.amount,
+          amountMinor,
           categoryId,
           note,
           item.txnDate,
@@ -326,7 +341,7 @@ export class ReconService {
         )
       : await this.expenseService.create(userId, {
           categoryId,
-          amount: item.amount,
+          amount: amountMinor,
           note,
           date: item.txnDate,
           accountId: accountId ?? null,

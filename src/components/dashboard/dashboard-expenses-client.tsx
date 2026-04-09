@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback } from "react";
 import type { Category, ExpenseWithDetails, SplitGroup } from "@/lib/types";
 import type { CategoryBudgetHint } from "@/components/expenses/category-picker";
@@ -105,7 +106,15 @@ export function DashboardExpensesClient({
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-sm font-semibold tracking-tight">Recent expenses</h2>
-            <span className="text-xs text-muted-foreground">{formatRand(balanceCents)}</span>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs text-muted-foreground">{formatRand(balanceCents)}</span>
+              <Link
+                href={`/expenses?month=${encodeURIComponent(month)}`}
+                className="text-xs font-medium text-primary hover:underline cursor-pointer"
+              >
+                View more
+              </Link>
+            </div>
           </div>
           <div className="rounded-2xl border border-border/60 bg-card/90 p-3 shadow-sm">
             <ExpenseList

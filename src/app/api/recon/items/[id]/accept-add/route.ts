@@ -33,7 +33,9 @@ export async function POST(
       itemId,
       parsed.data.categoryId,
       parsed.data.accountId ?? null,
-      parsed.data.split ?? false
+      parsed.data.split ?? false,
+      parsed.data.note,
+      parsed.data.amount
     );
     return NextResponse.json(result);
   } catch (e) {
