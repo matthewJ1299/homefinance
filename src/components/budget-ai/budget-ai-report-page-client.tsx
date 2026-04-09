@@ -1,14 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { BudgetAiReportView } from "@/components/budget-ai/budget-ai-report-view";
+import { AiAnalysisButton } from "@/components/dashboard/ai-analysis-button";
+import { MonthNavigator } from "@/components/layout/month-navigator";
 import { cn } from "@/lib/utils";
-import { BUDGET_AI_REPORT_SESSION_KEY, loadBudgetAiReportSession } from "@/lib/utils/budget-ai-report-session";
-import type { StoredBudgetAiReport } from "@/lib/types/budget-ai-report";
+import type { AIAnalysisRunDetailRow, AIAnalysisRunSummaryRow } from "@/lib/repositories/interfaces/ai-analysis-run.repository";
 import { formatBudgetMonthLabel } from "@/lib/utils/date";
 import { useBudgetMonthStartDay } from "@/components/settings/budget-month-start-context";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { useMonthNavigation } from "@/hooks/use-month-navigation";
+import { useRouter } from "next/navigation";
+import { format } from "date-fns";
 
 function formatMonthHeading(month: string, startDay: number): string {
   try {
@@ -18,25 +22,60 @@ function formatMonthHeading(month: string, startDay: number): string {
   }
 }
 
-export function BudgetAiReportPageClient({ monthParam }: { monthParam: string | null }) {
+export function BudgetAiReportPageClient({
+  enabled,
+  monthParam,
+  runs,
+  selectedRun,
+}: {
+  enabled: boolean;
+  monthParam: string;
+  runs: AIAnalysisRunSummaryRow[];
+  selectedRun: AIAnalysisRunDetailRow | null;
+}) {
   const startDay = useBudgetMonthStartDay();
-  const [stored, setStored] = useState<StoredBudgetAiReport | null>(null);
+  const router = useRouter();
+  const { month } = useMonthNavigation();
   const [rawOpen, setRawOpen] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
+  const selected = selectedRun;
 
-  useEffect(() => {
-    const data = loadBudgetAiReportSession(monthParam);
-    setStored(data);
-  }, [monthParam]);
+  const options = useMemo(() => {
+    return runs.map((r) => {
+      const when = (() => {
+        try {
+          return format(new Date(r.createdAt), "yyyy-MM-dd HH:mm");
+        } catch {
+          return r.createdAt;
+        }
+      })();
+      return { id: r.id, label: `${r.month} — ${when}` };
+    });
+  }, [runs]);
 
-  if (!stored) {
+  const selectedId = selected?.id ?? (options[0]?.id ?? "");
+
+  const handleSelectRun = (idStr: string) => {
+    const id = Number(idStr);
+    if (!id) return;
+    const match = runs.find((r) => r.id === id);
+    const params = new URLSearchParams();
+    params.set("month", match?.month ?? monthParam);
+    params.set("runId", String(id));
+    router.push(`/budget-ai-report?${params.toString()}`);
+  };
+
+  if (!selected) {
     return (
       <div className="mx-auto max-w-2xl space-y-4 p-4">
-        <h1 className="text-xl font-semibold">Budget AI report</h1>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-xl font-semibold">Budget AI report</h1>
+          <MonthNavigator />
+        </div>
+        <AiAnalysisButton month={month} enabled={enabled} />
         <p className="text-sm text-muted-foreground">
-          No report found for this session
-          {monthParam ? ` (${monthParam})` : ""}. Run <strong>Analyze spending</strong> from the dashboard or summary
-          page for a month; you will be redirected here when the analysis completes.
+          No saved report found for this month ({monthParam}). Run <strong>Analyze spending</strong> to generate the first
+          one; it will be saved and shown here.
         </p>
         <Link
           href="/dashboard"
@@ -56,12 +95,12 @@ export function BudgetAiReportPageClient({ monthParam }: { monthParam: string | 
         <div>
           <h1 className="text-xl font-semibold">Budget AI report</h1>
           <p className="text-sm text-muted-foreground">
-            {formatMonthHeading(stored.month, startDay)} ({stored.month})
+            {formatMonthHeading(selected.month, startDay)} ({selected.month})
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
-            href={`/dashboard?month=${encodeURIComponent(stored.month)}`}
+            href={`/dashboard?month=${encodeURIComponent(selected.month)}`}
             className={cn(
               "inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent"
             )}
@@ -69,7 +108,7 @@ export function BudgetAiReportPageClient({ monthParam }: { monthParam: string | 
             Dashboard
           </Link>
           <Link
-            href={`/summary?month=${encodeURIComponent(stored.month)}`}
+            href={`/summary?month=${encodeURIComponent(selected.month)}`}
             className={cn(
               "inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent"
             )}
@@ -79,7 +118,27 @@ export function BudgetAiReportPageClient({ monthParam }: { monthParam: string | 
         </div>
       </div>
 
-      <BudgetAiReportView report={stored.report} />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-1">
+          <p className="text-sm font-medium">Saved reports</p>
+          <select
+            className="h-10 w-full min-w-[280px] rounded-md border border-input bg-background px-3 text-sm"
+            value={String(selectedId)}
+            onChange={(e) => handleSelectRun(e.target.value)}
+          >
+            {options.map((o) => (
+              <option key={o.id} value={String(o.id)}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <MonthNavigator />
+          <AiAnalysisButton month={month} enabled={enabled} />
+        </div>
+      </div>
+      <BudgetAiReportView report={selected.outputJson as any} />
 
       <div className="rounded-lg border border-border bg-card">
         <button
@@ -92,7 +151,7 @@ export function BudgetAiReportPageClient({ monthParam }: { monthParam: string | 
         </button>
         {rawOpen ? (
           <pre className="max-h-64 overflow-auto border-t border-border p-3 text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground">
-            {stored.rawModelText}
+            {selected.outputText}
           </pre>
         ) : null}
       </div>
@@ -108,15 +167,12 @@ export function BudgetAiReportPageClient({ monthParam }: { monthParam: string | 
         </button>
         {debugOpen ? (
           <pre className="max-h-96 overflow-auto border-t border-border p-3 text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground">
-            {stored.inputDebugText}
+            {selected.inputText}
           </pre>
         ) : null}
       </div>
 
-      <p className="text-xs text-muted-foreground">
-        This page reads the latest report from browser session storage ({BUDGET_AI_REPORT_SESSION_KEY}). Opening in a new
-        tab or another browser will not show it until you run the analysis again.
-      </p>
+      <p className="text-xs text-muted-foreground">Reports are loaded from the database (newest shown by default).</p>
     </div>
   );
 }

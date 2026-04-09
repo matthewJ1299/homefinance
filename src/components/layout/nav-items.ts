@@ -13,6 +13,7 @@ import {
   Target,
   Plus,
   GitCompare,
+  Sparkles,
 } from "lucide-react";
 
 export interface NavItem {
@@ -39,6 +40,7 @@ export const fullNavItems: NavItem[] = [
   { href: "/recon", label: "Recon", icon: GitCompare },
   { href: "/splits", label: "Splits", icon: SplitSquareVertical },
   { href: "/budget", label: "Budget", icon: PiggyBank },
+  { href: "/budget-ai-report", label: "Budget AI report", icon: Sparkles },
   { href: "/accounts", label: "Accounts", icon: CreditCard },
   { href: "/mortgage", label: "Mortgage", icon: Wallet },
   { href: "/goals", label: "Goals", icon: Target },

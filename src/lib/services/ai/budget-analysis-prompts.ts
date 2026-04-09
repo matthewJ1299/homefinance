@@ -16,6 +16,12 @@ Prefer specific actions over generic advice
 Limit recommendations to the most important 10 items
 Use plain English reasoning, but return JSON only
 
+Money rules (critical):
+
+- All monetary values in the supplied data are integers in cents (minor units) for ZAR.
+- In the response JSON, keep numeric fields named \`*_cents\` as integer cents (e.g. \`amount_cents\`).
+- For any amounts you mention in human-readable strings (\`summary\`, \`top_issues\`, \`reason\`, \`next_month_plan\`, \`data_issues\`), format them as South African Rand like \`R123.45\` (two decimals). Do not write cents in those strings.
+
 Response json must follow this schema:
 
 {

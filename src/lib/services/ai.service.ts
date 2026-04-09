@@ -40,6 +40,7 @@ export interface AnalyzeExpensesResult {
   report: BudgetAnalysisReport;
   rawModelText: string;
   inputText: string;
+  runId: number;
 }
 
 export interface AnalyzeExpensesError {
@@ -134,9 +135,10 @@ async function persistAIAnalysisRun(params: {
   inputJson: unknown;
   inputText?: string;
   outputText: string;
-}): Promise<void> {
+  outputJson?: unknown;
+}): Promise<number> {
   try {
-    await getAIAnalysisRunRepository().create({
+    return await getAIAnalysisRunRepository().create({
       userId: params.userId,
       analysisType: params.analysisType,
       month: params.month,
@@ -145,11 +147,12 @@ async function persistAIAnalysisRun(params: {
       inputJson: params.inputJson,
       inputText: params.inputText,
       outputText: params.outputText,
+      outputJson: params.outputJson,
     });
   } catch (error) {
     if (isMissingDbObjectError(error)) {
       console.warn("AI analysis logging skipped: run `npm run db:push` to apply DB migrations.");
-      return;
+      return 0;
     }
     throw error;
   }
@@ -222,7 +225,7 @@ export class AIService {
             "AI returned a response that could not be parsed as the expected JSON report. Try again, or open the input log to inspect the model output.",
         };
       }
-      await persistAIAnalysisRun({
+      const runId = await persistAIAnalysisRun({
         userId,
         analysisType: "expenses_monthly",
         month,
@@ -231,8 +234,12 @@ export class AIService {
         inputJson: data,
         inputText: inputDebugText,
         outputText: analysisText,
+        outputJson: report,
       });
-      return { success: true, report, rawModelText: analysisText, inputText: inputDebugText };
+      if (!runId) {
+        return { success: false, error: "AI analysis was generated but could not be saved. Run `npm run db:push`." };
+      }
+      return { success: true, report, rawModelText: analysisText, inputText: inputDebugText, runId };
     } catch (err) {
       const message = err instanceof Error ? err.message : "AI request failed.";
       return { success: false, error: message };

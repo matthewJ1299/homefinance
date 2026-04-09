@@ -15,13 +15,19 @@ Related: **AI analysis** in Settings (`GEMINI_*` keys), **Dashboard** / **Summar
 3. Gemini is called with a **system** instruction (YNAB-style coach, JSON only) and a **user** message that embeds the payload plus the required **output schema**.
 4. `generationConfig.responseMimeType` is set to **`application/json`**.
 5. The response is **parsed** into `BudgetAnalysisReport` (see `src/lib/types/budget-ai-report.ts`). If parsing fails, the user sees an error on the dashboard/summary control.
-6. The client stores the report in **`sessionStorage`** under `homefinance.budgetAiReport.v1` and navigates to **`/budget-ai-report?month=yyyy-MM`**.
+6. The parsed JSON report is saved in Postgres (`ai_analysis_runs.output_json`) and the UI navigates to **`/budget-ai-report?month=yyyy-MM&runId=...`**.
+
+## Money formatting rules
+
+- **Inputs**: all amounts in the model payload are **integer cents** (minor units) for ZAR.
+- **Outputs**: any numeric fields named `*_cents` remain integer cents (e.g. `recommended_moves[].amount_cents`).
+- **Human-readable text**: whenever the model mentions an amount inside strings (`summary`, `top_issues`, reasons, plan items), it should format it as Rand like `R123.45` (two decimals).
 
 ## Report page
 
 - **Route**: `/budget-ai-report`
-- **Data**: Read from session storage; the `month` query param must match the stored `month`, or the page shows “no report”.
-- **Limitation**: Not durable across browsers, devices, or cleared storage. **Alternative** (not implemented): persist parsed reports (or raw JSON) in Postgres keyed by user + month + run id, then open `/budget-ai-report/[id]`.
+- **Default**: loads the **latest** saved report for the selected month.
+- **Switching**: a dropdown lists saved runs (month + generated timestamp) and loads a specific run by `runId`.
 
 ## Auditing
 

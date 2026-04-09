@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Copy, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { saveBudgetAiReportSession } from "@/lib/utils/budget-ai-report-session";
 
 interface AiAnalysisButtonProps {
   month: string;
@@ -32,14 +31,8 @@ export function AiAnalysisButton({ month, enabled }: AiAnalysisButtonProps) {
       const result = await analyzeExpenses(month);
       if (result.success) {
         setInputText(result.inputText);
-        saveBudgetAiReportSession({
-          month,
-          report: result.report,
-          rawModelText: result.rawModelText,
-          inputDebugText: result.inputText,
-        });
         toast.success("Opening report…");
-        router.push(`/budget-ai-report?month=${encodeURIComponent(month)}`);
+        router.push(`/budget-ai-report?month=${encodeURIComponent(month)}&runId=${encodeURIComponent(String(result.runId))}`);
       } else {
         setError(result.error);
         toast.error(result.error);
