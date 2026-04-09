@@ -14,6 +14,14 @@ import { useMonthNavigation } from "@/hooks/use-month-navigation";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 
+function getProviderLabelFromInputText(inputText: unknown): string | null {
+  if (typeof inputText !== "string" || !inputText.trim()) return null;
+  const line = inputText.split("\n", 1)[0]?.trim() ?? "";
+  if (!line.startsWith("AI_PROVIDER:")) return null;
+  const value = line.slice("AI_PROVIDER:".length).trim();
+  return value || null;
+}
+
 function formatMonthHeading(month: string, startDay: number): string {
   try {
     return formatBudgetMonthLabel(month, startDay);
@@ -39,6 +47,7 @@ export function BudgetAiReportPageClient({
   const [rawOpen, setRawOpen] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
   const selected = selectedRun;
+  const providerLabel = useMemo(() => getProviderLabelFromInputText(selected?.inputText), [selected?.inputText]);
 
   const options = useMemo(() => {
     return runs.map((r) => {
@@ -137,6 +146,11 @@ export function BudgetAiReportPageClient({
           <MonthNavigator />
           <AiAnalysisButton month={month} enabled={enabled} />
         </div>
+      </div>
+
+      <div className="rounded-lg border bg-card p-3">
+        <p className="text-sm font-medium">AI provider used</p>
+        <p className="text-sm text-muted-foreground mt-1">{providerLabel ?? "Unknown (older report / not recorded)"}</p>
       </div>
       <BudgetAiReportView report={selected.outputJson as any} />
 

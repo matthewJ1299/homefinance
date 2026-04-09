@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 import { BudgetService, type BudgetOverviewResult } from "@/lib/services/budget.service";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { IncomeService } from "@/lib/services/income.service";
@@ -16,6 +17,13 @@ export type AITier = "free" | "paid";
 
 const DEFAULT_FREE_MODEL = "gemini-2.5-flash";
 const DEFAULT_PAID_MODEL = "gemini-2.5-flash";
+const DEFAULT_OPENAI_MODEL = "gpt-4.1-mini";
+
+type AIProviderLabel =
+  | "OpenAI (paid)"
+  | "Gemini (paid)"
+  | "Gemini (free)"
+  | "Gemini (free fallback from OpenAI quota)";
 
 function getModelForTier(tier: AITier): string {
   if (tier === "paid") return (process.env.GEMINI_PAID_MODEL ?? "").trim() || DEFAULT_PAID_MODEL;
@@ -27,8 +35,19 @@ function getApiKeyForTier(tier: AITier): string | null {
   return process.env.GEMINI_FREE_API_KEY?.trim() || process.env.GEMINI_API_KEY?.trim() || null;
 }
 
+function getOpenAIApiKey(): string | null {
+  return process.env.OPENAI_API_KEY?.trim() || null;
+}
+
+function getOpenAIModel(): string {
+  return (process.env.OPENAI_MODEL ?? "").trim() || DEFAULT_OPENAI_MODEL;
+}
+
 export function isAIConfiguredForTier(tier: AITier): boolean {
-  return Boolean(getApiKeyForTier(tier));
+  if (tier === "paid") {
+    return Boolean(getOpenAIApiKey() || getApiKeyForTier("paid"));
+  }
+  return Boolean(getApiKeyForTier("free"));
 }
 
 export function isAIConfigured(): boolean {
@@ -126,6 +145,17 @@ function isMissingDbObjectError(error: unknown): boolean {
   );
 }
 
+function isOpenAIInsufficientQuotaError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  if (!("status" in error)) return false;
+  const status = (error as any).status;
+  if (status !== 429) return false;
+  const code = (error as any).code;
+  if (code === "insufficient_quota") return true;
+  const message = typeof (error as any).message === "string" ? (error as any).message : "";
+  return /insufficient quota|quota|billing|exceeded/i.test(message);
+}
+
 async function persistAIAnalysisRun(params: {
   userId: number;
   analysisType: AIAnalysisType;
@@ -159,18 +189,19 @@ async function persistAIAnalysisRun(params: {
 }
 
 export class AIService {
-  async analyzeExpenses(
-    month: string,
-    userId: number,
-    tier: AITier = "free"
-  ): Promise<AnalyzeExpensesOutcome> {
-    const apiKey = getApiKeyForTier(tier);
+  private async analyzeExpensesWithGemini(params: {
+    month: string;
+    userId: number;
+    tier: AITier;
+    providerLabel: AIProviderLabel;
+  }): Promise<AnalyzeExpensesOutcome> {
+    const apiKey = getApiKeyForTier(params.tier);
     if (!apiKey) {
       return {
         success: false,
         error:
-          tier === "paid"
-            ? "Paid AI is not configured. Set GEMINI_PAID_API_KEY."
+          params.tier === "paid"
+            ? "Paid AI is not configured. Set GEMINI_PAID_API_KEY (or configure OPENAI_API_KEY for paid)."
             : "AI is not configured. Set GEMINI_FREE_API_KEY (or GEMINI_API_KEY).",
       };
     }
@@ -178,17 +209,17 @@ export class AIService {
     const budgetService = new BudgetService();
     const expenseService = new ExpenseService();
     const incomeService = new IncomeService();
-    const priorKey = prevMonth(month);
+    const priorKey = prevMonth(params.month);
 
     const [overview, incomeResult, expenseResult, priorExpenseResult] = await Promise.all([
-      budgetService.getOverview(month, userId),
-      incomeService.getByMonth(month, userId),
-      expenseService.getByMonth(month, userId),
-      expenseService.getByMonth(priorKey, userId),
+      budgetService.getOverview(params.month, params.userId),
+      incomeService.getByMonth(params.month, params.userId),
+      expenseService.getByMonth(params.month, params.userId),
+      expenseService.getByMonth(priorKey, params.userId),
     ]);
 
     const data = buildBudgetAnalysisModelPayload({
-      month,
+      month: params.month,
       overview,
       incomeCents: incomeResult.totals.overall,
       expenseRows: expenseResult.expenses,
@@ -197,12 +228,12 @@ export class AIService {
 
     const systemPrompt = getBudgetAnalysisSystemPrompt();
     const userPrompt = buildBudgetAnalysisUserPrompt(data);
-    const inputDebugText = `--- system ---\n${systemPrompt}\n\n--- user ---\n${userPrompt}`;
+    const inputDebugText = `AI_PROVIDER: ${params.providerLabel}\n--- system ---\n${systemPrompt}\n\n--- user ---\n${userPrompt}`;
 
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({
-        model: getModelForTier(tier),
+        model: getModelForTier(params.tier),
         systemInstruction: systemPrompt,
         generationConfig: {
           responseMimeType: "application/json",
@@ -226,9 +257,9 @@ export class AIService {
         };
       }
       const runId = await persistAIAnalysisRun({
-        userId,
+        userId: params.userId,
         analysisType: "expenses_monthly",
-        month,
+        month: params.month,
         promptTemplateId: "expenses_monthly",
         promptVersion: 3,
         inputJson: data,
@@ -244,6 +275,111 @@ export class AIService {
       const message = err instanceof Error ? err.message : "AI request failed.";
       return { success: false, error: message };
     }
+  }
+
+  private async analyzeExpensesWithOpenAI(params: {
+    month: string;
+    userId: number;
+  }): Promise<AnalyzeExpensesOutcome> {
+    const apiKey = getOpenAIApiKey();
+    if (!apiKey) {
+      return { success: false, error: "Paid AI is not configured. Set OPENAI_API_KEY." };
+    }
+
+    const budgetService = new BudgetService();
+    const expenseService = new ExpenseService();
+    const incomeService = new IncomeService();
+    const priorKey = prevMonth(params.month);
+
+    const [overview, incomeResult, expenseResult, priorExpenseResult] = await Promise.all([
+      budgetService.getOverview(params.month, params.userId),
+      incomeService.getByMonth(params.month, params.userId),
+      expenseService.getByMonth(params.month, params.userId),
+      expenseService.getByMonth(priorKey, params.userId),
+    ]);
+
+    const data = buildBudgetAnalysisModelPayload({
+      month: params.month,
+      overview,
+      incomeCents: incomeResult.totals.overall,
+      expenseRows: expenseResult.expenses,
+      prevMonthSpentByCategory: priorExpenseResult.totals.byCategory,
+    });
+
+    const systemPrompt = getBudgetAnalysisSystemPrompt();
+    const userPrompt = buildBudgetAnalysisUserPrompt(data);
+    const inputDebugText = `AI_PROVIDER: OpenAI (paid)\n--- system ---\n${systemPrompt}\n\n--- user ---\n${userPrompt}`;
+
+    try {
+      const client = new OpenAI({ apiKey });
+      const resp = await client.chat.completions.create({
+        model: getOpenAIModel(),
+        temperature: 0.4,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      });
+      const text = resp.choices?.[0]?.message?.content ?? "";
+      if (typeof text !== "string" || !text.trim()) {
+        return { success: false, error: "No analysis was returned." };
+      }
+      const analysisText = text.trim();
+      let report: BudgetAnalysisReport;
+      try {
+        report = parseBudgetAnalysisReportFromModelText(analysisText);
+      } catch {
+        return {
+          success: false,
+          error:
+            "AI returned a response that could not be parsed as the expected JSON report. Try again, or open the input log to inspect the model output.",
+        };
+      }
+      const runId = await persistAIAnalysisRun({
+        userId: params.userId,
+        analysisType: "expenses_monthly",
+        month: params.month,
+        promptTemplateId: "expenses_monthly",
+        promptVersion: 3,
+        inputJson: data,
+        inputText: inputDebugText,
+        outputText: analysisText,
+        outputJson: report,
+      });
+      if (!runId) {
+        return { success: false, error: "AI analysis was generated but could not be saved. Run `npm run db:push`." };
+      }
+      return { success: true, report, rawModelText: analysisText, inputText: inputDebugText, runId };
+    } catch (err) {
+      if (isOpenAIInsufficientQuotaError(err)) {
+        // Fallback to the existing free Gemini configuration (explicit requirement).
+        return await this.analyzeExpensesWithGemini({
+          month: params.month,
+          userId: params.userId,
+          tier: "free",
+          providerLabel: "Gemini (free fallback from OpenAI quota)",
+        });
+      }
+      const message = err instanceof Error ? err.message : "AI request failed.";
+      return { success: false, error: message };
+    }
+  }
+
+  async analyzeExpenses(
+    month: string,
+    userId: number,
+    tier: AITier = "free"
+  ): Promise<AnalyzeExpensesOutcome> {
+    if (tier === "paid" && getOpenAIApiKey()) {
+      return await this.analyzeExpensesWithOpenAI({ month, userId });
+    }
+    return await this.analyzeExpensesWithGemini({
+      month,
+      userId,
+      tier,
+      providerLabel: tier === "paid" ? "Gemini (paid)" : "Gemini (free)",
+    });
   }
 
   async analyzeGoalsAndDebt(

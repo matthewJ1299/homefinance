@@ -343,6 +343,24 @@ async function pushPostgres(): Promise<void> {
       }
     }
 
+    const hasAiEnabled = await client.query(
+      "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'ai_enabled'"
+    );
+    if (hasAiEnabled.rows.length === 0) {
+      const migration0019Path = path.join(process.cwd(), "drizzle", "0019_users_ai_enabled_pg.sql");
+      if (fs.existsSync(migration0019Path)) {
+        const sql0019 = fs.readFileSync(migration0019Path, "utf-8");
+        const statements0019 = sql0019
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statements0019) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration 0019 (users.ai_enabled) applied.");
+      }
+    }
+
     const hasAiAnalysisRuns = await client.query(
       "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'ai_analysis_runs'"
     );

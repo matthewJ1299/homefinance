@@ -19,6 +19,10 @@ export type UpdateAiUsePaidResult =
   | { success: true }
   | { success: false; error: string };
 
+export type UpdateAiEnabledResult =
+  | { success: true }
+  | { success: false; error: string };
+
 export async function updateBudgetMonthStartDayAction(
   day: number
 ): Promise<UpdateBudgetMonthStartDayResult> {
@@ -64,7 +68,7 @@ export async function updateAiUsePaidAction(usePaid: boolean): Promise<UpdateAiU
     return {
       success: false,
       error:
-        "Paid AI is not configured on this server. Set GEMINI_PAID_API_KEY (and optionally GEMINI_PAID_MODEL) in the environment.",
+        "Paid AI is not configured on this server. Set OPENAI_API_KEY (optional OPENAI_MODEL) or set GEMINI_PAID_API_KEY (optional GEMINI_PAID_MODEL) in the environment.",
     };
   }
 
@@ -78,5 +82,27 @@ export async function updateAiUsePaidAction(usePaid: boolean): Promise<UpdateAiU
   revalidatePath("/dashboard");
   revalidatePath("/settings");
   revalidatePath("/summary");
+  return { success: true };
+}
+
+export async function updateAiEnabledAction(enabled: boolean): Promise<UpdateAiEnabledResult> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, error: "Unauthorized" };
+  }
+  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+
+  const userId = Number(session.user.id);
+  try {
+    await getUserRepository().setAiEnabled(userId, enabled);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to update AI setting.";
+    return { success: false, error: message };
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/settings");
+  revalidatePath("/summary");
+  revalidatePath("/budget-ai-report");
   return { success: true };
 }

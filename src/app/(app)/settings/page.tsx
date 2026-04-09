@@ -50,6 +50,7 @@ export default async function SettingsPage() {
 
   const budgetMonthStartDay = await getUserRepository().getBudgetMonthStartDay(userId);
   const reconEnabled = await getUserRepository().getReconEnabled(userId);
+  const aiEnabled = await getUserRepository().getAiEnabled(userId);
   const aiUsePaid = await getUserRepository().getAiUsePaid(userId);
   const currentMonth = await getDefaultBudgetMonthForUser(userId);
 
@@ -62,7 +63,7 @@ export default async function SettingsPage() {
 
       <PushNotificationsSettings />
       <ReconSettings reconEnabled={reconEnabled} />
-      <AiSettings aiUsePaid={aiUsePaid} />
+      <AiSettings aiEnabled={aiEnabled} aiUsePaid={aiUsePaid} />
       <ExportTransactionsSettings />
       <BudgetMonthRangeSettings currentStartDay={budgetMonthStartDay} />
       <DashboardTilesSettings />

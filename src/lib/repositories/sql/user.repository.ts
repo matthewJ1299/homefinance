@@ -89,6 +89,30 @@ export class UserRepository implements IUserRepository {
     await run("UPDATE users SET recon_enabled = ? WHERE id = ?", [enabled, userId]);
   }
 
+  async getAiEnabled(userId: number): Promise<boolean> {
+    try {
+      const row = await get<{ ai_enabled: boolean | null }>("SELECT ai_enabled FROM users WHERE id = ?", [userId]);
+      return row?.ai_enabled === true;
+    } catch (err) {
+      // Backwards-compatible: older DBs won't have the column until migrations are applied.
+      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
+        return false;
+      }
+      throw err;
+    }
+  }
+
+  async setAiEnabled(userId: number, enabled: boolean): Promise<void> {
+    try {
+      await run("UPDATE users SET ai_enabled = ? WHERE id = ?", [enabled, userId]);
+    } catch (err) {
+      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
+        throw new Error('Database is missing column "users.ai_enabled". Run `npm run db:push` to apply migrations.');
+      }
+      throw err;
+    }
+  }
+
   async getAiUsePaid(userId: number): Promise<boolean> {
     try {
       const row = await get<{ ai_use_paid: boolean | null }>(

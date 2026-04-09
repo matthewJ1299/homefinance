@@ -1,10 +1,11 @@
 # AI budget analysis (monthly)
 
-Related: **AI analysis** in Settings (`GEMINI_*` keys), **Dashboard** / **Summary** “Analyze spending”, table `ai_analysis_runs`.
+Related: **AI analysis** in Settings (AI toggle + provider selection), **Dashboard** / **Summary** “Analyze spending”, table `ai_analysis_runs`.
 
 ## Flow
 
-1. User chooses month (dashboard or summary) and clicks **Analyze spending**.
+1. User enables **AI analysis** under **Settings** (AI is **off by default**).
+2. User chooses month (dashboard or summary) and clicks **Analyze spending**.
 2. Server builds a **model payload** (all monetary fields in **minor units / cents**):
 
    - `month`, `currency: "ZAR"`
@@ -12,8 +13,13 @@ Related: **AI analysis** in Settings (`GEMINI_*` keys), **Dashboard** / **Summar
    - `categories[]`: `name`, `allocated_cents`, `spent_cents`, `prev_month_spent_cents`, `is_overspent`
    - `transactions[]`: `user_name`, `category_name`, `amount_cents`, `note`, `date` (for transaction-level recategorisation hints)
 
-3. Gemini is called with a **system** instruction (YNAB-style coach, JSON only) and a **user** message that embeds the payload plus the required **output schema**.
-4. `generationConfig.responseMimeType` is set to **`application/json`**.
+3. The server selects a provider:
+
+   - **Paid**: prefers **OpenAI** when `OPENAI_API_KEY` is configured.
+   - **Fallback rule (required)**: if OpenAI returns an **insufficient quota / out of credit** error, the request falls back to **Gemini free**.
+   - **Free**: uses the existing **Gemini free** configuration.
+
+4. The selected provider is called with a **system** instruction (YNAB-style coach, JSON only) and a **user** message that embeds the payload plus the required **output schema**.
 5. The response is **parsed** into `BudgetAnalysisReport` (see `src/lib/types/budget-ai-report.ts`). If parsing fails, the user sees an error on the dashboard/summary control.
 6. The parsed JSON report is saved in Postgres (`ai_analysis_runs.output_json`) and the UI navigates to **`/budget-ai-report?month=yyyy-MM&runId=...`**.
 
@@ -28,6 +34,7 @@ Related: **AI analysis** in Settings (`GEMINI_*` keys), **Dashboard** / **Summar
 - **Route**: `/budget-ai-report`
 - **Default**: loads the **latest** saved report for the selected month.
 - **Switching**: a dropdown lists saved runs (month + generated timestamp) and loads a specific run by `runId`.
+- **Provider label**: the page shows which AI provider was used at the top of the report (stored as a prefix in the saved run’s `input_text`).
 
 ## Auditing
 

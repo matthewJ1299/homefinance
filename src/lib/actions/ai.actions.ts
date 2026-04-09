@@ -12,6 +12,11 @@ export async function analyzeExpenses(month: string): Promise<AnalyzeExpensesOut
     return { success: false, error: "Unauthorized" };
   }
   const userId = Number(session.user.id);
+  const userRepo = getUserRepository();
+  const aiEnabled = await userRepo.getAiEnabled(userId);
+  if (!aiEnabled) {
+    return { success: false, error: "AI is disabled for your user. Enable it under Settings → AI analysis." };
+  }
 
   const { allowed, retryAfterMs } = checkRateLimit(userId);
   if (!allowed) {
@@ -23,7 +28,7 @@ export async function analyzeExpenses(month: string): Promise<AnalyzeExpensesOut
   }
 
   const service = new AIService();
-  const usePaid = await getUserRepository().getAiUsePaid(userId);
+  const usePaid = await userRepo.getAiUsePaid(userId);
   const result = await service.analyzeExpenses(month, userId, usePaid ? "paid" : "free");
   if (result.success) {
     recordCall(userId);

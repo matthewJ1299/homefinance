@@ -4,6 +4,9 @@
 
 ### Added
 
+- **AI toggle (off by default)**: AI features are now **disabled by default** per user (`users.ai_enabled`, migration `0019_users_ai_enabled_pg.sql`). Enable **AI analysis** under **Settings** before AI buttons and report generation appear.
+- **OpenAI paid + Gemini free fallback**: Paid AI can now use **OpenAI** (`OPENAI_API_KEY`, optional `OPENAI_MODEL`). If OpenAI runs out of credit / returns an insufficient quota error, the app **automatically falls back** to the existing **Gemini free** configuration.
+- **AI provider label on reports**: The **Budget AI report** page now shows the **AI provider used** at the top of the report (recorded in the run’s stored prompt text).
 - **AI analysis input export**: After running **Analyze spending** (Dashboard and Summary), you can now open the **exact AI input prompt/data** in a **new browser tab** and copy it to refine prompts and feedback quality.
 - **AI analysis history persistence**: Each successful AI analysis now writes to `ai_analysis_runs` with `user_id`, `analysis_type`, `month`, structured `input_json` plus `prompt_template_id` + `prompt_version`, `output_text`, and `created_at` timestamp (migrations `0017_ai_analysis_runs_pg.sql`, `0018_ai_analysis_runs_structured_input_pg.sql`).
 - **AI tier toggle (Free vs Paid)**: AI analysis now supports separate **Free** and **Paid** Gemini configurations via env vars (`GEMINI_FREE_API_KEY` / `GEMINI_PAID_API_KEY` + optional `*_MODEL`). Each user can choose which tier to use under **Settings** > **AI analysis**.

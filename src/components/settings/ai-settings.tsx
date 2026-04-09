@@ -3,32 +3,49 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { Label } from "@/components/ui/label";
-import { updateAiUsePaidAction } from "@/lib/actions/user-preferences.actions";
+import { updateAiEnabledAction, updateAiUsePaidAction } from "@/lib/actions/user-preferences.actions";
 import { toast } from "sonner";
 
 interface AiSettingsProps {
+  aiEnabled: boolean;
   aiUsePaid: boolean;
 }
 
-export function AiSettings({ aiUsePaid }: AiSettingsProps) {
+export function AiSettings({ aiEnabled, aiUsePaid }: AiSettingsProps) {
   const router = useRouter();
-  const [checked, setChecked] = useState(aiUsePaid);
+  const [enabledChecked, setEnabledChecked] = useState(aiEnabled);
+  const [tierChecked, setTierChecked] = useState(aiUsePaid);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    setChecked(aiUsePaid);
-  }, [aiUsePaid]);
+    setEnabledChecked(aiEnabled);
+    setTierChecked(aiUsePaid);
+  }, [aiEnabled, aiUsePaid]);
 
-  const onChange = (next: boolean) => {
-    setChecked(next);
+  const onToggleEnabled = (next: boolean) => {
+    setEnabledChecked(next);
     startTransition(async () => {
-      const result = await updateAiUsePaidAction(next);
+      const result = await updateAiEnabledAction(next);
       if (!result.success) {
-        setChecked(aiUsePaid);
+        setEnabledChecked(aiEnabled);
         toast.error(result.error);
         return;
       }
-      toast.success(next ? "Paid AI enabled." : "Free AI enabled.");
+      toast.success(next ? "AI enabled." : "AI disabled.");
+      void router.refresh();
+    });
+  };
+
+  const onToggleTier = (next: boolean) => {
+    setTierChecked(next);
+    startTransition(async () => {
+      const result = await updateAiUsePaidAction(next);
+      if (!result.success) {
+        setTierChecked(aiUsePaid);
+        toast.error(result.error);
+        return;
+      }
+      toast.success(next ? "Paid AI selected." : "Free AI selected.");
       void router.refresh();
     });
   };
@@ -38,22 +55,41 @@ export function AiSettings({ aiUsePaid }: AiSettingsProps) {
       <div>
         <h2 className="text-sm font-medium">AI analysis</h2>
         <p className="text-xs text-muted-foreground mt-1">
-          Choose whether the app uses the free-tier AI configuration or the paid AI configuration when generating analysis.
-          This preference is saved per user.
+          AI features are <strong>off by default</strong>. Enable them here, then choose whether the app should use the
+          free-tier AI configuration or the paid AI configuration when generating analysis. These preferences are saved
+          per user.
         </p>
       </div>
       <label className="flex items-start gap-2 cursor-pointer">
         <input
           type="checkbox"
-          checked={checked}
+          checked={enabledChecked}
           disabled={isPending}
-          onChange={(e) => onChange(e.target.checked)}
+          onChange={(e) => onToggleEnabled(e.target.checked)}
+          className="mt-1 rounded border-input"
+        />
+        <span>
+          <Label className="text-sm font-medium cursor-pointer">Enable AI features</Label>
+          <p className="text-xs text-muted-foreground">
+            When disabled, AI buttons and AI report generation are hidden/disabled even if the server has API keys
+            configured.
+          </p>
+        </span>
+      </label>
+
+      <label className="flex items-start gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={tierChecked}
+          disabled={isPending || !enabledChecked}
+          onChange={(e) => onToggleTier(e.target.checked)}
           className="mt-1 rounded border-input"
         />
         <span>
           <Label className="text-sm font-medium cursor-pointer">Use paid AI</Label>
           <p className="text-xs text-muted-foreground">
-            Requires `GEMINI_PAID_API_KEY` on the server. When off, the app uses `GEMINI_FREE_API_KEY` (or the legacy `GEMINI_API_KEY`).
+            Paid prefers `OPENAI_API_KEY` (optional `OPENAI_MODEL`). If OpenAI is out of credit, it automatically falls
+            back to Gemini free. Free uses `GEMINI_FREE_API_KEY` (or legacy `GEMINI_API_KEY`).
           </p>
         </span>
       </label>

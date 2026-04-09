@@ -12,10 +12,11 @@ export default async function BudgetAiReportPage({ searchParams }: BudgetAiRepor
   const session = await auth();
   const userId = Number(session?.user?.id ?? 0);
   const userRepo = getUserRepository();
-  const [budgetMonthStartDay, aiUsePaid] = userId
-    ? await Promise.all([userRepo.getBudgetMonthStartDay(userId), userRepo.getAiUsePaid(userId)])
-    : [1, false];
-  const aiEnabled = aiUsePaid ? isAIConfiguredForTier("paid") : isAIConfiguredForTier("free");
+  const [budgetMonthStartDay, aiEnabledPref, aiUsePaid] = userId
+    ? await Promise.all([userRepo.getBudgetMonthStartDay(userId), userRepo.getAiEnabled(userId), userRepo.getAiUsePaid(userId)])
+    : [1, false, false];
+  const aiConfigured = aiUsePaid ? isAIConfiguredForTier("paid") : isAIConfiguredForTier("free");
+  const aiEnabled = aiEnabledPref && aiConfigured;
 
   const { month: monthParam, runId: runIdParam } = await searchParams;
   const month = monthParam ?? getCurrentBudgetMonth(budgetMonthStartDay);

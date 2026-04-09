@@ -39,8 +39,10 @@ export default async function SummaryPage({ searchParams }: SummaryPageProps) {
   const userRepo = getUserRepository();
   const userRows = await userRepo.findAll();
   const userNames = Object.fromEntries(userRows.map((u) => [u.id, u.name]));
+  const aiEnabledPref = await userRepo.getAiEnabled(userId);
   const aiUsePaid = await userRepo.getAiUsePaid(userId);
-  const aiEnabled = aiUsePaid ? isAIConfiguredForTier("paid") : isAIConfiguredForTier("free");
+  const aiConfigured = aiUsePaid ? isAIConfiguredForTier("paid") : isAIConfiguredForTier("free");
+  const aiEnabled = aiEnabledPref && aiConfigured;
 
   const mortgageService = new MortgageService();
   const mortgageSchedule = await mortgageService.getSchedule();

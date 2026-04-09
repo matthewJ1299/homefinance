@@ -24,6 +24,9 @@ export interface IUserRepository {
   /** Bank email reconciliation (Recon). Off until enabled in Settings. */
   getReconEnabled(userId: number): Promise<boolean>;
   setReconEnabled(userId: number, enabled: boolean): Promise<void>;
+  /** AI features toggle. Off until enabled in Settings. */
+  getAiEnabled(userId: number): Promise<boolean>;
+  setAiEnabled(userId: number, enabled: boolean): Promise<void>;
   /**
    * AI provider tier preference for this user.
    * - false: "Free AI" (default)
