@@ -15,6 +15,8 @@
 
 ### Fixed
 
+- **`db:push` vs `ai_analysis_runs.output_json`**: `npm run db:push` now applies `drizzle/0019_ai_analysis_runs_output_json_pg.sql` when the `output_json` column is missing. Previously only migrations through `0018` were wired, so existing databases could hit **column "output_json" does not exist** on the Budget AI report page even after a successful push.
+
 - **Recon Process marked summary**: The dialog no longer shows a single combined total of ignored plus accepted bank amounts. It now shows **Total accepted** (duplicate + new-add bank-line sums) and **Total ignored** separately.
 - **Recon ignore persistence**: Ignored recon items no longer reappear in **Pending items** after a mailbox re-sync (sync upsert preserves `ignored` / `accepted_*` statuses).
 

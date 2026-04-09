@@ -396,6 +396,28 @@ async function pushPostgres(): Promise<void> {
         console.log("Postgres migration 0018 (ai_analysis_runs structured input) applied.");
       }
     }
+
+    const hasAiAnalysisRunOutputJson = await client.query(
+      "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ai_analysis_runs' AND column_name = 'output_json'"
+    );
+    if (hasAiAnalysisRunOutputJson.rows.length === 0) {
+      const migrationAiOutputJsonPath = path.join(
+        process.cwd(),
+        "drizzle",
+        "0019_ai_analysis_runs_output_json_pg.sql",
+      );
+      if (fs.existsSync(migrationAiOutputJsonPath)) {
+        const sqlAiOutputJson = fs.readFileSync(migrationAiOutputJsonPath, "utf-8");
+        const statementsAiOutputJson = sqlAiOutputJson
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statementsAiOutputJson) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration (ai_analysis_runs.output_json) applied.");
+      }
+    }
   } finally {
     await client.end();
   }

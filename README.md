@@ -121,7 +121,7 @@ If you see redirects to `https://0.0.0.0:3000/...` in production, your reverse p
 
 ### Database migrations and existing data
 
-- **`npm run db:push`** (used on deploy and in Docker entrypoint) runs **additive** migrations only: it creates tables or columns when they are **missing**. It does **not** `DROP` tables, `TRUNCATE` data, or wipe rows. Your existing expenses, users, and other data stay intact when new migrations (e.g. Recon tables in `drizzle/0013_recon_pg.sql`) are applied.
+- **`npm run db:push`** (used on deploy and in Docker entrypoint) runs **additive** migrations only: it creates tables or columns when they are **missing**. It does **not** `DROP` tables, `TRUNCATE` data, or wipe rows. Your existing expenses, users, and other data stay intact when new migrations (e.g. Recon tables in `drizzle/0013_recon_pg.sql`, or `ai_analysis_runs.output_json` from `drizzle/0019_ai_analysis_runs_output_json_pg.sql`) are applied.
 - **Destructive operations** (only when you explicitly want to reset): `npm run db:reset` drops and recreates the public schema; `npm run db:seed` clears application data; `npm run db:fresh` combines reset + seed. Do not use those on production databases you care about.
 
 ## Seed data
@@ -174,7 +174,7 @@ See [DEPLOY.md](./DEPLOY.md) for deploying to a VPS with Coolify (Docker + Traef
 
 - `npm run dev` – Start dev server (Turbopack)
 - `npm run build` / `npm run start` – Production build and start
-- `npm run db:push` – Apply **additive** schema and migrations (creates missing tables/columns; does not delete existing data). Runs Postgres migrations from `drizzle/` (including numbered steps like `0013_recon_pg.sql`) when tables or columns are missing. Use this after deploying or if you see "groupId missing" on the Splits page.
+- `npm run db:push` – Apply **additive** schema and migrations (creates missing tables/columns; does not delete existing data). Runs Postgres migrations from `drizzle/` (including numbered steps—for example Recon `0013_recon_pg.sql` or AI report storage `0019_ai_analysis_runs_output_json_pg.sql`) when tables or columns are missing. Use this after deploying, if you see "groupId missing" on the Splits page, or Postgres errors about a missing column such as `output_json` on `ai_analysis_runs`.
 - `npm run db:reset` – Recreate DB from scratch (drop/recreate public schema). Then run push (and optionally seed). Do not run while the app is using the DB.
 - `npm run db:seed` – Clear all data, then seed users, categories, 3 months of income/expenses, and sample split expenses
 - `npm run db:fresh` – Reset DB then seed (recreate from scratch and seed in one go)
