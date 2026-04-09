@@ -48,8 +48,14 @@ export const fullNavItems: NavItem[] = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-/** When Recon is off in Settings, the Recon route is hidden from navigation. */
-export function navItemsForReconPreference(items: NavItem[], reconEnabled: boolean): NavItem[] {
-  if (reconEnabled) return items;
-  return items.filter((i) => i.href !== "/recon");
+/** Sidebar / hamburger: hide Recon and Budget AI report when those features are unavailable for the user. */
+export function navItemsForUserPreferences(
+  items: NavItem[],
+  reconEnabled: boolean,
+  aiFeatureAllowed: boolean
+): NavItem[] {
+  let out = items;
+  if (!reconEnabled) out = out.filter((i) => i.href !== "/recon");
+  if (!aiFeatureAllowed) out = out.filter((i) => i.href !== "/budget-ai-report");
+  return out;
 }

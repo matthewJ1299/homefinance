@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { bottomNavItemsMobile, fullNavItems, navItemsForReconPreference, type NavItem } from "./nav-items";
+import { bottomNavItemsMobile, fullNavItems, navItemsForUserPreferences, type NavItem } from "./nav-items";
 import { cn } from "@/lib/utils";
 
 const mobileLeftItems = bottomNavItemsMobile.slice(0, 2);
@@ -44,10 +44,16 @@ function NavLinks({
   );
 }
 
-export function BottomNav({ reconEnabled }: { reconEnabled: boolean }) {
+export function BottomNav({
+  reconEnabled,
+  aiFeatureAllowed,
+}: {
+  reconEnabled: boolean;
+  aiFeatureAllowed: boolean;
+}) {
   const pathname = usePathname();
   const addActive = pathname === "/add" || pathname.startsWith("/add/");
-  const desktopItems = navItemsForReconPreference(fullNavItems, reconEnabled);
+  const desktopItems = navItemsForUserPreferences(fullNavItems, reconEnabled, aiFeatureAllowed);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm md:left-auto md:right-0 md:top-14 md:bottom-0 md:w-[20%] md:border-l md:border-t-0">

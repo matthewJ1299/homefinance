@@ -68,7 +68,7 @@ export default async function SettingsPage() {
 
       <PushNotificationsSettings />
       <ReconSettings reconFeatureAllowed={reconFeatureAllowed} reconEnabled={reconEnabled} />
-      <AiSettings aiFeatureAllowed={aiFeatureAllowed} aiEnabled={aiEnabled} aiUsePaid={aiUsePaid} />
+      {aiFeatureAllowed ? <AiSettings aiEnabled={aiEnabled} aiUsePaid={aiUsePaid} /> : null}
       <ExportTransactionsSettings />
       <BudgetMonthRangeSettings currentStartDay={budgetMonthStartDay} />
       <DashboardTilesSettings />

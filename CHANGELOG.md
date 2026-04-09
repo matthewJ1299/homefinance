@@ -24,7 +24,10 @@
 
 ### Changed
 
+- **README**: Added a full **Environment variables** section (all documented `process.env` keys: core, push, cron, AI, Recon, seed, runtime) and fixed doc structure (Recon guide and DB migrations are top-level sections; removed duplicate Recon env table).
+
 - **Feature-access migration `0020`**: After adding `ai_feature_allowed` / `recon_feature_allowed`, only **`users.id = 1`** is updated to allowed; other user rows stay `false` until granted (edit migration, SQL, or future admin UI).
+- **AI UI when access is denied**: If `users.ai_feature_allowed` is false, **Settings** omits the AI section and **Budget AI report** is hidden from the sidebar and hamburger menu.
 
 - **AI monthly budget analysis (Gemini)**: Spending analysis now sends a **YNAB-style JSON payload** (amounts in **cents**, `currency: "ZAR"`, category roll-up with `prev_month_spent_cents`, plus a **transactions** list in cents for recategorisation hints). The model uses **system + user** prompts, **`responseMimeType: application/json`**, and must return a fixed JSON report schema; the app **parses** the response and shows a readable report on **`/budget-ai-report`** (saved in Postgres; prompt template version for `expenses_monthly` is **3**).
 - **AI budget reports persistence**: Parsed AI report JSON is now stored in `ai_analysis_runs.output_json` (migration `0019_ai_analysis_runs_output_json_pg.sql`). The **Budget AI report** page loads reports from the database (latest shown by default) and includes a dropdown to switch between saved runs (month + generated timestamp).

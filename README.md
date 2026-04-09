@@ -34,7 +34,7 @@ All database writes use **optimistic UI**: the UI updates immediately, then a to
 - **Splits**: Track shared expenses and who owes whom. **Split groups** (e.g. Home, Wedding) let you keep balances separate: create groups under **Split groups**, then when adding a split expense choose a group (defaults to "Default"). On the **Splits** page you see a summary tile per group and can switch the active group to see "How much each person owes" and **Split history** for that group only. Settling is per group: use **Settle** and the amount is applied to the current group's balance. You can also settle from the dashboard by adding an expense with category **Splits** (applies to the default group).
 - **Summary**: Per-user monthly snapshot (your income, expenses, and budget adherence) and household trends.
 - **Add / quick-create (`/add`)**: On **mobile**, the **center Add** control (floating pill in the bottom bar) opens the **Create new** hub: cards for **New task** (list item), **New event**, and **New expense**, plus a **Quick add** line (type + optional text for tasks). For **Expense**, you can enter a leading amount and optional note (e.g. `120 groceries`); after **Add**, the category step shows that **amount** at the top and pre-fills the note. Desktop users can open the same screen from the sidebar **Add** link. After a successful save from this hub (or the same flows from the **+** quick-add menu when shown), you are taken to **Dashboard** for an expense, **`/lists/[id]`** for a task (the list you picked), or **Calendar** for an event. The dashboard **Quick add expense** tile keeps one-screen logging on Home; its category UI matches this step (same **CategoryPicker**).
-- **Mobile bottom bar**: **Home**, **Calendar**, **Add** (center), **Lists**, **Budget**. The **hamburger menu** (header, small screens) lists the same destinations as the **desktop sidebar** (Dashboard, Calendar, Add, Lists, Expenses, **Recon**, Splits, Budget, Accounts, Mortgage, Goals, Summary, Settings).
+- **Mobile bottom bar**: **Home**, **Calendar**, **Add** (center), **Lists**, **Budget**. The **hamburger menu** (header, small screens) lists the same destinations as the **desktop sidebar** (Dashboard, Calendar, Add, Lists, Expenses, **Recon** when enabled for the user, Splits, Budget, **Budget AI report** when AI feature access is allowed, Accounts, Mortgage, Goals, Summary, Settings).
 - **Dashboard greeting**: The greeting and displayed weekday/date use **UTC+2** (IANA `Africa/Johannesburg`), not the device timezone (**Good morning**, **Good afternoon**, **Good evening** by that clock).
 - **Calendar**: Month grid and day schedule (see `/calendar`). On **mobile-width** screens, **swipe left/right on the month grid** to move between months (chevrons still work). Events support optional **end date** (multi-day spans shown as a **pill across days** in the month grid), optional **end time**, **calendar category** (color-coded dots, bars, and span pills; separate from budget categories), **shared vs personal** visibility, **priority**, name, location, start date, start time, notes, and **reminder** (None, at event time, or 5/10/15/30 min, 1–2 hours, 1 day before). **End date** applies when recurrence is **none**; recurring events use one day per occurrence. **Shared** events are visible to both users; **personal** events only to the creator (list, dashboard tile, daily summary). Recurrence: none, weekly, monthly (optional day of month), or yearly. Any user can edit or delete any event (household model); change API checks if you need creator-only edits. Push: partner is notified when someone adds a **shared** event; reminders go to everyone for shared events and only to the creator for personal events.
 - **Lists**: Shared lists (household-wide) and personal lists (per-user only). **Lists** in the nav opens **My lists**: filter chips (**All** + one per list), progress per list, and inline items with check-to-complete, quantity, and **Open** for full detail. Under **Settings** > **Lists**, create and delete lists, and use **List items** to pick a list and add or remove checklist rows (same controls as the list detail page). The list detail page (`/lists/[id]`) has the list switcher, add-item form, and **Delete all completed**.
@@ -48,15 +48,7 @@ All database writes use **optimistic UI**: the UI updates immediately, then a to
 ## Setup
 
 1. Install dependencies: `npm install`
-2. Set environment variables (for local dev, use `.env.local`) and set `AUTH_SECRET`. **Required** for any real use: set `DATABASE_URL=postgresql://user:password@host:5432/dbname` (Postgres is required). If `DATABASE_URL` is missing, `next dev` / `next start` still boot and log a warning; the instrumentation hook skips DB init and the in-process notification scheduler until the URL is set—routes that hit the database will error until you configure Postgres. Optionally set:
-   - **Push notifications**: `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` (run `npm run generate-vapid-keys` and add the output to `.env.local`; required for enabling push in the app).
-   - **Scheduled notifications**: `TZ` (e.g. `Africa/Johannesburg`) for daily 9am and per-event reminder timing; optional `DAILY_NOTIFICATION_HOUR` (0-23, default 9). Optional `CRON_SECRET` if you call the cron endpoint from an external scheduler.
-   - **AI analysis** (optional):
-     - **Free tier**: `GEMINI_FREE_API_KEY` (or legacy `GEMINI_API_KEY`) and optionally `GEMINI_FREE_MODEL`
-    - **Paid tier (preferred)**: `OPENAI_API_KEY` and optionally `OPENAI_MODEL`
-    - **Paid tier (fallback/alternative)**: `GEMINI_PAID_API_KEY` and optionally `GEMINI_PAID_MODEL`
-    - Each **allowed** user must enable **AI analysis** under **Settings** (`ai_feature_allowed` must be true for that row; see [docs/feature-access.md](./docs/feature-access.md)). Then they can choose **Free AI** vs **Paid AI**. If the selected tier is not configured, the analysis button is hidden and enabling Paid AI in Settings is rejected with an error.
-   - **Seed**: `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD`, etc. (see `.env.example`).
+2. Configure **environment variables** (see [Environment variables](#environment-variables)). For local development use **`.env.local`** (Next.js loads it automatically). **Minimum for real use:** `DATABASE_URL`, `AUTH_SECRET`, and `NEXTAUTH_URL` (public app URL, no trailing slash). If `DATABASE_URL` is missing, the app still starts but logs a warning and skips DB-backed startup hooks; routes that hit the database will fail until Postgres is configured.
 3. Create the database and seed: `npm run db:fresh` (recreates the DB from scratch, then seeds), or:
    - Reset and create tables: `npm run db:reset` (drops/recreates DB, runs schema push, then seeds minimal categories and users).
    - Seed: `npm run db:seed` (clears all data, then inserts users, categories, 3 months of income/expenses, and sample split expenses).
@@ -73,7 +65,77 @@ docker compose --profile watch up db app-dev --watch
 - Edits under `src/`, `public/`, and `drizzle/` sync into the container; changes to `next.config.ts`, `postcss.config.mjs`, `server.js`, or `tsconfig.json` sync and restart the dev process; `package.json` / `package-lock.json` changes trigger an image rebuild.
 - Do not run `app` and **app-dev** together (both use port 3000). Default `docker compose up --build` still uses the production **app** image for parity with deploys.
 
-### Recon and Microsoft Graph (Outlook)
+## Environment variables
+
+Use **`.env.local`** locally, or your host’s secret/env UI in production. Do not commit real secrets.
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes (for DB use) | Postgres connection URL, e.g. `postgresql://user:password@host:5432/dbname`. Used by the app and by `npm run db:push` / seed scripts. |
+| `AUTH_SECRET` | Yes (for auth) | Secret for NextAuth session signing. Generate e.g. `openssl rand -base64 32`. Changing it invalidates existing sessions. |
+| `NEXTAUTH_URL` | Yes (for Recon OAuth and stable redirects) | Public base URL of the app, **no trailing slash** (e.g. `http://localhost:3000` in dev, `https://your-domain.com` in prod). |
+| `APP_BASE_URL` | No | Fallback when building absolute URLs if `NEXTAUTH_URL` is unset (Recon Graph OAuth helpers). Prefer `NEXTAUTH_URL`. |
+| `NODE_ENV` | Automatic | `development` / `production`; usually set by the runtime. |
+| `PORT` | No | HTTP port for `server.js` (default **3000**). `Dockerfile` sets `PORT=3000`. |
+| `HOSTNAME` | No | Bind address for Next standalone server (image sets `0.0.0.0`). |
+
+### Web Push
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VAPID_PUBLIC_KEY` | For push | Web Push public key. Run `npm run generate-vapid-keys` and copy into env. |
+| `VAPID_PRIVATE_KEY` | For push | Web Push private key (keep secret). Pair with `VAPID_PUBLIC_KEY`. |
+| `VAPID_SUBJECT` | No | VAPID JWT `sub` claim; `mailto:` or `https:` URI. Default `mailto:push@homefinance.app`. Use a real address/domain for strict clients. |
+
+### Scheduled notifications and cron
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `TZ` | No | IANA timezone for in-process scheduler (e.g. `Africa/Johannesburg`). Default **UTC**. |
+| `DAILY_NOTIFICATION_HOUR` | No | Hour (0–23) for daily calendar summary push. Default **9**. |
+| `CRON_SECRET` | No | If set, `GET /api/cron/daily-calendar-notification` expects this value via `Authorization` or `x-cron-secret`. |
+
+### AI analysis (optional)
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GEMINI_FREE_API_KEY` | For free tier | Gemini API key for **Free AI**. |
+| `GEMINI_API_KEY` | No | Legacy alias: treated like free-tier Gemini if `GEMINI_FREE_API_KEY` is unset. |
+| `GEMINI_FREE_MODEL` | No | Gemini model id for free tier (app has a default). |
+| `GEMINI_PAID_API_KEY` | For paid Gemini fallback | Used when user selects paid tier and OpenAI is unavailable or not configured. |
+| `GEMINI_PAID_MODEL` | No | Gemini model id for paid tier (app has a default). |
+| `OPENAI_API_KEY` | For paid OpenAI path | Preferred when user selects **Paid AI** and quota allows. |
+| `OPENAI_MODEL` | No | OpenAI model id (app defaults to a small mini model if unset). |
+
+Users still need `ai_feature_allowed` and Settings toggles; see [docs/feature-access.md](./docs/feature-access.md).
+
+### Recon / Microsoft Graph (optional)
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GRAPH_OAUTH_CLIENT_ID` | For Recon connect | Entra app **Application (client) ID**. |
+| `GRAPH_OAUTH_CLIENT_SECRET` | For Recon connect | Client secret from the app registration. |
+| `GRAPH_OAUTH_TENANT` | No | Tenant id or **`common`** for work + personal accounts (default **common**). |
+| `MICROSOFT_GRAPH_CLIENT_ID` | No | Alias for `GRAPH_OAUTH_CLIENT_ID`. |
+| `MICROSOFT_GRAPH_CLIENT_SECRET` | No | Alias for `GRAPH_OAUTH_CLIENT_SECRET`. |
+| `MICROSOFT_GRAPH_TENANT` | No | Alias for `GRAPH_OAUTH_TENANT`. |
+| `RECON_TOKEN_ENCRYPTION_KEY` | No | Secret for encrypting stored Graph refresh tokens. If omitted, **`AUTH_SECRET`** is used (must be at least 16 characters). |
+
+Redirect URI in Azure must be `{NEXTAUTH_URL}/api/recon/graph/callback`.
+
+### Seed scripts (`db:seed`, `db:fresh`, `seed-categories`)
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SEED_USER_PASSWORD` | No | Password for both seeded users (default `ChangeMe123!`). |
+| `SEED_USER1_EMAIL` | No | First user email (default `matt@homefinance.local`). |
+| `SEED_USER2_EMAIL` | No | Second user email (default `sydney@homefinance.local`). |
+| `SEED_USER1_NAME` | No | First user display name (default **Matt**). |
+| `SEED_USER2_NAME` | No | Second user display name (default **Sydney**). |
+
+`docker-compose.yml` passes `AUTH_SECRET` (default placeholder if unset). See [DEPLOY.md](./DEPLOY.md) for Coolify and production checks.
+
+## Recon and Microsoft Graph (Outlook)
 
 The Recon feature uses **Microsoft Graph** (OAuth 2.0 + REST) to read mail. It is **not** GraphQL; you register an app in Microsoft Entra ID (Azure AD) and grant delegated **Mail.Read** (and optional **User.Read** for profile display).
 
@@ -92,19 +154,7 @@ The Recon feature uses **Microsoft Graph** (OAuth 2.0 + REST) to read mail. It i
    - `offline_access` is requested in code so refresh tokens work; consent covers it when you grant Mail.Read.
 6. **Grant admin consent** is not required for personal Microsoft accounts; the first user who connects will see the Microsoft consent screen.
 
-### Environment variables
-
-Add to `.env.local` (or your deployment env):
-
-| Variable | Purpose |
-|----------|--------|
-| `NEXTAUTH_URL` | Public base URL of the app (**no trailing slash**). Required for OAuth redirect and callback. Use `http://localhost:3000` in dev. |
-| `GRAPH_OAUTH_CLIENT_ID` | Application (client) ID from the app registration. |
-| `GRAPH_OAUTH_CLIENT_SECRET` | Client secret value. |
-| `GRAPH_OAUTH_TENANT` | Optional. Default `common` (work + personal Microsoft accounts). Use a specific tenant ID if you only use one org. |
-| `RECON_TOKEN_ENCRYPTION_KEY` | Optional. Strong secret used to encrypt stored Graph refresh tokens. If omitted, `AUTH_SECRET` is used (must be at least 16 characters). |
-
-Aliases supported in code: `MICROSOFT_GRAPH_CLIENT_ID`, `MICROSOFT_GRAPH_CLIENT_SECRET`, `MICROSOFT_GRAPH_TENANT` for the same values.
+Recon-related env vars are listed under [Recon / Microsoft Graph (optional)](#recon--microsoft-graph-optional) in [Environment variables](#environment-variables).
 
 ### How authentication works
 
@@ -119,7 +169,7 @@ Aliases supported in code: `MICROSOFT_GRAPH_CLIENT_ID`, `MICROSOFT_GRAPH_CLIENT_
 
 If you see redirects to `https://0.0.0.0:3000/...` in production, your reverse proxy is not providing a correct request origin (Host / `x-forwarded-*` headers) to Next.js, or the app is using the request origin for redirects. Set `NEXTAUTH_URL` correctly and ensure the proxy forwards `x-forwarded-host` and `x-forwarded-proto` (Coolify/Traefik defaults are usually fine). The Recon Graph callback redirects now prefer `NEXTAUTH_URL` over the request origin.
 
-### Database migrations and existing data
+## Database migrations and existing data
 
 - **`npm run db:push`** (used on deploy and in Docker entrypoint) runs **additive** migrations only: it creates tables or columns when they are **missing**. It does **not** `DROP` tables, `TRUNCATE` data, or wipe rows. Your existing expenses, users, and other data stay intact when new migrations (e.g. Recon tables in `drizzle/0013_recon_pg.sql`, or `ai_analysis_runs.output_json` from `drizzle/0019_ai_analysis_runs_output_json_pg.sql`) are applied.
 - **Destructive operations** (only when you explicitly want to reset): `npm run db:reset` drops and recreates the public schema; `npm run db:seed` clears application data; `npm run db:fresh` combines reset + seed. Do not use those on production databases you care about.
@@ -128,7 +178,7 @@ If you see redirects to `https://0.0.0.0:3000/...` in production, your reverse p
 
 Seed always creates:
 
-- Two users (see `.env.example` for `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, etc.).
+- Two users (optional env: `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD`, names; see [Seed scripts](#seed-scripts-dbseed-dbfresh-seed-categories) above).
 - Default categories (fixed/variable and default amounts where applicable).
 - **3 months** of income and expenses for **both users**: current month and the two previous months. Income includes monthly salary per user plus ad-hoc entries; expenses are spread across categories and both users.
 - **Per-user budget allocations** for the same 3 months: each user gets allocation rows for the main categories (groceries, transport, utilities, savings, etc.) and one sample **budget transfer** (savings to groceries) so the Budget page shows meaningful data for each user.

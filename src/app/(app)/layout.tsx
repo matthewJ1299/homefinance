@@ -22,14 +22,17 @@ export default async function AppLayout({
 
   const userId = Number(session.user.id);
   const userRepo = getUserRepository();
-  const [budgetMonthStartDay, reconEnabled] = await Promise.all([
+  const [budgetMonthStartDay, reconEnabled, aiFeatureAllowed] = await Promise.all([
     userRepo.getBudgetMonthStartDay(userId),
     resolveReconInteractiveEnabled(userId),
+    userRepo.getAiFeatureAllowed(userId),
   ]);
 
   return (
     <BudgetMonthStartDayProvider value={budgetMonthStartDay}>
-      <AppShell reconEnabled={reconEnabled}>{children}</AppShell>
+      <AppShell reconEnabled={reconEnabled} aiFeatureAllowed={aiFeatureAllowed}>
+        {children}
+      </AppShell>
     </BudgetMonthStartDayProvider>
   );
 }

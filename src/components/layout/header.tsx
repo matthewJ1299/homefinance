@@ -6,9 +6,10 @@ import { MobileNavMenu } from "./mobile-nav-menu";
 
 interface HeaderProps {
   reconEnabled: boolean;
+  aiFeatureAllowed: boolean;
 }
 
-export async function Header({ reconEnabled }: HeaderProps) {
+export async function Header({ reconEnabled, aiFeatureAllowed }: HeaderProps) {
   const session = await auth();
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
@@ -25,7 +26,7 @@ export async function Header({ reconEnabled }: HeaderProps) {
           </span>
           <ThemeToggle />
           <OfflineIndicator />
-          <MobileNavMenu reconEnabled={reconEnabled} />
+          <MobileNavMenu reconEnabled={reconEnabled} aiFeatureAllowed={aiFeatureAllowed} />
         </div>
       </div>
     </header>

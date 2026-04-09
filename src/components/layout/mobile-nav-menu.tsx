@@ -6,12 +6,18 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { Menu, X, LogOut } from "lucide-react";
-import { fullNavItems, navItemsForReconPreference } from "./nav-items";
+import { fullNavItems, navItemsForUserPreferences } from "./nav-items";
 import { cn } from "@/lib/utils";
 
-export function MobileNavMenu({ reconEnabled }: { reconEnabled: boolean }) {
+export function MobileNavMenu({
+  reconEnabled,
+  aiFeatureAllowed,
+}: {
+  reconEnabled: boolean;
+  aiFeatureAllowed: boolean;
+}) {
   const [open, setOpen] = useState(false);
-  const menuItems = navItemsForReconPreference(fullNavItems, reconEnabled);
+  const menuItems = navItemsForUserPreferences(fullNavItems, reconEnabled, aiFeatureAllowed);
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
 

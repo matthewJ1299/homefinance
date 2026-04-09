@@ -17,6 +17,8 @@ Effective access requires **both** columns true for that feature. Server actions
 
 Resolution helpers live in `src/lib/services/feature-access.service.ts` (`resolveAiInteractiveEnabled`, `resolveReconInteractiveEnabled`).
 
+**UI:** If `ai_feature_allowed` is false, **Settings** omits the AI analysis block entirely, and **Budget AI report** is omitted from the desktop sidebar and mobile menu (direct URL still returns the gated report page).
+
 ## Migration and defaults
 
 - Schema: `drizzle/0020_users_feature_access_pg.sql` adds both columns (`NOT NULL DEFAULT false`).
