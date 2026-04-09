@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { analyzeExpenses } from "@/lib/actions/ai.actions";
 import { Button } from "@/components/ui/button";
 import { Copy, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { saveBudgetAiReportSession } from "@/lib/utils/budget-ai-report-session";
 
 interface AiAnalysisButtonProps {
   month: string;
@@ -14,8 +16,8 @@ interface AiAnalysisButtonProps {
 }
 
 export function AiAnalysisButton({ month, enabled }: AiAnalysisButtonProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [analysis, setAnalysis] = useState<string | null>(null);
   const [inputText, setInputText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -24,15 +26,20 @@ export function AiAnalysisButton({ month, enabled }: AiAnalysisButtonProps) {
 
   const handleClick = () => {
     setError(null);
-    setAnalysis(null);
     setInputText(null);
     setExpanded(true);
     startTransition(async () => {
       const result = await analyzeExpenses(month);
       if (result.success) {
-        setAnalysis(result.analysis);
         setInputText(result.inputText);
-        toast.success("Analysis ready.");
+        saveBudgetAiReportSession({
+          month,
+          report: result.report,
+          rawModelText: result.rawModelText,
+          inputDebugText: result.inputText,
+        });
+        toast.success("Opening report…");
+        router.push(`/budget-ai-report?month=${encodeURIComponent(month)}`);
       } else {
         setError(result.error);
         toast.error(result.error);
@@ -88,22 +95,30 @@ export function AiAnalysisButton({ month, enabled }: AiAnalysisButtonProps) {
             error && "border-destructive/50"
           )}
         >
-          {isPending && <p className="text-muted-foreground">Loading analysis...</p>}
+          {isPending && <p className="text-muted-foreground">Running analysis…</p>}
           {error && !isPending && <p className="text-destructive">{error}</p>}
-          {analysis && !isPending && (
+          {!isPending && !error && inputText && (
             <div className="space-y-3">
-              {inputText && (
-                <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="secondary" size="sm" onClick={openInputInNewTab}>
-                    Open AI input in new tab
-                  </Button>
-                  <Button type="button" variant="ghost" size="sm" className="gap-2" onClick={copyInputToClipboard}>
-                    <Copy className="h-4 w-4" />
-                    Copy input
-                  </Button>
-                </div>
-              )}
-              <div className="whitespace-pre-wrap text-muted-foreground">{analysis}</div>
+              <p className="text-muted-foreground">
+                Last run copied the report to your browser session. Open the report page any time from here:
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => router.push(`/budget-ai-report?month=${encodeURIComponent(month)}`)}
+                >
+                  Open report
+                </Button>
+                <Button type="button" variant="secondary" size="sm" onClick={openInputInNewTab}>
+                  Open AI input in new tab
+                </Button>
+                <Button type="button" variant="ghost" size="sm" className="gap-2" onClick={copyInputToClipboard}>
+                  <Copy className="h-4 w-4" />
+                  Copy input
+                </Button>
+              </div>
             </div>
           )}
         </div>

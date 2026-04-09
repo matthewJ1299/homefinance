@@ -1,11 +1,16 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { BudgetService } from "@/lib/services/budget.service";
+import { BudgetService, type BudgetOverviewResult } from "@/lib/services/budget.service";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { IncomeService } from "@/lib/services/income.service";
 import { GoalProjectionService } from "@/lib/services/goal-projection.service";
 import { formatRand } from "@/lib/utils/currency";
+import { prevMonth } from "@/lib/utils/date";
 import { getAIAnalysisRunRepository } from "@/lib/repositories";
 import type { AIAnalysisType } from "@/lib/repositories/interfaces/ai-analysis-run.repository";
+import type { ExpenseWithDetails } from "@/lib/types";
+import type { BudgetAnalysisModelPayload, BudgetAnalysisReport } from "@/lib/types/budget-ai-report";
+import { buildBudgetAnalysisUserPrompt, getBudgetAnalysisSystemPrompt } from "@/lib/services/ai/budget-analysis-prompts";
+import { parseBudgetAnalysisReportFromModelText } from "@/lib/services/ai/parse-budget-analysis-response";
 
 export type AITier = "free" | "paid";
 
@@ -32,7 +37,8 @@ export function isAIConfigured(): boolean {
 
 export interface AnalyzeExpensesResult {
   success: true;
-  analysis: string;
+  report: BudgetAnalysisReport;
+  rawModelText: string;
   inputText: string;
 }
 
@@ -56,16 +62,41 @@ export interface AnalyzeGoalsError {
 
 export type AnalyzeGoalsOutcome = AnalyzeGoalsResult | AnalyzeGoalsError;
 
-function buildExpenseAnalysisPrompt(month: string, data: unknown): string {
-  return `You are a personal finance assistant and planner. Analyze this household budget summary for ${month} and respond in plain text (no markdown). Keep the response concise (under 300 words). Cover:
+function buildBudgetAnalysisModelPayload(params: {
+  month: string;
+  overview: BudgetOverviewResult;
+  incomeCents: number;
+  expenseRows: ExpenseWithDetails[];
+  prevMonthSpentByCategory: Record<number, number>;
+}): BudgetAnalysisModelPayload {
+  const categories = params.overview.categories
+    .filter((c) => c.allocated > 0 || c.spent > 0)
+    .map((c) => ({
+      name: c.categoryName,
+      allocated_cents: c.allocated,
+      spent_cents: c.spent,
+      prev_month_spent_cents: params.prevMonthSpentByCategory[c.categoryId] ?? 0,
+      is_overspent: c.isOverspent,
+    }));
 
-1. Spending patterns: How did spending compare to allocations? Which categories stood out?
-2. Budget advice: Any suggestions to reallocate or reduce spending next month?
-3. Anomalies: Anything unusual (e.g. one category much higher than usual)?
-4. Suggestions for next month: Any suggestions to reallocate or reduce spending next month?
+  const transactions = params.expenseRows.map((e) => ({
+    user_name: e.userName,
+    category_name: e.categoryName,
+    amount_cents: e.amount,
+    note: e.note ?? "",
+    date: e.date,
+  }));
 
-Data (amounts in ZAR):
-${JSON.stringify(data, null, 2)}`;
+  return {
+    month: params.month,
+    currency: "ZAR",
+    income_cents: params.incomeCents,
+    expenses_cents: params.overview.totalExpenses,
+    allocated_cents: params.overview.totalAllocated,
+    unallocated_cents: params.overview.unallocated,
+    categories,
+    transactions,
+  };
 }
 
 function buildGoalsAndDebtAnalysisPrompt(data: unknown): string {
@@ -144,56 +175,64 @@ export class AIService {
     const budgetService = new BudgetService();
     const expenseService = new ExpenseService();
     const incomeService = new IncomeService();
-    
-    const [overview, incomeResult, expenseResult] = await Promise.all([
+    const priorKey = prevMonth(month);
+
+    const [overview, incomeResult, expenseResult, priorExpenseResult] = await Promise.all([
       budgetService.getOverview(month, userId),
       incomeService.getByMonth(month, userId),
       expenseService.getByMonth(month, userId),
+      expenseService.getByMonth(priorKey, userId),
     ]);
 
-    const categorySummary = overview.categories
-      .filter((c) => c.allocated > 0 || c.spent > 0)
-      .map((c) => ({
-        name: c.categoryName,
-        allocated: formatRand(c.allocated),
-        spent: formatRand(c.spent),
-        remaining: formatRand(c.remaining),
-        isOverspent: c.isOverspent,
-      }));
-
-    const data = {
+    const data = buildBudgetAnalysisModelPayload({
       month,
-      expenses: expenseResult.expenses,
-      totalIncome: formatRand(incomeResult.totals.overall),
-      totalExpenses: formatRand(overview.totalExpenses),
-      balance: formatRand(overview.balance),
-      totalAllocated: formatRand(overview.totalAllocated),
-      unallocated: formatRand(overview.unallocated),
-      categories: categorySummary,
-    };
+      overview,
+      incomeCents: incomeResult.totals.overall,
+      expenseRows: expenseResult.expenses,
+      prevMonthSpentByCategory: priorExpenseResult.totals.byCategory,
+    });
 
-    const prompt = buildExpenseAnalysisPrompt(month, data);
+    const systemPrompt = getBudgetAnalysisSystemPrompt();
+    const userPrompt = buildBudgetAnalysisUserPrompt(data);
+    const inputDebugText = `--- system ---\n${systemPrompt}\n\n--- user ---\n${userPrompt}`;
 
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: getModelForTier(tier) });
-      const result = await model.generateContent(prompt);
+      const model = genAI.getGenerativeModel({
+        model: getModelForTier(tier),
+        systemInstruction: systemPrompt,
+        generationConfig: {
+          responseMimeType: "application/json",
+          temperature: 0.4,
+        },
+      });
+      const result = await model.generateContent(userPrompt);
       const text = result.response?.text() ?? "";
       if (typeof text !== "string" || !text.trim()) {
         return { success: false, error: "No analysis was returned." };
       }
       const analysisText = text.trim();
+      let report: BudgetAnalysisReport;
+      try {
+        report = parseBudgetAnalysisReportFromModelText(analysisText);
+      } catch {
+        return {
+          success: false,
+          error:
+            "AI returned a response that could not be parsed as the expected JSON report. Try again, or open the input log to inspect the model output.",
+        };
+      }
       await persistAIAnalysisRun({
         userId,
         analysisType: "expenses_monthly",
         month,
         promptTemplateId: "expenses_monthly",
-        promptVersion: 1,
+        promptVersion: 3,
         inputJson: data,
-        inputText: undefined,
+        inputText: inputDebugText,
         outputText: analysisText,
       });
-      return { success: true, analysis: analysisText, inputText: prompt };
+      return { success: true, report, rawModelText: analysisText, inputText: inputDebugText };
     } catch (err) {
       const message = err instanceof Error ? err.message : "AI request failed.";
       return { success: false, error: message };
