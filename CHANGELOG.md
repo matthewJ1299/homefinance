@@ -5,6 +5,7 @@
 ### Added
 
 - **Expenses page category filter**: The **Expenses** page now includes a **Category** dropdown so you can filter the list to a single category (or view **All**).
+- **Recon split-purchase total toast**: After **Process marked**, a toast shows the **total value** of newly added purchases that were marked **Split 50/50**.
 
 ### Fixed
 

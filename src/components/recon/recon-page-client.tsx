@@ -446,6 +446,7 @@ export function ReconPageClient() {
     let ignored = 0;
     let duped = 0;
     let added = 0;
+    let splitAdded = 0;
     let skippedNoCat = 0;
     let skippedInvalidAmount = 0;
     const processedIds: number[] = [];
@@ -453,6 +454,7 @@ export function ReconPageClient() {
     let ignoredMinor = 0;
     let duplicateMinor = 0;
     let addMinor = 0;
+    let splitAddMinor = 0;
     const addCategoryMap = new Map<string, { count: number; totalMinor: number }>();
     try {
       for (const item of toIgnore) {
@@ -499,6 +501,10 @@ export function ReconPageClient() {
           }),
         });
         added++;
+        if (split) {
+          splitAdded++;
+          splitAddMinor += expenseMinor;
+        }
         processedIds.push(item.id);
         processedDates.push(item.txnDate);
         addMinor += expenseMinor;
@@ -555,6 +561,13 @@ export function ReconPageClient() {
         skippedInvalidAmount,
       });
       setProcessMarkedSummaryOpen(true);
+      if (splitAdded > 0) {
+        toast.message(
+          `Split purchases added: ${formatRand(splitAddMinor)} (${splitAdded} transaction${
+            splitAdded === 1 ? "" : "s"
+          }).`
+        );
+      }
       if (skippedNoCat > 0) {
         toast.message(
           `${skippedNoCat} accept-marked row(s) had no category and were skipped. Fix categories and run Process marked again if needed.`
