@@ -4,6 +4,8 @@ import { ExpenseService } from "@/lib/services/expense.service";
 import { IncomeService } from "@/lib/services/income.service";
 import { GoalProjectionService } from "@/lib/services/goal-projection.service";
 import { formatRand } from "@/lib/utils/currency";
+import { getAIAnalysisRunRepository } from "@/lib/repositories";
+import type { AIAnalysisType } from "@/lib/repositories/interfaces/ai-analysis-run.repository";
 
 export type AITier = "free" | "paid";
 
@@ -31,6 +33,7 @@ export function isAIConfigured(): boolean {
 export interface AnalyzeExpensesResult {
   success: true;
   analysis: string;
+  inputText: string;
 }
 
 export interface AnalyzeExpensesError {
@@ -43,6 +46,7 @@ export type AnalyzeExpensesOutcome = AnalyzeExpensesResult | AnalyzeExpensesErro
 export interface AnalyzeGoalsResult {
   success: true;
   analysis: string;
+  inputText: string;
 }
 
 export interface AnalyzeGoalsError {
@@ -51,6 +55,74 @@ export interface AnalyzeGoalsError {
 }
 
 export type AnalyzeGoalsOutcome = AnalyzeGoalsResult | AnalyzeGoalsError;
+
+function buildExpenseAnalysisPrompt(month: string, data: unknown): string {
+  return `You are a personal finance assistant and planner. Analyze this household budget summary for ${month} and respond in plain text (no markdown). Keep the response concise (under 300 words). Cover:
+
+1. Spending patterns: How did spending compare to allocations? Which categories stood out?
+2. Budget advice: Any suggestions to reallocate or reduce spending next month?
+3. Anomalies: Anything unusual (e.g. one category much higher than usual)?
+4. Suggestions for next month: Any suggestions to reallocate or reduce spending next month?
+
+Data (amounts in ZAR):
+${JSON.stringify(data, null, 2)}`;
+}
+
+function buildGoalsAndDebtAnalysisPrompt(data: unknown): string {
+  return `You are a personal finance advisor. Respond in plain text (no markdown). Keep it concise (under 300 words).
+
+IMPORTANT RULES:
+- Do NOT compute balances, projections, or payoff math yourself.
+- Treat the provided numbers as the source of truth.
+- Your job is to suggest actions and trade-offs (budget shifts, payment adjustments) and explain them clearly.
+
+Questions to answer:
+1) Am I on track for my savings goals? If not, what should I adjust this month?
+2) Am I paying down debt fast enough? What single change would help most?
+3) Suggest 2-3 concrete budget shifts (with tradeoffs) to improve outcomes.
+
+Data (amounts in ZAR):
+${JSON.stringify(data, null, 2)}`;
+}
+
+function isMissingDbObjectError(error: unknown): boolean {
+  return (
+    !!error &&
+    typeof error === "object" &&
+    "code" in error &&
+    (error.code === "42P01" || error.code === "42703")
+  );
+}
+
+async function persistAIAnalysisRun(params: {
+  userId: number;
+  analysisType: AIAnalysisType;
+  month: string;
+  promptTemplateId: string;
+  promptVersion: number;
+  inputJson: unknown;
+  inputText?: string;
+  outputText: string;
+}): Promise<void> {
+  try {
+    await getAIAnalysisRunRepository().create({
+      userId: params.userId,
+      analysisType: params.analysisType,
+      month: params.month,
+      promptTemplateId: params.promptTemplateId,
+      promptVersion: params.promptVersion,
+      inputJson: params.inputJson,
+      inputText: params.inputText,
+      outputText: params.outputText,
+    });
+  } catch (error) {
+    if (isMissingDbObjectError(error)) {
+      console.warn("AI analysis logging skipped: run `npm run db:push` to apply DB migrations.");
+      return;
+    }
+    throw error;
+  }
+}
 
 export class AIService {
   async analyzeExpenses(
@@ -100,15 +172,7 @@ export class AIService {
       categories: categorySummary,
     };
 
-    const prompt = `You are a personal finance assistant and planner. Analyze this household budget summary for ${month} and respond in plain text (no markdown). Keep the response concise (under 300 words). Cover:
-
-1. Spending patterns: How did spending compare to allocations? Which categories stood out?
-2. Budget advice: Any suggestions to reallocate or reduce spending next month?
-3. Anomalies: Anything unusual (e.g. one category much higher than usual)?
-4. Suggestions for next month: Any suggestions to reallocate or reduce spending next month?
-
-Data (amounts in ZAR):
-${JSON.stringify(data, null, 2)}`;
+    const prompt = buildExpenseAnalysisPrompt(month, data);
 
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
@@ -118,7 +182,18 @@ ${JSON.stringify(data, null, 2)}`;
       if (typeof text !== "string" || !text.trim()) {
         return { success: false, error: "No analysis was returned." };
       }
-      return { success: true, analysis: text.trim() };
+      const analysisText = text.trim();
+      await persistAIAnalysisRun({
+        userId,
+        analysisType: "expenses_monthly",
+        month,
+        promptTemplateId: "expenses_monthly",
+        promptVersion: 1,
+        inputJson: data,
+        inputText: undefined,
+        outputText: analysisText,
+      });
+      return { success: true, analysis: analysisText, inputText: prompt };
     } catch (err) {
       const message = err instanceof Error ? err.message : "AI request failed.";
       return { success: false, error: message };
@@ -188,20 +263,7 @@ ${JSON.stringify(data, null, 2)}`;
         })),
     };
 
-    const prompt = `You are a personal finance advisor. Respond in plain text (no markdown). Keep it concise (under 300 words).
-
-IMPORTANT RULES:
-- Do NOT compute balances, projections, or payoff math yourself.
-- Treat the provided numbers as the source of truth.
-- Your job is to suggest actions and trade-offs (budget shifts, payment adjustments) and explain them clearly.
-
-Questions to answer:
-1) Am I on track for my savings goals? If not, what should I adjust this month?
-2) Am I paying down debt fast enough? What single change would help most?
-3) Suggest 2-3 concrete budget shifts (with tradeoffs) to improve outcomes.
-
-Data (amounts in ZAR):
-${JSON.stringify(data, null, 2)}`;
+    const prompt = buildGoalsAndDebtAnalysisPrompt(data);
 
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
@@ -211,7 +273,18 @@ ${JSON.stringify(data, null, 2)}`;
       if (typeof text !== "string" || !text.trim()) {
         return { success: false, error: "No analysis was returned." };
       }
-      return { success: true, analysis: text.trim() };
+      const analysisText = text.trim();
+      await persistAIAnalysisRun({
+        userId,
+        analysisType: "goals_and_debt_monthly",
+        month,
+        promptTemplateId: "goals_and_debt_monthly",
+        promptVersion: 1,
+        inputJson: data,
+        inputText: undefined,
+        outputText: analysisText,
+      });
+      return { success: true, analysis: analysisText, inputText: prompt };
     } catch (err) {
       const message = err instanceof Error ? err.message : "AI request failed.";
       return { success: false, error: message };

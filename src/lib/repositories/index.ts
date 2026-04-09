@@ -48,6 +48,8 @@ import type { IVendorCategoryMappingRepository } from "./interfaces/vendor-categ
 import { ReconGraphConnectionRepository } from "./sql/recon-graph-connection.repository";
 import { ReconImportItemRepository } from "./sql/recon-import-item.repository";
 import { VendorCategoryMappingRepository } from "./sql/vendor-category-mapping.repository";
+import type { IAIAnalysisRunRepository } from "./interfaces/ai-analysis-run.repository";
+import { AIAnalysisRunRepository } from "./sql/ai-analysis-run.repository";
 
 let categoryRepo: ICategoryRepository | null = null;
 let expenseRepo: IExpenseRepository | null = null;
@@ -74,6 +76,7 @@ let goalContributionRepo: IGoalContributionRepository | null = null;
 let reconGraphConnectionRepo: IReconGraphConnectionRepository | null = null;
 let reconImportItemRepo: IReconImportItemRepository | null = null;
 let vendorCategoryMappingRepo: IVendorCategoryMappingRepository | null = null;
+let aiAnalysisRunRepo: IAIAnalysisRunRepository | null = null;
 
 export function getCategoryRepository(): ICategoryRepository {
   if (!categoryRepo) categoryRepo = new CategoryRepository();
@@ -199,5 +202,10 @@ export function getReconImportItemRepository(): IReconImportItemRepository {
 export function getVendorCategoryMappingRepository(): IVendorCategoryMappingRepository {
   if (!vendorCategoryMappingRepo) vendorCategoryMappingRepo = new VendorCategoryMappingRepository();
   return vendorCategoryMappingRepo;
+}
+
+export function getAIAnalysisRunRepository(): IAIAnalysisRunRepository {
+  if (!aiAnalysisRunRepo) aiAnalysisRunRepo = new AIAnalysisRunRepository();
+  return aiAnalysisRunRepo;
 }
 

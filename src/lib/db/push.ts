@@ -324,6 +324,60 @@ async function pushPostgres(): Promise<void> {
         console.log("Postgres migration 0015 (users.recon_enabled) applied.");
       }
     }
+
+    const hasAiUsePaid = await client.query(
+      "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'ai_use_paid'"
+    );
+    if (hasAiUsePaid.rows.length === 0) {
+      const migration0016Path = path.join(process.cwd(), "drizzle", "0016_users_ai_use_paid_pg.sql");
+      if (fs.existsSync(migration0016Path)) {
+        const sql0016 = fs.readFileSync(migration0016Path, "utf-8");
+        const statements0016 = sql0016
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statements0016) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration 0016 (users.ai_use_paid) applied.");
+      }
+    }
+
+    const hasAiAnalysisRuns = await client.query(
+      "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'ai_analysis_runs'"
+    );
+    if (hasAiAnalysisRuns.rows.length === 0) {
+      const migration0017Path = path.join(process.cwd(), "drizzle", "0017_ai_analysis_runs_pg.sql");
+      if (fs.existsSync(migration0017Path)) {
+        const sql0017 = fs.readFileSync(migration0017Path, "utf-8");
+        const statements0017 = sql0017
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statements0017) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration 0017 (ai_analysis_runs) applied.");
+      }
+    }
+
+    const hasAiAnalysisRunPromptTemplateId = await client.query(
+      "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ai_analysis_runs' AND column_name = 'prompt_template_id'"
+    );
+    if (hasAiAnalysisRunPromptTemplateId.rows.length === 0) {
+      const migration0018Path = path.join(process.cwd(), "drizzle", "0018_ai_analysis_runs_structured_input_pg.sql");
+      if (fs.existsSync(migration0018Path)) {
+        const sql0018 = fs.readFileSync(migration0018Path, "utf-8");
+        const statements0018 = sql0018
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statements0018) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration 0018 (ai_analysis_runs structured input) applied.");
+      }
+    }
   } finally {
     await client.end();
   }

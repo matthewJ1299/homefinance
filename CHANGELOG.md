@@ -4,6 +4,8 @@
 
 ### Added
 
+- **AI analysis input export**: After running **Analyze spending** (Dashboard and Summary), you can now open the **exact AI input prompt/data** in a **new browser tab** and copy it to refine prompts and feedback quality.
+- **AI analysis history persistence**: Each successful AI analysis now writes to `ai_analysis_runs` with `user_id`, `analysis_type`, `month`, structured `input_json` plus `prompt_template_id` + `prompt_version`, `output_text`, and `created_at` timestamp (migrations `0017_ai_analysis_runs_pg.sql`, `0018_ai_analysis_runs_structured_input_pg.sql`).
 - **AI tier toggle (Free vs Paid)**: AI analysis now supports separate **Free** and **Paid** Gemini configurations via env vars (`GEMINI_FREE_API_KEY` / `GEMINI_PAID_API_KEY` + optional `*_MODEL`). Each user can choose which tier to use under **Settings** > **AI analysis**.
 - **Expenses page category filter**: The **Expenses** page now includes a **Category** dropdown so you can filter the list to a single category (or view **All**).
 - **Recon split-purchase total toast**: After **Process marked**, a toast shows the **total value** of newly added purchases that were marked **Split 50/50**.
