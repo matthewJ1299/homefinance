@@ -49,6 +49,7 @@ export function ExpensesPageClient({
 }: ExpensesPageClientProps) {
   const [view, setView] = useState<ExpensesView>(initialView);
   const [accountId, setAccountId] = useState<number | null>(null);
+  const [categoryId, setCategoryId] = useState<number | null>(null);
   const [expensesState, setExpensesState] = usePropSyncedState(expenses);
   const currentUserName = users.find((u) => u.id === currentUserId)?.name ?? "You";
   const [accounts, setAccounts] = useState<
@@ -74,9 +75,19 @@ export function ExpensesPageClient({
     );
   }
 
+  function filterByCategory<T extends { categoryId: number }>(
+    items: T[],
+    selectedCategoryId: number | null
+  ): T[] {
+    if (selectedCategoryId == null || selectedCategoryId === 0) return items;
+    return items.filter((e) => e.categoryId === selectedCategoryId);
+  }
+
   const filteredExpenses = useMemo(() => {
-    return filterByAccount(filterByView(expensesState, view, currentUserId), accountId);
-  }, [expensesState, view, currentUserId, accountId]);
+    const byView = filterByView(expensesState, view, currentUserId);
+    const byAccount = filterByAccount(byView, accountId);
+    return filterByCategory(byAccount, categoryId);
+  }, [expensesState, view, currentUserId, accountId, categoryId]);
   const filteredIncome = useMemo(
     () => filterByView(incomeEntries, view, currentUserId),
     [incomeEntries, view, currentUserId]
@@ -147,6 +158,23 @@ export function ExpensesPageClient({
               {formatRand(balance)}
             </span>
           </span>
+          {categories.length > 0 && (
+            <span className="flex items-center gap-2">
+              <span className="text-muted-foreground">Category:</span>
+              <select
+                className="rounded-md border border-input bg-background px-2 py-1 text-xs"
+                value={categoryId ?? ""}
+                onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">All</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </span>
+          )}
           {accounts.length > 0 && (
             <span className="flex items-center gap-2">
               <span className="text-muted-foreground">Account:</span>

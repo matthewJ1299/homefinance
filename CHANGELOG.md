@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Expenses page category filter**: The **Expenses** page now includes a **Category** dropdown so you can filter the list to a single category (or view **All**).
+
 ### Fixed
 
 - **Recon Process marked summary**: The dialog no longer shows a single combined total of ignored plus accepted bank amounts. It now shows **Total accepted** (duplicate + new-add bank-line sums) and **Total ignored** separately.
