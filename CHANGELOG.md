@@ -25,6 +25,8 @@
 
 ### Fixed
 
+- **List item notes not showing (Postgres)**: `node-pg` returns `BIGINT` columns as strings; note rows were grouped in a `Map` with string keys while lookups used numeric item ids, so subtitles stayed empty. Numeric ids are coerced in `NoteRepository` `toNote()`.
+
 - **`db:push` vs `ai_analysis_runs.output_json`**: `npm run db:push` now applies `drizzle/0019_ai_analysis_runs_output_json_pg.sql` when the `output_json` column is missing. Previously only migrations through `0018` were wired, so existing databases could hit **column "output_json" does not exist** on the Budget AI report page even after a successful push.
 
 - **Recon Process marked summary**: The dialog no longer shows a single combined total of ignored plus accepted bank amounts. It now shows **Total accepted** (duplicate + new-add bank-line sums) and **Total ignored** separately.

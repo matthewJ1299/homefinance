@@ -7,10 +7,10 @@ import type {
 } from "../interfaces/note.repository";
 
 interface NoteRow {
-  id: number;
-  owner_user_id: number;
+  id: number | string;
+  owner_user_id: number | string;
   linked_type: string;
-  linked_id: number;
+  linked_id: number | string;
   body: string;
   created_at: string;
   updated_at: string;
@@ -18,10 +18,10 @@ interface NoteRow {
 
 function toNote(row: NoteRow): Note {
   return {
-    id: row.id,
-    ownerUserId: row.owner_user_id,
+    id: Number(row.id),
+    ownerUserId: Number(row.owner_user_id),
     linkedType: row.linked_type,
-    linkedId: row.linked_id,
+    linkedId: Number(row.linked_id),
     body: row.body,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
