@@ -6,13 +6,14 @@ Related: **AI analysis** in Settings (AI toggle + provider selection), **Dashboa
 
 1. An administrator grants **AI feature access** for the user (`users.ai_feature_allowed`; future admin UI). Without it, Settings shows a short notice and `analyzeExpenses` returns an error.
 2. User enables **AI analysis** under **Settings** (AI is **off by default** among users who are allowed).
-3. User chooses month (dashboard or summary) and clicks **Analyze spending**.
+3. User chooses month (dashboard or summary) and picks either **Analyze spending** (summary-only, default flow) or **Include all transactions** (full month ledger in the prompt).
 4. Server builds a **model payload** (all monetary fields in **minor units / cents**):
 
    - `month`, `currency: "ZAR"`
    - `income_cents`, `expenses_cents`, `allocated_cents`, `unallocated_cents` (the latter matches budget “to assign” / unallocated figure from `BudgetService.getOverview`)
    - `categories[]`: `name`, `allocated_cents`, `spent_cents`, `prev_month_spent_cents`, `is_overspent`
-   - `transactions[]`: `user_name`, `category_name`, `amount_cents`, `note`, `date` (for transaction-level recategorisation hints)
+   - `transactions_included`: boolean; when false, `transactions` is empty and the user prompt tells the model not to invent line-level recategorisations
+   - `transactions[]`: `user_name`, `category_name`, `amount_cents`, `note`, `date` (only populated when `transactions_included` is true; for transaction-level recategorisation hints)
 
 5. The server selects a provider:
 
@@ -39,4 +40,4 @@ Related: **AI analysis** in Settings (AI toggle + provider selection), **Dashboa
 
 ## Auditing
 
-Successful runs still insert into **`ai_analysis_runs`** with `analysis_type = expenses_monthly`, `prompt_template_id = expenses_monthly`, `prompt_version = 3`, structured `input_json`, optional `input_text` (full system + user prompt), and `output_text` (raw model JSON string).
+Successful runs still insert into **`ai_analysis_runs`** with `analysis_type = expenses_monthly`, `prompt_template_id = expenses_monthly`, `prompt_version = 4`, structured `input_json`, optional `input_text` (full system + user prompt), and `output_text` (raw model JSON string).

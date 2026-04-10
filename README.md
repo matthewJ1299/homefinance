@@ -6,44 +6,65 @@ All database writes use **optimistic UI**: the UI updates immediately, then a to
 
 ## Features
 
-- **Income**: Record salary and ad-hoc income per month. **Dashboard income** shows only the signed-in user's income for the selected month.
-- **Expenses**: Log expenses by category with optional notes.
-  - **Dashboard**: The "Recent" expenses section shows only the signed-in user’s expenses on the **primary account** (set under **Settings** > **Accounts**; with several accounts, use **Set as primary**). If you have only one account, it is always primary. If primary is unset and you have multiple accounts, the app defaults to the oldest bank account, then the oldest account by id. **Quick add expense** uses that same primary account and an expense date for the **budget month you are viewing** (today when it falls in that month, otherwise the start or end of that period), so new rows appear in **Recent expenses** after save. **View more** in that section opens **Expenses** for the same budget month. **Category** selection uses the same **CategoryPicker** as the **`/add`** expense step (most-used strip, optional **Show more** for variable vs fixed groups); on the dashboard, pills show **names only**, not budget amounts on each pill. With **Split with partner** enabled, you can choose split **group**, equal split, full amount owed to you, or exact shares (same behavior as the expense quick-add flow). Use the **Expenses** page to view all accounts or filter by account. A strip of **Tasks / Events / Budget** stats links to Lists, Calendar, and Budget. An **Upcoming events** tile highlights today’s events or the next event and links to the Calendar page.
-  - **Exact split helper**: In **Split by exact amount**, the form shows a live helper for remaining amount to allocate (or over-allocated amount) so shares can be balanced before save.
-  - **Expenses page**: Toggle to view **My expenses**, another user's expenses (e.g. partner's), or **Combined** income and expenses for the selected view. Income and expense totals are shown for the active filter. Use the **Account** dropdown to show only expenses linked to a specific account (or **All**). Use the **Category** dropdown to show only expenses in a specific category (or **All**).
-- **Goals (Intent)**: Track intent separately from spending.
-  - **Savings goals**: Set a target amount and monthly target, link to an account (recommended). Add contributions manually; the dashboard shows progress, monthly compliance, and a projected completion month.
-  - **Credit goals**: Link to a credit account, set a monthly payment target, optionally store APR. Add manual payments and manual interest from statements. The dashboard shows payoff estimates.
-  - **Goals page (`/goals`)**: One goal at a time with **Overview**, **Progress**, **Activity** (every line tied to a real account transaction), **Projection** (dashed styling; live-only, not stored), and **Controls** (contribute, withdraw, pay, interest, edit). Credit projection compares **Avalanche**, **Snowball**, and **Target date** payments side by side. See [docs/goals.md](./docs/goals.md).
-  - **Clean UX rule**: Goal contributions are **not expenses**. The Expenses page remains pure “money gone”; contributions appear only on goals/dashboard.
-  - **Mental model**: Accounts = truth (ledger), Goals = intent, Contributions = bridge (link ledger movements to goals).
-- **Categories**: Each category is either **Fixed** or **Variable** cost.
-  - **Fixed**: Same amount each month (e.g. Utilities, Insurance). You can set a default amount (R) in Manage categories; that amount is auto-allocated for new months until you change it.
-  - **Variable**: Amount varies by month (e.g. Groceries, Dining out).
-- **Budget**: **Per-user**: each signed-in user has their own budget. You see only your income, your expenses, your category allocations, and your transfers. Allocate income to categories per month. **Budget-expense integration**: After adding an expense, a toast shows how much remains in that category for the month (or a warning with link to Budget if over). The dashboard shows an over-budget warning tile when any category is overspent. The category picker (e.g. on quick-add) shows remaining amount per category when budget data is available. Category order can be changed by **drag and drop** (grip handle on the left of each category card); the order is saved and used app-wide (e.g. Manage categories, category pickers). Allocations **carry over**: if a month has no allocation set for a category, the last set allocation from a previous month is used. So you only need to change an allocation when you want it to differ from the previous month.
-  - **To be allocated summary (Option 2)**: The headline amount uses `toBeAllocated = (current month income - allocated) + rolloverAdjustment`, where `rolloverAdjustment` is the negative of prior-month cash overspending (combined-safe source: category negatives first, top-level fallback). The summary now clearly shows **to allocate**, **fully allocated**, or **over allocated**.
-  - When there is unallocated income, use **Auto-allocate** to distribute the remainder:
-    - If you have already set amounts for some categories, the remainder is added to those categories only.
-    - If historical expense data exists (past 6 months), the remainder is split in proportion to past spending.
-    - If there is no history or no allocations yet, the remainder is split evenly across categories.
-  - Opening the budget for a new month automatically fills in carried-over allocations and, for fixed-cost categories with a default amount, that default.
-- **Transfers**: Move budget between categories within a month.
-- **Budget month range**: Under **Settings**, choose which day each **budget month** starts (1-28). Day `1` is a normal calendar month. For example, day `25` runs from the 25th of one month through the 24th of the next, so you can align the budget with a pay date. The month navigator shows that range when it is not a calendar month. Income, expenses, budget totals, and related APIs use transaction dates within that range.
-- **Export transactions**: Under **Settings**, use **Export transactions** to download a CSV of all your income and expense entries (same minor-unit amounts as the app, plus a decimal column for readability). Account transfers and the raw account ledger are not included; those live under **Accounts** / `account_transactions` if you need them in a future export.
-- **Accounts**: Track bank balances, savings, and credit. Create accounts under **Settings** > **Accounts** (Bank, Savings, Credit types). The **primary** account is listed **first** and shows a **Primary** badge (used for dashboard **Recent expenses**, **Quick add expense**, and as the default account in expense/income quick-add flows, with no “none” option when you have accounts). If you have exactly one account, it is always primary; with more than one, use **Set as primary** to choose which account is first. Link income and expenses to accounts when adding them; balances are computed from a ledger (`account_transactions`). Use **Transfer Money** (dashboard tile or Settings > Accounts) to move funds between accounts (e.g. bank to savings, or pay down credit). Credit accounts show balance, limit, and available credit. All financial movement flows through `account_transactions`; balances are never stored directly.
-- **Splits**: Track shared expenses and who owes whom. **Split groups** (e.g. Home, Wedding) let you keep balances separate: create groups under **Split groups**, then when adding a split expense choose a group (defaults to "Default"). On the **Splits** page you see a summary tile per group and can switch the active group to see "How much each person owes" and **Split history** for that group only. Settling is per group: use **Settle** and the amount is applied to the current group's balance. You can also settle from the dashboard by adding an expense with category **Splits** (applies to the default group).
-- **Summary**: Per-user monthly snapshot (your income, expenses, and budget adherence) and household trends.
-- **Add / quick-create (`/add`)**: On **mobile**, the **center Add** control (floating pill in the bottom bar) opens the **Create new** hub: cards for **New task** (list item), **New event**, and **New expense**, plus a **Quick add** line (type + optional text for tasks). For **Expense**, you can enter a leading amount and optional note (e.g. `120 groceries`); after **Add**, the category step shows that **amount** at the top and pre-fills the note. Desktop users can open the same screen from the sidebar **Add** link. After a successful save from this hub (or the same flows from the **+** quick-add menu when shown), you are taken to **Dashboard** for an expense, **`/lists/[id]`** for a task (the list you picked), or **Calendar** for an event. The dashboard **Quick add expense** tile keeps one-screen logging on Home; its category UI matches this step (same **CategoryPicker**).
-- **Mobile bottom bar**: **Home**, **Calendar**, **Add** (center), **Lists**, **Budget**. The **hamburger menu** (header, small screens) lists the same destinations as the **desktop sidebar** (Dashboard, Calendar, Add, Lists, Expenses, **Recon** when enabled for the user, Splits, Budget, **Budget AI report** when AI feature access is allowed, Accounts, Mortgage, Goals, Summary, Settings).
-- **Dashboard greeting**: The greeting and displayed weekday/date use **UTC+2** (IANA `Africa/Johannesburg`), not the device timezone (**Good morning**, **Good afternoon**, **Good evening** by that clock).
-- **Calendar**: Month grid and day schedule (see `/calendar`). On **mobile-width** screens, **swipe left/right on the month grid** to move between months (chevrons still work). Events support optional **end date** (multi-day spans shown as a **pill across days** in the month grid), optional **end time**, **calendar category** (color-coded dots, bars, and span pills; separate from budget categories), **shared vs personal** visibility, **priority**, name, location, start date, start time, notes, and **reminder** (None, at event time, or 5/10/15/30 min, 1–2 hours, 1 day before). **End date** applies when recurrence is **none**; recurring events use one day per occurrence. **Shared** events are visible to both users; **personal** events only to the creator (list, dashboard tile, daily summary). Recurrence: none, weekly, monthly (optional day of month), or yearly. Any user can edit or delete any event (household model); change API checks if you need creator-only edits. Push: partner is notified when someone adds a **shared** event; reminders go to everyone for shared events and only to the creator for personal events.
-- **Lists**: Shared lists (household-wide) and personal lists (per-user only). **Lists** in the nav opens **My lists**: filter chips (**All** + one per list), progress per list, and inline items with check-to-complete, quantity, and **Open** for full detail. Under **Settings** > **Lists**, create and delete lists, and use **List items** to pick a list and add or remove checklist rows (same controls as the list detail page). The list detail page (`/lists/[id]`) has the list switcher, add-item form, and **Delete all completed**.
-- **Mortgage**: Optional mortgage tracking. The page uses plain-language labels and a single at-a-glance summary (what you still owe - balance after last payment - total per month, when you will be done paying, each person’s share of the home). The amortisation table and form to change the loan or who pays what are in a collapsible **More details** section below.
-  - **Past vs future**: Months in which you have recorded payments show **actual** amounts paid (e.g. 10k one month, 5k another). When you change the interest rate or payment (config or user shares), only **future** months are recalculated; past months stay as paid. The projection runs from the current remaining balance, so payoff date and equity reflect the new rate and payment from “today” onward.
+Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in the linked docs.
 
-- **Recurring income and expenses**: Under **Recurring income** and **Recurring expenses** you define templates (amount, category for expenses, day of month). Each month, use **Populate this month** in **Settings** to create actual income and expense rows from those templates. Population is idempotent: it only creates entries that do not already exist for that month, so you can run it again safely. If you use a custom budget-month start day (for example 25th), recurring items are placed on the correct calendar date inside that budget period.
-- **AI expense analysis (optional)**: Optional AI module for monthly budget analysis (dashboard + Summary). **AI is disabled by default per user**—enable it under **Settings** > **AI analysis**. A separate **per-user allow flag** (`users.ai_feature_allowed`, migration `0020`) gates who may use AI at all (for limiting API spend); both the allow flag and the Settings toggle must be on. Migration `0020` grants access only to **user id 1** by default; seeds still set allow flags on seeded users for local dev. Grant others via SQL or a planned admin UI (see [docs/feature-access.md](./docs/feature-access.md)). When enabled, users can select **Free** vs **Paid**. Paid prefers **OpenAI** when `OPENAI_API_KEY` is configured; if OpenAI runs out of credit / returns insufficient quota, the app automatically falls back to **Gemini free**. **Analyze spending** sends a structured JSON payload (amounts in **cents**, ZAR, category totals including **previous month spent per category**, plus a **transactions** list in cents for recategorisation hints). The model is instructed to return **only JSON** matching the budget-coach schema; the app parses it and opens **`/budget-ai-report`** (see [docs/ai-budget-analysis.md](./docs/ai-budget-analysis.md)). Runs are logged to `ai_analysis_runs` (`input_json`, full prompt text, raw model output, `prompt_template_id` / `prompt_version`). Rate-limited to 5 calls per user per hour.
-- **Recon (`/recon`)**: Optional bank-email reconciliation via **Microsoft Graph** (the HTTP REST API; not GraphQL). A **per-user allow flag** (`users.recon_feature_allowed`) and the **Settings** toggle must both be on; nav and APIs respect that (see [docs/feature-access.md](./docs/feature-access.md)). After you connect Outlook and sync, the app fetches recent messages, parses bank-style notifications (amount, merchant, and yearless **DDMon** dates such as `8Apr 15:52`, with logic to skip spurious matches on text like `.00 paid`), flags potential duplicates against your expenses, and lets you **manually** accept or ignore each item. For **possible duplicate** rows, the matching expense(s) already on file are listed under the row (**category**, **amount**, **note**, **date**). On the pending list, use **Mark** (None / Ignore / Accept) and **Process marked** for bulk actions (marked rows are shaded; after a run you get a **summary** with date range, counts, category totals for new expenses, and separate totals for accepted vs ignored bank amounts; and a toast shows the **total value** of newly added **Split 50/50** purchases), or use per-row buttons; **Accept** without a category is skipped until you choose one. Edit **Amount** (ZAR) or **Expense note** before accepting if the parsed values need correction (defaults come from the bank line and `Recon` / `Recon: {vendor}`). Click **Description** to open the full email in a modal (same detail view as after sync). The **Fetched emails** list (after sync) can be narrowed to **bank sender addresses** (type A & B) and by **outcome** (imported, parse failed, or not bank). When approving an item, you can optionally tick **Split 50/50** so the created expense is a split expense. See [docs/recon.md](./docs/recon.md) and [Recon and Microsoft Graph (Outlook)](#recon-and-microsoft-graph-outlook) below.
+### Money in and out
+
+- **Income** — Record salary and one-off income per month. The dashboard shows only **your** income for the selected budget month.
+- **Expenses** — Log spending by category with notes and link rows to accounts. On the **Expenses** page, switch between **My** expenses, another household member’s, or **Combined** totals; filter by account and category. When splitting with a partner, pick a split group plus equal split, exact amounts (live helper to balance to zero), or “full amount owed to you.”
+- **Categories** — **Fixed** categories behave like steady monthly costs and can seed new months with a default amount; **variable** categories change month to month.
+
+### Budget
+
+- **Per-user budgets** — Each person has their own income, category allocations, and in-month transfers. Drag categories on the Budget page to reorder them everywhere (including pickers).
+- **Allocations** — If a month has no amount for a category, the last saved allocation is reused. New months pre-fill carry-over and fixed-category defaults.
+- **Unallocated income** — The header explains whether you still have cash to assign, are fully allocated, or are over-allocated, including rollover from prior overspending. **Auto-allocate** spreads leftovers using your current category amounts, recent spending if available, or an even split.
+- **Budget and spending** — After you save an expense, a toast shows remaining budget for that category or an over-budget warning with a link. Pickers can show per-category remaining when data exists; the dashboard flags any overspent category.
+- **Budget transfers** — Move allocated amounts between categories in the same month.
+- **Budget month** — Under **Settings**, pick which calendar day (1–28) each budget period starts (e.g. align with payday). Totals use transaction dates inside that window.
+
+### Accounts and balances
+
+- **Account types** — Bank, savings, and credit under **Settings** > **Accounts**. Balances are derived from an **account ledger** of transactions.
+- **Primary account** — Dashboard **Recent** expenses and **Quick add expense** post to the primary account (**Set as primary** when you have more than one; a single account is always primary). Dates fall inside the budget month you are viewing so new lines show in **Recent**; **View more** opens Expenses for that month.
+- **Moving money between accounts** — **Transfer Money** (dashboard or Settings) for savings moves or paying down credit. Credit rows show limit and available credit.
+
+### Shared costs (Splits)
+
+- **Split groups** — Separate “who owes whom” per context (e.g. home vs. trip). New split expenses default to a **Default** group unless you choose another.
+- **Splits page** — Per-group summary and history; **Settle** applies to the active group. You can also settle with a **Splits** category expense (default group) from the dashboard.
+
+### Goals (savings and debt intent)
+
+- **Savings goals** — Target amount, monthly target, optional linked account; manual contributions; progress and projected completion on the dashboard.
+- **Credit goals** — Linked credit account, payment targets, optional APR; manual payments and statement interest; payoff-style projections.
+- **`/goals` experience** — Activity is tied to real ledger movements; credit views can compare payoff strategies. **Contributions are not ordinary expenses** (they stay off the Expenses page). See [docs/goals.md](./docs/goals.md).
+
+### Household coordination
+
+- **Calendar** — Month grid and day views, multi-day spans, recurrence, reminders, color categories (separate from budget categories), shared vs. personal events, priorities, and notes. On narrow screens, swipe the month grid to change months. Push follows shared vs. personal rules. See `/calendar`.
+- **Lists** — Shared household lists and personal lists; **My lists** overview; detail at `/lists/[id]` with check-off, quantity, **drag the grip** to prioritise (open vs. completed sections keep their own order; persisted), and **Delete all completed**. Manage lists under **Settings** > **Lists**.
+
+### Home dashboard and navigation
+
+- **Dashboard** — Month income, **Recent** expenses (primary account), tasks/events/budget shortcuts, upcoming calendar, quick-add expense (same category UX as **`/add`**). Greeting and header date use **Africa/Johannesburg (UTC+2)**, not the device clock.
+- **Create hub (`/add`)** — Mobile center **Add** and desktop sidebar: new list item, event, or expense; quick line for tasks; expense shorthand such as `120 groceries` pre-fills amount and note. After save: expense → Dashboard; task → that list; event → Calendar.
+- **Mobile** — Bottom bar: Home, Calendar, Add (center), Lists, Budget. The header menu mirrors the desktop sidebar, including **Recon** and **Budget AI report** when your account is allowed and enabled.
+
+### Mortgage (optional)
+
+Plain-language summary of balance, monthly cost, payoff horizon, and each person’s share; amortisation and edits sit under **More details**. Recorded months stay as history; changing rate or payment recalculates only **future** schedule from the current balance.
+
+### Automation and export
+
+- **Recurring income and expenses** — Day-of-month templates; **Populate this month** in **Settings** adds missing rows only (safe to repeat). Works with custom budget-month boundaries.
+- **Export transactions** — **Settings** > **Export transactions** → CSV of income and expense lines (minor units plus a decimal column). Inter-account transfers and raw ledger are not in that export.
+
+### Summary and optional intelligence
+
+- **Summary** — Per-user monthly snapshot (income, expenses, budget adherence) plus household trends.
+- **AI budget analysis (optional)** — Off by default; needs server-side allow **and** **Settings** > **AI analysis**. **Free** vs **Paid** (paid prefers OpenAI with Gemini fallback). **Analyze spending** uses roll-ups; **Include all transactions** sends full detail. Structured output on `/budget-ai-report`; runs stored and rate-limited. See [docs/ai-budget-analysis.md](./docs/ai-budget-analysis.md) and [docs/feature-access.md](./docs/feature-access.md).
+- **Bank email reconciliation / Recon (optional)** — Outlook via Microsoft Graph: parse bank-notification mail, surface likely duplicates, accept or ignore manually (including bulk). Gated by allow flag plus Settings. See [docs/recon.md](./docs/recon.md) and [Recon and Microsoft Graph (Outlook)](#recon-and-microsoft-graph-outlook).
 
 ## Setup
 
@@ -173,6 +194,431 @@ If you see redirects to `https://0.0.0.0:3000/...` in production, your reverse p
 
 - **`npm run db:push`** (used on deploy and in Docker entrypoint) runs **additive** migrations only: it creates tables or columns when they are **missing**. It does **not** `DROP` tables, `TRUNCATE` data, or wipe rows. Your existing expenses, users, and other data stay intact when new migrations (e.g. Recon tables in `drizzle/0013_recon_pg.sql`, or `ai_analysis_runs.output_json` from `drizzle/0019_ai_analysis_runs_output_json_pg.sql`) are applied.
 - **Destructive operations** (only when you explicitly want to reset): `npm run db:reset` drops and recreates the public schema; `npm run db:seed` clears application data; `npm run db:fresh` combines reset + seed. Do not use those on production databases you care about.
+
+## Database ERD
+
+The diagram below reflects the **PostgreSQL** schema built from additive migrations in `drizzle/*_pg.sql` (applied by `npm run db:push`). If a deployed database predates a migration, compare with live introspection (`drizzle/push.ts` order is the in-repo source of truth).
+
+**Notes:**
+
+- `income.recurring_income_id` and `expenses.recurring_expense_id` are **not** declared as foreign keys in SQL; they logically reference `recurring_income` / `recurring_expenses`.
+- `account_transactions.reference_type` and `reference_id` form a **polymorphic** pointer, not a database-level FK.
+- `notes.linked_type` and `notes.linked_id` form a **polymorphic** pointer for user-authored notes on arbitrary domain rows (type keys are app-defined; no FK to targets). See `getNoteRepository()` / `INoteRepository`.
+- **Shared list items**: optional notes use `linked_type = 'shared_list_item'` (`NOTE_LINKED_TYPE_SHARED_LIST_ITEM`) and `linked_id = shared_list_items.id`. There is no column on the item row; zero or many note rows per item are allowed. `notes.owner_user_id` scopes who wrote the note. Deleting a list, an item, or completed items removes attached notes via the list repositories.
+- `expenses.split_group_id` is a legacy text field; split grouping also uses `split_expense_group_id` → `split_groups`.
+
+```mermaid
+erDiagram
+  users {
+    serial id PK
+    text name
+    text email UK
+    text password_hash
+    timestamptz created_at
+    int budget_month_start_day
+    bigint primary_account_id FK
+    boolean recon_enabled
+    boolean ai_use_paid
+    boolean ai_enabled
+    boolean ai_feature_allowed
+    boolean recon_feature_allowed
+  }
+
+  categories {
+    serial id PK
+    text name UK
+    text group_name
+    text icon
+    int sort_order
+    boolean is_active
+    text cost_type
+    int default_amount
+    timestamptz created_at
+  }
+
+  split_groups {
+    serial id PK
+    text name UK
+    boolean is_default
+    int sort_order
+    timestamptz created_at
+  }
+
+  budgets {
+    serial id PK
+    int user_id FK
+    int category_id FK
+    text month
+    int allocated_amount
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  budget_transfers {
+    serial id PK
+    int from_category_id FK
+    int to_category_id FK
+    text month
+    int amount
+    int user_id FK
+    text reason
+    timestamptz created_at
+  }
+
+  expenses {
+    serial id PK
+    int user_id FK
+    int category_id FK
+    int amount
+    text note
+    text date
+    text month
+    timestamptz created_at
+    boolean synced
+    text split_group_id
+    int paid_by_user_id FK
+    int split_expense_group_id FK
+    int recurring_expense_id
+    bigint account_id FK
+  }
+
+  income {
+    serial id PK
+    int user_id FK
+    int amount
+    text type
+    text description
+    text date
+    text month
+    timestamptz created_at
+    int recurring_income_id
+    bigint account_id FK
+  }
+
+  recurring_income {
+    serial id PK
+    int user_id FK
+    int amount
+    text type
+    text description
+    int day_of_month
+    timestamptz created_at
+  }
+
+  recurring_expenses {
+    serial id PK
+    int user_id FK
+    int category_id FK
+    int amount
+    text note
+    int day_of_month
+    timestamptz created_at
+  }
+
+  split_allocations {
+    serial id PK
+    int expense_id FK
+    int user_id FK
+    int amount
+  }
+
+  split_settlements {
+    serial id PK
+    int payer_user_id FK
+    int recipient_user_id FK
+    int amount
+    text date
+    timestamptz created_at
+    int expense_id FK
+    int income_id FK
+    int split_expense_group_id FK
+  }
+
+  mortgage_configs {
+    serial id PK
+    int property_value
+    int loan_amount
+    double annual_interest_rate
+    int loan_term_months
+    text start_date
+    double target_equity_user_a_pct
+    boolean is_active
+    timestamptz created_at
+  }
+
+  mortgage_user_configs {
+    serial id PK
+    int mortgage_id FK
+    int user_id FK
+    int initial_deposit
+    double base_split_pct
+    int monthly_cap
+  }
+
+  mortgage_payments {
+    serial id PK
+    int mortgage_id FK
+    int user_id FK
+    text payment_date
+    int month_number
+    int amount
+    int principal_portion
+    int interest_portion
+    boolean is_extra_payment
+    text note
+    timestamptz created_at
+  }
+
+  mortgage_schedule_snapshots {
+    serial id PK
+    int mortgage_id FK
+    timestamptz generated_at
+    text trigger_event
+    int trigger_payment_id FK
+    text schedule_json
+    text projected_payoff_date
+    int projected_months
+    int monthly_topup
+    double user_a_final_equity_pct
+    double user_b_final_equity_pct
+  }
+
+  calendar_categories {
+    serial id PK
+    text name UK
+    text color
+    int sort_order
+  }
+
+  calendar_events {
+    serial id PK
+    int created_by_user_id FK
+    text name
+    text location
+    text date
+    text end_date
+    text time
+    text end_time
+    text notes
+    text recurrence_type
+    int recurrence_day_of_month
+    timestamptz created_at
+    int reminder_minutes
+    int category_id FK
+    boolean is_shared
+    int priority
+  }
+
+  sent_reminders {
+    serial id PK
+    int event_id FK
+    text occurrence_date
+    timestamptz sent_at
+  }
+
+  shared_lists {
+    serial id PK
+    text name
+    int sort_order
+    timestamptz created_at
+  }
+
+  shared_list_items {
+    serial id PK
+    int list_id FK
+    text label
+    int quantity
+    boolean completed
+    int sort_order
+    timestamptz created_at
+  }
+
+  push_subscriptions {
+    serial id PK
+    int user_id FK
+    text endpoint UK
+    text p256dh
+    text auth
+    timestamptz created_at
+  }
+
+  accounts {
+    bigserial id PK
+    text name
+    text type
+    bigint owner_user_id FK
+    bigint credit_limit
+    timestamptz created_at
+  }
+
+  account_transactions {
+    bigserial id PK
+    bigint account_id FK
+    bigint amount
+    text transaction_type
+    text reference_type
+    bigint reference_id
+    text note
+    timestamptz created_at
+  }
+
+  transfers {
+    bigserial id PK
+    bigint from_account_id FK
+    bigint to_account_id FK
+    bigint amount
+    text note
+    timestamptz created_at
+  }
+
+  goals {
+    bigserial id PK
+    bigint owner_user_id FK
+    text name
+    text type
+    bigint target_amount
+    bigint monthly_target
+    bigint linked_account_id FK
+    numeric apr
+    text strategy
+    timestamptz archived_at
+    timestamptz created_at
+  }
+
+  goal_contributions {
+    bigserial id PK
+    bigint goal_id FK
+    bigint owner_user_id FK
+    bigint account_transaction_id FK
+    text kind
+    bigint amount
+    date effective_date
+    text note
+    timestamptz created_at
+  }
+
+  recon_graph_connections {
+    bigserial id PK
+    int user_id FK UK
+    text refresh_token_encrypted
+    text ms_account_email
+    timestamptz created_at
+    timestamptz updated_at
+    timestamptz last_synced_at
+  }
+
+  recon_import_items {
+    bigserial id PK
+    int user_id FK
+    text graph_message_id
+    text status
+    text parse_type
+    int amount
+    date txn_date
+    text vendor
+    text merchant_key_normalized
+    jsonb matched_expense_ids
+    int suggested_category_id FK
+    text raw_subject
+    text raw_body_preview
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  vendor_category_mappings {
+    bigserial id PK
+    int user_id FK
+    text merchant_key_normalized
+    int category_id FK
+    int use_count
+    timestamptz last_used_at
+  }
+
+  ai_analysis_runs {
+    bigserial id PK
+    int user_id FK
+    text analysis_type
+    text month
+    text input_text
+    text output_text
+    timestamptz created_at
+    text prompt_template_id
+    int prompt_version
+    jsonb input_json
+    jsonb output_json
+  }
+
+  notes {
+    bigserial id PK
+    bigint owner_user_id FK
+    text linked_type
+    bigint linked_id
+    text body
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  users ||--o{ budgets : owns
+  users ||--o{ expenses : records
+  users ||--o{ income : records
+  users ||--o{ budget_transfers : owns
+  users ||--o{ mortgage_payments : pays
+  users ||--o{ mortgage_user_configs : equity_split
+  users ||--o{ split_allocations : owed_share
+  users ||--o{ split_settlements : payer_user
+  users ||--o{ split_settlements : recipient_user
+  users ||--o{ recurring_income : templates
+  users ||--o{ recurring_expenses : templates
+  users ||--o{ calendar_events : creates
+  users ||--o{ push_subscriptions : devices
+  users ||--o{ accounts : owns
+  users ||--o| accounts : primary_account
+  users ||--o{ goals : owns
+  users ||--o| recon_graph_connections : mailbox
+  users ||--o{ recon_import_items : inbox
+  users ||--o{ vendor_category_mappings : learns
+  users ||--o{ ai_analysis_runs : runs
+  users ||--o{ notes : owns_notes
+
+  categories ||--o{ budgets : line
+  categories ||--o{ expenses : classifies
+  categories ||--o{ budget_transfers : from_cat
+  categories ||--o{ budget_transfers : to_cat
+  categories ||--o{ recurring_expenses : default_cat
+  categories ||--o| recon_import_items : suggested
+  categories ||--o{ vendor_category_mappings : maps_to
+
+  split_groups ||--o{ expenses : group
+  split_groups ||--o{ split_settlements : group
+
+  expenses ||--o{ split_allocations : splits
+  expenses ||--o| split_settlements : optional_link
+  income ||--o| split_settlements : optional_link
+
+  mortgage_configs ||--o{ mortgage_payments : amort
+  mortgage_configs ||--o{ mortgage_schedule_snapshots : snapshots
+  mortgage_configs ||--o{ mortgage_user_configs : parties
+  mortgage_payments ||--o| mortgage_schedule_snapshots : trigger
+
+  calendar_categories ||--o{ calendar_events : tag
+  calendar_events ||--o{ sent_reminders : reminders_sent
+
+  shared_lists ||--o{ shared_list_items : contains
+  shared_list_items }o--o{ notes : optional_polymorphic_item_notes
+
+  accounts ||--o{ account_transactions : ledger
+  accounts ||--o{ transfers : from_acct
+  accounts ||--o{ transfers : to_acct
+  accounts ||--o| expenses : paid_from
+  accounts ||--o| income : deposited_to
+  accounts ||--o| goals : linked_savings
+
+  goals ||--o{ goal_contributions : funding
+  account_transactions ||--o{ goal_contributions : source_txn
+
+  income }o--|| recurring_income : logical_recurring_no_fk
+  expenses }o--|| recurring_expenses : logical_recurring_no_fk
+```
 
 ## Seed data
 

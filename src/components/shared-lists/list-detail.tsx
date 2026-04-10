@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { SharedListItemRow } from "./shared-list-item-row";
+import { SharedListSortableItemList } from "./shared-list-sortable-item-list";
 import type { SharedList } from "@/lib/repositories/interfaces/shared-list.repository";
 import type { SharedListItem } from "@/lib/repositories/interfaces/shared-list-item.repository";
 import { usePropSyncedState } from "@/hooks/use-prop-synced-state";
@@ -255,16 +255,18 @@ export function ListDetail({ list, items }: ListDetailProps) {
         {itemsState.length === 0 ? (
           <p className="text-sm text-muted-foreground">No items yet.</p>
         ) : (
-          <ul className="space-y-2">
-            {itemsState.map((item) => (
-              <SharedListItemRow
-                key={item.id}
-                item={item}
-                onOptimisticUpsertItem={optimisticUpsertItem}
-                onOptimisticRemoveItem={optimisticRemoveItem}
-              />
-            ))}
-          </ul>
+          <>
+            <p className="text-xs text-muted-foreground mb-3">
+              Drag the grip to prioritise. Works with mouse, touch (hold briefly on the grip), and keyboard.
+            </p>
+            <SharedListSortableItemList
+              listId={list.id}
+              items={itemsState}
+              setItems={setItemsState}
+              onOptimisticUpsertItem={optimisticUpsertItem}
+              onOptimisticRemoveItem={optimisticRemoveItem}
+            />
+          </>
         )}
       </section>
 

@@ -88,6 +88,7 @@ function buildBudgetAnalysisModelPayload(params: {
   incomeCents: number;
   expenseRows: ExpenseWithDetails[];
   prevMonthSpentByCategory: Record<number, number>;
+  includeTransactions: boolean;
 }): BudgetAnalysisModelPayload {
   const categories = params.overview.categories
     .filter((c) => c.allocated > 0 || c.spent > 0)
@@ -99,13 +100,15 @@ function buildBudgetAnalysisModelPayload(params: {
       is_overspent: c.isOverspent,
     }));
 
-  const transactions = params.expenseRows.map((e) => ({
-    user_name: e.userName,
-    category_name: e.categoryName,
-    amount_cents: e.amount,
-    note: e.note ?? "",
-    date: e.date,
-  }));
+  const transactions = params.includeTransactions
+    ? params.expenseRows.map((e) => ({
+        user_name: e.userName,
+        category_name: e.categoryName,
+        amount_cents: e.amount,
+        note: e.note ?? "",
+        date: e.date,
+      }))
+    : [];
 
   return {
     month: params.month,
@@ -115,6 +118,7 @@ function buildBudgetAnalysisModelPayload(params: {
     allocated_cents: params.overview.totalAllocated,
     unallocated_cents: params.overview.unallocated,
     categories,
+    transactions_included: params.includeTransactions,
     transactions,
   };
 }
@@ -189,11 +193,36 @@ async function persistAIAnalysisRun(params: {
 }
 
 export class AIService {
+  private async fetchBudgetExpenseAnalysisContext(month: string, userId: number): Promise<{
+    overview: BudgetOverviewResult;
+    incomeCents: number;
+    expenseRows: ExpenseWithDetails[];
+    prevMonthSpentByCategory: Record<number, number>;
+  }> {
+    const budgetService = new BudgetService();
+    const expenseService = new ExpenseService();
+    const incomeService = new IncomeService();
+    const priorKey = prevMonth(month);
+    const [overview, incomeResult, expenseResult, priorExpenseResult] = await Promise.all([
+      budgetService.getOverview(month, userId),
+      incomeService.getByMonth(month, userId),
+      expenseService.getByMonth(month, userId),
+      expenseService.getByMonth(priorKey, userId),
+    ]);
+    return {
+      overview,
+      incomeCents: incomeResult.totals.overall,
+      expenseRows: expenseResult.expenses,
+      prevMonthSpentByCategory: priorExpenseResult.totals.byCategory,
+    };
+  }
+
   private async analyzeExpensesWithGemini(params: {
     month: string;
     userId: number;
     tier: AITier;
     providerLabel: AIProviderLabel;
+    includeTransactions: boolean;
   }): Promise<AnalyzeExpensesOutcome> {
     const apiKey = getApiKeyForTier(params.tier);
     if (!apiKey) {
@@ -206,24 +235,14 @@ export class AIService {
       };
     }
 
-    const budgetService = new BudgetService();
-    const expenseService = new ExpenseService();
-    const incomeService = new IncomeService();
-    const priorKey = prevMonth(params.month);
-
-    const [overview, incomeResult, expenseResult, priorExpenseResult] = await Promise.all([
-      budgetService.getOverview(params.month, params.userId),
-      incomeService.getByMonth(params.month, params.userId),
-      expenseService.getByMonth(params.month, params.userId),
-      expenseService.getByMonth(priorKey, params.userId),
-    ]);
-
+    const ctx = await this.fetchBudgetExpenseAnalysisContext(params.month, params.userId);
     const data = buildBudgetAnalysisModelPayload({
       month: params.month,
-      overview,
-      incomeCents: incomeResult.totals.overall,
-      expenseRows: expenseResult.expenses,
-      prevMonthSpentByCategory: priorExpenseResult.totals.byCategory,
+      overview: ctx.overview,
+      incomeCents: ctx.incomeCents,
+      expenseRows: ctx.expenseRows,
+      prevMonthSpentByCategory: ctx.prevMonthSpentByCategory,
+      includeTransactions: params.includeTransactions,
     });
 
     const systemPrompt = getBudgetAnalysisSystemPrompt();
@@ -261,7 +280,7 @@ export class AIService {
         analysisType: "expenses_monthly",
         month: params.month,
         promptTemplateId: "expenses_monthly",
-        promptVersion: 3,
+        promptVersion: 4,
         inputJson: data,
         inputText: inputDebugText,
         outputText: analysisText,
@@ -280,30 +299,21 @@ export class AIService {
   private async analyzeExpensesWithOpenAI(params: {
     month: string;
     userId: number;
+    includeTransactions: boolean;
   }): Promise<AnalyzeExpensesOutcome> {
     const apiKey = getOpenAIApiKey();
     if (!apiKey) {
       return { success: false, error: "Paid AI is not configured. Set OPENAI_API_KEY." };
     }
 
-    const budgetService = new BudgetService();
-    const expenseService = new ExpenseService();
-    const incomeService = new IncomeService();
-    const priorKey = prevMonth(params.month);
-
-    const [overview, incomeResult, expenseResult, priorExpenseResult] = await Promise.all([
-      budgetService.getOverview(params.month, params.userId),
-      incomeService.getByMonth(params.month, params.userId),
-      expenseService.getByMonth(params.month, params.userId),
-      expenseService.getByMonth(priorKey, params.userId),
-    ]);
-
+    const ctx = await this.fetchBudgetExpenseAnalysisContext(params.month, params.userId);
     const data = buildBudgetAnalysisModelPayload({
       month: params.month,
-      overview,
-      incomeCents: incomeResult.totals.overall,
-      expenseRows: expenseResult.expenses,
-      prevMonthSpentByCategory: priorExpenseResult.totals.byCategory,
+      overview: ctx.overview,
+      incomeCents: ctx.incomeCents,
+      expenseRows: ctx.expenseRows,
+      prevMonthSpentByCategory: ctx.prevMonthSpentByCategory,
+      includeTransactions: params.includeTransactions,
     });
 
     const systemPrompt = getBudgetAnalysisSystemPrompt();
@@ -341,7 +351,7 @@ export class AIService {
         analysisType: "expenses_monthly",
         month: params.month,
         promptTemplateId: "expenses_monthly",
-        promptVersion: 3,
+        promptVersion: 4,
         inputJson: data,
         inputText: inputDebugText,
         outputText: analysisText,
@@ -359,6 +369,7 @@ export class AIService {
           userId: params.userId,
           tier: "free",
           providerLabel: "Gemini (free fallback from OpenAI quota)",
+          includeTransactions: params.includeTransactions,
         });
       }
       const message = err instanceof Error ? err.message : "AI request failed.";
@@ -369,16 +380,18 @@ export class AIService {
   async analyzeExpenses(
     month: string,
     userId: number,
-    tier: AITier = "free"
+    tier: AITier = "free",
+    includeTransactions = false
   ): Promise<AnalyzeExpensesOutcome> {
     if (tier === "paid" && getOpenAIApiKey()) {
-      return await this.analyzeExpensesWithOpenAI({ month, userId });
+      return await this.analyzeExpensesWithOpenAI({ month, userId, includeTransactions });
     }
     return await this.analyzeExpensesWithGemini({
       month,
       userId,
       tier,
       providerLabel: tier === "paid" ? "Gemini (paid)" : "Gemini (free)",
+      includeTransactions,
     });
   }
 

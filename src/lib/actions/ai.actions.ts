@@ -6,7 +6,15 @@ import { checkRateLimit, recordCall } from "@/lib/services/ai-rate-limiter";
 import type { AnalyzeExpensesOutcome } from "@/lib/services/ai.service";
 import { getUserRepository } from "@/lib/repositories";
 
-export async function analyzeExpenses(month: string): Promise<AnalyzeExpensesOutcome> {
+export type AnalyzeExpensesOptions = {
+  /** When true, every expense line for the month is included (larger prompt; better recategorisation hints). Default false = summary + categories only. */
+  includeTransactions?: boolean;
+};
+
+export async function analyzeExpenses(
+  month: string,
+  options: AnalyzeExpensesOptions = {}
+): Promise<AnalyzeExpensesOutcome> {
   const session = await auth();
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
@@ -38,7 +46,8 @@ export async function analyzeExpenses(month: string): Promise<AnalyzeExpensesOut
 
   const service = new AIService();
   const usePaid = await userRepo.getAiUsePaid(userId);
-  const result = await service.analyzeExpenses(month, userId, usePaid ? "paid" : "free");
+  const includeTransactions = options.includeTransactions === true;
+  const result = await service.analyzeExpenses(month, userId, usePaid ? "paid" : "free", includeTransactions);
   if (result.success) {
     recordCall(userId);
   }

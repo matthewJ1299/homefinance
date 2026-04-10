@@ -436,6 +436,24 @@ async function pushPostgres(): Promise<void> {
         console.log("Postgres migration 0020 (users.ai_feature_allowed, users.recon_feature_allowed) applied.");
       }
     }
+
+    const hasNotes = await client.query(
+      "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'notes'"
+    );
+    if (hasNotes.rows.length === 0) {
+      const migration0021Path = path.join(process.cwd(), "drizzle", "0021_notes_pg.sql");
+      if (fs.existsSync(migration0021Path)) {
+        const sql0021 = fs.readFileSync(migration0021Path, "utf-8");
+        const statements0021 = sql0021
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statements0021) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration 0021 (notes) applied.");
+      }
+    }
   } finally {
     await client.end();
   }

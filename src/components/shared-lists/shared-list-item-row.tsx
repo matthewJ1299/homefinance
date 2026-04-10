@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useTransition, type CSSProperties, type ReactNode, type Ref } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { updateListItem, deleteListItem } from "@/lib/actions/shared-list.actions";
@@ -18,6 +18,12 @@ interface SharedListItemRowProps {
   listId?: number;
   onOptimisticUpsertItem?: (next: SharedListItem) => () => void;
   onOptimisticRemoveItem?: (item: SharedListItem) => () => void;
+  /** Optional drag handle / decorator rendered before the complete control (e.g. sortable grip). */
+  leadingControl?: ReactNode;
+  /** Attach sortable ref to the outer row. */
+  rowRef?: Ref<HTMLLIElement>;
+  rowStyle?: CSSProperties;
+  rowExtraClassName?: string;
 }
 
 export function SharedListItemRow({
@@ -26,6 +32,10 @@ export function SharedListItemRow({
   listId,
   onOptimisticUpsertItem,
   onOptimisticRemoveItem,
+  leadingControl,
+  rowRef,
+  rowStyle,
+  rowExtraClassName,
 }: SharedListItemRowProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -81,11 +91,15 @@ export function SharedListItemRow({
 
   return (
     <li
+      ref={rowRef}
+      style={rowStyle}
       className={cn(
         "flex items-center gap-2 rounded-xl border border-border/60 bg-background/40 p-3 transition-colors",
-        item.completed && "opacity-75"
+        item.completed && "opacity-75",
+        rowExtraClassName
       )}
     >
+      {leadingControl}
       <button
         type="button"
         onClick={handleToggleComplete}

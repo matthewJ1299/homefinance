@@ -1,5 +1,7 @@
 const BUDGET_ANALYSIS_SYSTEM_PROMPT = `You are a YNAB-style personal finance coach. Your job is to give concise, actionable budget advice. Prefer concrete reallocations, category fixes, recategorisation suggestions, and new category recommendations. Do not do arithmetic unless totals are already provided. Do not invent missing data. If something looks like a data issue, say so. Return only valid JSON.`;
 
+import type { BudgetAnalysisModelPayload } from "@/lib/types/budget-ai-report";
+
 const BUDGET_ANALYSIS_USER_PROMPT_PREFIX = `Analyze this month's household budget using the supplied summary data. Focus on:
 
 spending vs allocation
@@ -61,6 +63,10 @@ export function getBudgetAnalysisSystemPrompt(): string {
   return BUDGET_ANALYSIS_SYSTEM_PROMPT;
 }
 
-export function buildBudgetAnalysisUserPrompt(payload: unknown): string {
-  return `${BUDGET_ANALYSIS_USER_PROMPT_PREFIX}${JSON.stringify(payload, null, 2)}`;
+export function buildBudgetAnalysisUserPrompt(payload: BudgetAnalysisModelPayload): string {
+  const suffix =
+    payload.transactions_included === false
+      ? `\n\nNote: Individual transactions were not included (\`transactions_included\` is false). Leave \`recategorisations\` as an empty array unless you have a category-level observation you can state without inventing transaction lines. Do not fabricate transaction_hint values.\n`
+      : "";
+  return `${BUDGET_ANALYSIS_USER_PROMPT_PREFIX}${JSON.stringify(payload, null, 2)}${suffix}`;
 }

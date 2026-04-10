@@ -4,6 +4,14 @@
 
 ### Added
 
+- **Shared list item reorder (persisted)**: On the list detail page (`/lists/[id]`) and under **Settings** > **Lists** > **List items**, checklist rows can be **reordered by dragging the grip** (mouse or touch: brief hold on the grip, then drag). Order is stored in `shared_list_items.sort_order`, separately for **open** vs **completed** items (completed stay below open). Server action: `reorderListItems`.
+
+- **Shared list items and notes**: `NOTE_LINKED_TYPE_SHARED_LIST_ITEM` links polymorphic `notes` to `shared_list_items` (optional; no column on items). `INoteRepository` adds `deleteAllForLinkedTarget` / `deleteAllForLinkedTargets`; list and list-item repositories remove attached notes when deleting lists, items, or completed items.
+- **Polymorphic notes (DB + repository)**: New `notes` table (`drizzle/0021_notes_pg.sql`, wired in `db:push`) with `owner_user_id`, `linked_type`, `linked_id`, `body`, timestamps; `INoteRepository` / `NoteRepository` and `getNoteRepository()` for CRUD scoped per user. Target links are app-defined string keys plus row id (no per-entity note tables).
+
+- **README**: Documented the full Postgres schema as a **Database ERD** (Mermaid), aligned with `drizzle/*_pg.sql`, including caveats for non-FK recurring columns and polymorphic `account_transactions` references.
+
+- **AI spending analysis: summary vs full transactions**: Dashboard and Summary offer **Analyze spending** (category totals + month figures only, smaller prompt) and **Include all transactions** (every expense line for the month, as before). Stored runs use `prompt_version` **4** and `input_json.transactions_included`.
 - **Per-user feature access (AI and Recon)**: Added `users.ai_feature_allowed` and `users.recon_feature_allowed` (migration `0020_users_feature_access_pg.sql`, wired in `db:push`). Both must be true **and** the existing Settings toggles must be on for the corresponding feature. Migration grants both flags only to **`users.id = 1`** by default (edit the migration or use SQL / a future admin UI for other users). See [docs/feature-access.md](./docs/feature-access.md).
 
 - **AI toggle (off by default)**: AI features are now **disabled by default** per user (`users.ai_enabled`, migration `0019_users_ai_enabled_pg.sql`). Enable **AI analysis** under **Settings** before AI buttons and report generation appear.
@@ -24,6 +32,7 @@
 
 ### Changed
 
+- **README**: Reorganised **Features** into grouped sections (money, budget, accounts, splits, goals, household, dashboard/nav, mortgage, automation/export, summary/optional AI & Recon) with shorter “what it does” bullets; deep detail remains in feature docs.
 - **README**: Added a full **Environment variables** section (all documented `process.env` keys: core, push, cron, AI, Recon, seed, runtime) and fixed doc structure (Recon guide and DB migrations are top-level sections; removed duplicate Recon env table).
 
 - **Feature-access migration `0020`**: After adding `ai_feature_allowed` / `recon_feature_allowed`, only **`users.id = 1`** is updated to allowed; other user rows stay `false` until granted (edit migration, SQL, or future admin UI).

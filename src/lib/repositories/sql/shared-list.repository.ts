@@ -1,5 +1,7 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
 import { getRequestContext } from "@/lib/db/request-context";
+import { NOTE_LINKED_TYPE_SHARED_LIST_ITEM } from "@/lib/types/note-linked-types";
+import { NoteRepository } from "./note.repository";
 import type { SharedList } from "../interfaces/shared-list.repository";
 import type {
   ISharedListRepository,
@@ -8,6 +10,8 @@ import type {
 } from "../interfaces/shared-list.repository";
 
 import type { ListVisibility } from "../interfaces/shared-list.repository";
+
+const noteRepo = new NoteRepository();
 
 const SELECT_FIELDS = `
   SELECT
@@ -131,6 +135,14 @@ export class SharedListRepository implements ISharedListRepository {
   }
 
   async delete(id: number): Promise<void> {
+    const itemRows = await all<{ id: number }>(
+      "SELECT id FROM shared_list_items WHERE list_id = ?",
+      [id]
+    );
+    await noteRepo.deleteAllForLinkedTargets(
+      NOTE_LINKED_TYPE_SHARED_LIST_ITEM,
+      itemRows.map((r) => r.id)
+    );
     await run("DELETE FROM shared_lists WHERE id = ?", [id]);
   }
 }

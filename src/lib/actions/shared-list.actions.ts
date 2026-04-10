@@ -188,6 +188,53 @@ export async function deleteListItem(id: number): Promise<SharedListActionResult
   }
 }
 
+/**
+ * Persist item order after drag-and-drop within the incomplete or completed section.
+ * `orderedItemIds` must list every item in that section for this list, in the new order.
+ */
+export async function reorderListItems(
+  listId: number,
+  orderedItemIds: number[],
+  completedSection: boolean
+): Promise<SharedListActionResult> {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+  setRequestContext({
+    userId: session.user.id,
+    userName: session.user.name ?? undefined,
+  });
+  if (orderedItemIds.length === 0) return { success: true };
+  const listRepo = getSharedListRepository();
+  const list = await listRepo.findById(listId);
+  if (!list) return { success: false, error: "List not found" };
+  const itemRepo = getSharedListItemRepository();
+  const allItems = await itemRepo.findByListId(listId);
+  const sectionItems = allItems.filter((i) => i.completed === completedSection);
+  const sectionIdSet = new Set(sectionItems.map((i) => i.id));
+  if (orderedItemIds.length !== sectionItems.length) {
+    return { success: false, error: "Invalid item order" };
+  }
+  const seen = new Set<number>();
+  for (const id of orderedItemIds) {
+    if (!sectionIdSet.has(id) || seen.has(id)) {
+      return { success: false, error: "Invalid item order" };
+    }
+    seen.add(id);
+  }
+  try {
+    for (let i = 0; i < orderedItemIds.length; i++) {
+      await itemRepo.update(orderedItemIds[i]!, { sortOrder: i });
+    }
+    revalidatePath("/lists");
+    revalidatePath(`/lists/${listId}`);
+    return { success: true };
+  } catch (e) {
+    const message =
+      e instanceof Error ? e.message : "Failed to reorder list items";
+    return { success: false, error: message };
+  }
+}
+
 export async function deleteCompletedListItems(
   listId: number
 ): Promise<SharedListActionResult> {

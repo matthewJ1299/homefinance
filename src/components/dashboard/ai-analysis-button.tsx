@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { analyzeExpenses } from "@/lib/actions/ai.actions";
 import { Button } from "@/components/ui/button";
-import { Copy, Sparkles } from "lucide-react";
+import { Copy, ListTree, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -23,12 +23,12 @@ export function AiAnalysisButton({ month, enabled }: AiAnalysisButtonProps) {
 
   if (!enabled) return null;
 
-  const handleClick = () => {
+  const runAnalysis = (includeTransactions: boolean) => {
     setError(null);
     setInputText(null);
     setExpanded(true);
     startTransition(async () => {
-      const result = await analyzeExpenses(month);
+      const result = await analyzeExpenses(month, { includeTransactions });
       if (result.success) {
         setInputText(result.inputText);
         toast.success("Opening report…");
@@ -70,17 +70,33 @@ export function AiAnalysisButton({ month, enabled }: AiAnalysisButtonProps) {
 
   return (
     <section className="space-y-2">
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={handleClick}
-        disabled={isPending}
-        className="gap-2"
-      >
-        <Sparkles className="h-4 w-4" />
-        {isPending ? "Analyzing..." : "Analyze spending"}
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="default"
+          size="sm"
+          onClick={() => runAnalysis(false)}
+          disabled={isPending}
+          className="gap-2"
+        >
+          <Sparkles className="h-4 w-4" />
+          {isPending ? "Analyzing..." : "Analyze spending"}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => runAnalysis(true)}
+          disabled={isPending}
+          className="gap-2"
+        >
+          <ListTree className="h-4 w-4" />
+          {isPending ? "Analyzing..." : "Include all transactions"}
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Summary-only uses category totals and month figures (smaller request). Including all transactions helps the model suggest line-level recategorisations.
+      </p>
       {expanded && (
         <div
           className={cn(

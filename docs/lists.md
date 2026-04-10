@@ -2,25 +2,26 @@
 
 ## Overview
 
-Shared and personal todo-style lists with label and quantity per item. Items can be completed, incremented/decremented, or deleted.
+Shared and personal todo-style lists with label and quantity per item. Items can be completed, incremented/decremented, deleted, or **reordered** (grip handle on the left; persisted `sort_order`). Open items and completed items each have their own order; completed rows stay grouped below open rows.
 
 **Related**: The **Add** hub (`/add`) includes **New task**, which opens the shared `AddListItemDialog` (shared vs personal scope, list picker, label, quantity).
 
 ## Navigation and pages
 
 - **`/lists`**: **My lists** overview for the current scope (`?scope=shared` default, or `personal`). Shows filter chips (**All** + one per list), a progress bar per list, the latest items inline, and **Open** linking to `/lists/[id]`. If there are no lists, the page explains how to add one in Settings.
-- **`/lists/[id]`**: Single-list management: rename/delete list, add items, full item rows with quantity and delete, **Delete all completed**.
-- **Settings > Lists**: After creating lists, **List items** offers a list dropdown and the same add/remove/complete/quantity/clear-completed flows as the list detail page (`SharedListItemsManage`).
+- **`/lists/[id]`**: Single-list management: rename/delete list, add items, full item rows with quantity, **drag-to-reorder** (same pattern as Manage categories), and delete, **Delete all completed**.
+- **Settings > Lists**: After creating lists, **List items** offers a list dropdown and the same add/remove/complete/quantity/reorder/clear-completed flows as the list detail page (`SharedListItemsManage`).
 
 ## Data and actions
 
 - Repositories: `ISharedListRepository`, `ISharedListItemRepository`.
-- Server actions: `shared-list.actions` (create/update/delete list, create/update/delete items, delete completed).
+- **Optional notes per item** (not yet in UI): attach rows in `notes` with `NOTE_LINKED_TYPE_SHARED_LIST_ITEM` and `linked_id` = item id; use `getNoteRepository().listForTarget(userId, NOTE_LINKED_TYPE_SHARED_LIST_ITEM, itemId)` (and `create` / `update` / `delete` as usual). Deleting a list, a single item, or all completed items deletes any notes linked to those item ids (see `NoteRepository.deleteAllForLinkedTarget(s)`).
+- Server actions: `shared-list.actions` (create/update/delete list, create/update/delete items, **reorder items** (`reorderListItems`), delete completed).
 
 ## UI components
 
 - `MyListsOverview` – client; scope + filter state.
-- `SharedListItemRow` – optional `dateLabel` and `listId` (chevron to detail) for the overview; detail page uses rows without `listId`.
+- `SharedListItemRow` – optional `dateLabel` and `listId` (chevron to detail) for the overview; detail page uses rows without `listId`. Sortable wiring: `SortableSharedListItemRow` + `SharedListSortableItemList` (`@dnd-kit` + `reorderListItems`).
 - `SharedListsManage` / `ListPicker` – Settings: create/delete lists by scope.
 - `SharedListItemsManage` – Settings: pick a list and manage its rows (reuses `SharedListItemRow` and list server actions).
 - `AddListItemDialog` – shared modal for adding an item (used by Add hub and `QuickAddTrigger` / `QuickAddFab` if enabled elsewhere). On success it calls `onSuccess({ listId })` so the host can navigate (e.g. to `/lists/[id]`).

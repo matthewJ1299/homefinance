@@ -46,6 +46,8 @@ export interface BudgetAnalysisModelPayload {
     prev_month_spent_cents: number;
     is_overspent: boolean;
   }>;
+  /** When false, `transactions` is empty; the model should not infer line-item recategorisations. */
+  transactions_included: boolean;
   transactions: Array<{
     user_name: string;
     category_name: string;

@@ -1,3 +1,6 @@
+export type { Note } from "./note";
+export { NOTE_LINKED_TYPE_SHARED_LIST_ITEM } from "./note-linked-types";
+
 export type IncomeType = "salary" | "ad_hoc";
 
 export interface RecurringIncome {

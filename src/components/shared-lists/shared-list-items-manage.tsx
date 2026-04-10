@@ -9,9 +9,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { SharedListItemRow } from "@/components/shared-lists/shared-list-item-row";
+import { SharedListSortableItemList } from "@/components/shared-lists/shared-list-sortable-item-list";
 import type { SharedList } from "@/lib/repositories/interfaces/shared-list.repository";
 import type { SharedListItem } from "@/lib/repositories/interfaces/shared-list-item.repository";
+import { usePropSyncedState } from "@/hooks/use-prop-synced-state";
 
 interface SharedListItemsManageProps {
   lists: SharedList[];
@@ -40,9 +41,11 @@ export function SharedListItemsManage({
       ? selectedListId
       : (sortedLists[0]?.id ?? null);
 
-  const items = resolvedListId != null ? (itemsByListId[resolvedListId] ?? []) : [];
+  const itemsFromProps =
+    resolvedListId != null ? (itemsByListId[resolvedListId] ?? []) : [];
+  const [itemsState, setItemsState] = usePropSyncedState(itemsFromProps);
   const activeList = resolvedListId != null ? lists.find((l) => l.id === resolvedListId) : undefined;
-  const completedCount = items.filter((i) => i.completed).length;
+  const completedCount = itemsState.filter((i) => i.completed).length;
 
   const handleAddItem = (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,18 +162,20 @@ export function SharedListItemsManage({
         <h4 className="font-medium text-sm text-muted-foreground mb-3">
           Items on &quot;{activeList?.name ?? "…"}&quot;
         </h4>
-        {items.length === 0 ? (
+        {resolvedListId == null || itemsState.length === 0 ? (
           <p className="text-sm text-muted-foreground">No items yet.</p>
         ) : (
-          <ul className="space-y-2">
-            {items.map((item) => (
-              <SharedListItemRow
-                key={item.id}
-                item={item}
-                listId={resolvedListId ?? undefined}
-              />
-            ))}
-          </ul>
+          <>
+            <p className="text-xs text-muted-foreground mb-3">
+              Drag the grip to prioritise (same as on the list page). Touch: hold briefly on the grip, then drag.
+            </p>
+            <SharedListSortableItemList
+              listId={resolvedListId}
+              items={itemsState}
+              setItems={setItemsState}
+              listDetailLinkId={resolvedListId}
+            />
+          </>
         )}
       </section>
 
