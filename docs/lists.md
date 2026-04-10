@@ -15,7 +15,7 @@ Shared and personal todo-style lists with label and quantity per item. Items can
 ## Data and actions
 
 - Repositories: `ISharedListRepository`, `ISharedListItemRepository`.
-- **Optional notes per item** (not yet in UI): attach rows in `notes` with `NOTE_LINKED_TYPE_SHARED_LIST_ITEM` and `linked_id` = item id; use `getNoteRepository().listForTarget(userId, NOTE_LINKED_TYPE_SHARED_LIST_ITEM, itemId)` (and `create` / `update` / `delete` as usual). Deleting a list, a single item, or all completed items deletes any notes linked to those item ids (see `NoteRepository.deleteAllForLinkedTarget(s)`).
+- **Optional notes per item**: Shown on **My lists**, **`/lists/[id]`**, and **Settings > Lists > List items** as a subtitle under the label (collapsed text truncated to ~96 characters). Tap the label row (chevron) to expand and edit; **Save note** calls `setListItemNote` (replaces your notes for that item with the textarea content). Backed by `notes` rows (`NOTE_LINKED_TYPE_SHARED_LIST_ITEM`, `linked_id` = item id). Deleting a list, item, or completed items removes linked notes via repositories.
 - Server actions: `shared-list.actions` (create/update/delete list, create/update/delete items, **reorder items** (`reorderListItems`), delete completed).
 
 ## UI components

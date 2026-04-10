@@ -19,6 +19,7 @@ import { RecurringExpenseManage } from "@/components/recurring-expenses/recurrin
 import { SharedListsManage } from "@/components/shared-lists/shared-lists-manage";
 import { SharedListItemsManage } from "@/components/shared-lists/shared-list-items-manage";
 import type { SharedListItem } from "@/lib/repositories/interfaces/shared-list-item.repository";
+import { notesByItemIdForUser } from "@/lib/shared-lists/load-item-notes";
 import { PushNotificationsSettings } from "@/components/push/push-notifications-settings";
 import { DashboardTilesSettings } from "@/components/settings/dashboard-tiles-settings";
 import { AccountsManage } from "@/components/accounts/accounts-manage";
@@ -45,6 +46,10 @@ export default async function SettingsPage() {
     sharedLists.map(async (list) => {
       listItemsByListId[list.id] = await itemRepo.findByListId(list.id);
     })
+  );
+  const listItemNotesByItemId = await notesByItemIdForUser(
+    userId,
+    Object.values(listItemsByListId).flat()
   );
   const categoriesForRecurring = await getCategoryRepository().findAll();
 
@@ -121,7 +126,11 @@ export default async function SettingsPage() {
             Create and delete shared or personal lists. Use the toggle to choose which kind of lists you are viewing/adding. Below, pick any list to add or remove checklist rows without opening the Lists pages.
           </p>
           <SharedListsManage lists={sharedLists} />
-          <SharedListItemsManage lists={sharedLists} itemsByListId={listItemsByListId} />
+          <SharedListItemsManage
+            lists={sharedLists}
+            itemsByListId={listItemsByListId}
+            notesByItemId={listItemNotesByItemId}
+          />
         </CollapsibleSection>
       </div>
     </div>

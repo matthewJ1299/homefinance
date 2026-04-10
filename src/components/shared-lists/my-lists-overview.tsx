@@ -5,21 +5,27 @@ import Link from "next/link";
 import { format } from "date-fns";
 import type { ListVisibility, SharedList } from "@/lib/repositories/interfaces/shared-list.repository";
 import type { SharedListItem } from "@/lib/repositories/interfaces/shared-list-item.repository";
+import type { Note } from "@/lib/types/note";
 import { cn } from "@/lib/utils";
 import { SharedListItemRow } from "./shared-list-item-row";
 import { usePropSyncedState } from "@/hooks/use-prop-synced-state";
 
+const NO_NOTES: Note[] = [];
+
 export function MyListsOverview({
   lists,
   itemsByListId,
+  notesByItemId,
   scope,
 }: {
   lists: SharedList[];
   itemsByListId: Record<number, SharedListItem[]>;
+  notesByItemId: Record<number, Note[]>;
   scope: ListVisibility;
 }) {
   const [filterId, setFilterId] = useState<number | "all">("all");
   const [itemsState, setItemsState] = usePropSyncedState(itemsByListId);
+  const [notesState] = usePropSyncedState(notesByItemId);
 
   const sortedLists = useMemo(
     () => [...lists].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
@@ -133,6 +139,7 @@ export function MyListsOverview({
                     <SharedListItemRow
                       key={item.id}
                       item={item}
+                      notes={notesState[item.id] ?? NO_NOTES}
                       listId={list.id}
                       dateLabel={format(new Date(item.createdAt), "MMM d")}
                       onOptimisticUpsertItem={optimisticUpsertItem}

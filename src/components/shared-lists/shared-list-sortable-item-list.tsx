@@ -21,12 +21,16 @@ import {
 import { reorderListItems } from "@/lib/actions/shared-list.actions";
 import { SortableSharedListItemRow } from "./sortable-shared-list-item-row";
 import type { SharedListItem } from "@/lib/repositories/interfaces/shared-list-item.repository";
+import type { Note } from "@/lib/types/note";
 import { toast } from "sonner";
+
+const NO_NOTES: Note[] = [];
 
 interface SharedListSortableItemListProps {
   listId: number;
   items: SharedListItem[];
   setItems: Dispatch<SetStateAction<SharedListItem[]>>;
+  notesByItemId: Record<number, Note[]>;
   onOptimisticUpsertItem?: (next: SharedListItem) => () => void;
   onOptimisticRemoveItem?: (item: SharedListItem) => () => void;
   /** When set, each row shows a chevron link to this list detail page (e.g. Settings manage view). */
@@ -37,6 +41,7 @@ export function SharedListSortableItemList({
   listId,
   items,
   setItems,
+  notesByItemId,
   onOptimisticUpsertItem,
   onOptimisticRemoveItem,
   listDetailLinkId,
@@ -101,6 +106,7 @@ export function SharedListSortableItemList({
                 <SortableSharedListItemRow
                   key={item.id}
                   item={item}
+                  notes={notesByItemId[item.id] ?? NO_NOTES}
                   listId={rowListId}
                   onOptimisticUpsertItem={onOptimisticUpsertItem}
                   onOptimisticRemoveItem={onOptimisticRemoveItem}
@@ -130,6 +136,7 @@ export function SharedListSortableItemList({
                 <SortableSharedListItemRow
                   key={item.id}
                   item={item}
+                  notes={notesByItemId[item.id] ?? NO_NOTES}
                   listId={rowListId}
                   onOptimisticUpsertItem={onOptimisticUpsertItem}
                   onOptimisticRemoveItem={onOptimisticRemoveItem}

@@ -6,7 +6,10 @@ import { setRequestContext } from "@/lib/db/request-context";
 import {
   getSharedListRepository,
   getSharedListItemRepository,
+  getNoteRepository,
 } from "@/lib/repositories";
+import { NOTE_LINKED_TYPE_SHARED_LIST_ITEM } from "@/lib/types/note-linked-types";
+import { listItemNoteBodySchema } from "@/lib/validators/list-item-note.schema";
 import {
   createSharedListSchema,
   updateSharedListSchema,
@@ -231,6 +234,50 @@ export async function reorderListItems(
   } catch (e) {
     const message =
       e instanceof Error ? e.message : "Failed to reorder list items";
+    return { success: false, error: message };
+  }
+}
+
+export async function setListItemNote(
+  itemId: number,
+  body: string
+): Promise<SharedListActionResult> {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+  const userId = Number(session.user.id);
+  setRequestContext({
+    userId: session.user.id,
+    userName: session.user.name ?? undefined,
+  });
+  const parsed = listItemNoteBodySchema.safeParse(body);
+  if (!parsed.success) return { success: false, error: parsed.error.message };
+  const itemRepo = getSharedListItemRepository();
+  const existing = await itemRepo.findById(itemId);
+  if (!existing) return { success: false, error: "Item not found" };
+  const listRepo = getSharedListRepository();
+  const list = await listRepo.findById(existing.listId);
+  if (!list) return { success: false, error: "List not found" };
+  const noteRepo = getNoteRepository();
+  const trimmed = parsed.data.trim();
+  try {
+    await noteRepo.deleteAllForOwnerAndTarget(
+      userId,
+      NOTE_LINKED_TYPE_SHARED_LIST_ITEM,
+      itemId
+    );
+    if (trimmed.length > 0) {
+      await noteRepo.create(userId, {
+        linkedType: NOTE_LINKED_TYPE_SHARED_LIST_ITEM,
+        linkedId: itemId,
+        body: trimmed,
+      });
+    }
+    revalidatePath("/lists");
+    revalidatePath(`/lists/${existing.listId}`);
+    revalidatePath("/settings");
+    return { success: true };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to save note";
     return { success: false, error: message };
   }
 }

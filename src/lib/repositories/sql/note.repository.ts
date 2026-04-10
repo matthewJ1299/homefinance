@@ -63,6 +63,30 @@ export class NoteRepository implements INoteRepository {
     return rows.map(toNote);
   }
 
+  async listForTargets(
+    ownerUserId: number,
+    linkedType: string,
+    linkedIds: number[]
+  ): Promise<Map<number, Note[]>> {
+    const byId = new Map<number, Note[]>();
+    if (linkedIds.length === 0) return byId;
+    const placeholders = linkedIds.map(() => "?").join(", ");
+    const rows = await all<NoteRow>(
+      `SELECT id, owner_user_id, linked_type, linked_id, body, created_at, updated_at
+       FROM notes
+       WHERE owner_user_id = ? AND linked_type = ? AND linked_id IN (${placeholders})
+       ORDER BY linked_id ASC, created_at ASC, id ASC`,
+      [ownerUserId, linkedType, ...linkedIds]
+    );
+    for (const row of rows) {
+      const note = toNote(row);
+      const list = byId.get(note.linkedId) ?? [];
+      list.push(note);
+      byId.set(note.linkedId, list);
+    }
+    return byId;
+  }
+
   async update(id: number, ownerUserId: number, input: UpdateNoteInput): Promise<void> {
     const updates: string[] = [];
     const params: (string | number | boolean | null)[] = [];
@@ -84,6 +108,17 @@ export class NoteRepository implements INoteRepository {
 
   async delete(id: number, ownerUserId: number): Promise<void> {
     await run("DELETE FROM notes WHERE id = ? AND owner_user_id = ?", [id, ownerUserId]);
+  }
+
+  async deleteAllForOwnerAndTarget(
+    ownerUserId: number,
+    linkedType: string,
+    linkedId: number
+  ): Promise<void> {
+    await run(
+      "DELETE FROM notes WHERE owner_user_id = ? AND linked_type = ? AND linked_id = ?",
+      [ownerUserId, linkedType, linkedId]
+    );
   }
 
   async deleteAllForLinkedTarget(linkedType: string, linkedId: number): Promise<void> {

@@ -14,15 +14,17 @@ import { Label } from "@/components/ui/label";
 import { SharedListSortableItemList } from "./shared-list-sortable-item-list";
 import type { SharedList } from "@/lib/repositories/interfaces/shared-list.repository";
 import type { SharedListItem } from "@/lib/repositories/interfaces/shared-list-item.repository";
+import type { Note } from "@/lib/types/note";
 import { usePropSyncedState } from "@/hooks/use-prop-synced-state";
 import { toast } from "sonner";
 
 interface ListDetailProps {
   list: SharedList;
   items: SharedListItem[];
+  notesByItemId: Record<number, Note[]>;
 }
 
-export function ListDetail({ list, items }: ListDetailProps) {
+export function ListDetail({ list, items, notesByItemId }: ListDetailProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [newLabel, setNewLabel] = useState("");
@@ -33,6 +35,7 @@ export function ListDetail({ list, items }: ListDetailProps) {
   const [errorText, setErrorText] = useState("");
 
   const [itemsState, setItemsState] = usePropSyncedState(items);
+  const [notesState] = usePropSyncedState(notesByItemId);
   const completedCount = itemsState.filter((i) => i.completed).length;
 
   const optimisticUpsertItem = useCallback(
@@ -263,6 +266,7 @@ export function ListDetail({ list, items }: ListDetailProps) {
               listId={list.id}
               items={itemsState}
               setItems={setItemsState}
+              notesByItemId={notesState}
               onOptimisticUpsertItem={optimisticUpsertItem}
               onOptimisticRemoveItem={optimisticRemoveItem}
             />

@@ -12,16 +12,19 @@ import { Label } from "@/components/ui/label";
 import { SharedListSortableItemList } from "@/components/shared-lists/shared-list-sortable-item-list";
 import type { SharedList } from "@/lib/repositories/interfaces/shared-list.repository";
 import type { SharedListItem } from "@/lib/repositories/interfaces/shared-list-item.repository";
+import type { Note } from "@/lib/types/note";
 import { usePropSyncedState } from "@/hooks/use-prop-synced-state";
 
 interface SharedListItemsManageProps {
   lists: SharedList[];
   itemsByListId: Record<number, SharedListItem[]>;
+  notesByItemId: Record<number, Note[]>;
 }
 
 export function SharedListItemsManage({
   lists,
   itemsByListId,
+  notesByItemId,
 }: SharedListItemsManageProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -44,6 +47,7 @@ export function SharedListItemsManage({
   const itemsFromProps =
     resolvedListId != null ? (itemsByListId[resolvedListId] ?? []) : [];
   const [itemsState, setItemsState] = usePropSyncedState(itemsFromProps);
+  const [notesState] = usePropSyncedState(notesByItemId);
   const activeList = resolvedListId != null ? lists.find((l) => l.id === resolvedListId) : undefined;
   const completedCount = itemsState.filter((i) => i.completed).length;
 
@@ -173,6 +177,7 @@ export function SharedListItemsManage({
               listId={resolvedListId}
               items={itemsState}
               setItems={setItemsState}
+              notesByItemId={notesState}
               listDetailLinkId={resolvedListId}
             />
           </>

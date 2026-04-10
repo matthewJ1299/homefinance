@@ -8,6 +8,7 @@ import Link from "next/link";
 import type { ListVisibility } from "@/lib/repositories/interfaces/shared-list.repository";
 import type { SharedListItem } from "@/lib/repositories/interfaces/shared-list-item.repository";
 import { MyListsOverview } from "@/components/shared-lists/my-lists-overview";
+import { notesByItemIdForUser } from "@/lib/shared-lists/load-item-notes";
 
 function parseScope(raw: unknown): ListVisibility {
   if (raw === "personal") return "personal";
@@ -21,6 +22,7 @@ export default async function ListsPage({
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+  const userId = Number(session.user.id);
   const repo = getSharedListRepository();
   const itemRepo = getSharedListItemRepository();
 
@@ -75,6 +77,10 @@ export default async function ListsPage({
       itemsByListId[list.id] = await itemRepo.findByListId(list.id);
     })
   );
+  const notesByItemId = await notesByItemIdForUser(
+    userId,
+    Object.values(itemsByListId).flat()
+  );
 
   return (
     <div className="p-4 space-y-6 pb-24">
@@ -106,7 +112,12 @@ export default async function ListsPage({
         </div>
       </div>
 
-      <MyListsOverview lists={lists} itemsByListId={itemsByListId} scope={scope} />
+      <MyListsOverview
+        lists={lists}
+        itemsByListId={itemsByListId}
+        notesByItemId={notesByItemId}
+        scope={scope}
+      />
     </div>
   );
 }

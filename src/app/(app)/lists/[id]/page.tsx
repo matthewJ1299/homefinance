@@ -7,6 +7,7 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { ListDetail } from "@/components/shared-lists/list-detail";
 import { ListSwitcher } from "@/components/shared-lists/list-switcher";
+import { notesByItemIdForUser } from "@/lib/shared-lists/load-item-notes";
 
 interface ListPageProps {
   params: Promise<{ id: string }>;
@@ -15,6 +16,7 @@ interface ListPageProps {
 export default async function ListDetailPage({ params }: ListPageProps) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+  const userId = Number(session.user.id);
   const id = Number((await params).id);
   if (Number.isNaN(id)) notFound();
   const listRepo = getSharedListRepository();
@@ -24,6 +26,7 @@ export default async function ListDetailPage({ params }: ListPageProps) {
     itemRepo.findByListId(id),
   ]);
   if (!list) notFound();
+  const notesByItemId = await notesByItemIdForUser(userId, items);
   const lists = await listRepo.findAll({ visibility: list.visibility });
   return (
     <div className="p-4 space-y-6">
@@ -64,7 +67,7 @@ export default async function ListDetailPage({ params }: ListPageProps) {
         </div>
         <ListSwitcher lists={lists} currentList={list} />
       </div>
-      <ListDetail list={list} items={items} />
+      <ListDetail list={list} items={items} notesByItemId={notesByItemId} />
     </div>
   );
 }
