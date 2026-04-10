@@ -35,6 +35,8 @@
 
 ### Changed
 
+- **List item notes (mobile / layout)**: Collapsed note line uses a single-line clamp so the row does not grow tall; expanding shows a scroll-limited read-only preview first, and the textarea appears only after tapping the preview (**Cancel** discards edits and closes the editor).
+
 - **README**: Reorganised **Features** into grouped sections (money, budget, accounts, splits, goals, household, dashboard/nav, mortgage, automation/export, summary/optional AI & Recon) with shorter “what it does” bullets; deep detail remains in feature docs.
 - **README**: Added a full **Environment variables** section (all documented `process.env` keys: core, push, cron, AI, Recon, seed, runtime) and fixed doc structure (Recon guide and DB migrations are top-level sections; removed duplicate Recon env table).
 

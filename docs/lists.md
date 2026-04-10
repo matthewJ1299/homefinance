@@ -15,7 +15,7 @@ Shared and personal todo-style lists with label and quantity per item. Items can
 ## Data and actions
 
 - Repositories: `ISharedListRepository`, `ISharedListItemRepository`.
-- **Optional notes per item**: Shown on **My lists**, **`/lists/[id]`**, and **Settings > Lists > List items** as a subtitle under the label (collapsed text truncated to ~96 characters). Tap the label row (chevron) to expand and edit; **Save note** calls `setListItemNote` (replaces your notes for that item with the textarea content). Paste `http(s)` or `www.` URLs; they show as clickable links in the subtitle and in the preview above the textarea (new tab; click does not collapse the row). Backed by `notes` rows (`NOTE_LINKED_TYPE_SHARED_LIST_ITEM`, `linked_id` = item id). Deleting a list, item, or completed items removes linked notes via repositories.
+- **Optional notes per item**: Shown on **My lists**, **`/lists/[id]`**, and **Settings > Lists > List items** as a **single-line** subtitle under the label (ellipsized). Tap the label row (chevron) to expand a **read-only** note preview (scroll-capped height); **tap the preview** to open the textarea, **Save note** / **Cancel** (`setListItemNote` replaces your notes when saved). Paste `http(s)` or `www.` URLs; they are clickable in the subtitle and preview (new tab; link click does not toggle the row). Backed by `notes` rows (`NOTE_LINKED_TYPE_SHARED_LIST_ITEM`, `linked_id` = item id). Deleting a list, item, or completed items removes linked notes via repositories.
 - Server actions: `shared-list.actions` (create/update/delete list, create/update/delete items, **reorder items** (`reorderListItems`), delete completed).
 
 ## UI components

@@ -43,7 +43,7 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 ### Household coordination
 
 - **Calendar** — Month grid and day views, multi-day spans, recurrence, reminders, color categories (separate from budget categories), shared vs. personal events, priorities, and notes. On narrow screens, swipe the month grid to change months. Push follows shared vs. personal rules. See `/calendar`.
-- **Lists** — Shared household lists and personal lists; **My lists** overview; detail at `/lists/[id]` with check-off, quantity, **per-user optional notes** (truncated subtitle; expand the row to read/edit; `http`/`www` links open in a new tab), **drag the grip** to prioritise (open vs. completed sections keep their own order; persisted), and **Delete all completed**. Manage lists under **Settings** > **Lists**.
+- **Lists** — Shared household lists and personal lists; **My lists** overview; detail at `/lists/[id]` with check-off, quantity, **per-user optional notes** (one-line subtitle; expand for read-only preview, then tap to edit; `http`/`www` links open in a new tab), **drag the grip** to prioritise (open vs. completed sections keep their own order; persisted), and **Delete all completed**. Manage lists under **Settings** > **Lists**.
 
 ### Home dashboard and navigation
 

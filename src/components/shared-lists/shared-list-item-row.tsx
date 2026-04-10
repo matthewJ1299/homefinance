@@ -70,6 +70,8 @@ export function SharedListItemRow({
   const [isPending, startTransition] = useTransition();
   const [notePending, startNoteTransition] = useTransition();
   const [expanded, setExpanded] = useState(false);
+  /** Textarea is shown only after tapping the read-only note preview (fixes tall mobile layout). */
+  const [showNoteEditor, setShowNoteEditor] = useState(false);
   const isTemp = item.id < 0;
 
   const combinedNoteText = useMemo(
@@ -85,6 +87,10 @@ export function SharedListItemRow({
   useEffect(() => {
     setDraft(combinedNoteText);
   }, [combinedNoteText]);
+
+  useEffect(() => {
+    if (!expanded) setShowNoteEditor(false);
+  }, [expanded]);
 
   const handleToggleComplete = () => {
     startTransition(async () => {
@@ -140,11 +146,17 @@ export function SharedListItemRow({
       const result = await setListItemNote(item.id, draft);
       if (result.success) {
         toast.success("Note saved.");
+        setShowNoteEditor(false);
         void router.refresh();
       } else {
         toast.error(result.error);
       }
     });
+  };
+
+  const handleCancelNoteEdit = () => {
+    setDraft(combinedNoteText);
+    setShowNoteEditor(false);
   };
 
   return (
@@ -228,10 +240,10 @@ export function SharedListItemRow({
                   ) : null}
                 </div>
                 {subtitle ? (
-                  <p className="text-xs text-muted-foreground mt-1 break-words">
+                  <p className="text-xs text-muted-foreground mt-1 min-w-0 max-w-full line-clamp-1 overflow-hidden [overflow-wrap:anywhere]">
                     <LinkifiedText
                       text={subtitle}
-                      linkClassName="text-primary font-medium"
+                      linkClassName="text-primary font-medium [overflow-wrap:anywhere]"
                     />
                   </p>
                 ) : null}
@@ -293,36 +305,72 @@ export function SharedListItemRow({
 
       {expanded && !isTemp ? (
         <div className="border-t border-border/60 px-3 pb-3 pt-3 space-y-2 bg-muted/20">
-          <div className="space-y-2">
-            <Label htmlFor={`list-item-note-${item.id}`} className="text-xs">
-              {combinedNoteText.length > 0 ? "Note" : "Add note"}
-            </Label>
-            {draft.trim().length > 0 ? (
-              <div className="rounded-lg border border-border/50 bg-background/80 p-2.5 text-sm whitespace-pre-wrap break-words text-foreground">
-                <LinkifiedText text={draft} />
+          {showNoteEditor ? (
+            <div className="space-y-2">
+              <Label htmlFor={`list-item-note-${item.id}`} className="text-xs">
+                Edit your note
+              </Label>
+              <textarea
+                id={`list-item-note-${item.id}`}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                rows={4}
+                disabled={notePending}
+                placeholder="Optional detail for this item..."
+                className={cn(
+                  "flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background whitespace-pre-wrap",
+                  "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                  "disabled:cursor-not-allowed disabled:opacity-50"
+                )}
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" size="sm" onClick={handleSaveNote} disabled={notePending}>
+                  {notePending ? "Saving…" : "Save note"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleCancelNoteEdit}
+                  disabled={notePending}
+                >
+                  Cancel
+                </Button>
               </div>
-            ) : null}
-            <textarea
-              id={`list-item-note-${item.id}`}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              rows={4}
-              disabled={notePending}
-              placeholder="Optional detail for this item..."
-              className={cn(
-                "flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background whitespace-pre-wrap",
-                "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                "disabled:cursor-not-allowed disabled:opacity-50"
-              )}
-            />
-            <Button type="button" size="sm" onClick={handleSaveNote} disabled={notePending}>
-              {notePending ? "Saving…" : "Save note"}
-            </Button>
-            <p className="text-[11px] text-muted-foreground">
-              Saving replaces your previous note on this item. Others do not see your note. Links starting
-              with http:// or www. open in a new tab from the preview above.
-            </p>
-          </div>
+              <p className="text-[11px] text-muted-foreground">
+                Saving replaces your previous note on this item. Others do not see your note. Links starting
+                with http:// or www. open in a new tab from the preview when not editing.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {draft.trim().length > 0 ? (
+                <p className="text-[11px] text-muted-foreground">Tap to edit.</p>
+              ) : null}
+              <div
+                tabIndex={0}
+                className={cn(
+                  "w-full max-h-[min(12.5rem,38vh)] min-h-[2.75rem] overflow-y-auto overscroll-contain rounded-lg border border-border/50 bg-background/80",
+                  "p-2.5 text-sm text-left text-foreground whitespace-pre-wrap break-words",
+                  "cursor-pointer transition-colors hover:bg-muted/40",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                )}
+                onClick={() => setShowNoteEditor(true)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setShowNoteEditor(true);
+                  }
+                }}
+              >
+                {draft.trim().length > 0 ? (
+                  <LinkifiedText text={draft} />
+                ) : (
+                  <span className="text-muted-foreground">Tap to add a note…</span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       ) : null}
     </li>
