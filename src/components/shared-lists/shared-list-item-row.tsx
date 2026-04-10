@@ -19,6 +19,7 @@ import type { SharedListItem } from "@/lib/repositories/interfaces/shared-list-i
 import type { Note } from "@/lib/types/note";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { LinkifiedText } from "./linkified-text";
 
 const SUBTITLE_MAX_CHARS = 96;
 
@@ -227,7 +228,12 @@ export function SharedListItemRow({
                   ) : null}
                 </div>
                 {subtitle ? (
-                  <p className="text-xs text-muted-foreground mt-1 break-words">{subtitle}</p>
+                  <p className="text-xs text-muted-foreground mt-1 break-words">
+                    <LinkifiedText
+                      text={subtitle}
+                      linkClassName="text-primary font-medium"
+                    />
+                  </p>
                 ) : null}
               </div>
             </div>
@@ -291,6 +297,11 @@ export function SharedListItemRow({
             <Label htmlFor={`list-item-note-${item.id}`} className="text-xs">
               {combinedNoteText.length > 0 ? "Note" : "Add note"}
             </Label>
+            {draft.trim().length > 0 ? (
+              <div className="rounded-lg border border-border/50 bg-background/80 p-2.5 text-sm whitespace-pre-wrap break-words text-foreground">
+                <LinkifiedText text={draft} />
+              </div>
+            ) : null}
             <textarea
               id={`list-item-note-${item.id}`}
               value={draft}
@@ -308,7 +319,8 @@ export function SharedListItemRow({
               {notePending ? "Saving…" : "Save note"}
             </Button>
             <p className="text-[11px] text-muted-foreground">
-              Saving replaces your previous note on this item. Others do not see your note.
+              Saving replaces your previous note on this item. Others do not see your note. Links starting
+              with http:// or www. open in a new tab from the preview above.
             </p>
           </div>
         </div>

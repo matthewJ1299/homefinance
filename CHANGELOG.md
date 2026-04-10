@@ -7,6 +7,7 @@
 - **Shared list item reorder (persisted)**: On the list detail page (`/lists/[id]`) and under **Settings** > **Lists** > **List items**, checklist rows can be **reordered by dragging the grip** (mouse or touch: brief hold on the grip, then drag). Order is stored in `shared_list_items.sort_order`, separately for **open** vs **completed** items (completed stay below open). Server action: `reorderListItems`.
 
 - **Shared list items and notes**: `NOTE_LINKED_TYPE_SHARED_LIST_ITEM` links polymorphic `notes` to `shared_list_items` (optional; no column on items). `INoteRepository` adds `deleteAllForLinkedTarget` / `deleteAllForLinkedTargets`; list and list-item repositories remove attached notes when deleting lists, items, or completed items.
+- **Clickable URLs in list notes**: `http(s)` and `www.` URLs in the note subtitle and expanded preview (`LinkifiedText`) open in a new tab; link clicks use `stopPropagation` so the row accordion does not toggle.
 - **Polymorphic notes (DB + repository)**: New `notes` table (`drizzle/0021_notes_pg.sql`, wired in `db:push`) with `owner_user_id`, `linked_type`, `linked_id`, `body`, timestamps; `INoteRepository` / `NoteRepository` and `getNoteRepository()` for CRUD scoped per user. Target links are app-defined string keys plus row id (no per-entity note tables).
 
 - **README**: Documented the full Postgres schema as a **Database ERD** (Mermaid), aligned with `drizzle/*_pg.sql`, including caveats for non-FK recurring columns and polymorphic `account_transactions` references.
