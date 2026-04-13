@@ -8,6 +8,16 @@ export interface UserForAuth {
   email: string;
   name: string;
   passwordHash: string;
+  householdId: number;
+  isSuperAdmin: boolean;
+}
+
+export type SetupWizardStatus = "not_started" | "in_progress" | "dismissed" | "completed";
+
+export interface SetupWizardState {
+  status: SetupWizardStatus;
+  dismissedAt: Date | null;
+  completedAt: Date | null;
 }
 
 export interface IUserRepository {
@@ -15,6 +25,16 @@ export interface IUserRepository {
   findAllExcept(userId: number): Promise<UserSummary[]>;
   findById(id: number): Promise<UserSummary | null>;
   findByEmailForAuth(email: string): Promise<UserForAuth | null>;
+  /** households.id for this user (one household per user). */
+  getHouseholdId(userId: number): Promise<number>;
+  createUser(input: {
+    householdId: number;
+    name: string;
+    email: string;
+    passwordHash: string;
+  }): Promise<number>;
+  /** True if any row uses this email (case-insensitive trim). */
+  emailExists(email: string): Promise<boolean>;
   /** Day of month (1-28) when the budget period starts; period ends the day before the next period. Default 1 = calendar month. */
   getBudgetMonthStartDay(userId: number): Promise<number>;
   updateBudgetMonthStartDay(userId: number, day: number): Promise<void>;
@@ -46,4 +66,8 @@ export interface IUserRepository {
    */
   getAiUsePaid(userId: number): Promise<boolean>;
   setAiUsePaid(userId: number, usePaid: boolean): Promise<void>;
+
+  /** Setup wizard state for this user (cross-device). */
+  getSetupWizardState(userId: number): Promise<SetupWizardState>;
+  setSetupWizardStatus(userId: number, status: SetupWizardStatus): Promise<void>;
 }

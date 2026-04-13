@@ -4,13 +4,21 @@
 
 ### Added
 
+- **Multi-household tenancy (separate households)**: New `households` table; `users.household_id` (required); `household_id` on tenant-owned tables including **categories** (categories are no longer global). Request context and NextAuth session/JWT carry `householdId`; SQL repositories enforce `household_id` on reads/writes. **`/register`** creates a household + default categories/split group + first user (`registerNewHouseholdAction`, bcrypt). Migration `drizzle/0022_households_pg.sql` (applied by `db:push` when `users.household_id` is missing) backfills existing data. See [docs/multi-household.md](./docs/multi-household.md).
+- **Admin portal (foundation)**: Added protected `/admin/*` area for a **global super-admin** to manage houses and users, and to run **read-only allowlisted** operational queries. New schema/migrations include `users.is_super_admin` plus household-level feature policy columns `households.ai_feature_allowed` and `households.recon_feature_allowed` (migration `drizzle/0023_super_admin_and_household_feature_policy_pg.sql`, applied by `db:push` when `users.is_super_admin` is missing). Admin APIs live under `/api/admin/*` and require a super-admin session.
+- **Setup wizard (in-app onboarding)**: Added a guided setup wizard that soft-prompts new/incomplete users and can be re-run from **Settings**. It helps configure accounts, budget month start day, and optional feature preferences (AI/Recons) with per-user persisted state (migration `drizzle/0024_users_setup_wizard_state_pg.sql`). See [docs/setup-wizard.md](./docs/setup-wizard.md).
+
+### Changed
+
+- **Seed data (`db:seed`, `seed-categories`)**: Seeds **two households** (one per seeded user), per-household categories and default split groups, and **no cross-household split** sample expenses. `db:reset` minimal path (`seed-categories`) matches the same household model.
+
 - **Shared list item reorder (persisted)**: On the list detail page (`/lists/[id]`) and under **Settings** > **Lists** > **List items**, checklist rows can be **reordered by dragging the grip** (mouse or touch: brief hold on the grip, then drag). Order is stored in `shared_list_items.sort_order`, separately for **open** vs **completed** items (completed stay below open). Server action: `reorderListItems`.
 
 - **Shared list items and notes**: `NOTE_LINKED_TYPE_SHARED_LIST_ITEM` links polymorphic `notes` to `shared_list_items` (optional; no column on items). `INoteRepository` adds `deleteAllForLinkedTarget` / `deleteAllForLinkedTargets`; list and list-item repositories remove attached notes when deleting lists, items, or completed items.
 - **Clickable URLs in list notes**: `http(s)` and `www.` URLs in the note subtitle and expanded preview (`LinkifiedText`) open in a new tab; link clicks use `stopPropagation` so the row accordion does not toggle.
 - **Polymorphic notes (DB + repository)**: New `notes` table (`drizzle/0021_notes_pg.sql`, wired in `db:push`) with `owner_user_id`, `linked_type`, `linked_id`, `body`, timestamps; `INoteRepository` / `NoteRepository` and `getNoteRepository()` for CRUD scoped per user. Target links are app-defined string keys plus row id (no per-entity note tables).
 
-- **README**: Documented the full Postgres schema as a **Database ERD** (Mermaid), aligned with `drizzle/*_pg.sql`, including caveats for non-FK recurring columns and polymorphic `account_transactions` references.
+- **README**: Documented the full Postgres schema as a **Database ERD** (Mermaid), aligned with `drizzle/*_pg.sql`, including caveats for non-FK recurring columns and polymorphic `account_transactions` references. Updated for **`households`** / **`household_id`** (migration `0022`) and multi-household onboarding.
 
 - **AI spending analysis: summary vs full transactions**: Dashboard and Summary offer **Analyze spending** (category totals + month figures only, smaller prompt) and **Include all transactions** (every expense line for the month, as before). Stored runs use `prompt_version` **4** and `input_json.transactions_included`.
 - **Per-user feature access (AI and Recon)**: Added `users.ai_feature_allowed` and `users.recon_feature_allowed` (migration `0020_users_feature_access_pg.sql`, wired in `db:push`). Both must be true **and** the existing Settings toggles must be on for the corresponding feature. Migration grants both flags only to **`users.id = 1`** by default (edit the migration or use SQL / a future admin UI for other users). See [docs/feature-access.md](./docs/feature-access.md).

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { updateExpenseSchema } from "@/lib/validators/expense.schema";
-import { setRequestContext } from "@/lib/db/request-context";
+import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { getExpenseRepository } from "@/lib/repositories";
 
 export async function GET(
@@ -13,7 +13,7 @@ export async function GET(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const id = Number((await params).id);
   if (Number.isNaN(id)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });

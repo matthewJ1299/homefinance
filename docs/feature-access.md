@@ -1,5 +1,7 @@
 # Feature access (AI and Recon)
 
+Tenant isolation for finance data is described in [multi-household.md](./multi-household.md). The flags below are **per user** within a household (`users.ai_feature_allowed`, `users.recon_feature_allowed`).
+
 Related: **Settings** (per-user preferences), **AI analysis** ([docs/ai-budget-analysis.md](./ai-budget-analysis.md)), **Recon** ([docs/recon.md](./recon.md)).
 
 ## Model

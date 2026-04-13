@@ -1,4 +1,5 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
+import { requireHouseholdId } from "@/lib/db/request-context";
 import type { CalendarEvent } from "../interfaces/calendar-event.repository";
 import type {
   ICalendarEventRepository,
@@ -16,8 +17,8 @@ const SELECT_FIELDS = `
     cat.name AS "categoryName", cat.color AS "categoryColor",
     c.is_shared AS "isShared", c.priority
   FROM calendar_events c
-  INNER JOIN users u ON c.created_by_user_id = u.id
-  LEFT JOIN calendar_categories cat ON c.category_id = cat.id
+  INNER JOIN users u ON c.created_by_user_id = u.id AND u.household_id = c.household_id
+  LEFT JOIN calendar_categories cat ON c.category_id = cat.id AND cat.household_id = c.household_id
 `;
 
 interface CalendarEventRow {
@@ -66,7 +67,7 @@ function toCalendarEvent(r: CalendarEventRow): CalendarEvent {
   };
 }
 
-const RANGE_WHERE = `WHERE ((c.recurrence_type = 'none' AND c.date <= ? AND COALESCE(c.end_date, c.date) >= ?)
+const RANGE_FILTER = `((c.recurrence_type = 'none' AND c.date <= ? AND COALESCE(c.end_date, c.date) >= ?)
      OR (c.recurrence_type != 'none'))`;
 
 export class CalendarEventRepository implements ICalendarEventRepository {
@@ -75,36 +76,44 @@ export class CalendarEventRepository implements ICalendarEventRepository {
     end: string,
     viewerUserId: number
   ): Promise<CalendarEvent[]> {
+    const hid = requireHouseholdId();
     const sql = `${SELECT_FIELDS}
-      ${RANGE_WHERE}
+      WHERE c.household_id = ? AND ${RANGE_FILTER}
         AND (c.is_shared = true OR c.created_by_user_id = ?)
       ORDER BY c.date, c.time`;
-    const rows = await all<CalendarEventRow>(sql, [end, start, viewerUserId]);
+    const rows = await all<CalendarEventRow>(sql, [hid, end, start, viewerUserId]);
     return rows.map(toCalendarEvent);
   }
 
   async findByDateRangeAll(start: string, end: string): Promise<CalendarEvent[]> {
+    const hid = requireHouseholdId();
     const sql = `${SELECT_FIELDS}
-      ${RANGE_WHERE}
+      WHERE c.household_id = ? AND ${RANGE_FILTER}
       ORDER BY c.date, c.time`;
-    const rows = await all<CalendarEventRow>(sql, [end, start]);
+    const rows = await all<CalendarEventRow>(sql, [hid, end, start]);
     return rows.map(toCalendarEvent);
   }
 
   async findById(id: number): Promise<CalendarEvent | null> {
-    const row = await get<CalendarEventRow>(`${SELECT_FIELDS} WHERE c.id = ?`, [id]);
+    const hid = requireHouseholdId();
+    const row = await get<CalendarEventRow>(`${SELECT_FIELDS} WHERE c.id = ? AND c.household_id = ?`, [
+      id,
+      hid,
+    ]);
     return row ? toCalendarEvent(row) : null;
   }
 
   async create(data: CreateCalendarEventInput): Promise<{ id: number }> {
+    const hid = requireHouseholdId();
     await run(
       `INSERT INTO calendar_events (
-        created_by_user_id, name, location, date, end_date, time, end_time, notes,
+        created_by_user_id, household_id, name, location, date, end_date, time, end_time, notes,
         recurrence_type, recurrence_day_of_month, reminder_minutes,
         category_id, is_shared, priority
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.createdByUserId,
+        hid,
         data.name,
         data.location ?? null,
         data.date,
@@ -179,11 +188,13 @@ export class CalendarEventRepository implements ICalendarEventRepository {
       params.push(data.priority);
     }
     if (updates.length === 0) return;
-    params.push(id);
-    await run(`UPDATE calendar_events SET ${updates.join(", ")} WHERE id = ?`, params);
+    const hid = requireHouseholdId();
+    params.push(id, hid);
+    await run(`UPDATE calendar_events SET ${updates.join(", ")} WHERE id = ? AND household_id = ?`, params);
   }
 
   async delete(id: number): Promise<void> {
-    await run("DELETE FROM calendar_events WHERE id = ?", [id]);
+    const hid = requireHouseholdId();
+    await run("DELETE FROM calendar_events WHERE id = ? AND household_id = ?", [id, hid]);
   }
 }

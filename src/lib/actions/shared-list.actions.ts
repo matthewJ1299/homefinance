@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { setRequestContext } from "@/lib/db/request-context";
+import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import {
   getSharedListRepository,
   getSharedListItemRepository,
@@ -31,10 +31,7 @@ export async function createList(formData: {
 }): Promise<SharedListActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({
-    userId: session.user.id,
-    userName: session.user.name ?? undefined,
-  });
+  setRequestContextFromSession(session);
   const parsed = createSharedListSchema.safeParse(formData);
   if (!parsed.success) return { success: false, error: parsed.error.message };
   const repo = getSharedListRepository();
@@ -54,10 +51,7 @@ export async function updateList(
 ): Promise<SharedListActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({
-    userId: session.user.id,
-    userName: session.user.name ?? undefined,
-  });
+  setRequestContextFromSession(session);
   const parsed = updateSharedListSchema.safeParse(formData);
   if (!parsed.success) return { success: false, error: parsed.error.message };
   const updates = parsed.data;
@@ -79,10 +73,7 @@ export async function updateList(
 export async function deleteList(id: number): Promise<SharedListActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({
-    userId: session.user.id,
-    userName: session.user.name ?? undefined,
-  });
+  setRequestContextFromSession(session);
   const repo = getSharedListRepository();
   const exists = await repo.findById(id);
   if (!exists) return { success: false, error: "List not found" };
@@ -103,10 +94,7 @@ export async function createListItem(
 ): Promise<SharedListActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({
-    userId: session.user.id,
-    userName: session.user.name ?? undefined,
-  });
+  setRequestContextFromSession(session);
   const parsed = createSharedListItemSchema.safeParse({ ...formData, listId });
   if (!parsed.success) return { success: false, error: parsed.error.message };
   const listRepo = getSharedListRepository();
@@ -148,10 +136,7 @@ export async function updateListItem(
 ): Promise<SharedListActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({
-    userId: session.user.id,
-    userName: session.user.name ?? undefined,
-  });
+  setRequestContextFromSession(session);
   const parsed = updateSharedListItemSchema.safeParse(formData);
   if (!parsed.success) return { success: false, error: parsed.error.message };
   const updates = parsed.data;
@@ -173,10 +158,7 @@ export async function updateListItem(
 export async function deleteListItem(id: number): Promise<SharedListActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({
-    userId: session.user.id,
-    userName: session.user.name ?? undefined,
-  });
+  setRequestContextFromSession(session);
   const itemRepo = getSharedListItemRepository();
   const existing = await itemRepo.findById(id);
   if (!existing) return { success: false, error: "Item not found" };
@@ -202,10 +184,7 @@ export async function reorderListItems(
 ): Promise<SharedListActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({
-    userId: session.user.id,
-    userName: session.user.name ?? undefined,
-  });
+  setRequestContextFromSession(session);
   if (orderedItemIds.length === 0) return { success: true };
   const listRepo = getSharedListRepository();
   const list = await listRepo.findById(listId);
@@ -245,10 +224,7 @@ export async function setListItemNote(
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
   const userId = Number(session.user.id);
-  setRequestContext({
-    userId: session.user.id,
-    userName: session.user.name ?? undefined,
-  });
+  setRequestContextFromSession(session);
   const parsed = listItemNoteBodySchema.safeParse(body);
   if (!parsed.success) return { success: false, error: parsed.error.message };
   const itemRepo = getSharedListItemRepository();
@@ -287,10 +263,7 @@ export async function deleteCompletedListItems(
 ): Promise<SharedListActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({
-    userId: session.user.id,
-    userName: session.user.name ?? undefined,
-  });
+  setRequestContextFromSession(session);
   const listRepo = getSharedListRepository();
   const exists = await listRepo.findById(listId);
   if (!exists) return { success: false, error: "List not found" };

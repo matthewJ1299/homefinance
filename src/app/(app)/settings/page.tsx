@@ -27,6 +27,7 @@ import { BudgetMonthRangeSettings } from "@/components/settings/budget-month-ran
 import { ExportTransactionsSettings } from "@/components/settings/export-transactions-settings";
 import { ReconSettings } from "@/components/settings/recon-settings";
 import { AiSettings } from "@/components/settings/ai-settings";
+import { SetupWizardLauncherCard } from "@/components/setup-wizard/setup-wizard-launcher-card";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -71,6 +72,7 @@ export default async function SettingsPage() {
         Manage categories, split groups, and recurring income or expenses in one place.
       </p>
 
+      <SetupWizardLauncherCard />
       <PushNotificationsSettings />
       <ReconSettings reconFeatureAllowed={reconFeatureAllowed} reconEnabled={reconEnabled} />
       {aiFeatureAllowed ? <AiSettings aiEnabled={aiEnabled} aiUsePaid={aiUsePaid} /> : null}

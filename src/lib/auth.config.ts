@@ -17,11 +17,19 @@ export const authConfig: NextAuthConfig = {
         nextUrl.pathname.startsWith("/mortgage") ||
         nextUrl.pathname.startsWith("/summary") ||
         nextUrl.pathname.startsWith("/categories") ||
-        nextUrl.pathname.startsWith("/recon");
+        nextUrl.pathname.startsWith("/recon") ||
+        nextUrl.pathname.startsWith("/admin");
       if (isOnApp && !isLoggedIn) {
         return false;
       }
+      const isRegister = nextUrl.pathname.startsWith("/register");
+      if (isRegister && !isLoggedIn) {
+        return true;
+      }
       if (auth?.user && nextUrl.pathname === "/login") {
+        return Response.redirect(new URL("/dashboard", nextUrl));
+      }
+      if (auth?.user && isRegister) {
         return Response.redirect(new URL("/dashboard", nextUrl));
       }
       return true;
@@ -31,6 +39,12 @@ export const authConfig: NextAuthConfig = {
         token.id = user.id;
         token.email = user.email;
         token.name = user.name;
+        if ("householdId" in user && user.householdId != null && user.householdId !== "") {
+          token.householdId = String(user.householdId);
+        }
+        if ("isSuperAdmin" in user && user.isSuperAdmin != null) {
+          token.isSuperAdmin = user.isSuperAdmin === true;
+        }
       }
       return token;
     },
@@ -39,6 +53,12 @@ export const authConfig: NextAuthConfig = {
         session.user.id = String(token.id);
         session.user.email = token.email as string;
         session.user.name = token.name as string;
+        if (token.householdId != null && token.householdId !== "") {
+          session.user.householdId = String(token.householdId);
+        }
+        if (token.isSuperAdmin != null) {
+          session.user.isSuperAdmin = token.isSuperAdmin === true;
+        }
       }
       return session;
     },
@@ -64,6 +84,8 @@ export const authConfig: NextAuthConfig = {
           id: String(user.id),
           email: user.email,
           name: user.name,
+          householdId: String(user.householdId),
+          isSuperAdmin: user.isSuperAdmin,
         };
       },
     }),

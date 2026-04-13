@@ -454,6 +454,46 @@ async function pushPostgres(): Promise<void> {
         console.log("Postgres migration 0021 (notes) applied.");
       }
     }
+
+    const hasHouseholdTenancy = await client.query(
+      "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'household_id'"
+    );
+    if (hasHouseholdTenancy.rows.length === 0) {
+      const migration0022Path = path.join(process.cwd(), "drizzle", "0022_households_pg.sql");
+      if (fs.existsSync(migration0022Path)) {
+        const sql0022 = fs.readFileSync(migration0022Path, "utf-8");
+        const statements0022 = sql0022
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statements0022) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration 0022 (households tenancy) applied.");
+      }
+    }
+
+    const hasSuperAdmin = await client.query(
+      "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'is_super_admin'"
+    );
+    if (hasSuperAdmin.rows.length === 0) {
+      const migration0023Path = path.join(
+        process.cwd(),
+        "drizzle",
+        "0023_super_admin_and_household_feature_policy_pg.sql"
+      );
+      if (fs.existsSync(migration0023Path)) {
+        const sql0023 = fs.readFileSync(migration0023Path, "utf-8");
+        const statements0023 = sql0023
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        for (const stmt of statements0023) {
+          await client.query(stmt);
+        }
+        console.log("Postgres migration 0023 (super admin + household feature policy) applied.");
+      }
+    }
   } finally {
     await client.end();
   }

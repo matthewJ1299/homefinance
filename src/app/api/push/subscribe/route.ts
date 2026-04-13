@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { setRequestContext } from "@/lib/db/request-context";
+import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { getPushSubscriptionRepository } from "@/lib/repositories";
 import { pushSubscriptionBodySchema } from "@/lib/validators/push-subscription.schema";
 
@@ -13,10 +13,7 @@ export async function POST(request: NextRequest) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  setRequestContext({
-    userId: session.user.id,
-    userName: session.user.name ?? undefined,
-  });
+  setRequestContextFromSession(session);
 
   const body = await request.json();
   const parsed = pushSubscriptionBodySchema.safeParse(body);

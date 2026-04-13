@@ -5,6 +5,9 @@ declare module "next-auth" {
     id: string;
     email?: string | null;
     name?: string | null;
+    /** Numeric households.id as string (JWT-friendly). */
+    householdId?: string | null;
+    isSuperAdmin?: boolean | null;
   }
 
   interface Session {
@@ -12,6 +15,8 @@ declare module "next-auth" {
       id: string;
       email?: string | null;
       name?: string | null;
+      householdId?: string | null;
+      isSuperAdmin?: boolean | null;
     };
   }
 }
@@ -21,5 +26,7 @@ declare module "next-auth/jwt" {
     id?: string;
     email?: string | null;
     name?: string | null;
+    householdId?: string | null;
+    isSuperAdmin?: boolean | null;
   }
 }

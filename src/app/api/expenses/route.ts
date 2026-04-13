@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { setRequestContext } from "@/lib/db/request-context";
+import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { createExpenseSchema } from "@/lib/validators/expense.schema";
 import { getDefaultBudgetMonthForUser } from "@/lib/utils/budget-month-for-user";
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const userId = Number(session.user.id);
   const month =
     request.nextUrl.searchParams.get("month") ?? (await getDefaultBudgetMonthForUser(userId));
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const body = await request.json();
   const parsed = createExpenseSchema.safeParse(body);
   if (!parsed.success) {

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { setRequestContext } from "@/lib/db/request-context";
+import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { getRecurringIncomeRepository } from "@/lib/repositories";
 import {
   createRecurringIncomeSchema,
@@ -21,7 +21,7 @@ export async function createRecurringIncome(formData: {
 }): Promise<RecurringIncomeActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const parsed = createRecurringIncomeSchema.safeParse(formData);
   if (!parsed.success) return { success: false, error: parsed.error.message };
   const repo = getRecurringIncomeRepository();
@@ -55,7 +55,7 @@ export async function updateRecurringIncome(
 ): Promise<RecurringIncomeActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const parsed = updateRecurringIncomeSchema.safeParse(formData);
   if (!parsed.success) return { success: false, error: parsed.error.message };
   const updates = parsed.data;
@@ -79,7 +79,7 @@ export async function updateRecurringIncome(
 export async function deleteRecurringIncome(id: number): Promise<RecurringIncomeActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const repo = getRecurringIncomeRepository();
   const existing = await repo.findById(id);
   if (!existing) return { success: false, error: "Not found" };

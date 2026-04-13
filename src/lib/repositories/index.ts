@@ -52,6 +52,8 @@ import type { IAIAnalysisRunRepository } from "./interfaces/ai-analysis-run.repo
 import { AIAnalysisRunRepository } from "./sql/ai-analysis-run.repository";
 import type { INoteRepository } from "./interfaces/note.repository";
 import { NoteRepository } from "./sql/note.repository";
+import type { IHouseholdRepository } from "./interfaces/household.repository";
+import { HouseholdRepository } from "./sql/household.repository";
 
 let categoryRepo: ICategoryRepository | null = null;
 let expenseRepo: IExpenseRepository | null = null;
@@ -80,6 +82,7 @@ let reconImportItemRepo: IReconImportItemRepository | null = null;
 let vendorCategoryMappingRepo: IVendorCategoryMappingRepository | null = null;
 let aiAnalysisRunRepo: IAIAnalysisRunRepository | null = null;
 let noteRepo: INoteRepository | null = null;
+let householdRepo: IHouseholdRepository | null = null;
 
 export function getCategoryRepository(): ICategoryRepository {
   if (!categoryRepo) categoryRepo = new CategoryRepository();
@@ -215,5 +218,10 @@ export function getAIAnalysisRunRepository(): IAIAnalysisRunRepository {
 export function getNoteRepository(): INoteRepository {
   if (!noteRepo) noteRepo = new NoteRepository();
   return noteRepo;
+}
+
+export function getHouseholdRepository(): IHouseholdRepository {
+  if (!householdRepo) householdRepo = new HouseholdRepository();
+  return householdRepo;
 }
 

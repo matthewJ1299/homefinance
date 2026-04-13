@@ -1,4 +1,5 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
+import { requireHouseholdId } from "@/lib/db/request-context";
 import type { Goal, GoalStrategy, GoalType } from "@/lib/types";
 import type {
   IGoalRepository,
@@ -38,30 +39,34 @@ function toGoal(row: GoalRow): Goal {
 
 export class GoalRepository implements IGoalRepository {
   async findById(id: number, ownerUserId: number): Promise<Goal | null> {
+    const hid = requireHouseholdId();
     const row = await get<GoalRow>(
-      "SELECT id, owner_user_id, name, type, target_amount, monthly_target, linked_account_id, apr, strategy, archived_at, created_at FROM goals WHERE id = ? AND owner_user_id = ?",
-      [id, ownerUserId]
+      "SELECT id, owner_user_id, name, type, target_amount, monthly_target, linked_account_id, apr, strategy, archived_at, created_at FROM goals WHERE id = ? AND owner_user_id = ? AND household_id = ?",
+      [id, ownerUserId, hid]
     );
     return row ? toGoal(row) : null;
   }
 
   async findAllForUser(ownerUserId: number, includeArchived = false): Promise<Goal[]> {
+    const hid = requireHouseholdId();
     const whereArchived = includeArchived ? "" : " AND archived_at IS NULL";
     const rows = await all<GoalRow>(
       `SELECT id, owner_user_id, name, type, target_amount, monthly_target, linked_account_id, apr, strategy, archived_at, created_at
        FROM goals
-       WHERE owner_user_id = ?${whereArchived}
+       WHERE owner_user_id = ? AND household_id = ?${whereArchived}
        ORDER BY created_at DESC`,
-      [ownerUserId]
+      [ownerUserId, hid]
     );
     return rows.map(toGoal);
   }
 
   async create(ownerUserId: number, data: CreateGoalInput): Promise<{ id: number }> {
+    const hid = requireHouseholdId();
     await run(
-      "INSERT INTO goals (owner_user_id, name, type, target_amount, monthly_target, linked_account_id, apr, strategy) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO goals (owner_user_id, household_id, name, type, target_amount, monthly_target, linked_account_id, apr, strategy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [
         ownerUserId,
+        hid,
         data.name,
         data.type,
         data.targetAmount ?? null,
@@ -108,15 +113,20 @@ export class GoalRepository implements IGoalRepository {
     }
 
     if (updates.length === 0) return;
-    params.push(id, ownerUserId);
+    const hid = requireHouseholdId();
+    params.push(id, ownerUserId, hid);
     await run(
-      `UPDATE goals SET ${updates.join(", ")} WHERE id = ? AND owner_user_id = ?`,
+      `UPDATE goals SET ${updates.join(", ")} WHERE id = ? AND owner_user_id = ? AND household_id = ?`,
       params
     );
   }
 
   async delete(id: number, ownerUserId: number): Promise<void> {
-    await run("DELETE FROM goals WHERE id = ? AND owner_user_id = ?", [id, ownerUserId]);
+    const hid = requireHouseholdId();
+    await run("DELETE FROM goals WHERE id = ? AND owner_user_id = ? AND household_id = ?", [
+      id,
+      ownerUserId,
+      hid,
+    ]);
   }
 }
-

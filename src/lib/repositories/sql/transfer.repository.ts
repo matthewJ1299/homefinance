@@ -1,4 +1,5 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
+import { requireHouseholdId } from "@/lib/db/request-context";
 import type {
   ITransferRepository,
   CreateTransferInput,
@@ -27,17 +28,19 @@ function toTransfer(row: TransferRow): Transfer {
 
 export class TransferRepository implements ITransferRepository {
   async findById(id: number): Promise<Transfer | null> {
+    const hid = requireHouseholdId();
     const row = await get<TransferRow>(
-      "SELECT id, from_account_id, to_account_id, amount, note, created_at FROM transfers WHERE id = ?",
-      [id]
+      "SELECT id, from_account_id, to_account_id, amount, note, created_at FROM transfers WHERE id = ? AND household_id = ?",
+      [id, hid]
     );
     return row ? toTransfer(row) : null;
   }
 
   async create(input: CreateTransferInput): Promise<{ id: number }> {
+    const hid = requireHouseholdId();
     await run(
-      "INSERT INTO transfers (from_account_id, to_account_id, amount, note) VALUES (?, ?, ?, ?)",
-      [input.fromAccountId, input.toAccountId, input.amount, input.note ?? null]
+      "INSERT INTO transfers (from_account_id, to_account_id, amount, note, household_id) VALUES (?, ?, ?, ?, ?)",
+      [input.fromAccountId, input.toAccountId, input.amount, input.note ?? null, hid]
     );
     const id = await lastInsertId();
     return { id };
@@ -48,11 +51,11 @@ export class TransferRepository implements ITransferRepository {
     limit: number,
     offset: number
   ): Promise<Transfer[]> {
+    const hid = requireHouseholdId();
     const rows = await all<TransferRow>(
-      "SELECT id, from_account_id, to_account_id, amount, note, created_at FROM transfers WHERE from_account_id = ? OR to_account_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
-      [accountId, accountId, limit, offset]
+      "SELECT id, from_account_id, to_account_id, amount, note, created_at FROM transfers WHERE household_id = ? AND (from_account_id = ? OR to_account_id = ?) ORDER BY created_at DESC LIMIT ? OFFSET ?",
+      [hid, accountId, accountId, limit, offset]
     );
     return rows.map(toTransfer);
   }
 }
-

@@ -2,10 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { setRequestContext } from "@/lib/db/request-context";
+import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { getUserRepository } from "@/lib/repositories";
 import { normalizeBudgetMonthStartDay } from "@/lib/utils/date";
 import { isAIConfiguredForTier } from "@/lib/services/ai.service";
+import type { SetupWizardStatus } from "@/lib/repositories/interfaces/user.repository";
 
 export type UpdateBudgetMonthStartDayResult =
   | { success: true }
@@ -23,6 +24,10 @@ export type UpdateAiEnabledResult =
   | { success: true }
   | { success: false; error: string };
 
+export type UpdateSetupWizardStatusResult =
+  | { success: true }
+  | { success: false; error: string };
+
 export async function updateBudgetMonthStartDayAction(
   day: number
 ): Promise<UpdateBudgetMonthStartDayResult> {
@@ -30,7 +35,7 @@ export async function updateBudgetMonthStartDayAction(
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const userId = Number(session.user.id);
   const normalized = normalizeBudgetMonthStartDay(day);
   await getUserRepository().updateBudgetMonthStartDay(userId, normalized);
@@ -48,7 +53,7 @@ export async function updateReconEnabledAction(enabled: boolean): Promise<Update
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const userId = Number(session.user.id);
   const reconFeatureAllowed = await getUserRepository().getReconFeatureAllowed(userId);
   if (!reconFeatureAllowed) {
@@ -74,7 +79,7 @@ export async function updateAiUsePaidAction(usePaid: boolean): Promise<UpdateAiU
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
 
   const userId = Number(session.user.id);
   const aiFeatureAllowed = await getUserRepository().getAiFeatureAllowed(userId);
@@ -110,7 +115,7 @@ export async function updateAiEnabledAction(enabled: boolean): Promise<UpdateAiE
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
 
   const userId = Number(session.user.id);
   const aiFeatureAllowed = await getUserRepository().getAiFeatureAllowed(userId);
@@ -131,5 +136,27 @@ export async function updateAiEnabledAction(enabled: boolean): Promise<UpdateAiE
   revalidatePath("/settings");
   revalidatePath("/summary");
   revalidatePath("/budget-ai-report");
+  return { success: true };
+}
+
+export async function updateSetupWizardStatusAction(
+  status: SetupWizardStatus
+): Promise<UpdateSetupWizardStatusResult> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, error: "Unauthorized" };
+  }
+  setRequestContextFromSession(session);
+
+  const userId = Number(session.user.id);
+  try {
+    await getUserRepository().setSetupWizardStatus(userId, status);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to update setup wizard state.";
+    return { success: false, error: message };
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/settings");
   return { success: true };
 }

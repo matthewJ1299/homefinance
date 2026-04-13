@@ -1,4 +1,5 @@
 import { all, get, lastInsertId, run } from "@/lib/db";
+import { requireHouseholdId } from "@/lib/db/request-context";
 import type {
   CreateReconImportItemInput,
   IReconImportItemRepository,
@@ -64,16 +65,17 @@ function mapRow(r: Row): ReconImportItemRow {
 
 export class ReconImportItemRepository implements IReconImportItemRepository {
   async upsertByMessageId(input: CreateReconImportItemInput): Promise<{ id: number }> {
+    const hid = requireHouseholdId();
     const matchedJson =
       input.matchedExpenseIds != null && input.matchedExpenseIds.length > 0
         ? JSON.stringify(input.matchedExpenseIds)
         : null;
     await run(
       `INSERT INTO recon_import_items (
-        user_id, graph_message_id, status, parse_type, amount, txn_date, vendor,
+        user_id, household_id, graph_message_id, status, parse_type, amount, txn_date, vendor,
         merchant_key_normalized, matched_expense_ids, suggested_category_id,
         raw_subject, raw_body_preview, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
       ON CONFLICT (user_id, graph_message_id) DO UPDATE SET
         status = CASE
           WHEN recon_import_items.status IN ('ignored','accepted_duplicate','accepted_add') THEN recon_import_items.status
@@ -88,9 +90,11 @@ export class ReconImportItemRepository implements IReconImportItemRepository {
         suggested_category_id = EXCLUDED.suggested_category_id,
         raw_subject = EXCLUDED.raw_subject,
         raw_body_preview = EXCLUDED.raw_body_preview,
+        household_id = EXCLUDED.household_id,
         updated_at = NOW()`,
       [
         input.userId,
+        hid,
         input.graphMessageId,
         input.status,
         input.parseType,
@@ -105,45 +109,49 @@ export class ReconImportItemRepository implements IReconImportItemRepository {
       ]
     );
     const row = await get<{ id: number }>(
-      `SELECT id FROM recon_import_items WHERE user_id = ? AND graph_message_id = ?`,
-      [input.userId, input.graphMessageId]
+      `SELECT id FROM recon_import_items WHERE user_id = ? AND graph_message_id = ? AND household_id = ?`,
+      [input.userId, input.graphMessageId, hid]
     );
     if (row?.id != null) return { id: row.id };
     return { id: await lastInsertId() };
   }
 
   async findByIdForUser(id: number, userId: number): Promise<ReconImportItemRow | null> {
+    const hid = requireHouseholdId();
     const row = await get<Row>(
       `SELECT id, user_id, graph_message_id, status, parse_type, amount, txn_date::text AS txn_date,
               vendor, merchant_key_normalized, matched_expense_ids, suggested_category_id,
               raw_subject, raw_body_preview, created_at, updated_at
-       FROM recon_import_items WHERE id = ? AND user_id = ?`,
-      [id, userId]
+       FROM recon_import_items WHERE id = ? AND user_id = ? AND household_id = ?`,
+      [id, userId, hid]
     );
     return row ? mapRow(row as Row) : null;
   }
 
   async deleteByUserId(userId: number): Promise<void> {
-    await run("DELETE FROM recon_import_items WHERE user_id = ?", [userId]);
+    const hid = requireHouseholdId();
+    await run("DELETE FROM recon_import_items WHERE user_id = ? AND household_id = ?", [userId, hid]);
   }
 
   async findPendingByUserId(userId: number): Promise<ReconImportItemRow[]> {
+    const hid = requireHouseholdId();
     const rows = await all<Row>(
       `SELECT id, user_id, graph_message_id, status, parse_type, amount, txn_date::text AS txn_date,
               vendor, merchant_key_normalized, matched_expense_ids, suggested_category_id,
               raw_subject, raw_body_preview, created_at, updated_at
        FROM recon_import_items
-       WHERE user_id = ? AND status IN ('pending_duplicate','pending_add')
+       WHERE user_id = ? AND household_id = ? AND status IN ('pending_duplicate','pending_add')
        ORDER BY txn_date DESC, id DESC`,
-      [userId]
+      [userId, hid]
     );
     return rows.map((r) => mapRow(r as Row));
   }
 
   async updateStatusById(id: number, userId: number, status: ReconImportItemStatus): Promise<void> {
+    const hid = requireHouseholdId();
     await run(
-      `UPDATE recon_import_items SET status = ?, updated_at = NOW() WHERE id = ? AND user_id = ?`,
-      [status, id, userId]
+      `UPDATE recon_import_items SET status = ?, updated_at = NOW() WHERE id = ? AND user_id = ? AND household_id = ?`,
+      [status, id, userId, hid]
     );
   }
 }

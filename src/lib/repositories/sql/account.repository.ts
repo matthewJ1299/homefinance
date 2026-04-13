@@ -1,4 +1,5 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
+import { requireHouseholdId } from "@/lib/db/request-context";
 import type { Account, AccountType } from "@/lib/types";
 import type {
   IAccountRepository,
@@ -28,30 +29,33 @@ function toAccount(row: AccountRow): Account {
 
 export class AccountRepository implements IAccountRepository {
   async findById(id: number, ownerUserId: number): Promise<Account | null> {
+    const hid = requireHouseholdId();
     const row = await get<AccountRow>(
-      "SELECT id, name, type, owner_user_id, credit_limit, created_at FROM accounts WHERE id = ? AND owner_user_id = ?",
-      [id, ownerUserId]
+      "SELECT id, name, type, owner_user_id, credit_limit, created_at FROM accounts WHERE id = ? AND owner_user_id = ? AND household_id = ?",
+      [id, ownerUserId, hid]
     );
     return row ? toAccount(row) : null;
   }
 
   async findAllForUser(ownerUserId: number): Promise<Account[]> {
+    const hid = requireHouseholdId();
     const rows = await all<AccountRow>(
-      "SELECT id, name, type, owner_user_id, credit_limit, created_at FROM accounts WHERE owner_user_id = ? ORDER BY name",
-      [ownerUserId]
+      "SELECT id, name, type, owner_user_id, credit_limit, created_at FROM accounts WHERE owner_user_id = ? AND household_id = ? ORDER BY name",
+      [ownerUserId, hid]
     );
     return rows.map(toAccount);
   }
 
   async findMainAccountIdForUser(ownerUserId: number): Promise<number | null> {
+    const hid = requireHouseholdId();
     const bank = await get<{ id: number }>(
-      "SELECT id FROM accounts WHERE owner_user_id = ? AND type = 'bank' ORDER BY id ASC LIMIT 1",
-      [ownerUserId]
+      "SELECT id FROM accounts WHERE owner_user_id = ? AND household_id = ? AND type = 'bank' ORDER BY id ASC LIMIT 1",
+      [ownerUserId, hid]
     );
     if (bank?.id != null) return bank.id;
     const any = await get<{ id: number }>(
-      "SELECT id FROM accounts WHERE owner_user_id = ? ORDER BY id ASC LIMIT 1",
-      [ownerUserId]
+      "SELECT id FROM accounts WHERE owner_user_id = ? AND household_id = ? ORDER BY id ASC LIMIT 1",
+      [ownerUserId, hid]
     );
     return any?.id ?? null;
   }
@@ -60,9 +64,10 @@ export class AccountRepository implements IAccountRepository {
     ownerUserId: number,
     data: CreateAccountInput
   ): Promise<{ id: number }> {
+    const hid = requireHouseholdId();
     await run(
-      "INSERT INTO accounts (name, type, owner_user_id, credit_limit) VALUES (?, ?, ?, ?)",
-      [data.name, data.type, ownerUserId, data.creditLimit ?? null]
+      "INSERT INTO accounts (name, type, owner_user_id, credit_limit, household_id) VALUES (?, ?, ?, ?, ?)",
+      [data.name, data.type, ownerUserId, data.creditLimit ?? null, hid]
     );
     const id = await lastInsertId();
     return { id };
@@ -87,20 +92,22 @@ export class AccountRepository implements IAccountRepository {
 
     if (updates.length === 0) return;
 
-    params.push(id, ownerUserId);
+    const hid = requireHouseholdId();
+    params.push(id, ownerUserId, hid);
     await run(
       `UPDATE accounts SET ${updates.join(
         ", "
-      )} WHERE id = ? AND owner_user_id = ?`,
+      )} WHERE id = ? AND owner_user_id = ? AND household_id = ?`,
       params
     );
   }
 
   async delete(id: number, ownerUserId: number): Promise<void> {
-    await run("DELETE FROM accounts WHERE id = ? AND owner_user_id = ?", [
+    const hid = requireHouseholdId();
+    await run("DELETE FROM accounts WHERE id = ? AND owner_user_id = ? AND household_id = ?", [
       id,
       ownerUserId,
+      hid,
     ]);
   }
 }
-

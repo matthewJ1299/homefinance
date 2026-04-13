@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { setRequestContext } from "@/lib/db/request-context";
+import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import {
   getSharedListRepository,
   getSharedListItemRepository,
@@ -15,10 +15,7 @@ export async function GET(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  setRequestContext({
-    userId: session.user.id,
-    userName: session.user.name ?? undefined,
-  });
+  setRequestContextFromSession(session);
   const id = Number((await params).id);
   if (Number.isNaN(id)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
@@ -41,10 +38,7 @@ export async function PATCH(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  setRequestContext({
-    userId: session.user.id,
-    userName: session.user.name ?? undefined,
-  });
+  setRequestContextFromSession(session);
   const id = Number((await params).id);
   if (Number.isNaN(id)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
@@ -78,10 +72,7 @@ export async function DELETE(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  setRequestContext({
-    userId: session.user.id,
-    userName: session.user.name ?? undefined,
-  });
+  setRequestContextFromSession(session);
   const id = Number((await params).id);
   if (Number.isNaN(id)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });

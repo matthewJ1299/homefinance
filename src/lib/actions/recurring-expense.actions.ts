@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { setRequestContext } from "@/lib/db/request-context";
+import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { getRecurringExpenseRepository } from "@/lib/repositories";
 import {
   createRecurringExpenseSchema,
@@ -21,7 +21,7 @@ export async function createRecurringExpense(formData: {
 }): Promise<RecurringExpenseActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const parsed = createRecurringExpenseSchema.safeParse(formData);
   if (!parsed.success) return { success: false, error: parsed.error.message };
   const repo = getRecurringExpenseRepository();
@@ -55,7 +55,7 @@ export async function updateRecurringExpense(
 ): Promise<RecurringExpenseActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const parsed = updateRecurringExpenseSchema.safeParse(formData);
   if (!parsed.success) return { success: false, error: parsed.error.message };
   const updates = parsed.data;
@@ -79,7 +79,7 @@ export async function updateRecurringExpense(
 export async function deleteRecurringExpense(id: number): Promise<RecurringExpenseActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const repo = getRecurringExpenseRepository();
   const existing = await repo.findById(id);
   if (!existing) return { success: false, error: "Not found" };

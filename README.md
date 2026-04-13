@@ -8,6 +8,27 @@ All database writes use **optimistic UI**: the UI updates immediately, then a to
 
 Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in the linked docs.
 
+### Multi-household tenancy
+
+- Each user belongs to **exactly one household**. Domain data (categories, transactions, budgets, goals, lists, calendar, Recon, AI runs, etc.) is scoped by **`household_id`** so independent families do not see each other’s data in a shared database.
+- **Onboarding**: open **`/register`** to create a household, default categories, and the first user, or use **`npm run db:seed`** / **`npm run db:reset`** (then `seed-categories`) for two demo households locally. Details and upgrade steps: [docs/multi-household.md](./docs/multi-household.md).
+- **Existing installs**: run **`npm run db:push`** to apply `drizzle/0022_households_pg.sql`; users should **sign out and sign in** once so the session/JWT includes `householdId`.
+
+### Admin portal (global super-admin)
+
+- The admin portal lives under **`/admin`** and is only accessible to users with **`users.is_super_admin = true`**.
+- It provides allowlisted, read-only operational queries under **`/api/admin/queries/*`** (example: `GET /api/admin/queries/overview`).
+- **Setup**: run **`npm run db:push`** to apply `drizzle/0023_super_admin_and_household_feature_policy_pg.sql` (adds `users.is_super_admin` plus household-level feature policy columns).
+- **Grant access** (example SQL):
+  - `UPDATE users SET is_super_admin = true WHERE email = 'you@example.com';`
+
+### Setup wizard (in-app onboarding)
+
+- When a user’s setup is incomplete, the app can **soft-prompt** with a guided setup wizard (it does not block navigation).
+- Existing users can run it any time from **Settings** > **Setup wizard**.
+- The wizard helps configure **accounts**, **budget month start day**, and optional **AI** / **Recon** preferences. AI and Recon still respect feature-access policy; see [docs/feature-access.md](./docs/feature-access.md).
+- Details: [docs/setup-wizard.md](./docs/setup-wizard.md).
+
 ### Money in and out
 
 - **Income** — Record salary and one-off income per month. The dashboard shows only **your** income for the selected budget month.
@@ -71,8 +92,9 @@ Plain-language summary of balance, monthly cost, payoff horizon, and each person
 1. Install dependencies: `npm install`
 2. Configure **environment variables** (see [Environment variables](#environment-variables)). For local development use **`.env.local`** (Next.js loads it automatically). **Minimum for real use:** `DATABASE_URL`, `AUTH_SECRET`, and `NEXTAUTH_URL` (public app URL, no trailing slash). If `DATABASE_URL` is missing, the app still starts but logs a warning and skips DB-backed startup hooks; routes that hit the database will fail until Postgres is configured.
 3. Create the database and seed: `npm run db:fresh` (recreates the DB from scratch, then seeds), or:
-   - Reset and create tables: `npm run db:reset` (drops/recreates DB, runs schema push, then seeds minimal categories and users).
-   - Seed: `npm run db:seed` (clears all data, then inserts users, categories, 3 months of income/expenses, and sample split expenses).
+   - Reset and create tables: `npm run db:reset` (drops/recreates DB, runs schema push, then seeds two households, default categories per household, split groups, and two users).
+   - Seed: `npm run db:seed` (clears all data, then seeds two households with full demo data).
+   - **Self-serve**: with the app running, visit **`/register`** to create another household + user (no seed script).
 
 **Local Postgres with Docker:** Run `docker compose up --build`, then in the app container run push and seed (see [DEPLOY.md](./DEPLOY.md)).
 
@@ -193,6 +215,7 @@ If you see redirects to `https://0.0.0.0:3000/...` in production, your reverse p
 ## Database migrations and existing data
 
 - **`npm run db:push`** (used on deploy and in Docker entrypoint) runs **additive** migrations only: it creates tables or columns when they are **missing**. It does **not** `DROP` tables, `TRUNCATE` data, or wipe rows. Your existing expenses, users, and other data stay intact when new migrations (e.g. Recon tables in `drizzle/0013_recon_pg.sql`, or `ai_analysis_runs.output_json` from `drizzle/0019_ai_analysis_runs_output_json_pg.sql`) are applied.
+- **Multi-household** (`drizzle/0022_households_pg.sql`): adds `households`, `users.household_id`, and `household_id` on tenant-owned tables (including **categories**), with backfill for existing rows. Applied when `users.household_id` is missing. After deploy, users should **re-authenticate** so `householdId` is present on the session. See [docs/multi-household.md](./docs/multi-household.md).
 - **Destructive operations** (only when you explicitly want to reset): `npm run db:reset` drops and recreates the public schema; `npm run db:seed` clears application data; `npm run db:fresh` combines reset + seed. Do not use those on production databases you care about.
 
 ## Database ERD
@@ -206,14 +229,22 @@ The diagram below reflects the **PostgreSQL** schema built from additive migrati
 - `notes.linked_type` and `notes.linked_id` form a **polymorphic** pointer for user-authored notes on arbitrary domain rows (type keys are app-defined; no FK to targets). See `getNoteRepository()` / `INoteRepository`.
 - **Shared list items**: optional notes use `linked_type = 'shared_list_item'` (`NOTE_LINKED_TYPE_SHARED_LIST_ITEM`) and `linked_id = shared_list_items.id`. There is no column on the item row; zero or many note rows per item are allowed. `notes.owner_user_id` scopes who wrote the note. Deleting a list, an item, or completed items removes attached notes via the list repositories.
 - `expenses.split_group_id` is a legacy text field; split grouping also uses `split_expense_group_id` → `split_groups`.
+- **Tenant column**: From migration `0022` onward, most domain tables include **`household_id`** (FK to `households`). The diagram lists it on `users`, `categories`, and `split_groups`; other tables follow the same pattern (see `drizzle/0022_households_pg.sql`).
 
 ```mermaid
 erDiagram
+  households {
+    serial id PK
+    text name
+    timestamptz created_at
+  }
+
   users {
     serial id PK
     text name
     text email UK
     text password_hash
+    bigint household_id FK
     timestamptz created_at
     int budget_month_start_day
     bigint primary_account_id FK
@@ -226,7 +257,8 @@ erDiagram
 
   categories {
     serial id PK
-    text name UK
+    bigint household_id FK
+    text name
     text group_name
     text icon
     int sort_order
@@ -238,7 +270,8 @@ erDiagram
 
   split_groups {
     serial id PK
-    text name UK
+    bigint household_id FK
+    text name
     boolean is_default
     int sort_order
     timestamptz created_at
@@ -558,6 +591,10 @@ erDiagram
     timestamptz updated_at
   }
 
+  households ||--o{ users : members
+  households ||--o{ categories : tenant_categories
+  households ||--o{ split_groups : tenant_split_groups
+
   users ||--o{ budgets : owns
   users ||--o{ expenses : records
   users ||--o{ income : records
@@ -622,14 +659,14 @@ erDiagram
 
 ## Seed data
 
-Seed always creates:
+Full seed (`npm run db:seed` / `db:fresh`) creates **two households** (one per seeded user) so tenancy matches production. Each household gets its own **categories** and **Default** split group. Optional env: `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD`, names; see [Seed scripts](#seed-scripts-dbseed-dbfresh-seed-categories).
 
-- Two users (optional env: `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD`, names; see [Seed scripts](#seed-scripts-dbseed-dbfresh-seed-categories) above).
-- Default categories (fixed/variable and default amounts where applicable).
-- **3 months** of income and expenses for **both users**: current month and the two previous months. Income includes monthly salary per user plus ad-hoc entries; expenses are spread across categories and both users.
-- **Per-user budget allocations** for the same 3 months: each user gets allocation rows for the main categories (groceries, transport, utilities, savings, etc.) and one sample **budget transfer** (savings to groceries) so the Budget page shows meaningful data for each user.
-- **Split expenses** (current month): e.g. groceries split equally, dinner split equally, and a full-amount-owed utility expense, so the Splits page shows who owes whom. A **Splits** category is included for settlement expenses.
-- **Goals**: Sample savings and credit goals per user, with example goal contributions, credit payment, and a manual interest entry (all linked to the account ledger).
+- Two users, each tied to a **different** household (no cross-household rows).
+- Default categories per household (fixed/variable and default amounts where applicable).
+- **3 months** of income and expenses **per user**, scoped to that user’s household.
+- **Per-user budget allocations** for the same 3 months and a sample **budget transfer** per user where applicable.
+- **Split expenses** only **within** each household (e.g. equal splits between members of the same household). A **Splits** category exists per household for settlement-style lines.
+- **Goals**, accounts, and mortgages: sample data **per household** / per user as defined in `src/lib/db/seed.ts`.
 
 Amounts use the same integer format as the app (e.g. cents). To start with an empty transaction history, you would need to change the seed script or clear income/expenses after seeding.
 
@@ -672,7 +709,7 @@ See [DEPLOY.md](./DEPLOY.md) for deploying to a VPS with Coolify (Docker + Traef
 - `npm run build` / `npm run start` – Production build and start
 - `npm run db:push` – Apply **additive** schema and migrations (creates missing tables/columns; does not delete existing data). Runs Postgres migrations from `drizzle/` (including numbered steps—for example Recon `0013_recon_pg.sql` or AI report storage `0019_ai_analysis_runs_output_json_pg.sql`) when tables or columns are missing. Use this after deploying, if you see "groupId missing" on the Splits page, or Postgres errors about a missing column such as `output_json` on `ai_analysis_runs`.
 - `npm run db:reset` – Recreate DB from scratch (drop/recreate public schema). Then run push (and optionally seed). Do not run while the app is using the DB.
-- `npm run db:seed` – Clear all data, then seed users, categories, 3 months of income/expenses, and sample split expenses
+- `npm run db:seed` – Clear all data, then seed two households, users, categories, 3 months of income/expenses, and in-household split samples
 - `npm run db:fresh` – Reset DB then seed (recreate from scratch and seed in one go)
 - `npm run generate-pwa-icons` – Generate PWA icons into `public/icons/` (requires `sharp`). Run once or when changing app icon.
 - `npm run generate-vapid-keys` – Print VAPID key pair for Web Push. Add the two lines to your env (e.g. `.env.local`) so push notifications work.

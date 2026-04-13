@@ -1,5 +1,5 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
-import { getRequestContext } from "@/lib/db/request-context";
+import { getRequestContext, requireHouseholdId } from "@/lib/db/request-context";
 import { NOTE_LINKED_TYPE_SHARED_LIST_ITEM } from "@/lib/types/note-linked-types";
 import { NoteRepository } from "./note.repository";
 import type { SharedList } from "../interfaces/shared-list.repository";
@@ -54,25 +54,25 @@ export class SharedListRepository implements ISharedListRepository {
   }
 
   async findAll(options?: { visibility?: ListVisibility }): Promise<SharedList[]> {
+    const hid = requireHouseholdId();
     const userId = this.getUserIdOrNull();
     const visibility = options?.visibility;
 
-    const params: (string | number | boolean | null)[] = [];
-    let whereSql = "";
+    const params: (string | number | boolean | null)[] = [hid];
+    let whereSql = "WHERE household_id = ?";
 
     if (visibility === "shared") {
-      whereSql = "WHERE visibility = 'shared'";
+      whereSql += " AND visibility = 'shared'";
     } else if (visibility === "personal") {
       if (userId == null) return [];
-      whereSql = "WHERE visibility = 'personal' AND owner_user_id = ?";
+      whereSql += " AND visibility = 'personal' AND owner_user_id = ?";
       params.push(userId);
     } else {
-      // Default: both shared and current user's personal lists.
       if (userId == null) {
-        whereSql = "WHERE visibility = 'shared'";
+        whereSql += " AND visibility = 'shared'";
       } else {
-        whereSql =
-          "WHERE visibility = 'shared' OR (visibility = 'personal' AND owner_user_id = ?)";
+        whereSql +=
+          " AND (visibility = 'shared' OR (visibility = 'personal' AND owner_user_id = ?))";
         params.push(userId);
       }
     }
@@ -85,20 +85,22 @@ export class SharedListRepository implements ISharedListRepository {
   }
 
   async findById(id: number): Promise<SharedList | null> {
+    const hid = requireHouseholdId();
     const userId = this.getUserIdOrNull();
     const row = await (userId == null
       ? get<SharedListRow>(
-          `${SELECT_FIELDS} WHERE id = ? AND visibility = 'shared'`,
-          [id]
+          `${SELECT_FIELDS} WHERE id = ? AND household_id = ? AND visibility = 'shared'`,
+          [id, hid]
         )
       : get<SharedListRow>(
-          `${SELECT_FIELDS} WHERE id = ? AND (visibility = 'shared' OR (visibility = 'personal' AND owner_user_id = ?))`,
-          [id, userId]
+          `${SELECT_FIELDS} WHERE id = ? AND household_id = ? AND (visibility = 'shared' OR (visibility = 'personal' AND owner_user_id = ?))`,
+          [id, hid, userId]
         ));
     return row ? toSharedList(row) : null;
   }
 
   async create(data: CreateSharedListInput): Promise<{ id: number }> {
+    const hid = requireHouseholdId();
     const userId = this.getUserIdOrNull();
     const visibility: ListVisibility = data.visibility ?? "shared";
     const ownerUserId =
@@ -109,13 +111,14 @@ export class SharedListRepository implements ISharedListRepository {
     }
 
     await run(
-      `INSERT INTO shared_lists (name, sort_order, visibility, owner_user_id) VALUES (?, ?, ?, ?)`,
-      [data.name, data.sortOrder ?? 0, visibility, ownerUserId]
+      `INSERT INTO shared_lists (name, sort_order, visibility, owner_user_id, household_id) VALUES (?, ?, ?, ?, ?)`,
+      [data.name, data.sortOrder ?? 0, visibility, ownerUserId, hid]
     );
     return { id: await lastInsertId() };
   }
 
   async update(id: number, data: UpdateSharedListInput): Promise<void> {
+    const hid = requireHouseholdId();
     const updates: string[] = [];
     const params: (string | number)[] = [];
     if (data.name != null) {
@@ -127,14 +130,15 @@ export class SharedListRepository implements ISharedListRepository {
       params.push(data.sortOrder);
     }
     if (updates.length === 0) return;
-    params.push(id);
+    params.push(id, hid);
     await run(
-      `UPDATE shared_lists SET ${updates.join(", ")} WHERE id = ?`,
+      `UPDATE shared_lists SET ${updates.join(", ")} WHERE id = ? AND household_id = ?`,
       params
     );
   }
 
   async delete(id: number): Promise<void> {
+    const hid = requireHouseholdId();
     const itemRows = await all<{ id: number }>(
       "SELECT id FROM shared_list_items WHERE list_id = ?",
       [id]
@@ -143,6 +147,6 @@ export class SharedListRepository implements ISharedListRepository {
       NOTE_LINKED_TYPE_SHARED_LIST_ITEM,
       itemRows.map((r) => r.id)
     );
-    await run("DELETE FROM shared_lists WHERE id = ?", [id]);
+    await run("DELETE FROM shared_lists WHERE id = ? AND household_id = ?", [id, hid]);
   }
 }

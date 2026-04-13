@@ -3,24 +3,13 @@
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { formatRand } from "@/lib/utils/currency";
-import type { AccountType } from "@/lib/types";
+import type { AccountType, AccountWithBalance } from "@/lib/types";
 import { TransferMoneyModal } from "./transfer-money-modal";
 import { toast } from "sonner";
 import { normalizeNumericId } from "@/lib/utils/accounts-api";
-
-interface AccountWithBalance {
-  id: number;
-  name: string;
-  type: AccountType;
-  ownerUserId: number;
-  creditLimit: number | null;
-  createdAt: string;
-  balance: number;
-  availableCredit?: number;
-}
+import { AccountCreateFields } from "@/components/accounts/account-create-fields";
+import { validateAccountCreateDraft } from "@/lib/utils/account-create";
 
 export function AccountsManage() {
   const router = useRouter();
@@ -70,12 +59,12 @@ export function AccountsManage() {
   }, []);
 
   const handleCreate = () => {
-    if (!newName.trim()) return;
-    const creditLimit =
-      newType === "credit" && newCreditLimit.trim()
-        ? Math.round(parseFloat(newCreditLimit.replace(/\s/g, "").replace(",", ".")) * 100)
-        : null;
-    if (newType === "credit" && (creditLimit == null || creditLimit <= 0)) return;
+    const validated = validateAccountCreateDraft({
+      name: newName,
+      type: newType,
+      creditLimitInput: newCreditLimit,
+    });
+    if (!validated.ok) return;
 
     startTransition(async () => {
       const snapshot = accounts;
@@ -84,10 +73,10 @@ export function AccountsManage() {
         ...prev,
         {
           id: tempId,
-          name: newName.trim(),
-          type: newType,
+          name: validated.value.name,
+          type: validated.value.type,
           ownerUserId: 0,
-          creditLimit,
+          creditLimit: validated.value.creditLimitMinorUnits,
           createdAt: new Date().toISOString(),
           balance: 0,
         },
@@ -96,9 +85,9 @@ export function AccountsManage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: newName.trim(),
-          type: newType,
-          creditLimit: newType === "credit" ? creditLimit : null,
+          name: validated.value.name,
+          type: validated.value.type,
+          creditLimit: validated.value.type === "credit" ? validated.value.creditLimitMinorUnits : null,
         }),
       });
       if (res.ok) {
@@ -231,36 +220,14 @@ export function AccountsManage() {
 
       {showAdd ? (
         <div className="rounded-lg border p-4 space-y-3">
-          <Label>Account name</Label>
-          <Input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="e.g. Household Bank"
+          <AccountCreateFields
+            name={newName}
+            onNameChange={setNewName}
+            type={newType}
+            onTypeChange={setNewType}
+            creditLimitInput={newCreditLimit}
+            onCreditLimitInputChange={setNewCreditLimit}
           />
-          <div>
-            <Label>Type</Label>
-            <select
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
-              value={newType}
-              onChange={(e) => setNewType(e.target.value as AccountType)}
-            >
-              <option value="bank">Bank</option>
-              <option value="savings">Savings</option>
-              <option value="credit">Credit</option>
-            </select>
-          </div>
-          {newType === "credit" && (
-            <div>
-              <Label>Credit limit (R)</Label>
-              <Input
-                type="text"
-                inputMode="decimal"
-                placeholder="0.00"
-                value={newCreditLimit}
-                onChange={(e) => setNewCreditLimit(e.target.value)}
-              />
-            </div>
-          )}
           <div className="flex gap-2">
             <Button onClick={handleCreate} disabled={isPending || !newName.trim()}>
               {isPending ? "Adding..." : "Add account"}

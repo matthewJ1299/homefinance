@@ -74,6 +74,12 @@ function LoginForm() {
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Signing in..." : "Sign in"}
           </Button>
+          <p className="text-sm text-muted-foreground text-center">
+            New household?{" "}
+            <a href="/register" className="underline">
+              Register
+            </a>
+          </p>
         </form>
       </CardContent>
     </Card>

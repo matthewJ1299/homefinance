@@ -1,7 +1,9 @@
-import { all, get, run } from "@/lib/db";
+import { all, get, run, lastInsertId } from "@/lib/db";
+import { requireHouseholdId } from "@/lib/db/request-context";
 import { normalizeBudgetMonthStartDay } from "@/lib/utils/date";
 import type { UserSummary, UserForAuth } from "../interfaces/user.repository";
 import type { IUserRepository } from "../interfaces/user.repository";
+import type { SetupWizardState, SetupWizardStatus } from "../interfaces/user.repository";
 
 interface UserRow {
   id: number;
@@ -10,41 +12,124 @@ interface UserRow {
   password_hash?: string;
 }
 
+function isSetupWizardStatus(v: unknown): v is SetupWizardStatus {
+  return v === "not_started" || v === "in_progress" || v === "dismissed" || v === "completed";
+}
+
 function toSummary(r: UserRow): UserSummary {
   return { id: r.id, name: r.name };
 }
 
-function toUserForAuth(r: UserRow & { email: string; password_hash: string }): UserForAuth {
+function toUserForAuth(
+  r: UserRow & {
+    email: string;
+    password_hash: string;
+    household_id: number;
+    is_super_admin?: boolean;
+  }
+): UserForAuth {
   return {
     id: r.id,
     email: r.email,
     name: r.name,
     passwordHash: r.password_hash,
+    householdId: r.household_id,
+    isSuperAdmin: r.is_super_admin === true,
   };
 }
 
 export class UserRepository implements IUserRepository {
   async findAll(): Promise<UserSummary[]> {
-    const rows = await all<UserRow>("SELECT id, name FROM users ORDER BY id");
+    const hid = requireHouseholdId();
+    const rows = await all<UserRow>(
+      "SELECT id, name FROM users WHERE household_id = ? ORDER BY id",
+      [hid]
+    );
     return rows.map(toSummary);
   }
 
   async findAllExcept(userId: number): Promise<UserSummary[]> {
-    const rows = await all<UserRow>("SELECT id, name FROM users WHERE id != ? ORDER BY id", [userId]);
+    const hid = requireHouseholdId();
+    const rows = await all<UserRow>(
+      "SELECT id, name FROM users WHERE id != ? AND household_id = ? ORDER BY id",
+      [userId, hid]
+    );
     return rows.map(toSummary);
   }
 
   async findById(id: number): Promise<UserSummary | null> {
-    const row = await get<UserRow>("SELECT id, name FROM users WHERE id = ?", [id]);
+    const hid = requireHouseholdId();
+    const row = await get<UserRow>(
+      "SELECT id, name FROM users WHERE id = ? AND household_id = ?",
+      [id, hid]
+    );
     return row ? toSummary(row) : null;
   }
 
   async findByEmailForAuth(email: string): Promise<UserForAuth | null> {
-    const row = await get<UserRow & { email: string; password_hash: string }>(
-      "SELECT id, name, email, password_hash FROM users WHERE email = ?",
-      [email]
+    try {
+      const row = await get<
+        UserRow & {
+          email: string;
+          password_hash: string;
+          household_id: number;
+          is_super_admin?: boolean;
+        }
+      >(
+        "SELECT id, name, email, password_hash, household_id, is_super_admin FROM users WHERE email = ?",
+        [email]
+      );
+      return row ? toUserForAuth(row) : null;
+    } catch (err) {
+      // Backwards-compatible: older DBs won't have is_super_admin until migrations are applied.
+      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
+        const row = await get<
+          UserRow & { email: string; password_hash: string; household_id: number }
+        >(
+          "SELECT id, name, email, password_hash, household_id FROM users WHERE email = ?",
+          [email]
+        );
+        return row ? toUserForAuth({ ...row, is_super_admin: false }) : null;
+      }
+      throw err;
+    }
+  }
+
+  async getHouseholdId(userId: number): Promise<number> {
+    const row = await get<{ household_id: number }>(
+      "SELECT household_id FROM users WHERE id = ?",
+      [userId]
     );
-    return row ? toUserForAuth(row) : null;
+    if (!row) {
+      throw new Error("User not found");
+    }
+    return row.household_id;
+  }
+
+  async createUser(input: {
+    householdId: number;
+    name: string;
+    email: string;
+    passwordHash: string;
+  }): Promise<number> {
+    await run(
+      "INSERT INTO users (name, email, password_hash, household_id, ai_feature_allowed, recon_feature_allowed) VALUES (?, ?, ?, ?, false, false)",
+      [input.name, input.email, input.passwordHash, input.householdId]
+    );
+    const id = await lastInsertId();
+    if (id == null) {
+      throw new Error("User insert did not return an id");
+    }
+    return id;
+  }
+
+  async emailExists(email: string): Promise<boolean> {
+    const normalized = email.trim().toLowerCase();
+    const row = await get<{ id: number }>(
+      "SELECT id FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1",
+      [normalized]
+    );
+    return row != null;
   }
 
   async getBudgetMonthStartDay(userId: number): Promise<number> {
@@ -191,6 +276,54 @@ export class UserRepository implements IUserRepository {
     } catch (err) {
       if (err && typeof err === "object" && "code" in err && err.code === "42703") {
         throw new Error('Database is missing column "users.ai_use_paid". Run `npm run db:push` to apply migrations.');
+      }
+      throw err;
+    }
+  }
+
+  async getSetupWizardState(userId: number): Promise<SetupWizardState> {
+    try {
+      const row = await get<{
+        setup_wizard_status: string | null;
+        setup_wizard_dismissed_at: Date | string | null;
+        setup_wizard_completed_at: Date | string | null;
+      }>(
+        "SELECT setup_wizard_status, setup_wizard_dismissed_at, setup_wizard_completed_at FROM users WHERE id = ?",
+        [userId]
+      );
+
+      const rawStatus = row?.setup_wizard_status;
+      const status: SetupWizardStatus = isSetupWizardStatus(rawStatus) ? rawStatus : "not_started";
+
+      const dismissedAtRaw = row?.setup_wizard_dismissed_at ?? null;
+      const completedAtRaw = row?.setup_wizard_completed_at ?? null;
+
+      const dismissedAt = dismissedAtRaw ? new Date(dismissedAtRaw) : null;
+      const completedAt = completedAtRaw ? new Date(completedAtRaw) : null;
+
+      return { status, dismissedAt, completedAt };
+    } catch (err) {
+      // Backwards-compatible: older DBs won't have the columns until migrations are applied.
+      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
+        return { status: "not_started", dismissedAt: null, completedAt: null };
+      }
+      throw err;
+    }
+  }
+
+  async setSetupWizardStatus(userId: number, status: SetupWizardStatus): Promise<void> {
+    const dismissedAt = status === "dismissed" ? new Date().toISOString() : null;
+    const completedAt = status === "completed" ? new Date().toISOString() : null;
+    try {
+      await run(
+        "UPDATE users SET setup_wizard_status = ?, setup_wizard_dismissed_at = ?, setup_wizard_completed_at = ? WHERE id = ?",
+        [status, dismissedAt, completedAt, userId]
+      );
+    } catch (err) {
+      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
+        throw new Error(
+          'Database is missing setup wizard columns on "users". Run `npm run db:push` to apply migrations.'
+        );
       }
       throw err;
     }

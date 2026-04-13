@@ -1,4 +1,5 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
+import { requireHouseholdId } from "@/lib/db/request-context";
 import type { Category, CategoryWithActive } from "@/lib/types";
 import type { ICategoryRepository } from "../interfaces/category.repository";
 
@@ -31,31 +32,37 @@ function toCategory(r: CategoryRow, includeIsActive = false): Category | Categor
 
 export class CategoryRepository implements ICategoryRepository {
   async findAll(): Promise<Category[]> {
+    const hid = requireHouseholdId();
     const rows = await all<CategoryRow>(
-      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount FROM categories WHERE is_active = true ORDER BY cost_type DESC, sort_order, name"
+      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount FROM categories WHERE household_id = ? AND is_active = true ORDER BY cost_type DESC, sort_order, name",
+      [hid]
     );
     return rows.map((r) => toCategory(r) as Category);
   }
 
   async findAllIncludingInactive(): Promise<CategoryWithActive[]> {
+    const hid = requireHouseholdId();
     const rows = await all<CategoryRow>(
-      "SELECT id, name, group_name, icon, sort_order, is_active, cost_type, default_amount FROM categories ORDER BY is_active DESC NULLS LAST, cost_type DESC, sort_order, name"
+      "SELECT id, name, group_name, icon, sort_order, is_active, cost_type, default_amount FROM categories WHERE household_id = ? ORDER BY is_active DESC NULLS LAST, cost_type DESC, sort_order, name",
+      [hid]
     );
     return rows.map((r) => toCategory(r, true) as CategoryWithActive);
   }
 
   async findById(id: number): Promise<Category | null> {
+    const hid = requireHouseholdId();
     const row = await get<CategoryRow>(
-      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount FROM categories WHERE id = ?",
-      [id]
+      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount FROM categories WHERE id = ? AND household_id = ?",
+      [id, hid]
     );
     return row ? (toCategory(row) as Category) : null;
   }
 
   async findByName(name: string): Promise<Category | null> {
+    const hid = requireHouseholdId();
     const row = await get<CategoryRow>(
-      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount FROM categories WHERE name = ?",
-      [name]
+      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount FROM categories WHERE name = ? AND household_id = ?",
+      [name, hid]
     );
     return row ? (toCategory(row) as Category) : null;
   }
@@ -68,8 +75,9 @@ export class CategoryRepository implements ICategoryRepository {
     costType?: "fixed" | "variable";
     defaultAmount?: number | null;
   }): Promise<Category> {
+    const hid = requireHouseholdId();
     await run(
-      "INSERT INTO categories (name, group_name, icon, sort_order, cost_type, default_amount) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT INTO categories (name, group_name, icon, sort_order, cost_type, default_amount, household_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
       [
         data.name,
         data.groupName,
@@ -77,12 +85,13 @@ export class CategoryRepository implements ICategoryRepository {
         data.sortOrder ?? 0,
         data.costType ?? "variable",
         data.defaultAmount ?? null,
+        hid,
       ]
     );
     const id = await lastInsertId();
     const row = (await get<CategoryRow>(
-      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount FROM categories WHERE id = ?",
-      [id]
+      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount FROM categories WHERE id = ? AND household_id = ?",
+      [id, hid]
     ))!;
     return toCategory(row) as Category;
   }
@@ -125,22 +134,31 @@ export class CategoryRepository implements ICategoryRepository {
       params.push(data.defaultAmount);
     }
     if (updates.length === 0) return;
-    params.push(id);
-    await run(`UPDATE categories SET ${updates.join(", ")} WHERE id = ?`, params);
+    const hid = requireHouseholdId();
+    params.push(id, hid);
+    await run(`UPDATE categories SET ${updates.join(", ")} WHERE id = ? AND household_id = ?`, params);
   }
 
   async delete(id: number): Promise<void> {
-    await run("DELETE FROM categories WHERE id = ?", [id]);
+    const hid = requireHouseholdId();
+    await run("DELETE FROM categories WHERE id = ? AND household_id = ?", [id, hid]);
   }
 
   async isInUse(id: number): Promise<boolean> {
-    const expense = await get<{ id: number }>("SELECT id FROM expenses WHERE category_id = ? LIMIT 1", [id]);
+    const hid = requireHouseholdId();
+    const expense = await get<{ id: number }>(
+      "SELECT id FROM expenses WHERE category_id = ? AND household_id = ? LIMIT 1",
+      [id, hid]
+    );
     if (expense) return true;
-    const budget = await get<{ id: number }>("SELECT id FROM budgets WHERE category_id = ? LIMIT 1", [id]);
+    const budget = await get<{ id: number }>(
+      "SELECT id FROM budgets WHERE category_id = ? AND household_id = ? LIMIT 1",
+      [id, hid]
+    );
     if (budget) return true;
     const transfer = await get<{ id: number }>(
-      "SELECT id FROM budget_transfers WHERE from_category_id = ? OR to_category_id = ? LIMIT 1",
-      [id, id]
+      "SELECT id FROM budget_transfers WHERE (from_category_id = ? OR to_category_id = ?) AND household_id = ? LIMIT 1",
+      [id, id, hid]
     );
     return !!transfer;
   }

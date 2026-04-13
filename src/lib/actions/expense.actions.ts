@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { setRequestContext } from "@/lib/db/request-context";
+import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { BudgetService } from "@/lib/services/budget.service";
 import { SplitService } from "@/lib/services/split.service";
@@ -36,7 +36,7 @@ export async function addExpense(formData: {
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const userId = Number(session.user.id);
   const parsed = createExpenseSchema.safeParse(formData);
   if (!parsed.success) {
@@ -156,7 +156,7 @@ export async function getExpenseForEdit(expenseId: number): Promise<GetExpenseFo
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const expenseRepo = getExpenseRepository();
   const expense = await expenseRepo.findById(expenseId);
   if (!expense) {
@@ -194,7 +194,7 @@ export async function updateExpense(
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const parsed = updateExpenseSchema.safeParse(formData);
   if (!parsed.success) {
     return { success: false, error: parsed.error.message };
@@ -273,7 +273,7 @@ export async function deleteExpense(id: number): Promise<ExpenseActionResult> {
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const expenseRepo = getExpenseRepository();
   const expense = await expenseRepo.findById(id);
   if (!expense) {
@@ -317,7 +317,7 @@ export async function addSplitExpense(formData: {
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const parsed = createSplitExpenseSchema.safeParse(formData);
   if (!parsed.success) {
     return { success: false, error: parsed.error.message };

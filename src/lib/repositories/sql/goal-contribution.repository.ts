@@ -1,4 +1,5 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
+import { requireHouseholdId } from "@/lib/db/request-context";
 import type { GoalContribution, GoalContributionKind } from "@/lib/types";
 import type {
   IGoalContributionRepository,
@@ -48,8 +49,9 @@ function toTotals(row: Record<string, unknown> | null): GoalContributionTotals {
 
 export class GoalContributionRepository implements IGoalContributionRepository {
   async create(input: CreateGoalContributionInput): Promise<{ id: number }> {
+    const hid = requireHouseholdId();
     await run(
-      "INSERT INTO goal_contributions (goal_id, owner_user_id, account_transaction_id, kind, amount, effective_date, note) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO goal_contributions (goal_id, owner_user_id, account_transaction_id, kind, amount, effective_date, note, household_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       [
         input.goalId,
         input.ownerUserId,
@@ -58,6 +60,7 @@ export class GoalContributionRepository implements IGoalContributionRepository {
         input.amount,
         input.effectiveDate,
         input.note ?? null,
+        hid,
       ]
     );
     return { id: await lastInsertId() };
@@ -69,9 +72,10 @@ export class GoalContributionRepository implements IGoalContributionRepository {
     limit: number,
     offset: number
   ): Promise<GoalContribution[]> {
+    const hid = requireHouseholdId();
     const rows = await all<GoalContributionRow>(
-      "SELECT id, goal_id, owner_user_id, account_transaction_id, kind, amount, effective_date, note, created_at FROM goal_contributions WHERE goal_id = ? AND owner_user_id = ? ORDER BY effective_date DESC, created_at DESC LIMIT ? OFFSET ?",
-      [goalId, ownerUserId, limit, offset]
+      "SELECT id, goal_id, owner_user_id, account_transaction_id, kind, amount, effective_date, note, created_at FROM goal_contributions WHERE goal_id = ? AND owner_user_id = ? AND household_id = ? ORDER BY effective_date DESC, created_at DESC LIMIT ? OFFSET ?",
+      [goalId, ownerUserId, hid, limit, offset]
     );
     return rows.map(toGoalContribution);
   }
@@ -80,22 +84,25 @@ export class GoalContributionRepository implements IGoalContributionRepository {
     goalId: number,
     ownerUserId: number
   ): Promise<GoalContribution[]> {
+    const hid = requireHouseholdId();
     const rows = await all<GoalContributionRow>(
-      "SELECT id, goal_id, owner_user_id, account_transaction_id, kind, amount, effective_date, note, created_at FROM goal_contributions WHERE goal_id = ? AND owner_user_id = ? ORDER BY effective_date ASC, created_at ASC",
-      [goalId, ownerUserId]
+      "SELECT id, goal_id, owner_user_id, account_transaction_id, kind, amount, effective_date, note, created_at FROM goal_contributions WHERE goal_id = ? AND owner_user_id = ? AND household_id = ? ORDER BY effective_date ASC, created_at ASC",
+      [goalId, ownerUserId, hid]
     );
     return rows.map(toGoalContribution);
   }
 
   async countByGoal(goalId: number, ownerUserId: number): Promise<number> {
+    const hid = requireHouseholdId();
     const row = await get<{ c: number }>(
-      "SELECT COUNT(*) AS c FROM goal_contributions WHERE goal_id = ? AND owner_user_id = ?",
-      [goalId, ownerUserId]
+      "SELECT COUNT(*) AS c FROM goal_contributions WHERE goal_id = ? AND owner_user_id = ? AND household_id = ?",
+      [goalId, ownerUserId, hid]
     );
     return row?.c ?? 0;
   }
 
   async totalsByGoal(goalId: number, ownerUserId: number): Promise<GoalContributionTotals> {
+    const hid = requireHouseholdId();
     const row = await get(
       `SELECT
         COALESCE(SUM(CASE WHEN kind = 'contribution' THEN amount ELSE 0 END), 0) AS total_contributed,
@@ -103,8 +110,8 @@ export class GoalContributionRepository implements IGoalContributionRepository {
         COALESCE(SUM(CASE WHEN kind = 'payment' THEN amount ELSE 0 END), 0) AS total_paid,
         COALESCE(SUM(CASE WHEN kind = 'interest' THEN amount ELSE 0 END), 0) AS total_interest
       FROM goal_contributions
-      WHERE goal_id = ? AND owner_user_id = ?`,
-      [goalId, ownerUserId]
+      WHERE goal_id = ? AND owner_user_id = ? AND household_id = ?`,
+      [goalId, ownerUserId, hid]
     );
     return toTotals(row as Record<string, unknown> | null);
   }
@@ -114,6 +121,7 @@ export class GoalContributionRepository implements IGoalContributionRepository {
     ownerUserId: number,
     month: string
   ): Promise<GoalContributionTotals> {
+    const hid = requireHouseholdId();
     const row = await get(
       `SELECT
         COALESCE(SUM(CASE WHEN kind = 'contribution' THEN amount ELSE 0 END), 0) AS total_contributed,
@@ -121,11 +129,10 @@ export class GoalContributionRepository implements IGoalContributionRepository {
         COALESCE(SUM(CASE WHEN kind = 'payment' THEN amount ELSE 0 END), 0) AS total_paid,
         COALESCE(SUM(CASE WHEN kind = 'interest' THEN amount ELSE 0 END), 0) AS total_interest
       FROM goal_contributions
-      WHERE goal_id = ? AND owner_user_id = ?
+      WHERE goal_id = ? AND owner_user_id = ? AND household_id = ?
         AND to_char(effective_date, 'YYYY-MM') = ?`,
-      [goalId, ownerUserId, month]
+      [goalId, ownerUserId, hid, month]
     );
     return toTotals(row as Record<string, unknown> | null);
   }
 }
-

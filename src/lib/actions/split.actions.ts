@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { setRequestContext } from "@/lib/db/request-context";
+import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { SplitService } from "@/lib/services/split.service";
 import { getUserRepository } from "@/lib/repositories";
 import { settleSplitSchema } from "@/lib/validators/split.schema";
@@ -17,7 +17,7 @@ export async function getSplitBalance(groupId?: number): Promise<
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const splitService = new SplitService();
   const balance = await splitService.getBalance(Number(session.user.id), groupId);
   return { success: true, balance };
@@ -30,7 +30,7 @@ export async function getSplitHistory(groupId?: number): Promise<
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const splitService = new SplitService();
   const history = await splitService.getSplitHistory(Number(session.user.id), groupId);
   return { success: true, history };
@@ -46,7 +46,7 @@ export async function settleSplit(formData: {
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const payerUserId = Number(session.user.id);
   const parsed = settleSplitSchema.safeParse({
     ...formData,
