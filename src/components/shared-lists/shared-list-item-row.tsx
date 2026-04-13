@@ -344,9 +344,6 @@ export function SharedListItemRow({
             </div>
           ) : (
             <div className="space-y-2">
-              {draft.trim().length > 0 ? (
-                <p className="text-[11px] text-muted-foreground">Tap to edit.</p>
-              ) : null}
               <div
                 tabIndex={0}
                 className={cn(
