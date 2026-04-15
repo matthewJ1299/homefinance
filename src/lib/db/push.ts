@@ -455,9 +455,32 @@ async function pushPostgres(): Promise<void> {
       }
     }
 
-    const hasHouseholdTenancy = await client.query(
-      "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'household_id'"
-    );
+    // Use late-stage markers so a partially applied 0022 can resume safely.
+    const hasHouseholdTenancy = await client.query(`
+      SELECT 1
+      WHERE EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'households'
+      )
+        AND EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'household_id'
+        )
+        AND EXISTS (
+          SELECT 1
+          FROM pg_indexes
+          WHERE schemaname = 'public' AND indexname = 'calendar_categories_household_id_name_unique'
+        )
+        AND EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'mortgage_schedule_snapshots'
+            AND column_name = 'household_id'
+        )
+    `);
     if (hasHouseholdTenancy.rows.length === 0) {
       const migration0022Path = path.join(process.cwd(), "drizzle", "0022_households_pg.sql");
       if (fs.existsSync(migration0022Path)) {

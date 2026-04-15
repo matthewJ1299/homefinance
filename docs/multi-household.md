@@ -21,7 +21,7 @@ Related features:
 
 ## Upgrading an existing database
 
-1. Run **`npm run db:push`** so migration `drizzle/0022_households_pg.sql` applies (creates `households`, adds `household_id` columns, backfills from existing users/data).
+1. Run **`npm run db:push`** so migration `drizzle/0022_households_pg.sql` applies (creates `households`, adds `household_id` columns, backfills from existing users/data). If an older deploy failed mid-way around `calendar_categories`, rerun `db:push`; `0022` now handles that retry path correctly.
 2. Users should **sign out and sign in again** (or clear the session) so the JWT includes `householdId`. Old sessions without it may lack tenant context until refreshed.
 
 ## Alternatives (not implemented)

@@ -38,6 +38,8 @@
 
 ### Fixed
 
+- **`db:push` partial `0022` recovery**: `drizzle/0022_households_pg.sql` now drops the legacy `calendar_categories_name_key` as a **constraint** instead of trying to drop its backing index, and the additive statements use `IF NOT EXISTS` where safe so the migration can resume after this failure point. `src/lib/db/push.ts` now checks late-stage `0022` markers instead of only `users.household_id`, so a partially applied household migration is retried instead of being silently skipped.
+
 - **Account APIs and stale tenant session context**: Account routes now bind request context from the authenticated session before using tenant-scoped repositories, preventing `/api/accounts` and related account endpoints from failing with missing `householdId`. Existing JWT sessions also backfill `householdId` from the database when it is absent, reducing post-migration sign-out/sign-in breakage for server-rendered pages and APIs.
 
 - **Coolify parallel deploy port collision**: `docker-compose.yml` no longer publishes `3000:3000` for the production `app` service. The app is now internal-only (`expose: 3000`) so multiple stacks/domains can run on one host behind a reverse proxy without `port is already allocated` failures.

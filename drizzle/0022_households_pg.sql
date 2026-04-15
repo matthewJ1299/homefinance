@@ -1,20 +1,20 @@
 -- Multi-household tenancy: one household per user; rows scoped by household_id.
--- Applied when users.household_id is missing (see src/lib/db/push.ts).
+-- Applied when the multi-household end-state is still incomplete (see src/lib/db/push.ts).
 
-CREATE TABLE households (
+CREATE TABLE IF NOT EXISTS households (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE users ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 DO $hf_users$
 DECLARE
   ur RECORD;
   new_hid INTEGER;
 BEGIN
-  FOR ur IN SELECT id, name FROM users ORDER BY id
+  FOR ur IN SELECT id, name FROM users WHERE household_id IS NULL ORDER BY id
   LOOP
     INSERT INTO households (name) VALUES (ur.name || ' household') RETURNING id INTO new_hid;
     UPDATE users SET household_id = new_hid WHERE id = ur.id;
@@ -23,7 +23,7 @@ END $hf_users$;
 --> statement-breakpoint
 ALTER TABLE users ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-ALTER TABLE categories ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 DROP INDEX IF EXISTS categories_name_unique;
 --> statement-breakpoint
@@ -115,9 +115,9 @@ END $hf_categories$;
 --> statement-breakpoint
 ALTER TABLE categories ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-CREATE UNIQUE INDEX categories_household_id_name_unique ON categories (household_id, name);
+CREATE UNIQUE INDEX IF NOT EXISTS categories_household_id_name_unique ON categories (household_id, name);
 --> statement-breakpoint
-ALTER TABLE split_groups ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE split_groups ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 DROP INDEX IF EXISTS split_groups_name_unique;
 --> statement-breakpoint
@@ -157,11 +157,11 @@ END $hf_split_groups$;
 --> statement-breakpoint
 ALTER TABLE split_groups ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-CREATE UNIQUE INDEX split_groups_household_id_name_unique ON split_groups (household_id, name);
+CREATE UNIQUE INDEX IF NOT EXISTS split_groups_household_id_name_unique ON split_groups (household_id, name);
 --> statement-breakpoint
-ALTER TABLE calendar_categories ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE calendar_categories ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
-DROP INDEX IF EXISTS calendar_categories_name_key;
+ALTER TABLE calendar_categories DROP CONSTRAINT IF EXISTS calendar_categories_name_key;
 --> statement-breakpoint
 DROP INDEX IF EXISTS calendar_categories_name_unique;
 --> statement-breakpoint
@@ -205,9 +205,9 @@ END $hf_cal_categories$;
 --> statement-breakpoint
 ALTER TABLE calendar_categories ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-CREATE UNIQUE INDEX calendar_categories_household_id_name_unique ON calendar_categories (household_id, name);
+CREATE UNIQUE INDEX IF NOT EXISTS calendar_categories_household_id_name_unique ON calendar_categories (household_id, name);
 --> statement-breakpoint
-ALTER TABLE mortgage_configs ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE mortgage_configs ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 DO $hf_mortgage$
 DECLARE
@@ -268,7 +268,7 @@ UPDATE mortgage_configs SET household_id = (SELECT household_id FROM users ORDER
 --> statement-breakpoint
 ALTER TABLE mortgage_configs ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-ALTER TABLE budgets ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE budgets ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 UPDATE budgets b SET household_id = u.household_id FROM users u WHERE b.user_id = u.id;
 --> statement-breakpoint
@@ -276,45 +276,45 @@ ALTER TABLE budgets ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
 DROP INDEX IF EXISTS budgets_user_id_category_id_month_unique;
 --> statement-breakpoint
-CREATE UNIQUE INDEX budgets_household_id_category_id_month_unique ON budgets (household_id, category_id, month);
+CREATE UNIQUE INDEX IF NOT EXISTS budgets_household_id_category_id_month_unique ON budgets (household_id, category_id, month);
 --> statement-breakpoint
-ALTER TABLE budget_transfers ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE budget_transfers ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 UPDATE budget_transfers bt SET household_id = u.household_id FROM users u WHERE bt.user_id = u.id;
 --> statement-breakpoint
 ALTER TABLE budget_transfers ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-ALTER TABLE expenses ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 UPDATE expenses e SET household_id = u.household_id FROM users u WHERE e.user_id = u.id;
 --> statement-breakpoint
 ALTER TABLE expenses ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-ALTER TABLE income ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE income ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 UPDATE income i SET household_id = u.household_id FROM users u WHERE i.user_id = u.id;
 --> statement-breakpoint
 ALTER TABLE income ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-ALTER TABLE recurring_income ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE recurring_income ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 UPDATE recurring_income r SET household_id = u.household_id FROM users u WHERE r.user_id = u.id;
 --> statement-breakpoint
 ALTER TABLE recurring_income ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-ALTER TABLE recurring_expenses ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE recurring_expenses ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 UPDATE recurring_expenses r SET household_id = u.household_id FROM users u WHERE r.user_id = u.id;
 --> statement-breakpoint
 ALTER TABLE recurring_expenses ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-ALTER TABLE calendar_events ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 UPDATE calendar_events ce SET household_id = u.household_id FROM users u WHERE ce.created_by_user_id = u.id;
 --> statement-breakpoint
 ALTER TABLE calendar_events ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-ALTER TABLE shared_lists ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE shared_lists ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 UPDATE shared_lists sl SET household_id = u.household_id FROM users u WHERE sl.owner_user_id IS NOT NULL AND sl.owner_user_id = u.id;
 --> statement-breakpoint
@@ -322,85 +322,85 @@ UPDATE shared_lists SET household_id = (SELECT household_id FROM users ORDER BY 
 --> statement-breakpoint
 ALTER TABLE shared_lists ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-ALTER TABLE accounts ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 UPDATE accounts a SET household_id = u.household_id FROM users u WHERE a.owner_user_id = u.id;
 --> statement-breakpoint
 ALTER TABLE accounts ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-ALTER TABLE transfers ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE transfers ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 UPDATE transfers t SET household_id = a.household_id FROM accounts a WHERE t.from_account_id = a.id;
 --> statement-breakpoint
 ALTER TABLE transfers ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-ALTER TABLE goals ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE goals ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 UPDATE goals g SET household_id = u.household_id FROM users u WHERE g.owner_user_id = u.id;
 --> statement-breakpoint
 ALTER TABLE goals ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-ALTER TABLE goal_contributions ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE goal_contributions ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 UPDATE goal_contributions gc SET household_id = u.household_id FROM users u WHERE gc.owner_user_id = u.id;
 --> statement-breakpoint
 ALTER TABLE goal_contributions ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-ALTER TABLE notes ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE notes ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 UPDATE notes n SET household_id = u.household_id FROM users u WHERE n.owner_user_id = u.id;
 --> statement-breakpoint
 ALTER TABLE notes ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-ALTER TABLE ai_analysis_runs ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE ai_analysis_runs ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 UPDATE ai_analysis_runs a SET household_id = u.household_id FROM users u WHERE a.user_id = u.id;
 --> statement-breakpoint
 ALTER TABLE ai_analysis_runs ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-ALTER TABLE vendor_category_mappings ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE vendor_category_mappings ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 UPDATE vendor_category_mappings v SET household_id = u.household_id FROM users u WHERE v.user_id = u.id;
 --> statement-breakpoint
 ALTER TABLE vendor_category_mappings ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-ALTER TABLE recon_graph_connections ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE recon_graph_connections ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 UPDATE recon_graph_connections r SET household_id = u.household_id FROM users u WHERE r.user_id = u.id;
 --> statement-breakpoint
 ALTER TABLE recon_graph_connections ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-ALTER TABLE recon_import_items ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE recon_import_items ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 UPDATE recon_import_items r SET household_id = u.household_id FROM users u WHERE r.user_id = u.id;
 --> statement-breakpoint
 ALTER TABLE recon_import_items ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-ALTER TABLE push_subscriptions ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 UPDATE push_subscriptions p SET household_id = u.household_id FROM users u WHERE p.user_id = u.id;
 --> statement-breakpoint
 ALTER TABLE push_subscriptions ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-ALTER TABLE split_settlements ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE split_settlements ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 UPDATE split_settlements ss SET household_id = u.household_id FROM users u WHERE ss.payer_user_id = u.id;
 --> statement-breakpoint
 ALTER TABLE split_settlements ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-ALTER TABLE mortgage_payments ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE mortgage_payments ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 UPDATE mortgage_payments mp SET household_id = u.household_id FROM users u WHERE mp.user_id = u.id;
 --> statement-breakpoint
 ALTER TABLE mortgage_payments ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-ALTER TABLE mortgage_user_configs ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE mortgage_user_configs ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 UPDATE mortgage_user_configs muc SET household_id = u.household_id FROM users u WHERE muc.user_id = u.id;
 --> statement-breakpoint
 ALTER TABLE mortgage_user_configs ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
-ALTER TABLE mortgage_schedule_snapshots ADD COLUMN household_id INTEGER REFERENCES households(id);
+ALTER TABLE mortgage_schedule_snapshots ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint
 UPDATE mortgage_schedule_snapshots ms SET household_id = mc.household_id FROM mortgage_configs mc WHERE ms.mortgage_id = mc.id;
 --> statement-breakpoint
