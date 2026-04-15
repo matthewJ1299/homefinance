@@ -1,49 +1,50 @@
 @import "tailwindcss";
 
 :root {
-  --background: hsl(0 0% 100%);
-  --foreground: hsl(0 0% 3.9%);
-  --card: hsl(0 0% 100%);
-  --card-foreground: hsl(0 0% 3.9%);
-  --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(0 0% 3.9%);
-  --primary: hsl(142 76% 36%);
-  --primary-foreground: hsl(0 0% 98%);
-  --secondary: hsl(0 0% 96%);
-  --secondary-foreground: hsl(0 0% 9%);
-  --muted: hsl(0 0% 96%);
-  --muted-foreground: hsl(0 0% 45%);
-  --accent: hsl(0 0% 96%);
-  --accent-foreground: hsl(0 0% 9%);
+  /* Cool light palette from the design reference. */
+  --background: #f4f6fa;
+  --foreground: #0f1520;
+  --card: #fafbfd;
+  --card-foreground: #0f1520;
+  --popover: #fafbfd;
+  --popover-foreground: #0f1520;
+  --primary: #2563eb;
+  --primary-foreground: #f8fbff;
+  --secondary: #eef3ff;
+  --secondary-foreground: #1a2540;
+  --muted: #eef3ff;
+  --muted-foreground: #4d5f7a;
+  --accent: #eef3ff;
+  --accent-foreground: #1a2540;
   --destructive: hsl(0 84% 60%);
   --destructive-foreground: hsl(0 0% 98%);
-  --border: hsl(0 0% 90%);
-  --input: hsl(0 0% 90%);
-  --ring: hsl(142 76% 36%);
+  --border: #dde3ee;
+  --input: #dde3ee;
+  --ring: #2563eb;
   --radius: 0.5rem;
 }
 
 .dark {
-  /* Dark UI tuned to match the mockups (near-black background + lifted dark cards). */
-  --background: hsl(0 0% 3%);
-  --foreground: hsl(0 0% 98%);
-  --card: hsl(0 0% 6.5%);
-  --card-foreground: hsl(0 0% 98%);
-  --popover: hsl(0 0% 6.5%);
-  --popover-foreground: hsl(0 0% 98%);
-  --primary: hsl(142 70% 45%);
-  --primary-foreground: hsl(0 0% 9%);
-  --secondary: hsl(0 0% 12%);
-  --secondary-foreground: hsl(0 0% 98%);
-  --muted: hsl(0 0% 10%);
-  --muted-foreground: hsl(0 0% 62%);
-  --accent: hsl(0 0% 12%);
-  --accent-foreground: hsl(0 0% 98%);
+  /* Tinted dark palette (navy charcoal, not pure black). */
+  --background: #0f1117;
+  --foreground: #e8edf5;
+  --card: #161b27;
+  --card-foreground: #e8edf5;
+  --popover: #161b27;
+  --popover-foreground: #e8edf5;
+  --primary: #5b8def;
+  --primary-foreground: #0f1520;
+  --secondary: #1a2540;
+  --secondary-foreground: #e8edf5;
+  --muted: #1a2540;
+  --muted-foreground: #a7b5c9;
+  --accent: #1a2540;
+  --accent-foreground: #e8edf5;
   --destructive: hsl(0 62% 50%);
   --destructive-foreground: hsl(0 0% 98%);
-  --border: hsl(0 0% 14%);
-  --input: hsl(0 0% 14%);
-  --ring: hsl(142 70% 45%);
+  --border: #1e2738;
+  --input: #1e2738;
+  --ring: #5b8def;
 }
 
 @theme inline {
