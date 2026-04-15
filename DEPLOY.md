@@ -112,7 +112,7 @@ Go to the **Environment Variables** tab and add:
 | ------------------------------------------------------------------ | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `AUTH_SECRET`                                                      | Yes                     | Generate with: `openssl rand -base64 32`                                                                                                                                                                                                                                                                                                                    |
 | `DATABASE_URL`                                                     | Yes                     | Connection URL, e.g. `postgresql://user:password@host:5432/dbname`. With Docker Compose, the app service gets this from the compose file (or override in Coolify). With Coolify Postgres resource, use the URL Coolify provides.                                                                         |
-| `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD`, etc. | No                      | Used when running db:seed to create initial users from env (see **Running db:seed on the server**).                                                                                                                                                                                                                                                         |
+| `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD`, etc. | No                      | Used when running the user/demo seed scripts to create initial users from env (see **Running seed scripts on the server**).                                                                                                                                                                                                                                  |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`                            | No (for push)           | Required for PWA push notifications. Generate with `npm run generate-vapid-keys` and add both to env. Without them, users cannot enable notifications in Settings. Keep the private key secret. You do **not** need to rotate keys on a schedule; only change them if the private key was exposed or compromised (see **When to change VAPID keys** below). |
 | `VAPID_SUBJECT`                                                    | No (for push)           | The `mailto:` or `https:` URI in the VAPID JWT `sub` claim. Default: `mailto:push@homefinance.app`. Apple is strict about this; use a real email domain (not `.local`). Example: `mailto:you@yourdomain.com`. |
 | `CRON_SECRET`                                                      | No (for daily calendar) | Secret for the 10am daily calendar notification cron. If set, requests to `/api/cron/daily-calendar-notification` must send `Authorization: Bearer <CRON_SECRET>` or header `x-cron-secret: <CRON_SECRET>`. If unset, the route runs without auth (use only for testing).                                                                                   |
@@ -156,7 +156,7 @@ In the resource's settings, enable **Auto Deploy** so each push to `master` trig
 ### Dockerfile (multi-stage)
 
 - **Builder stage**: Installs npm dependencies, runs `next build` with `output: "standalone"` (from `next.config.ts`). This produces a minimal, self-contained server under `.next/standalone/`.
-- **Runner stage**: Copies standalone output, static assets, full `node_modules` (so `tsx` and db script dependencies are available), `package.json`, `src/lib/db`, and `drizzle/` for migrations. Schema is applied automatically on first start if the DB has no tables. You can run `npx tsx src/lib/db/seed.ts` inside the container to seed (see **Running db:seed on the server**). Installs `su-exec` for privilege dropping. Uses `docker-entrypoint.sh` as the entrypoint.
+- **Runner stage**: Copies standalone output, static assets, full `node_modules` (so `tsx` and db script dependencies are available), `package.json`, `src/lib/db`, and `drizzle/` for migrations. Schema is applied automatically on first start if the DB has no tables. You can run `npm run db:seed:users` or `npx tsx src/lib/db/seed.ts` inside the container depending on whether you need only users or full demo data (see **Running seed scripts on the server**). Installs `su-exec` for privilege dropping. Uses `docker-entrypoint.sh` as the entrypoint.
 
 ### docker-entrypoint.sh
 
@@ -267,7 +267,7 @@ If the app logs show `statusCode=403` and `body={"reason":"BadJwtToken"}` from A
 
 ### Database reset on redeploy
 
-**Postgres:** Ensure the Postgres service (Compose `db` or Coolify Postgres resource) has a persistent volume. Without it, data is lost on redeploy. After a fresh deploy or intentional reset, run push then seed (or reset + push + seed) so tables and users are recreated from env (see **Running db:seed on the server**).
+**Postgres:** Ensure the Postgres service (Compose `db` or Coolify Postgres resource) has a persistent volume. Without it, data is lost on redeploy. After a fresh deploy or intentional reset, run push then the users-only seed so tables and login users are recreated from env (see **Running seed scripts on the server**).
 
 ### JWTSessionError: no matching decryption secret
 
@@ -275,7 +275,7 @@ The browser has a session cookie signed with a different `AUTH_SECRET`. Fix: cle
 
 ### No such table: users
 
-**Postgres:** Run schema push and seed: `npx tsx src/lib/db/push.ts` then `npx tsx src/lib/db/seed-categories.ts` (or seed.ts) inside the container. Ensure `DATABASE_URL` is set and the app can reach Postgres.
+**Postgres:** Run schema push and then seed the two login users: `npm run db:push` then `npm run db:seed:users` inside the container. Use `npm run db:seed:minimal` or `npm run db:seed` only when you intentionally want baseline/demo data as well. Ensure `DATABASE_URL` is set and the app can reach Postgres.
 
 ### groupId missing / Splits or Settle errors
 
@@ -292,33 +292,41 @@ Login is rejected when no user exists for the email or the password does not mat
 
 1. **Email** – Use exactly one of the emails you set when seeding: `SEED_USER1_EMAIL` or `SEED_USER2_EMAIL` (from Coolify env vars). No extra spaces; comparison is case-sensitive.
 2. **Password** – Use the same value you set as `SEED_USER_PASSWORD` when you ran the seed. If you did not set it, the default is `ChangeMe123!`.
-3. **Users present** – If you are unsure, re-run the seed as the app user so two users are created with your current env vars, then log in with one of those emails and the password:
+3. **Users present** – If you are unsure, run the users-only seed as the app user so the two env-driven login users are created or updated, then log in with one of those emails and the password:
 
 ```bash
-docker exec -it -u nextjs <container_name_or_id> sh -c "cd /app && npx tsx src/lib/db/seed.ts"
+docker exec -it -u nextjs <container_name_or_id> sh -c "cd /app && npm run db:seed:users"
 ```
 
 Then sign in with `SEED_USER1_EMAIL` (or `SEED_USER2_EMAIL`) and `SEED_USER_PASSWORD`.
 
 ---
 
-## Running db:seed on the server
+## Running seed scripts on the server
 
 The image includes `tsx` and the db scripts so you can seed the database from inside the container when needed (e.g. after a fresh deploy or after a reset). The app uses `DATABASE_URL` from the container environment.
 
 **From your machine** (with Coolify/Docker):
 
 1. Find the running **app** container name or ID: `docker ps` (or use Coolify’s “Terminal” / “Execute command” for the resource).
-2. Run the seed:
+2. Pick the smallest command that matches what you need:
+
+Users only (safe for an existing database; creates or updates the two login users from env):
+
+```bash
+docker exec -it -u nextjs <container_name_or_id> sh -c "cd /app && npm run db:seed:users"
+```
+
+Full demo data (destructive; clears application data before inserting demo rows):
 
 ```bash
 docker exec -it -u nextjs <container_name_or_id> sh -c "cd /app && npx tsx src/lib/db/seed.ts"
 ```
 
-Reset + schema + categories + 2 users (data can be completely lost; then recreated from schema and env):
+Reset + schema only (data can be completely lost; no users or seed data are inserted):
 
 ```bash
-docker exec -it -u nextjs <container_name_or_id> sh -c "cd /app && npx tsx src/lib/db/reset.ts && npx tsx src/lib/db/push.ts && npx tsx src/lib/db/seed-categories.ts"
+docker exec -it -u nextjs <container_name_or_id> sh -c "cd /app && npm run db:reset"
 ```
 
 To only apply schema (no seed data):
@@ -327,10 +335,16 @@ To only apply schema (no seed data):
 docker exec -it -u nextjs <container_name_or_id> sh -c "cd /app && npx tsx src/lib/db/push.ts"
 ```
 
-The seed uses the same DB as the app (`DATABASE_URL` is set in the container). Users are created from env vars: `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD`, `SEED_USER1_NAME`, `SEED_USER2_NAME` (see `.env.example`). To pass them into `docker exec`, use `-e`:
+Minimal setup (empty DB only; categories + default split groups + 2 users):
 
 ```bash
-docker exec -it -u nextjs -e SEED_USER_PASSWORD=YourSecretPass <container_name_or_id> sh -c "cd /app && npx tsx src/lib/db/seed.ts"
+docker exec -it -u nextjs <container_name_or_id> sh -c "cd /app && npm run db:seed:minimal"
+```
+
+The users-only seed and full seed use the same DB as the app (`DATABASE_URL` is set in the container). Users are created from env vars: `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD`, `SEED_USER1_NAME`, `SEED_USER2_NAME` (see `.env.example`). To pass them into `docker exec`, use `-e`:
+
+```bash
+docker exec -it -u nextjs -e SEED_USER_PASSWORD=YourSecretPass <container_name_or_id> sh -c "cd /app && npm run db:seed:users"
 ```
 
 ---
@@ -343,10 +357,10 @@ docker exec -it -u nextjs -e SEED_USER_PASSWORD=YourSecretPass <container_name_o
 docker compose up --build
 ```
 
-Then run push and seed in the app container so tables and users exist (Compose sets `DATABASE_URL` automatically):
+Then run push and the users-only seed in the app container so tables and login users exist (Compose sets `DATABASE_URL` automatically):
 
 ```bash
-docker compose exec app sh -c "cd /app && npx tsx src/lib/db/push.ts && npx tsx src/lib/db/seed-categories.ts"
+docker compose exec app sh -c "cd /app && npm run db:push && npm run db:seed:users"
 ```
 
 Open [http://localhost:3000](http://localhost:3000). The Postgres data persists in the `postgres_data` volume.

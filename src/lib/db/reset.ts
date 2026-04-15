@@ -1,7 +1,8 @@
 /**
  * Recreates the database from scratch.
  * - If DATABASE_URL is set: drops and recreates Postgres public schema.
- * Run `npm run db:push` after this to create tables, or use `npm run db:reset`.
+ * Run `npm run db:push` after this to create tables, or use `npm run db:reset`
+ *   for reset + schema push only.
  * Do not run while the app or another process has the DB open.
  */
 export {};

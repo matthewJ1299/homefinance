@@ -10,6 +10,10 @@
 
 ### Changed
 
+- **DB reset and user seeding flow**: `db:reset` now performs only **reset + schema push** and does not insert seed data. Added `db:seed:users` for a **users-only**, env-driven provisioning path that creates or updates the two login users without loading demo data, and `db:seed:minimal` as an explicit alias for the existing minimal categories/split-group seed. README and DEPLOY now document the safer Coolify/server flow: `db:push` + `db:seed:users`.
+
+- **App color scheme refresh (cool + tinted dark)**: Updated global design tokens in `src/app/globals.css` to match the new reference palette: cool light surfaces (`#F4F6FA`, `#FAFBFD`, `#DDE3EE`), blue brand accents (`#2563EB` light, `#5B8DEF` dark), and a tinted navy dark mode (`#0F1117` background, `#161B27` surfaces) instead of pure black.
+
 - **Seed data (`db:seed`, `seed-categories`)**: Seeds **two households** (one per seeded user), per-household categories and default split groups, and **no cross-household split** sample expenses. `db:reset` minimal path (`seed-categories`) matches the same household model.
 
 - **Shared list item reorder (persisted)**: On the list detail page (`/lists/[id]`) and under **Settings** > **Lists** > **List items**, checklist rows can be **reordered by dragging the grip** (mouse or touch: brief hold on the grip, then drag). Order is stored in `shared_list_items.sort_order`, separately for **open** vs **completed** items (completed stay below open). Server action: `reorderListItems`.
@@ -33,6 +37,8 @@
 - **Recon split-purchase total toast**: After **Process marked**, a toast shows the **total value** of newly added purchases that were marked **Split 50/50**.
 
 ### Fixed
+
+- **Coolify parallel deploy port collision**: `docker-compose.yml` no longer publishes `3000:3000` for the production `app` service. The app is now internal-only (`expose: 3000`) so multiple stacks/domains can run on one host behind a reverse proxy without `port is already allocated` failures.
 
 - **List item notes not showing (Postgres)**: `node-pg` returns `BIGINT` columns as strings; note rows were grouped in a `Map` with string keys while lookups used numeric item ids, so subtitles stayed empty. Numeric ids are coerced in `NoteRepository` `toNote()`.
 

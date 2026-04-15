@@ -8,10 +8,16 @@ All database writes use **optimistic UI**: the UI updates immediately, then a to
 
 Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in the linked docs.
 
+### Design and theme tokens
+
+- The app uses shared global tokens in `src/app/globals.css` (`--background`, `--card`, `--border`, `--foreground`, `--primary`, and related semantic variables) so component styling stays consistent.
+- Current light mode follows a **cool** palette (`#F4F6FA` background, `#FAFBFD` surfaces, `#DDE3EE` borders, `#0F1520` text) with blue brand accents (`#2563EB` primary).
+- Current dark mode is **tinted navy** (not pure black): `#0F1117` background, `#161B27` surfaces, `#1E2738` borders, `#E8EDF5` text, and `#5B8DEF` primary.
+
 ### Multi-household tenancy
 
 - Each user belongs to **exactly one household**. Domain data (categories, transactions, budgets, goals, lists, calendar, Recon, AI runs, etc.) is scoped by **`household_id`** so independent families do not see each other’s data in a shared database.
-- **Onboarding**: open **`/register`** to create a household, default categories, and the first user, or use **`npm run db:seed`** / **`npm run db:reset`** (then `seed-categories`) for two demo households locally. Details and upgrade steps: [docs/multi-household.md](./docs/multi-household.md).
+- **Onboarding**: open **`/register`** to create a household, default categories, and the first user, or use **`npm run db:seed`** for full demo households locally, or **`npm run db:push && npm run db:seed:users`** for login users only. Details and upgrade steps: [docs/multi-household.md](./docs/multi-household.md).
 - **Existing installs**: run **`npm run db:push`** to apply `drizzle/0022_households_pg.sql`; users should **sign out and sign in** once so the session/JWT includes `householdId`.
 
 ### Admin portal (global super-admin)
@@ -91,12 +97,14 @@ Plain-language summary of balance, monthly cost, payoff horizon, and each person
 
 1. Install dependencies: `npm install`
 2. Configure **environment variables** (see [Environment variables](#environment-variables)). For local development use **`.env.local`** (Next.js loads it automatically). **Minimum for real use:** `DATABASE_URL`, `AUTH_SECRET`, and `NEXTAUTH_URL` (public app URL, no trailing slash). If `DATABASE_URL` is missing, the app still starts but logs a warning and skips DB-backed startup hooks; routes that hit the database will fail until Postgres is configured.
-3. Create the database and seed: `npm run db:fresh` (recreates the DB from scratch, then seeds), or:
-   - Reset and create tables: `npm run db:reset` (drops/recreates DB, runs schema push, then seeds two households, default categories per household, split groups, and two users).
-   - Seed: `npm run db:seed` (clears all data, then seeds two households with full demo data).
+3. Create the database and seed: `npm run db:fresh` (recreates the DB from scratch, then seeds full demo data), or:
+   - Reset and create tables only: `npm run db:reset` (drops/recreates DB and runs schema push; no users or demo data are inserted).
+   - Seed only the two login users: `npm run db:seed:users` (creates or updates the two env-driven users and creates households for them if needed).
+   - Minimal setup seed: `npm run db:seed:minimal` (assumes an empty DB and seeds two households, default categories per household, split groups, and two users).
+   - Full demo seed: `npm run db:seed` (clears all data, then seeds two households with full demo data).
    - **Self-serve**: with the app running, visit **`/register`** to create another household + user (no seed script).
 
-**Local Postgres with Docker:** Run `docker compose up --build`, then in the app container run push and seed (see [DEPLOY.md](./DEPLOY.md)).
+**Local Postgres with Docker:** Run `docker compose up --build` to start Postgres and the production app image on the internal Compose network (deploy parity), then in the app container run push and seed (see [DEPLOY.md](./DEPLOY.md)).
 
 **Docker Compose Watch (local dev):** Use the `watch` profile so the stack runs the dev image (`Dockerfile.dev`) with file sync and targeted rebuilds instead of the production `app` service:
 
@@ -107,6 +115,7 @@ docker compose --profile watch up db app-dev --watch
 - Starts Postgres and **app-dev** on [http://localhost:3000](http://localhost:3000) with `next dev` (Turbopack).
 - Edits under `src/`, `public/`, and `drizzle/` sync into the container; changes to `next.config.ts`, `postcss.config.mjs`, `server.js`, or `tsconfig.json` sync and restart the dev process; `package.json` / `package-lock.json` changes trigger an image rebuild.
 - Do not run `app` and **app-dev** together (both use port 3000). Default `docker compose up --build` still uses the production **app** image for parity with deploys.
+- The production `app` service intentionally does **not** publish a host port, which avoids `3000` conflicts when multiple deployments run on the same Docker host behind a reverse proxy (for example Coolify/Traefik).
 
 ## Environment variables
 
@@ -166,7 +175,7 @@ Users still need `ai_feature_allowed` and Settings toggles; see [docs/feature-ac
 
 Redirect URI in Azure must be `{NEXTAUTH_URL}/api/recon/graph/callback`.
 
-### Seed scripts (`db:seed`, `db:fresh`, `seed-categories`)
+### Seed scripts (`db:seed:users`, `db:seed:minimal`, `db:seed`, `db:fresh`)
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -659,7 +668,7 @@ erDiagram
 
 ## Seed data
 
-Full seed (`npm run db:seed` / `db:fresh`) creates **two households** (one per seeded user) so tenancy matches production. Each household gets its own **categories** and **Default** split group. Optional env: `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD`, names; see [Seed scripts](#seed-scripts-dbseed-dbfresh-seed-categories).
+Full seed (`npm run db:seed` / `db:fresh`) creates **two households** (one per seeded user) so tenancy matches production. Each household gets its own **categories** and **Default** split group. Optional env: `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD`, names; see [Seed scripts](#seed-scripts-dbseedusers-dbseedminimal-dbseed-dbfresh).
 
 - Two users, each tied to a **different** household (no cross-household rows).
 - Default categories per household (fixed/variable and default amounts where applicable).
@@ -709,6 +718,8 @@ See [DEPLOY.md](./DEPLOY.md) for deploying to a VPS with Coolify (Docker + Traef
 - `npm run build` / `npm run start` – Production build and start
 - `npm run db:push` – Apply **additive** schema and migrations (creates missing tables/columns; does not delete existing data). Runs Postgres migrations from `drizzle/` (including numbered steps—for example Recon `0013_recon_pg.sql` or AI report storage `0019_ai_analysis_runs_output_json_pg.sql`) when tables or columns are missing. Use this after deploying, if you see "groupId missing" on the Splits page, or Postgres errors about a missing column such as `output_json` on `ai_analysis_runs`.
 - `npm run db:reset` – Recreate DB from scratch (drop/recreate public schema). Then run push (and optionally seed). Do not run while the app is using the DB.
+- `npm run db:seed:users` – Create or update only the two env-driven login users and create households for them if needed
+- `npm run db:seed:minimal` – Seed an empty DB with two households, users, default categories, and default split groups
 - `npm run db:seed` – Clear all data, then seed two households, users, categories, 3 months of income/expenses, and in-household split samples
 - `npm run db:fresh` – Reset DB then seed (recreate from scratch and seed in one go)
 - `npm run generate-pwa-icons` – Generate PWA icons into `public/icons/` (requires `sharp`). Run once or when changing app icon.
