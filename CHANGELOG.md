@@ -38,6 +38,8 @@
 
 ### Fixed
 
+- **Account APIs and stale tenant session context**: Account routes now bind request context from the authenticated session before using tenant-scoped repositories, preventing `/api/accounts` and related account endpoints from failing with missing `householdId`. Existing JWT sessions also backfill `householdId` from the database when it is absent, reducing post-migration sign-out/sign-in breakage for server-rendered pages and APIs.
+
 - **Coolify parallel deploy port collision**: `docker-compose.yml` no longer publishes `3000:3000` for the production `app` service. The app is now internal-only (`expose: 3000`) so multiple stacks/domains can run on one host behind a reverse proxy without `port is already allocated` failures.
 
 - **List item notes not showing (Postgres)**: `node-pg` returns `BIGINT` columns as strings; note rows were grouped in a `Map` with string keys while lookups used numeric item ids, so subtitles stayed empty. Numeric ids are coerced in `NoteRepository` `toNote()`.

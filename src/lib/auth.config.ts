@@ -34,7 +34,7 @@ export const authConfig: NextAuthConfig = {
       }
       return true;
     },
-    jwt({ token, user }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.email = user.email;
@@ -44,6 +44,16 @@ export const authConfig: NextAuthConfig = {
         }
         if ("isSuperAdmin" in user && user.isSuperAdmin != null) {
           token.isSuperAdmin = user.isSuperAdmin === true;
+        }
+      }
+      if ((token.householdId == null || token.householdId === "") && token.id != null) {
+        const userId = Number(token.id);
+        if (Number.isFinite(userId)) {
+          try {
+            token.householdId = String(await getUserRepository().getHouseholdId(userId));
+          } catch {
+            // Leave token unchanged; auth() will remain unauthorized for tenant-scoped data.
+          }
         }
       }
       return token;

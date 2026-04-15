@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { AccountService } from "@/lib/services/account.service";
 
 export async function GET() {
@@ -7,6 +8,7 @@ export async function GET() {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  setRequestContextFromSession(session);
   const userId = Number(session.user.id);
   const service = new AccountService();
   const { accounts, primaryAccountId } = await service.listAccountsForUser(userId);
@@ -18,6 +20,7 @@ export async function POST(request: NextRequest) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  setRequestContextFromSession(session);
   const userId = Number(session.user.id);
   const body = await request.json();
   const { name, type, creditLimit } = body ?? {};

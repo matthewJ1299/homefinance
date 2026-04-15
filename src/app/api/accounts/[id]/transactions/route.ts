@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import {
   getAccountRepository,
   getAccountTransactionRepository,
@@ -13,6 +14,7 @@ export async function GET(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  setRequestContextFromSession(session);
   const userId = Number(session.user.id);
   const accountId = Number((await params).id);
   if (!Number.isInteger(accountId) || accountId <= 0) {
