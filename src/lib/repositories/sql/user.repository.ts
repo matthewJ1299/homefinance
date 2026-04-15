@@ -96,12 +96,17 @@ export class UserRepository implements IUserRepository {
   }
 
   async getHouseholdId(userId: number): Promise<number> {
-    const row = await get<{ household_id: number }>(
+    const row = await get<{ household_id: number | null }>(
       "SELECT household_id FROM users WHERE id = ?",
       [userId]
     );
     if (!row) {
       throw new Error("User not found");
+    }
+    if (row.household_id == null) {
+      throw new Error(
+        'User is missing "household_id". Run `npm run db:push` to complete the household migration, then sign out and sign in again.'
+      );
     }
     return row.household_id;
   }

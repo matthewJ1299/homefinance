@@ -7,6 +7,12 @@ import { getUserRepository } from "@/lib/repositories";
 import { resolveReconInteractiveEnabled } from "@/lib/services/feature-access.service";
 import { SetupWizardHost } from "@/components/setup-wizard/setup-wizard-host";
 
+function normalizeHouseholdId(value: unknown): string | undefined {
+  if (value == null || value === "") return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? String(n) : undefined;
+}
+
 export default async function AppLayout({
   children,
 }: {
@@ -16,10 +22,20 @@ export default async function AppLayout({
   if (!session?.user) {
     redirect("/login");
   }
-  setRequestContextFromSession(session);
-
   const userId = Number(session.user.id);
   const userRepo = getUserRepository();
+  const sessionHouseholdId = normalizeHouseholdId(session.user.householdId);
+  if (sessionHouseholdId == null) {
+    try {
+      session.user.householdId = String(await userRepo.getHouseholdId(userId));
+    } catch {
+      delete session.user.householdId;
+    }
+  } else {
+    session.user.householdId = sessionHouseholdId;
+  }
+  setRequestContextFromSession(session);
+
   const [budgetMonthStartDay, reconEnabled, aiFeatureAllowed, aiEnabled, aiUsePaid, reconFeatureAllowed, reconPrefEnabled, setup] =
     await Promise.all([
     userRepo.getBudgetMonthStartDay(userId),

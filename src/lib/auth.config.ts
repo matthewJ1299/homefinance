@@ -3,6 +3,12 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { getUserRepository } from "@/lib/repositories";
 
+function normalizeHouseholdId(value: unknown): string | undefined {
+  if (value == null || value === "") return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? String(n) : undefined;
+}
+
 export const authConfig: NextAuthConfig = {
   pages: {
     signIn: "/login",
@@ -39,23 +45,26 @@ export const authConfig: NextAuthConfig = {
         token.id = user.id;
         token.email = user.email;
         token.name = user.name;
-        if ("householdId" in user && user.householdId != null && user.householdId !== "") {
-          token.householdId = String(user.householdId);
+        const normalizedHouseholdId =
+          "householdId" in user ? normalizeHouseholdId(user.householdId) : undefined;
+        if (normalizedHouseholdId !== undefined) {
+          token.householdId = normalizedHouseholdId;
         }
         if ("isSuperAdmin" in user && user.isSuperAdmin != null) {
           token.isSuperAdmin = user.isSuperAdmin === true;
         }
       }
-      if ((token.householdId == null || token.householdId === "") && token.id != null) {
+      if (normalizeHouseholdId(token.householdId) == null && token.id != null) {
         const userId = Number(token.id);
         if (Number.isFinite(userId)) {
           try {
-            token.householdId = String(await getUserRepository().getHouseholdId(userId));
+            token.householdId = normalizeHouseholdId(await getUserRepository().getHouseholdId(userId));
           } catch {
             // Leave token unchanged; auth() will remain unauthorized for tenant-scoped data.
           }
         }
       }
+      token.householdId = normalizeHouseholdId(token.householdId);
       return token;
     },
     session({ session, token }) {
@@ -63,8 +72,11 @@ export const authConfig: NextAuthConfig = {
         session.user.id = String(token.id);
         session.user.email = token.email as string;
         session.user.name = token.name as string;
-        if (token.householdId != null && token.householdId !== "") {
-          session.user.householdId = String(token.householdId);
+        const normalizedHouseholdId = normalizeHouseholdId(token.householdId);
+        if (normalizedHouseholdId !== undefined) {
+          session.user.householdId = normalizedHouseholdId;
+        } else {
+          delete session.user.householdId;
         }
         if (token.isSuperAdmin != null) {
           session.user.isSuperAdmin = token.isSuperAdmin === true;
@@ -94,7 +106,7 @@ export const authConfig: NextAuthConfig = {
           id: String(user.id),
           email: user.email,
           name: user.name,
-          householdId: String(user.householdId),
+          householdId: normalizeHouseholdId(user.householdId),
           isSuperAdmin: user.isSuperAdmin,
         };
       },
