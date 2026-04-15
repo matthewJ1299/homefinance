@@ -18,7 +18,7 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 
 - Each user belongs to **exactly one household**. Domain data (categories, transactions, budgets, goals, lists, calendar, Recon, AI runs, etc.) is scoped by **`household_id`** so independent families do not see each other’s data in a shared database.
 - **Onboarding**: open **`/register`** to create a household, default categories, and the first user, or use **`npm run db:seed`** for full demo households locally, or **`npm run db:push && npm run db:seed:users`** for login users only. Details and upgrade steps: [docs/multi-household.md](./docs/multi-household.md).
-- **Existing installs**: run **`npm run db:push`** to apply `drizzle/0022_households_pg.sql`; the migration is now safe to retry if an older deploy stopped mid-run around `calendar_categories`. Users should **sign out and sign in** once so the session/JWT includes `householdId`.
+- **Existing installs**: run **`npm run db:push`** to apply `drizzle/0022_households_pg.sql`; the migration is now safe to retry if an older deploy stopped mid-run around `calendar_categories`. Legacy installs are backfilled into a single default household unless you already split data across households. Users should **sign out and sign in** once so the session/JWT includes `householdId`.
 
 ### Admin portal (global super-admin)
 
@@ -224,7 +224,7 @@ If you see redirects to `https://0.0.0.0:3000/...` in production, your reverse p
 ## Database migrations and existing data
 
 - **`npm run db:push`** (used on deploy and in Docker entrypoint) runs **additive** migrations only: it creates tables or columns when they are **missing**. It does **not** `DROP` tables, `TRUNCATE` data, or wipe rows. Your existing expenses, users, and other data stay intact when new migrations (e.g. Recon tables in `drizzle/0013_recon_pg.sql`, or `ai_analysis_runs.output_json` from `drizzle/0019_ai_analysis_runs_output_json_pg.sql`) are applied.
-- **Multi-household** (`drizzle/0022_households_pg.sql`): adds `households`, `users.household_id`, and `household_id` on tenant-owned tables (including **categories**), with backfill for existing rows. `db:push` now checks late-stage markers so a partially applied `0022` reruns instead of being treated as complete. After deploy, users should **re-authenticate** so `householdId` is present on the session. See [docs/multi-household.md](./docs/multi-household.md).
+- **Multi-household** (`drizzle/0022_households_pg.sql`): adds `households`, `users.household_id`, and `household_id` on tenant-owned tables (including **categories**), with backfill for existing rows. For legacy single-household installs, the migration keeps shared lookup data in one default household instead of cloning per user. `db:push` now checks late-stage markers so a partially applied `0022` reruns instead of being treated as complete. After deploy, users should **re-authenticate** so `householdId` is present on the session. See [docs/multi-household.md](./docs/multi-household.md).
 - **Destructive operations** (only when you explicitly want to reset): `npm run db:reset` drops and recreates the public schema; `npm run db:seed` clears application data; `npm run db:fresh` combines reset + seed. Do not use those on production databases you care about.
 
 ## Database ERD

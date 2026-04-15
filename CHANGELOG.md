@@ -38,7 +38,7 @@
 
 ### Fixed
 
-- **`db:push` partial `0022` recovery**: `drizzle/0022_households_pg.sql` now drops the legacy `calendar_categories_name_key` as a **constraint** instead of trying to drop its backing index, and the additive statements use `IF NOT EXISTS` where safe so the migration can resume after this failure point. `src/lib/db/push.ts` now checks late-stage `0022` markers instead of only `users.household_id`, so a partially applied household migration is retried instead of being silently skipped.
+- **`db:push` partial `0022` recovery**: `drizzle/0022_households_pg.sql` now drops the legacy `calendar_categories_name_key` as a **constraint** instead of trying to drop its backing index, and the additive statements use `IF NOT EXISTS` where safe so the migration can resume after this failure point. Legacy installs now default existing users into a single **`Default household`** instead of creating one household per user, and singleton upgrades no longer clone then delete categories, split groups, calendar categories, or mortgage configs. `src/lib/db/push.ts` now runs `0022` inside a transaction, checks late-stage `0022` markers instead of only `users.household_id`, and also wires `0024_users_setup_wizard_state_pg.sql` into `db:push`.
 
 - **Account APIs and stale tenant session context**: Account routes now bind request context from the authenticated session before using tenant-scoped repositories, preventing `/api/accounts` and related account endpoints from failing with missing `householdId`. Existing JWT sessions also backfill `householdId` from the database when it is absent, reducing post-migration sign-out/sign-in breakage for server-rendered pages and APIs.
 

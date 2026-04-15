@@ -1,4 +1,4 @@
--- Multi-household tenancy: one household per user; rows scoped by household_id.
+-- Multi-household tenancy: legacy installs default into one household; rows scoped by household_id.
 -- Applied when the multi-household end-state is still incomplete (see src/lib/db/push.ts).
 
 CREATE TABLE IF NOT EXISTS households (
@@ -11,14 +11,13 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES house
 --> statement-breakpoint
 DO $hf_users$
 DECLARE
-  ur RECORD;
-  new_hid INTEGER;
+  default_hid INTEGER;
 BEGIN
-  FOR ur IN SELECT id, name FROM users WHERE household_id IS NULL ORDER BY id
-  LOOP
-    INSERT INTO households (name) VALUES (ur.name || ' household') RETURNING id INTO new_hid;
-    UPDATE users SET household_id = new_hid WHERE id = ur.id;
-  END LOOP;
+  SELECT id INTO default_hid FROM households ORDER BY id LIMIT 1;
+  IF default_hid IS NULL THEN
+    INSERT INTO households (name) VALUES ('Default household') RETURNING id INTO default_hid;
+  END IF;
+  UPDATE users SET household_id = default_hid WHERE household_id IS NULL;
 END $hf_users$;
 --> statement-breakpoint
 ALTER TABLE users ALTER COLUMN household_id SET NOT NULL;
@@ -29,19 +28,19 @@ DROP INDEX IF EXISTS categories_name_unique;
 --> statement-breakpoint
 DO $hf_categories$
 DECLARE
-  ucount INTEGER;
+  household_count INTEGER;
   single_hid INTEGER;
-  u_rec RECORD;
+  h_rec RECORD;
   c_rec RECORD;
   new_cat_id INTEGER;
 BEGIN
-  SELECT COUNT(*)::INTEGER INTO ucount FROM users;
-  IF ucount <= 1 THEN
-    SELECT household_id INTO single_hid FROM users ORDER BY id LIMIT 1;
+  SELECT COUNT(*)::INTEGER INTO household_count FROM households;
+  IF household_count <= 1 THEN
+    SELECT id INTO single_hid FROM households ORDER BY id LIMIT 1;
     UPDATE categories SET household_id = single_hid WHERE household_id IS NULL;
   ELSE
     CREATE TEMP TABLE _hf_cat_map (old_id INTEGER, new_id INTEGER, household_id INTEGER) ON COMMIT DROP;
-    FOR u_rec IN SELECT household_id AS hid FROM users ORDER BY id
+    FOR h_rec IN SELECT id AS hid FROM households ORDER BY id
     LOOP
       FOR c_rec IN
         SELECT id, name, group_name, icon, sort_order, is_active, cost_type, default_amount
@@ -59,9 +58,9 @@ BEGIN
           c_rec.is_active,
           c_rec.cost_type,
           c_rec.default_amount,
-          u_rec.hid
+          h_rec.hid
         ) RETURNING id INTO new_cat_id;
-        INSERT INTO _hf_cat_map VALUES (c_rec.id, new_cat_id, u_rec.hid);
+        INSERT INTO _hf_cat_map VALUES (c_rec.id, new_cat_id, h_rec.hid);
       END LOOP;
     END LOOP;
 
@@ -123,36 +122,44 @@ DROP INDEX IF EXISTS split_groups_name_unique;
 --> statement-breakpoint
 DO $hf_split_groups$
 DECLARE
+  household_count INTEGER;
+  single_hid INTEGER;
   h_rec RECORD;
   sg_rec RECORD;
   new_sg_id INTEGER;
 BEGIN
-  FOR h_rec IN SELECT DISTINCT household_id AS hid FROM users ORDER BY hid
-  LOOP
-    FOR sg_rec IN SELECT id, name, is_default, sort_order FROM split_groups WHERE household_id IS NULL ORDER BY id
+  SELECT COUNT(*)::INTEGER INTO household_count FROM households;
+  IF household_count <= 1 THEN
+    SELECT id INTO single_hid FROM households ORDER BY id LIMIT 1;
+    UPDATE split_groups SET household_id = single_hid WHERE household_id IS NULL;
+  ELSE
+    FOR h_rec IN SELECT id AS hid FROM households ORDER BY id
     LOOP
-      INSERT INTO split_groups (name, is_default, sort_order, household_id)
-      VALUES (sg_rec.name, sg_rec.is_default, sg_rec.sort_order, h_rec.hid)
-      RETURNING id INTO new_sg_id;
+      FOR sg_rec IN SELECT id, name, is_default, sort_order FROM split_groups WHERE household_id IS NULL ORDER BY id
+      LOOP
+        INSERT INTO split_groups (name, is_default, sort_order, household_id)
+        VALUES (sg_rec.name, sg_rec.is_default, sg_rec.sort_order, h_rec.hid)
+        RETURNING id INTO new_sg_id;
 
-      UPDATE expenses e
-      SET split_expense_group_id = new_sg_id
-      FROM users u
-      WHERE e.user_id = u.id
-        AND u.household_id = h_rec.hid
-        AND e.split_expense_group_id IS NOT NULL
-        AND e.split_expense_group_id = sg_rec.id;
+        UPDATE expenses e
+        SET split_expense_group_id = new_sg_id
+        FROM users u
+        WHERE e.user_id = u.id
+          AND u.household_id = h_rec.hid
+          AND e.split_expense_group_id IS NOT NULL
+          AND e.split_expense_group_id = sg_rec.id;
 
-      UPDATE split_settlements ss
-      SET split_expense_group_id = new_sg_id
-      FROM users u
-      WHERE ss.payer_user_id = u.id
-        AND u.household_id = h_rec.hid
-        AND ss.split_expense_group_id IS NOT NULL
-        AND ss.split_expense_group_id = sg_rec.id;
+        UPDATE split_settlements ss
+        SET split_expense_group_id = new_sg_id
+        FROM users u
+        WHERE ss.payer_user_id = u.id
+          AND u.household_id = h_rec.hid
+          AND ss.split_expense_group_id IS NOT NULL
+          AND ss.split_expense_group_id = sg_rec.id;
+      END LOOP;
     END LOOP;
-  END LOOP;
-  DELETE FROM split_groups WHERE household_id IS NULL;
+    DELETE FROM split_groups WHERE household_id IS NULL;
+  END IF;
 END $hf_split_groups$;
 --> statement-breakpoint
 ALTER TABLE split_groups ALTER COLUMN household_id SET NOT NULL;
@@ -167,19 +174,19 @@ DROP INDEX IF EXISTS calendar_categories_name_unique;
 --> statement-breakpoint
 DO $hf_cal_categories$
 DECLARE
-  ucount INTEGER;
+  household_count INTEGER;
   single_hid INTEGER;
   h_rec RECORD;
   cc_rec RECORD;
   new_cc_id INTEGER;
 BEGIN
-  SELECT COUNT(*)::INTEGER INTO ucount FROM users;
-  IF ucount <= 1 THEN
-    SELECT household_id INTO single_hid FROM users ORDER BY id LIMIT 1;
+  SELECT COUNT(*)::INTEGER INTO household_count FROM households;
+  IF household_count <= 1 THEN
+    SELECT id INTO single_hid FROM households ORDER BY id LIMIT 1;
     UPDATE calendar_categories SET household_id = single_hid WHERE household_id IS NULL;
   ELSE
     CREATE TEMP TABLE _hf_cc_map (old_id INTEGER, new_id INTEGER, household_id INTEGER) ON COMMIT DROP;
-    FOR h_rec IN SELECT DISTINCT household_id AS hid FROM users ORDER BY hid
+    FOR h_rec IN SELECT id AS hid FROM households ORDER BY id
     LOOP
       FOR cc_rec IN
         SELECT id, name, color, sort_order FROM calendar_categories WHERE household_id IS NULL ORDER BY id
@@ -211,60 +218,73 @@ ALTER TABLE mortgage_configs ADD COLUMN IF NOT EXISTS household_id INTEGER REFER
 --> statement-breakpoint
 DO $hf_mortgage$
 DECLARE
+  household_count INTEGER;
+  single_hid INTEGER;
   mc_rec RECORD;
   map_rec RECORD;
   new_mc_id INTEGER;
   hid INTEGER;
+  copied_any BOOLEAN;
 BEGIN
-  FOR mc_rec IN SELECT id FROM mortgage_configs WHERE household_id IS NULL
-  LOOP
-    FOR map_rec IN
-      SELECT DISTINCT u.household_id AS hid
-      FROM mortgage_user_configs muc
-      INNER JOIN users u ON u.id = muc.user_id
-      WHERE muc.mortgage_id = mc_rec.id
-      ORDER BY u.household_id
+  SELECT COUNT(*)::INTEGER INTO household_count FROM households;
+  IF household_count <= 1 THEN
+    SELECT id INTO single_hid FROM households ORDER BY id LIMIT 1;
+    UPDATE mortgage_configs SET household_id = single_hid WHERE household_id IS NULL;
+  ELSIF EXISTS (SELECT 1 FROM users) THEN
+    FOR mc_rec IN SELECT id FROM mortgage_configs WHERE household_id IS NULL
     LOOP
-      hid := map_rec.hid;
-      INSERT INTO mortgage_configs (
-        property_value, loan_amount, annual_interest_rate, loan_term_months, start_date,
-        target_equity_user_a_pct, is_active, household_id
-      )
-      SELECT
-        property_value, loan_amount, annual_interest_rate, loan_term_months, start_date,
-        target_equity_user_a_pct, is_active, hid
-      FROM mortgage_configs WHERE id = mc_rec.id
-      RETURNING id INTO new_mc_id;
+      copied_any := false;
+      FOR map_rec IN
+        SELECT DISTINCT u.household_id AS hid
+        FROM mortgage_user_configs muc
+        INNER JOIN users u ON u.id = muc.user_id
+        WHERE muc.mortgage_id = mc_rec.id
+        ORDER BY u.household_id
+      LOOP
+        hid := map_rec.hid;
+        INSERT INTO mortgage_configs (
+          property_value, loan_amount, annual_interest_rate, loan_term_months, start_date,
+          target_equity_user_a_pct, is_active, household_id
+        )
+        SELECT
+          property_value, loan_amount, annual_interest_rate, loan_term_months, start_date,
+          target_equity_user_a_pct, is_active, hid
+        FROM mortgage_configs WHERE id = mc_rec.id
+        RETURNING id INTO new_mc_id;
 
-      UPDATE mortgage_user_configs muc
-      SET mortgage_id = new_mc_id
-      FROM users u
-      WHERE muc.mortgage_id = mc_rec.id
-        AND muc.user_id = u.id
-        AND u.household_id = hid;
+        UPDATE mortgage_user_configs muc
+        SET mortgage_id = new_mc_id
+        FROM users u
+        WHERE muc.mortgage_id = mc_rec.id
+          AND muc.user_id = u.id
+          AND u.household_id = hid;
 
-      UPDATE mortgage_payments mp
-      SET mortgage_id = new_mc_id
-      FROM users u
-      WHERE mp.mortgage_id = mc_rec.id
-        AND mp.user_id = u.id
-        AND u.household_id = hid;
+        UPDATE mortgage_payments mp
+        SET mortgage_id = new_mc_id
+        FROM users u
+        WHERE mp.mortgage_id = mc_rec.id
+          AND mp.user_id = u.id
+          AND u.household_id = hid;
 
-      INSERT INTO mortgage_schedule_snapshots (
-        mortgage_id, generated_at, trigger_event, trigger_payment_id, schedule_json,
-        projected_payoff_date, projected_months, monthly_topup, user_a_final_equity_pct, user_b_final_equity_pct
-      )
-      SELECT
-        new_mc_id, generated_at, trigger_event, trigger_payment_id, schedule_json,
-        projected_payoff_date, projected_months, monthly_topup, user_a_final_equity_pct, user_b_final_equity_pct
-      FROM mortgage_schedule_snapshots WHERE mortgage_id = mc_rec.id;
+        INSERT INTO mortgage_schedule_snapshots (
+          mortgage_id, generated_at, trigger_event, trigger_payment_id, schedule_json,
+          projected_payoff_date, projected_months, monthly_topup, user_a_final_equity_pct, user_b_final_equity_pct
+        )
+        SELECT
+          new_mc_id, generated_at, trigger_event, trigger_payment_id, schedule_json,
+          projected_payoff_date, projected_months, monthly_topup, user_a_final_equity_pct, user_b_final_equity_pct
+        FROM mortgage_schedule_snapshots WHERE mortgage_id = mc_rec.id;
+        copied_any := true;
+      END LOOP;
+      IF copied_any THEN
+        DELETE FROM mortgage_schedule_snapshots WHERE mortgage_id = mc_rec.id;
+        DELETE FROM mortgage_configs WHERE id = mc_rec.id;
+      END IF;
     END LOOP;
-    DELETE FROM mortgage_schedule_snapshots WHERE mortgage_id = mc_rec.id;
-    DELETE FROM mortgage_configs WHERE id = mc_rec.id;
-  END LOOP;
+  END IF;
 END $hf_mortgage$;
 --> statement-breakpoint
-UPDATE mortgage_configs SET household_id = (SELECT household_id FROM users ORDER BY id LIMIT 1) WHERE household_id IS NULL;
+UPDATE mortgage_configs SET household_id = (SELECT id FROM households ORDER BY id LIMIT 1) WHERE household_id IS NULL;
 --> statement-breakpoint
 ALTER TABLE mortgage_configs ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
@@ -318,7 +338,7 @@ ALTER TABLE shared_lists ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCE
 --> statement-breakpoint
 UPDATE shared_lists sl SET household_id = u.household_id FROM users u WHERE sl.owner_user_id IS NOT NULL AND sl.owner_user_id = u.id;
 --> statement-breakpoint
-UPDATE shared_lists SET household_id = (SELECT household_id FROM users ORDER BY id LIMIT 1) WHERE household_id IS NULL;
+UPDATE shared_lists SET household_id = (SELECT id FROM households ORDER BY id LIMIT 1) WHERE household_id IS NULL;
 --> statement-breakpoint
 ALTER TABLE shared_lists ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint

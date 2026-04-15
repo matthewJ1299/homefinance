@@ -13,6 +13,25 @@ async function pushPostgres(): Promise<void> {
   const client = new pg.Client({ connectionString: url });
   await client.connect();
   try {
+    const runStatements = async (statements: string[], useTransaction = false): Promise<void> => {
+      if (useTransaction) {
+        await client.query("BEGIN");
+      }
+      try {
+        for (const stmt of statements) {
+          await client.query(stmt);
+        }
+        if (useTransaction) {
+          await client.query("COMMIT");
+        }
+      } catch (error) {
+        if (useTransaction) {
+          await client.query("ROLLBACK");
+        }
+        throw error;
+      }
+    };
+
     const hasUsers = await client.query(
       "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users'"
     );
@@ -489,9 +508,7 @@ async function pushPostgres(): Promise<void> {
           .split(/--> statement-breakpoint\n?/)
           .map((s) => s.trim())
           .filter(Boolean);
-        for (const stmt of statements0022) {
-          await client.query(stmt);
-        }
+        await runStatements(statements0022, true);
         console.log("Postgres migration 0022 (households tenancy) applied.");
       }
     }
@@ -515,6 +532,26 @@ async function pushPostgres(): Promise<void> {
           await client.query(stmt);
         }
         console.log("Postgres migration 0023 (super admin + household feature policy) applied.");
+      }
+    }
+
+    const hasSetupWizardStatus = await client.query(
+      "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'setup_wizard_status'"
+    );
+    if (hasSetupWizardStatus.rows.length === 0) {
+      const migration0024Path = path.join(
+        process.cwd(),
+        "drizzle",
+        "0024_users_setup_wizard_state_pg.sql"
+      );
+      if (fs.existsSync(migration0024Path)) {
+        const sql0024 = fs.readFileSync(migration0024Path, "utf-8");
+        const statements0024 = sql0024
+          .split(/--> statement-breakpoint\n?/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        await runStatements(statements0024);
+        console.log("Postgres migration 0024 (users setup wizard state) applied.");
       }
     }
   } finally {
