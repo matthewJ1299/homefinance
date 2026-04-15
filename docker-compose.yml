@@ -16,8 +16,9 @@ services:
 
   app:
     build: .
-    ports:
-      - "3000:3000"
+    # Keep app internal-only for reverse proxies (Coolify/Traefik) so multiple stacks can run on one host.
+    expose:
+      - "3000"
     environment:
       DATABASE_URL: postgresql://homefinance:homefinance@db:5432/homefinance
       AUTH_SECRET: ${AUTH_SECRET:-change-me-in-production}
