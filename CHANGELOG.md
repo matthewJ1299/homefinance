@@ -11,6 +11,7 @@
 ### Changed
 
 - **DB reset and user seeding flow**: `db:reset` now performs only **reset + schema push** and does not insert seed data. Added `db:seed:users` for a **users-only**, env-driven provisioning path that creates or updates the two login users without loading demo data, and `db:seed:minimal` as an explicit alias for the existing minimal categories/split-group seed. README and DEPLOY now document the safer Coolify/server flow: `db:push` + `db:seed:users`.
+- **Production error debugging (Server Components)**: The in-app error boundary now renders the error **digest** and can optionally show full error details when `NEXT_PUBLIC_DEBUG_ERRORS=true` is set for a temporary debug deployment.
 
 - **App color scheme refresh (cool + tinted dark)**: Updated global design tokens in `src/app/globals.css` to match the new reference palette: cool light surfaces (`#F4F6FA`, `#FAFBFD`, `#DDE3EE`), blue brand accents (`#2563EB` light, `#5B8DEF` dark), and a tinted navy dark mode (`#0F1117` background, `#161B27` surfaces) instead of pure black.
 

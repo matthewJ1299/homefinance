@@ -10,6 +10,8 @@ export default function AppError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const showDebugDetails = process.env.NEXT_PUBLIC_DEBUG_ERRORS === "true";
+
   useEffect(() => {
     console.error(error);
   }, [error]);
@@ -20,6 +22,19 @@ export default function AppError({
       <p className="text-sm text-muted-foreground text-center max-w-sm">
         An error occurred loading this page. You can try again.
       </p>
+      {error.digest ? (
+        <p className="text-xs text-muted-foreground text-center">
+          Digest: <span className="font-mono">{error.digest}</span>
+        </p>
+      ) : null}
+      {showDebugDetails ? (
+        <div className="w-full max-w-3xl rounded-md border bg-background p-3 text-left">
+          <div className="text-xs font-semibold">Debug details</div>
+          <pre className="mt-2 overflow-auto text-xs whitespace-pre-wrap font-mono">
+            {error.stack ?? error.message}
+          </pre>
+        </div>
+      ) : null}
       <Button onClick={reset}>Try again</Button>
     </div>
   );

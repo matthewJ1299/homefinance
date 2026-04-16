@@ -170,6 +170,13 @@ Next.js calls `register()` when the server starts. The app initializes the Postg
 
 ## Troubleshooting
 
+### Next.js production error shows only a digest (Server Components)
+
+In production, Next.js intentionally redacts Server Component render errors in the browser and shows a generic message with a **digest**.
+
+- **Primary fix**: Check the **app container logs** in Coolify for the real stack trace around the time of the error.
+- **Temporary debug deploy**: Set `NEXT_PUBLIC_DEBUG_ERRORS=true` and redeploy to display full error details inside the in-app error boundary (disable again after debugging to avoid leaking internal details).
+
 ### 404 "page not found" (Traefik returning 404, app logs show no requests)
 
 The domain is not routed to the container. Verify:
