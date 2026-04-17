@@ -18,6 +18,7 @@ export function AiAnalysisButton({ month, enabled }: AiAnalysisButtonProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [inputText, setInputText] = useState<string | null>(null);
+  const [budgetContext, setBudgetContext] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
 
@@ -28,7 +29,10 @@ export function AiAnalysisButton({ month, enabled }: AiAnalysisButtonProps) {
     setInputText(null);
     setExpanded(true);
     startTransition(async () => {
-      const result = await analyzeExpenses(month, { includeTransactions });
+      const result = await analyzeExpenses(month, {
+        includeTransactions,
+        budgetContext,
+      });
       if (result.success) {
         setInputText(result.inputText);
         toast.success("Opening report…");
@@ -70,6 +74,23 @@ export function AiAnalysisButton({ month, enabled }: AiAnalysisButtonProps) {
 
   return (
     <section className="space-y-2">
+      <div className="space-y-2">
+        <label htmlFor={`ai-budget-context-${month}`} className="block text-sm font-medium">
+          Extra AI context
+        </label>
+        <textarea
+          id={`ai-budget-context-${month}`}
+          rows={3}
+          maxLength={1000}
+          className="flex min-h-[88px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          value={budgetContext}
+          onChange={(e) => setBudgetContext(e.target.value)}
+          placeholder="Optional: add context such as one-off expenses, planned changes next month, or categories the AI should pay extra attention to."
+        />
+        <p className="text-xs text-muted-foreground">
+          Optional. If provided, this text is appended to the AI request as extra budget context.
+        </p>
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"

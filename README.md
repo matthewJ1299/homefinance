@@ -47,7 +47,7 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 
 ### Home dashboard and navigation
 
-- **Dashboard** — Month income, **Recent** expenses (primary account), tasks/events/budget shortcuts, upcoming calendar, quick-add expense (same category UX as **`/add`**). Greeting and header date use **Africa/Johannesburg (UTC+2)**, not the device clock.
+- **Dashboard** — Month income with inline quick add (**Salary** or **Other income**), **Recent** expenses (primary account), tasks/events/budget shortcuts, upcoming calendar, quick-add expense (same category UX as **`/add`**). Greeting and header date use **Africa/Johannesburg (UTC+2)**, not the device clock.
 - **Create hub (`/add`)** — Mobile center **Add** and desktop sidebar: new list item, event, or expense; quick line for tasks; expense shorthand such as `120 groceries` pre-fills amount and note. After save: expense → Dashboard; task → that list; event → Calendar.
 - **Mobile** — Bottom bar: Home, Calendar, Add (center), Lists, Budget. The header menu mirrors the desktop sidebar, including **Recon** and **Budget AI report** when your account is allowed and enabled.
 
@@ -63,7 +63,7 @@ Plain-language summary of balance, monthly cost, payoff horizon, and each person
 ### Summary and optional intelligence
 
 - **Summary** — Per-user monthly snapshot (income, expenses, budget adherence) plus household trends.
-- **AI budget analysis (optional)** — Off by default; needs server-side allow **and** **Settings** > **AI analysis**. **Free** vs **Paid** (paid prefers OpenAI with Gemini fallback). **Analyze spending** uses roll-ups; **Include all transactions** sends full detail. Structured output on `/budget-ai-report`; runs stored and rate-limited. See [docs/ai-budget-analysis.md](./docs/ai-budget-analysis.md) and [docs/feature-access.md](./docs/feature-access.md).
+- **AI budget analysis (optional)** — Off by default; needs server-side allow **and** **Settings** > **AI analysis**. **Free** vs **Paid** (paid prefers OpenAI with Gemini fallback). **Analyze spending** uses roll-ups; **Include all transactions** sends full detail; optional **Extra AI context** lets you append plain-language budget notes to the request. Structured output on `/budget-ai-report`; runs stored and rate-limited. See [docs/ai-budget-analysis.md](./docs/ai-budget-analysis.md) and [docs/feature-access.md](./docs/feature-access.md).
 - **Bank email reconciliation / Recon (optional)** — Outlook via Microsoft Graph: parse bank-notification mail, surface likely duplicates, accept or ignore manually (including bulk). Gated by allow flag plus Settings. See [docs/recon.md](./docs/recon.md) and [Recon and Microsoft Graph (Outlook)](#recon-and-microsoft-graph-outlook).
 
 ## Setup

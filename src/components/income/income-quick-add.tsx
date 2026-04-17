@@ -1,32 +1,36 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { format } from "date-fns";
 import { addIncome } from "@/lib/actions/income.actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toMinorUnits } from "@/lib/utils/currency";
-import type { AccountType } from "@/lib/types";
+import type { AccountType, IncomeType } from "@/lib/types";
 import { parseAccountsApiPayload } from "@/lib/utils/accounts-api";
 import { toast } from "sonner";
 
 interface IncomeQuickAddProps {
-  month: string;
+  defaultDate: string;
 }
 
-export function IncomeQuickAdd({ month }: IncomeQuickAddProps) {
+export function IncomeQuickAdd({ defaultDate }: IncomeQuickAddProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [amount, setAmount] = useState("");
+  const [type, setType] = useState<IncomeType>("salary");
   const [description, setDescription] = useState("");
-  const [date, setDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
+  const [date, setDate] = useState(defaultDate);
   const [accountId, setAccountId] = useState<number | null>(null);
   const [primaryAccountId, setPrimaryAccountId] = useState<number | null>(null);
   const [accounts, setAccounts] = useState<Array<{ id: number; name: string; type: AccountType }>>([]);
   const [accountsReady, setAccountsReady] = useState(false);
   const [message, setMessage] = useState<"saved" | "error" | null>(null);
+
+  useEffect(() => {
+    setDate(defaultDate);
+  }, [defaultDate]);
 
   useEffect(() => {
     fetch("/api/accounts")
@@ -67,15 +71,16 @@ export function IncomeQuickAdd({ month }: IncomeQuickAddProps) {
     startTransition(async () => {
       const result = await addIncome({
         amount: cents,
-        type: "salary",
+        type,
         description: description.trim() || undefined,
         date,
         accountId: effectiveAccountId,
       });
       if (result.success) {
         setAmount("");
+        setType("salary");
         setDescription("");
-        setDate(format(new Date(), "yyyy-MM-dd"));
+        setDate(defaultDate);
         setMessage("saved");
         setTimeout(() => setMessage(null), 2000);
         toast.success("Income added.");
@@ -124,9 +129,32 @@ export function IncomeQuickAdd({ month }: IncomeQuickAddProps) {
           className="text-sm"
         />
       </div>
+      <div>
+        <Label className="text-xs block mb-1">Type</Label>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setType("salary")}
+            className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+              type === "salary" ? "border-primary bg-primary text-primary-foreground" : "border-input"
+            }`}
+          >
+            Salary
+          </button>
+          <button
+            type="button"
+            onClick={() => setType("ad_hoc")}
+            className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+              type === "ad_hoc" ? "border-primary bg-primary text-primary-foreground" : "border-input"
+            }`}
+          >
+            Other income
+          </button>
+        </div>
+      </div>
       <Input
         type="text"
-        placeholder="Description (optional)"
+        placeholder={type === "salary" ? "Description (optional)" : "e.g. Bonus"}
         value={description}
         onChange={(e) => setDescription(e.target.value)}
         className="text-sm"

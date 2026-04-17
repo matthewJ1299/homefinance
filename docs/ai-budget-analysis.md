@@ -6,7 +6,7 @@ Related: **AI analysis** in Settings (AI toggle + provider selection), **Dashboa
 
 1. An administrator grants **AI feature access** for the user (`users.ai_feature_allowed`; future admin UI). Without it, Settings shows a short notice and `analyzeExpenses` returns an error.
 2. User enables **AI analysis** under **Settings** (AI is **off by default** among users who are allowed).
-3. User chooses month (dashboard or summary) and picks either **Analyze spending** (summary-only, default flow) or **Include all transactions** (full month ledger in the prompt).
+3. User chooses month (dashboard or summary), can optionally add **Extra AI context** free text, and then picks either **Analyze spending** (summary-only, default flow) or **Include all transactions** (full month ledger in the prompt).
 4. Server builds a **model payload** (all monetary fields in **minor units / cents**):
 
    - `month`, `currency: "ZAR"`
@@ -22,8 +22,9 @@ Related: **AI analysis** in Settings (AI toggle + provider selection), **Dashboa
    - **Free**: uses the existing **Gemini free** configuration.
 
 6. The selected provider is called with a **system** instruction (YNAB-style coach, JSON only) and a **user** message that embeds the payload plus the required **output schema**.
-7. The response is **parsed** into `BudgetAnalysisReport` (see `src/lib/types/budget-ai-report.ts`). If parsing fails, the user sees an error on the dashboard/summary control.
-8. The parsed JSON report is saved in Postgres (`ai_analysis_runs.output_json`) and the UI navigates to **`/budget-ai-report?month=yyyy-MM&runId=...`**.
+7. If **Extra AI context** was provided, it is appended as a separate free-text section in the user prompt. It is supporting context only and must not override the structured JSON facts.
+8. The response is **parsed** into `BudgetAnalysisReport` (see `src/lib/types/budget-ai-report.ts`). If parsing fails, the user sees an error on the dashboard/summary control.
+9. The parsed JSON report is saved in Postgres (`ai_analysis_runs.output_json`) and the UI navigates to **`/budget-ai-report?month=yyyy-MM&runId=...`**.
 
 ## Money formatting rules
 
@@ -40,4 +41,4 @@ Related: **AI analysis** in Settings (AI toggle + provider selection), **Dashboa
 
 ## Auditing
 
-Successful runs still insert into **`ai_analysis_runs`** with `analysis_type = expenses_monthly`, `prompt_template_id = expenses_monthly`, `prompt_version = 4`, structured `input_json`, optional `input_text` (full system + user prompt), and `output_text` (raw model JSON string).
+Successful runs still insert into **`ai_analysis_runs`** with `analysis_type = expenses_monthly`, `prompt_template_id = expenses_monthly`, `prompt_version = 5`, structured `input_json`, optional `input_text` (full system + user prompt, including any extra free-text context), and `output_text` (raw model JSON string).

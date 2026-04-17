@@ -25,6 +25,11 @@ type AIProviderLabel =
   | "Gemini (free)"
   | "Gemini (free fallback from OpenAI quota)";
 
+interface AnalyzeExpensesRequest {
+  includeTransactions: boolean;
+  budgetContext?: string;
+}
+
 function getModelForTier(tier: AITier): string {
   if (tier === "paid") return (process.env.GEMINI_PAID_MODEL ?? "").trim() || DEFAULT_PAID_MODEL;
   return (process.env.GEMINI_FREE_MODEL ?? "").trim() || DEFAULT_FREE_MODEL;
@@ -41,6 +46,12 @@ function getOpenAIApiKey(): string | null {
 
 function getOpenAIModel(): string {
   return (process.env.OPENAI_MODEL ?? "").trim() || DEFAULT_OPENAI_MODEL;
+}
+
+function normalizeBudgetContext(value?: string): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  return trimmed.slice(0, 1000);
 }
 
 export function isAIConfiguredForTier(tier: AITier): boolean {
@@ -223,6 +234,7 @@ export class AIService {
     tier: AITier;
     providerLabel: AIProviderLabel;
     includeTransactions: boolean;
+    budgetContext?: string;
   }): Promise<AnalyzeExpensesOutcome> {
     const apiKey = getApiKeyForTier(params.tier);
     if (!apiKey) {
@@ -246,7 +258,7 @@ export class AIService {
     });
 
     const systemPrompt = getBudgetAnalysisSystemPrompt();
-    const userPrompt = buildBudgetAnalysisUserPrompt(data);
+    const userPrompt = buildBudgetAnalysisUserPrompt(data, params.budgetContext);
     const inputDebugText = `AI_PROVIDER: ${params.providerLabel}\n--- system ---\n${systemPrompt}\n\n--- user ---\n${userPrompt}`;
 
     try {
@@ -280,7 +292,7 @@ export class AIService {
         analysisType: "expenses_monthly",
         month: params.month,
         promptTemplateId: "expenses_monthly",
-        promptVersion: 4,
+        promptVersion: 5,
         inputJson: data,
         inputText: inputDebugText,
         outputText: analysisText,
@@ -300,6 +312,7 @@ export class AIService {
     month: string;
     userId: number;
     includeTransactions: boolean;
+    budgetContext?: string;
   }): Promise<AnalyzeExpensesOutcome> {
     const apiKey = getOpenAIApiKey();
     if (!apiKey) {
@@ -317,7 +330,7 @@ export class AIService {
     });
 
     const systemPrompt = getBudgetAnalysisSystemPrompt();
-    const userPrompt = buildBudgetAnalysisUserPrompt(data);
+    const userPrompt = buildBudgetAnalysisUserPrompt(data, params.budgetContext);
     const inputDebugText = `AI_PROVIDER: OpenAI (paid)\n--- system ---\n${systemPrompt}\n\n--- user ---\n${userPrompt}`;
 
     try {
@@ -351,7 +364,7 @@ export class AIService {
         analysisType: "expenses_monthly",
         month: params.month,
         promptTemplateId: "expenses_monthly",
-        promptVersion: 4,
+        promptVersion: 5,
         inputJson: data,
         inputText: inputDebugText,
         outputText: analysisText,
@@ -370,6 +383,7 @@ export class AIService {
           tier: "free",
           providerLabel: "Gemini (free fallback from OpenAI quota)",
           includeTransactions: params.includeTransactions,
+          budgetContext: params.budgetContext,
         });
       }
       const message = err instanceof Error ? err.message : "AI request failed.";
@@ -381,17 +395,27 @@ export class AIService {
     month: string,
     userId: number,
     tier: AITier = "free",
-    includeTransactions = false
+    request: AnalyzeExpensesRequest = { includeTransactions: false }
   ): Promise<AnalyzeExpensesOutcome> {
+    const normalizedRequest: AnalyzeExpensesRequest = {
+      includeTransactions: request.includeTransactions === true,
+      budgetContext: normalizeBudgetContext(request.budgetContext),
+    };
     if (tier === "paid" && getOpenAIApiKey()) {
-      return await this.analyzeExpensesWithOpenAI({ month, userId, includeTransactions });
+      return await this.analyzeExpensesWithOpenAI({
+        month,
+        userId,
+        includeTransactions: normalizedRequest.includeTransactions,
+        budgetContext: normalizedRequest.budgetContext,
+      });
     }
     return await this.analyzeExpensesWithGemini({
       month,
       userId,
       tier,
       providerLabel: tier === "paid" ? "Gemini (paid)" : "Gemini (free)",
-      includeTransactions,
+      includeTransactions: normalizedRequest.includeTransactions,
+      budgetContext: normalizedRequest.budgetContext,
     });
   }
 

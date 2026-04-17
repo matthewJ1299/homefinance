@@ -9,6 +9,8 @@ import { getUserRepository } from "@/lib/repositories";
 export type AnalyzeExpensesOptions = {
   /** When true, every expense line for the month is included (larger prompt; better recategorisation hints). Default false = summary + categories only. */
   includeTransactions?: boolean;
+  /** Optional free-text budget context appended to the AI prompt. */
+  budgetContext?: string;
 };
 
 export async function analyzeExpenses(
@@ -47,7 +49,10 @@ export async function analyzeExpenses(
   const service = new AIService();
   const usePaid = await userRepo.getAiUsePaid(userId);
   const includeTransactions = options.includeTransactions === true;
-  const result = await service.analyzeExpenses(month, userId, usePaid ? "paid" : "free", includeTransactions);
+  const result = await service.analyzeExpenses(month, userId, usePaid ? "paid" : "free", {
+    includeTransactions,
+    budgetContext: options.budgetContext,
+  });
   if (result.success) {
     recordCall(userId);
   }
