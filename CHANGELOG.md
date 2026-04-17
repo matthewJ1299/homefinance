@@ -25,7 +25,7 @@
 
 - **README**: Documented the full Postgres schema as a **Database ERD** (Mermaid), aligned with `drizzle/*_pg.sql`, including caveats for non-FK recurring columns and polymorphic `account_transactions` references. Updated for **`households`** / **`household_id`** (migration `0022`) and multi-household onboarding.
 
-- **AI spending analysis: summary vs full transactions**: Dashboard and Summary offer **Analyze spending** (category totals + month figures only, smaller prompt) and **Include all transactions** (every expense line for the month, as before). Stored runs use `prompt_version` **4** and `input_json.transactions_included`.
+- **AI spending analysis: extra free-text context**: Dashboard, Summary, and the Budget AI report page now include an optional **Extra AI context** box. Any text entered is appended to the AI prompt as supporting budget context, without replacing the structured JSON payload. Stored runs now use `prompt_version` **5**.
 - **Per-user feature access (AI and Recon)**: Added `users.ai_feature_allowed` and `users.recon_feature_allowed` (migration `0020_users_feature_access_pg.sql`, wired in `db:push`). Both must be true **and** the existing Settings toggles must be on for the corresponding feature. Migration grants both flags only to **`users.id = 1`** by default (edit the migration or use SQL / a future admin UI for other users). See [docs/feature-access.md](./docs/feature-access.md).
 
 - **AI toggle (off by default)**: AI features are now **disabled by default** per user (`users.ai_enabled`, migration `0019_users_ai_enabled_pg.sql`). Enable **AI analysis** under **Settings** before AI buttons and report generation appear.
@@ -38,6 +38,8 @@
 - **Recon split-purchase total toast**: After **Process marked**, a toast shows the **total value** of newly added purchases that were marked **Split 50/50**.
 
 ### Fixed
+
+- **Dashboard income section regression**: Restored the **Income this month** card on the dashboard, including the inline income list and quick-add form. The dashboard quick-add once again supports both **Salary** and **Other income** (`ad_hoc`) instead of forcing salary-only entries.
 
 - **Auth/session household context after tenancy migration**: NextAuth now normalizes `householdId` before storing it in JWT/session state, so invalid values like `"null"` no longer poison tenant-scoped requests and crash the dashboard. The authenticated app layout also repairs a missing/invalid session `householdId` from the database before binding request context, and `UserRepository.getHouseholdId()` now throws a direct migration error if a user row still has `household_id = NULL`.
 

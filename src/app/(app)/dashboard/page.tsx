@@ -17,6 +17,7 @@ import {
 import { occurrenceCoversDate, occurrenceSegmentEnd } from "@/lib/utils/calendar-occurrence";
 import { AccountService } from "@/lib/services/account.service";
 import { ExpenseService } from "@/lib/services/expense.service";
+import { IncomeService } from "@/lib/services/income.service";
 import { SplitService } from "@/lib/services/split.service";
 import { formatBudgetMonthLabel } from "@/lib/utils/date";
 import {
@@ -33,6 +34,7 @@ import { HomeGreetingBar } from "@/components/dashboard/home-greeting-bar";
 import { SplitBalanceBanner } from "@/components/dashboard/split-balance-banner";
 import { HomeStatsStrip } from "@/components/dashboard/home-stats-strip";
 import { DashboardExpensesClient } from "@/components/dashboard/dashboard-expenses-client";
+import { DashboardIncomeSection } from "@/components/dashboard/dashboard-income-section";
 
 async function countOpenListTasks(): Promise<number> {
   const listRepo = getSharedListRepository();
@@ -75,6 +77,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const userRepo = getUserRepository();
   const splitGroupRepo = getSplitGroupRepository();
   const expenseService = new ExpenseService();
+  const incomeService = new IncomeService();
   const accountService = new AccountService();
   const calendarService = new CalendarService();
   const nowTime = format(new Date(), "HH:mm");
@@ -88,6 +91,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     otherUsers,
     splitGroups,
     expensePage,
+    incomeResult,
     splitBalance,
     calendarOccurrences,
     budgetOverview,
@@ -103,6 +107,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       userId,
       mainAccountId ?? undefined
     ),
+    incomeService.getByMonth(month, userId),
     new SplitService().getBalance(userId),
     calendarService.getByDateRange(today, nextRangeEnd, userId),
     budgetService.getOverview(month, userId),
@@ -171,6 +176,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         primaryAccountId={mainAccountId}
         expenseDate={quickAddExpenseDate}
         initialExpenses={expensePage.expenses}
+      />
+
+      <DashboardIncomeSection
+        month={month}
+        monthLabelPretty={monthLabelPretty}
+        defaultDate={quickAddExpenseDate}
+        entries={incomeResult.entries}
+        total={incomeResult.totals.overall}
       />
 
       <WhenDashboardTileEnabled tile="aiAnalysis">
