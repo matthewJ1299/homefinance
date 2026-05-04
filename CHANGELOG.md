@@ -37,6 +37,8 @@
 
 ### Changed
 
+- **App color scheme (light + dark)**: Refreshed global design tokens in `src/app/globals.css` — cool light surfaces, blue brand accents, and a tinted navy dark mode instead of pure black — for clearer hierarchy and consistency with the design reference.
+
 - **List item notes (mobile / layout)**: Collapsed note line uses a single-line clamp so the row does not grow tall; expanding shows a scroll-limited read-only preview first, and the textarea appears only after tapping the preview (**Cancel** discards edits and closes the editor).
 
 - **README**: Reorganised **Features** into grouped sections (money, budget, accounts, splits, goals, household, dashboard/nav, mortgage, automation/export, summary/optional AI & Recon) with shorter “what it does” bullets; deep detail remains in feature docs.
