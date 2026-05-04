@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useId } from "react";
 import type { ExpenseWithDetails, AccountType } from "@/lib/types";
 import type { IncomeEntry } from "@/lib/repositories/interfaces/income.repository";
 import type { Category, SplitGroup } from "@/lib/types";
@@ -8,7 +8,7 @@ import type { UserSummary } from "@/lib/repositories/interfaces/user.repository"
 import { ExpensesViewToggle, viewToUserId, type ExpensesView } from "./expenses-view-toggle";
 import { ExpenseList } from "./expense-list";
 import { QuickAddForm } from "./quick-add-form";
-import { formatRand } from "@/lib/utils/currency";
+import { formatRand, fromMinorUnits } from "@/lib/utils/currency";
 import { parseAccountsApiPayload } from "@/lib/utils/accounts-api";
 import { usePropSyncedState } from "@/hooks/use-prop-synced-state";
 
@@ -47,9 +47,11 @@ export function ExpensesPageClient({
   incomeEntries,
   initialView,
 }: ExpensesPageClientProps) {
+  const searchFieldId = useId();
   const [view, setView] = useState<ExpensesView>(initialView);
   const [accountId, setAccountId] = useState<number | null>(null);
   const [categoryId, setCategoryId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [expensesState, setExpensesState] = usePropSyncedState(expenses);
   const currentUserName = users.find((u) => u.id === currentUserId)?.name ?? "You";
   const [accounts, setAccounts] = useState<
@@ -88,6 +90,24 @@ export function ExpensesPageClient({
     const byAccount = filterByAccount(byView, accountId);
     return filterByCategory(byAccount, categoryId);
   }, [expensesState, view, currentUserId, accountId, categoryId]);
+
+  const searchFilteredExpenses = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return filteredExpenses;
+    return filteredExpenses.filter((e) => {
+      const hay = [
+        e.note,
+        e.categoryName,
+        e.userName,
+        e.date,
+        String(fromMinorUnits(e.amount)),
+        String(e.amount),
+      ]
+        .map((x) => String(x ?? "").toLowerCase())
+        .join(" ");
+      return hay.includes(q);
+    });
+  }, [filteredExpenses, searchQuery]);
   const filteredIncome = useMemo(
     () => filterByView(incomeEntries, view, currentUserId),
     [incomeEntries, view, currentUserId]
@@ -134,7 +154,22 @@ export function ExpensesPageClient({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3">
-        <h1 className="text-xl font-semibold">Expenses</h1>
+        <h1 className="text-xl font-semibold">Transactions</h1>
+        <div className="flex flex-col gap-1.5 sm:max-w-md">
+          <label htmlFor={searchFieldId} className="text-xs font-medium text-muted-foreground">
+            Search
+          </label>
+          <input
+            id={searchFieldId}
+            type="search"
+            enterKeyHint="search"
+            placeholder="Note, category, person, date, amount…"
+            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            autoComplete="off"
+          />
+        </div>
         <ExpensesViewToggle
           currentView={view}
           currentUserId={currentUserId}
@@ -207,7 +242,7 @@ export function ExpensesPageClient({
         />
       </section>
       <ExpenseList
-        expenses={filteredExpenses}
+        expenses={searchFilteredExpenses}
         showOwner={view === "combined"}
         categories={categories}
         otherUserName={users.find((u) => u.id !== currentUserId)?.name}

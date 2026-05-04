@@ -36,7 +36,7 @@ export const fullNavItems: NavItem[] = [
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/add", label: "Add", icon: Plus },
   { href: "/lists", label: "Lists", icon: ListTodo },
-  { href: "/expenses", label: "Expenses", icon: Receipt },
+  { href: "/expenses", label: "Transactions", icon: Receipt },
   { href: "/recon", label: "Recon", icon: GitCompare },
   { href: "/splits", label: "Splits", icon: SplitSquareVertical },
   { href: "/budget", label: "Budget", icon: PiggyBank },

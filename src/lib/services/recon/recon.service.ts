@@ -5,7 +5,9 @@ import {
   getVendorCategoryMappingRepository,
 } from "@/lib/repositories";
 import { ExpenseService } from "@/lib/services/expense.service";
+import { IncomeService } from "@/lib/services/income.service";
 import { SplitService } from "@/lib/services/split.service";
+import type { IncomeType } from "@/lib/types";
 import { encryptString, decryptString } from "./token-crypto";
 import {
   exchangeCodeForTokens,
@@ -92,6 +94,7 @@ export class ReconService {
     private vendorMapRepo = getVendorCategoryMappingRepository(),
     private expenseRepo = getExpenseRepository(),
     private expenseService = new ExpenseService(),
+    private incomeService = new IncomeService(),
     private splitService = new SplitService()
   ) {}
 
@@ -303,12 +306,14 @@ export class ReconService {
   async acceptAdd(
     userId: number,
     itemId: number,
-    categoryId: number,
+    categoryId: number | undefined,
     accountId?: number | null,
     split?: boolean,
     noteOverride?: string,
-    amountMinorOverride?: number
-  ): Promise<{ expenseId: number }> {
+    amountMinorOverride?: number,
+    entryKind: "expense" | "income" = "expense",
+    incomeType: IncomeType = "ad_hoc"
+  ): Promise<{ expenseId?: number; incomeId?: number }> {
     const item = await this.importRepo.findByIdForUser(itemId, userId);
     if (!item) throw new Error("Recon item not found");
     if (item.status !== "pending_duplicate" && item.status !== "pending_add") {
@@ -328,6 +333,29 @@ export class ReconService {
       amountMinorOverride > 0
         ? amountMinorOverride
         : item.amount;
+
+    if (entryKind === "income") {
+      if (item.status === "pending_duplicate") {
+        throw new Error("Income is only supported for new items (needs add), not duplicate rows.");
+      }
+      if (split) {
+        throw new Error("Split is not supported for income");
+      }
+      const { id } = await this.incomeService.create(userId, {
+        amount: amountMinor,
+        type: incomeType,
+        description: note,
+        date: item.txnDate,
+        accountId: accountId ?? undefined,
+      });
+      await this.importRepo.updateStatusById(itemId, userId, "accepted_add");
+      return { incomeId: id };
+    }
+
+    if (categoryId == null || !Number.isFinite(categoryId) || categoryId <= 0) {
+      throw new Error("Category is required for expenses");
+    }
+
     const { id } = split
       ? await this.splitService.createSplit(
           userId,

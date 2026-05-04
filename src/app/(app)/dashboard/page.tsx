@@ -45,7 +45,9 @@ async function countOpenListTasks(): Promise<number> {
   return nested.flat().filter((i) => !i.completed).length;
 }
 
-const RECENT_EXPENSES_COUNT = 5;
+/** Fetched for merging with income on the transactions tile; display count is capped in the client. */
+const DASHBOARD_TRANSACTIONS_EXPENSE_FETCH = 28;
+const DASHBOARD_TRANSACTIONS_DISPLAY_LIMIT = 8;
 
 function isOccurrenceUpcoming(
   o: CalendarEventOccurrence,
@@ -103,7 +105,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     expenseService.getByMonthPaginated(
       month,
       1,
-      RECENT_EXPENSES_COUNT,
+      DASHBOARD_TRANSACTIONS_EXPENSE_FETCH,
       userId,
       mainAccountId ?? undefined
     ),
@@ -176,6 +178,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         primaryAccountId={mainAccountId}
         expenseDate={quickAddExpenseDate}
         initialExpenses={expensePage.expenses}
+        incomeEntries={incomeResult.entries}
+        mergedTransactionsDisplayLimit={DASHBOARD_TRANSACTIONS_DISPLAY_LIMIT}
       />
 
       <DashboardIncomeSection

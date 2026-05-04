@@ -4,6 +4,8 @@
 
 ### Added
 
+- **Transactions page search**: On `/expenses` (UI title **Transactions**), a **Search** field filters the expense list by note, category, person, date, or amount text.
+- **Recon posting kind**: For **needs add** pending rows, choose **Expense** or **Income** before **Process marked** (or single-row accept-add). **Expense** creates an expense (category required; optional split). **Income** creates an income entry (type **Salary** or **Other income**; no category). Duplicates remain expense-only.
 - **Shared list item reorder (persisted)**: On the list detail page (`/lists/[id]`) and under **Settings** > **Lists** > **List items**, checklist rows can be **reordered by dragging the grip** (mouse or touch: brief hold on the grip, then drag). Order is stored in `shared_list_items.sort_order`, separately for **open** vs **completed** items (completed stay below open). Server action: `reorderListItems`.
 
 - **Shared list items and notes**: `NOTE_LINKED_TYPE_SHARED_LIST_ITEM` links polymorphic `notes` to `shared_list_items` (optional; no column on items). `INoteRepository` adds `deleteAllForLinkedTarget` / `deleteAllForLinkedTargets`; list and list-item repositories remove attached notes when deleting lists, items, or completed items.
@@ -37,6 +39,7 @@
 
 ### Changed
 
+- **Dashboard “Recent expenses” tile** is now **Recent transactions**: shows the newest **income and expenses** for the budget month (up to 8 rows), with **In** / **Out** subtotals for that slice. Settings tile key is `transactions` (existing `recentExpenses` values in local storage migrate automatically). Nav label and PWA shortcut for `/expenses` read **Transactions**.
 - **App color scheme (light + dark)**: Refreshed global design tokens in `src/app/globals.css` — cool light surfaces, blue brand accents, and a tinted navy dark mode instead of pure black — for clearer hierarchy and consistency with the design reference.
 
 - **List item notes (mobile / layout)**: Collapsed note line uses a single-line clamp so the row does not grow tall; expanding shows a scroll-limited read-only preview first, and the textarea appears only after tapping the preview (**Cancel** discards edits and closes the editor).

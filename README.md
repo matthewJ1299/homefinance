@@ -15,7 +15,7 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 ### Money in and out
 
 - **Income** — Record salary and one-off income per month. The dashboard shows only **your** income for the selected budget month.
-- **Expenses** — Log spending by category with notes and link rows to accounts. On the **Expenses** page, switch between **My** expenses, another household member’s, or **Combined** totals; filter by account and category. When splitting with a partner, pick a split group plus equal split, exact amounts (live helper to balance to zero), or “full amount owed to you.”
+- **Transactions** (`/expenses`) — Log spending by category with notes and link rows to accounts; the same page shows month income totals and balance. Switch between **My** activity, another household member’s, or **Combined**; filter by account and category and **search** the expense list. When splitting with a partner, pick a split group plus equal split, exact amounts (live helper to balance to zero), or “full amount owed to you.”
 - **Categories** — **Fixed** categories behave like steady monthly costs and can seed new months with a default amount; **variable** categories change month to month.
 
 ### Budget
@@ -30,7 +30,7 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 ### Accounts and balances
 
 - **Account types** — Bank, savings, and credit under **Settings** > **Accounts**. Balances are derived from an **account ledger** of transactions.
-- **Primary account** — Dashboard **Recent** expenses and **Quick add expense** post to the primary account (**Set as primary** when you have more than one; a single account is always primary). Dates fall inside the budget month you are viewing so new lines show in **Recent**; **View more** opens Expenses for that month.
+- **Primary account** — Dashboard **Recent transactions** (combined income + expenses for the month) and **Quick add expense** respect the primary account when filtering (**Set as primary** when you have more than one; a single account is always primary). Dates fall inside the budget month you are viewing; **View more** opens the **Transactions** page for that month.
 - **Moving money between accounts** — **Transfer Money** (dashboard or Settings) for savings moves or paying down credit. Credit rows show limit and available credit.
 
 ### Shared costs (Splits)
@@ -51,7 +51,7 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 
 ### Home dashboard and navigation
 
-- **Dashboard** — Month income with inline quick add (**Salary** or **Other income**), **Recent** expenses (primary account), tasks/events/budget shortcuts, upcoming calendar, quick-add expense (same category UX as **`/add`**). Greeting and header date use **Africa/Johannesburg (UTC+2)**, not the device clock.
+- **Dashboard** — Month income with inline quick add (**Salary** or **Other income**), **Recent transactions** (newest income and expenses, optionally filtered to the primary account), tasks/events/budget shortcuts, upcoming calendar, quick-add expense (same category UX as **`/add`**). Greeting and header date use **Africa/Johannesburg (UTC+2)**, not the device clock. Under **Settings** > **Dashboard tiles**, the list tile is named **Recent transactions** (migrates from the old “Recent expenses” toggle in local storage).
 - **Create hub (`/add`)** — Mobile center **Add** and desktop sidebar: new list item, event, or expense; quick line for tasks; expense shorthand such as `120 groceries` pre-fills amount and note. After save: expense → Dashboard; task → that list; event → Calendar.
 - **Mobile** — Bottom bar: Home, Calendar, Add (center), Lists, Budget. The header menu mirrors the desktop sidebar, including **Recon** and **Budget AI report** when your account is allowed and enabled.
 
