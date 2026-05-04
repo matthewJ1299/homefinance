@@ -8,6 +8,10 @@ All database writes use **optimistic UI**: the UI updates immediately, then a to
 
 Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in the linked docs.
 
+### Look and feel
+
+- **Themes** — Shared CSS variables in `src/app/globals.css` feed Tailwind semantic colours for **light** and **dark** (cool light surfaces and blue accents; dark mode uses tinted navy cards instead of pure black). Use the header theme toggle (`next-themes`).
+
 ### Money in and out
 
 - **Income** — Record salary and one-off income per month. The dashboard shows only **your** income for the selected budget month.
