@@ -1,4 +1,5 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
+import { coerceBigInt, coerceBigIntOrNull } from "@/lib/db/coerce-bigint";
 import type { Goal, GoalStrategy, GoalType } from "@/lib/types";
 import type {
   IGoalRepository,
@@ -22,13 +23,13 @@ interface GoalRow {
 
 function toGoal(row: GoalRow): Goal {
   return {
-    id: row.id,
-    ownerUserId: row.owner_user_id,
+    id: coerceBigInt(row.id),
+    ownerUserId: coerceBigInt(row.owner_user_id),
     name: row.name,
     type: row.type,
-    targetAmount: row.target_amount,
-    monthlyTarget: row.monthly_target,
-    linkedAccountId: row.linked_account_id,
+    targetAmount: coerceBigIntOrNull(row.target_amount),
+    monthlyTarget: coerceBigInt(row.monthly_target),
+    linkedAccountId: coerceBigIntOrNull(row.linked_account_id),
     apr: row.apr == null ? null : Number(row.apr),
     strategy: row.strategy,
     archivedAt: row.archived_at,

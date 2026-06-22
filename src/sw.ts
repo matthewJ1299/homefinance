@@ -28,14 +28,28 @@ const serwist = new Serwist({
 
 serwist.addEventListeners();
 
+// Notify open clients after SW update (Android PWA often drops push until re-subscribe).
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        client.postMessage({ type: "PUSH_SW_ACTIVATED" });
+      }
+    })
+  );
+});
+
 // Web Push: show notification and handle click
 self.addEventListener("push", (event: PushEvent) => {
-  if (!event.data) return;
   let data: { title?: string; body?: string; url?: string } = {};
-  try {
-    data = event.data.json();
-  } catch {
-    data = { title: "HomeFinance", body: event.data.text() || "New notification" };
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch {
+      data = { title: "HomeFinance", body: event.data.text() || "New notification" };
+    }
+  } else {
+    data = { title: "HomeFinance", body: "New notification" };
   }
   const title = data.title ?? "HomeFinance";
   const options: NotificationOptions & { renotify?: boolean } = {
@@ -53,14 +67,30 @@ self.addEventListener("notificationclick", (event: NotificationEvent) => {
   event.notification.close();
   const url = (event.notification.data?.url as string) ?? "/";
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clientList) => {
       for (const client of clientList) {
         if (client.url.includes(self.location.origin) && "focus" in client) {
-          client.navigate(url);
-          return client.focus();
+          try {
+            if ("navigate" in client && typeof client.navigate === "function") {
+              await client.navigate(url);
+            }
+            return client.focus();
+          } catch {
+            break;
+          }
         }
       }
       if (self.clients.openWindow) return self.clients.openWindow(url);
+    })
+  );
+});
+
+self.addEventListener("pushsubscriptionchange", (event: Event) => {
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        client.postMessage({ type: "PUSH_SUBSCRIPTION_CHANGE" });
+      }
     })
   );
 });

@@ -10,7 +10,8 @@ import {
 } from "@/lib/repositories";
 import { budgetMonthKeyForUser } from "@/lib/utils/budget-month-for-user";
 import type { SplitBalance, SplitHistoryItem } from "@/lib/types";
-import { calculateSplitBalance } from "@/lib/services/finance/accounts";
+import { calculateSplitBalance, splitExpense } from "@/lib/services/finance/accounts";
+import { withTransaction } from "@/lib/db/postgres-client";
 
 export type CreateSplitOptions =
   | { type: "equal" }
@@ -48,9 +49,14 @@ export class SplitService {
       groupId ?? (await this.splitGroupRepo.findDefault())?.id ?? null;
     let amountOwed: number;
     switch (options.type) {
-      case "equal":
-        amountOwed = Math.floor(totalAmountCents / 2);
+      case "equal": {
+        const shares = splitExpense({
+          amount: totalAmountCents,
+          users: ["payer", "other"],
+        });
+        amountOwed = shares.other ?? Math.floor(totalAmountCents / 2);
         break;
+      }
       case "full":
         amountOwed = totalAmountCents;
         break;
@@ -169,6 +175,69 @@ export class SplitService {
     }
   }
 
+  async updateSettlement(
+    settlementId: number,
+    payerUserId: number,
+    amountCents: number,
+    date: string,
+    recipientUserName: string
+  ): Promise<void> {
+    const settlement = await this.settlementRepo.findById(settlementId);
+    if (!settlement) {
+      throw new Error("Settlement not found.");
+    }
+    if (settlement.payerUserId !== payerUserId) {
+      throw new Error("Only the payer can edit this settlement.");
+    }
+    if (amountCents <= 0) {
+      throw new Error("Amount must be greater than zero.");
+    }
+
+    const expenseMonth = await budgetMonthKeyForUser(payerUserId, date);
+    const incomeMonth = await budgetMonthKeyForUser(settlement.recipientUserId, date);
+
+    await withTransaction(async () => {
+      await this.settlementRepo.update(settlementId, { amount: amountCents, date });
+      if (settlement.expenseId != null) {
+        await this.expenseRepo.update(settlement.expenseId, {
+          amount: amountCents,
+          date,
+          month: expenseMonth,
+          note: `Settlement to ${recipientUserName}`,
+        });
+      }
+      if (settlement.incomeId != null) {
+        const payer = await this.userRepo.findById(payerUserId);
+        await this.incomeRepo.update(settlement.incomeId, {
+          amount: amountCents,
+          date,
+          month: incomeMonth,
+          description: `Settlement from ${payer?.name ?? "Someone"}`,
+        });
+      }
+    });
+  }
+
+  async deleteSettlement(settlementId: number, payerUserId: number): Promise<void> {
+    const settlement = await this.settlementRepo.findById(settlementId);
+    if (!settlement) {
+      throw new Error("Settlement not found.");
+    }
+    if (settlement.payerUserId !== payerUserId) {
+      throw new Error("Only the payer can delete this settlement.");
+    }
+
+    await withTransaction(async () => {
+      if (settlement.incomeId != null) {
+        await this.incomeRepo.delete(settlement.incomeId);
+      }
+      await this.settlementRepo.delete(settlementId);
+      if (settlement.expenseId != null) {
+        await this.expenseRepo.delete(settlement.expenseId);
+      }
+    });
+  }
+
   /**
    * Records a settlement for an expense already created (e.g. from dashboard with category Splits).
    * Creates income for the recipient and a settlement record so the splits page shows it and reduces "I owe".
@@ -239,6 +308,8 @@ export class SplitService {
       result.push({
         type: "settlement",
         settlementId: s.id,
+        expenseId: s.expenseId ?? null,
+        incomeId: s.incomeId ?? null,
         payerUserId: s.payerUserId,
         payerUserName: s.payerUserName,
         recipientUserId: s.recipientUserId,

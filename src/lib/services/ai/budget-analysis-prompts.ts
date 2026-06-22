@@ -7,7 +7,8 @@ const BUDGET_ANALYSIS_USER_PROMPT_PREFIX = `Analyze this month's household budge
 spending vs allocation
 likely miscategorisations
 recommended category changes
-budget reallocations for next month - suggest specific figures to update 
+budget reallocations for next month - suggest specific figures to update
+per-category allocation_changes with exact new_allocated_cents for categories that need a new budget amount (category_name must match supplied categories[].name exactly)
 new categories to consider
 unusual spikes or one-off items
 
@@ -34,6 +35,13 @@ Response json must follow this schema:
       "from_category": "string",
       "to_category": "string",
       "amount_cents": number,
+      "reason": "string"
+    }
+  ],
+  "allocation_changes": [
+    {
+      "category_name": "string",
+      "new_allocated_cents": number,
       "reason": "string"
     }
   ],

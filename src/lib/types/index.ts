@@ -86,6 +86,8 @@ export interface SplitExpenseHistoryItem {
 export interface SplitSettlementHistoryItem {
   type: "settlement";
   settlementId: number;
+  expenseId: number | null;
+  incomeId: number | null;
   payerUserId: number;
   payerUserName: string;
   recipientUserId: number;

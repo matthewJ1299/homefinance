@@ -7,6 +7,7 @@ import { EquitySplitChart } from "@/components/mortgage/equity-split-chart";
 import { ExtraPaymentForm } from "@/components/mortgage/extra-payment-form";
 import { MortgageDetailsSection } from "@/components/mortgage/mortgage-details-section";
 import { MortgagePaymentsList } from "@/components/mortgage/mortgage-payments-list";
+import { MortgageRatePeriodsSection } from "@/components/mortgage/mortgage-rate-periods-section";
 
 export default async function MortgagePage() {
   const service = new MortgageService();
@@ -26,9 +27,10 @@ export default async function MortgagePage() {
     );
   }
 
-  const [schedule, payments] = await Promise.all([
+  const [schedule, payments, ratePeriods] = await Promise.all([
     service.getSchedule(),
     service.getPayments(config.id),
+    service.getRatePeriods(config.id),
   ]);
   if (!schedule) {
     return (
@@ -66,6 +68,18 @@ export default async function MortgagePage() {
         }
       : null;
 
+  const defaultAnnualRatePct =
+    config.annualInterestRate <= 1
+      ? String(Math.round(config.annualInterestRate * 1000) / 10)
+      : String(config.annualInterestRate);
+  const ratePeriodRows = ratePeriods.map((period) => ({
+    effectiveFromMonth: String(period.effectiveFromMonth),
+    annualRate:
+      period.annualInterestRate <= 1
+        ? String(Math.round(period.annualInterestRate * 1000) / 10)
+        : String(period.annualInterestRate),
+  }));
+
   return (
     <div className="p-4 space-y-6">
       <h1 className="text-xl font-semibold">Mortgage</h1>
@@ -80,6 +94,12 @@ export default async function MortgagePage() {
         currentBalance={currentBalance}
         projectedMonths={schedule.projectedMonths}
         originalTermMonths={config.loanTermMonths}
+        upcomingAnnualRate={schedule.upcomingAnnualRate}
+        upcomingMonthNumber={schedule.upcomingMonthNumber}
+      />
+      <MortgageRatePeriodsSection
+        defaultAnnualRatePct={defaultAnnualRatePct}
+        initialPeriods={ratePeriodRows}
       />
       <MortgagePaymentsList payments={payments} userNameById={userNameById} />
       <ExtraPaymentForm />

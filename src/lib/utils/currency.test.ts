@@ -15,6 +15,12 @@ describe("currency", () => {
       expect(toMinorUnits(1.234)).toBe(123);
       expect(toMinorUnits(1.235)).toBe(124);
     });
+
+    it("documents float edge cases (known limitation)", () => {
+      expect(toMinorUnits(0.1 + 0.2)).toBe(30);
+      // 1.005 is not exactly representable in IEEE float; rounds to 100 not 101.
+      expect(toMinorUnits(1.005)).toBe(100);
+    });
   });
 
   describe("fromMinorUnits", () => {

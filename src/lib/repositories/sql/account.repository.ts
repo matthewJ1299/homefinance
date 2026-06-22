@@ -1,4 +1,5 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
+import { coerceBigInt, coerceBigIntOrNull } from "@/lib/db/coerce-bigint";
 import type { Account, AccountType } from "@/lib/types";
 import type {
   IAccountRepository,
@@ -17,11 +18,11 @@ interface AccountRow {
 
 function toAccount(row: AccountRow): Account {
   return {
-    id: row.id,
+    id: coerceBigInt(row.id),
     name: row.name,
     type: row.type,
-    ownerUserId: row.owner_user_id,
-    creditLimit: row.credit_limit,
+    ownerUserId: coerceBigInt(row.owner_user_id),
+    creditLimit: coerceBigIntOrNull(row.credit_limit),
     createdAt: row.created_at,
   };
 }

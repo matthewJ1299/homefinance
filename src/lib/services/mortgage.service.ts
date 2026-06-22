@@ -1,11 +1,19 @@
 import { getMortgageRepository } from "@/lib/repositories";
 import {
+  allocateMonthPrincipalInterest,
   generateSchedule,
   simulateSchedule,
-  standardMonthlyPayment,
   calculateTopUp,
   projectScheduleFromBalance,
 } from "./finance/mortgage";
+import {
+  calculateBasePaymentForMonth,
+  calculateUserBBaseForPayment,
+  resolveAnnualRateForMonth,
+  resolveMonthlyRateForMonth,
+  type MortgageRateSchedule,
+} from "./finance/mortgage-rate-periods";
+import type { MortgageRatePeriodRow } from "@/lib/repositories/interfaces/mortgage.repository";
 import type { MortgageParams, AmortisationRow } from "@/lib/types/mortgage.types";
 import type { MortgageConfigRow, MortgageUserConfigRow, MortgagePaymentRow } from "@/lib/repositories/interfaces/mortgage.repository";
 import { addMonths, format } from "date-fns";
@@ -105,6 +113,8 @@ export class MortgageService {
     if (userConfigs.length < 2) return null;
 
     const { params, userAId, userBId } = this.buildParams(config, userConfigs);
+    const ratePeriodRows = await this.repo.getRatePeriods(mortgageId);
+    const rateSchedule = this.buildRateSchedule(config, ratePeriodRows);
     const payments = await this.repo.getPayments(mortgageId);
     const extraByMonth = new Map<number, number>();
     for (const p of payments.filter((x) => x.isExtraPayment)) {
@@ -117,7 +127,13 @@ export class MortgageService {
     const maxPaidMonth = monthsWithPayments.length > 0 ? Math.max(...monthsWithPayments) : 0;
 
     for (const monthNum of monthsWithPayments) {
-      await this.recalcPrincipalInterestForMonth(mortgageId, monthNum, config, payments);
+      await this.recalcPrincipalInterestForMonth(
+        mortgageId,
+        monthNum,
+        config,
+        rateSchedule,
+        payments
+      );
     }
 
     if (maxPaidMonth === 0) {
@@ -128,7 +144,8 @@ export class MortgageService {
         userBId,
         userConfigs,
         getExtraPayment,
-        targetEquityUserA
+        targetEquityUserA,
+        rateSchedule
       );
     }
 
@@ -154,20 +171,25 @@ export class MortgageService {
       ...params,
       loanAmount: remainingBalance,
       termMonths: remainingTermMonths,
+      monthlyRate: resolveMonthlyRateForMonth(maxPaidMonth + 1, rateSchedule),
     };
-    const M = standardMonthlyPayment(
-      remainingBalance,
-      params.monthlyRate,
-      remainingTermMonths
-    );
+    const upcomingMonth = maxPaidMonth + 1;
+    const M = calculateBasePaymentForMonth({
+      monthNumber: upcomingMonth,
+      openingBalance: remainingBalance,
+      totalTermMonths: config.loanTermMonths,
+      rateSchedule,
+    });
     const topUp = calculateTopUp(
       paramsRemaining,
       firstUnpaidDateStr,
-      targetEquityUserA
+      targetEquityUserA,
+      rateSchedule
     );
-    const userBBase = Math.min(
-      Math.round(params.userB.baseSplitPct * M),
-      params.userB.monthlyCap ?? Infinity
+    const userBBase = calculateUserBBaseForPayment(
+      M,
+      params.userB.baseSplitPct,
+      params.userB.monthlyCap
     );
     const lastActual = actualRows[actualRows.length - 1];
     const initialUserATotal = lastActual
@@ -193,6 +215,8 @@ export class MortgageService {
       initialUserBTotal,
       getExtraPayment,
       maxMonths: remainingTermMonths * 2,
+      totalTermMonths: config.loanTermMonths,
+      rateSchedule,
     });
 
     const schedule: AmortisationRow[] = [...actualRows, ...projected.schedule];
@@ -204,6 +228,7 @@ export class MortgageService {
 
     const currentBalance =
       actualRows.length > 0 ? actualRows[actualRows.length - 1].closingBalance : config.loanAmount;
+    const upcomingAnnualRate = resolveAnnualRateForMonth(upcomingMonth, rateSchedule);
     return {
       monthlyBasePayment: M,
       monthlyTopUp: topUp,
@@ -216,6 +241,8 @@ export class MortgageService {
       currentBalance,
       monthlyPaymentUserA,
       monthlyPaymentUserB,
+      upcomingAnnualRate,
+      upcomingMonthNumber: upcomingMonth,
       targetEquityUserAPct: targetEquityUserA,
       equitySummary: {
         userA: {
@@ -300,13 +327,20 @@ export class MortgageService {
     userBId: number,
     userConfigs: MortgageUserConfigRow[],
     getExtraPayment: (monthNumber: number) => number,
-    targetEquityUserA: number
+    targetEquityUserA: number,
+    rateSchedule: MortgageRateSchedule
   ) {
-    const result = generateSchedule(params, config.startDate, targetEquityUserA);
+    const result = generateSchedule(
+      params,
+      config.startDate,
+      targetEquityUserA,
+      rateSchedule
+    );
     const M = result.monthlyBasePayment;
-    const userBBase = Math.min(
-      Math.round(params.userB.baseSplitPct * M),
-      params.userB.monthlyCap ?? Infinity
+    const userBBase = calculateUserBBaseForPayment(
+      M,
+      params.userB.baseSplitPct,
+      params.userB.monthlyCap
     );
     const monthlyPaymentUserA = M - userBBase + result.monthlyTopUp;
     const monthlyPaymentUserB = userBBase;
@@ -316,7 +350,8 @@ export class MortgageService {
       userBBase,
       result.monthlyTopUp,
       config.startDate,
-      getExtraPayment
+      getExtraPayment,
+      rateSchedule
     );
     const userAName = userConfigs.find((c) => c.userId === userAId)?.userName ?? "User A";
     const userBName = userConfigs.find((c) => c.userId === userBId)?.userName ?? "User B";
@@ -329,6 +364,8 @@ export class MortgageService {
       currentBalance: config.loanAmount,
       monthlyPaymentUserA,
       monthlyPaymentUserB,
+      upcomingAnnualRate: resolveAnnualRateForMonth(1, rateSchedule),
+      upcomingMonthNumber: 1,
       targetEquityUserAPct: targetEquityUserA,
       equitySummary: {
         userA: {
@@ -357,6 +394,58 @@ export class MortgageService {
     return this.repo.getPayments(mortgageId);
   }
 
+  async getRatePeriods(mortgageId: number): Promise<MortgageRatePeriodRow[]> {
+    return this.repo.getRatePeriods(mortgageId);
+  }
+
+  async saveRatePeriods(
+    periods: Array<{ effectiveFromMonth: number; annualInterestRate: number }>
+  ) {
+    const config = await this.repo.getActiveConfig();
+    if (!config) {
+      throw new Error("No mortgage configured");
+    }
+
+    const normalized = periods.map((period) => ({
+      effectiveFromMonth: period.effectiveFromMonth,
+      annualInterestRate:
+        period.annualInterestRate > 1
+          ? period.annualInterestRate / 100
+          : period.annualInterestRate,
+    }));
+
+    await this.repo.replaceRatePeriods(config.id, normalized);
+
+    const scheduleResult = await this.getScheduleInternal(config.id);
+    if (scheduleResult) {
+      await this.repo.saveSnapshot({
+        mortgageId: config.id,
+        triggerEvent: "rate_periods_update",
+        scheduleJson: JSON.stringify(scheduleResult.schedule),
+        projectedPayoffDate: scheduleResult.projectedPayoffDate,
+        projectedMonths: scheduleResult.projectedMonths,
+        monthlyTopup: scheduleResult.monthlyTopUp,
+        userAFinalEquityPct: scheduleResult.userAFinalEquityPct,
+        userBFinalEquityPct: scheduleResult.userBFinalEquityPct,
+      });
+    }
+
+    return normalized;
+  }
+
+  private buildRateSchedule(
+    config: MortgageConfigRow,
+    periodRows: MortgageRatePeriodRow[]
+  ): MortgageRateSchedule {
+    return {
+      defaultAnnualRate: config.annualInterestRate,
+      periods: periodRows.map((period) => ({
+        effectiveFromMonth: period.effectiveFromMonth,
+        annualInterestRate: period.annualInterestRate,
+      })),
+    };
+  }
+
   /**
    * Recomputes principal/interest for all payments in a given month so the schedule
    * reflects actual amounts paid. Called after recording a payment or when building actuals.
@@ -366,35 +455,29 @@ export class MortgageService {
     mortgageId: number,
     monthNumber: number,
     config: MortgageConfigRow,
+    rateSchedule: MortgageRateSchedule,
     paymentsOptional?: MortgagePaymentRow[]
   ): Promise<void> {
     const payments = paymentsOptional ?? (await this.repo.getPayments(mortgageId));
     const inMonth = payments.filter((p) => p.monthNumber === monthNumber);
     if (inMonth.length === 0) return;
 
-    const totalAmount = inMonth.reduce((s, p) => s + p.amount, 0);
-    const monthlyRate = config.annualInterestRate / 12;
+    const monthlyRate = resolveMonthlyRateForMonth(monthNumber, rateSchedule);
 
     const principalPaidBeforeThisMonth = payments
       .filter((p) => p.monthNumber < monthNumber)
       .reduce((s, p) => s + p.principalPortion, 0);
     const balanceAtStart = config.loanAmount - principalPaidBeforeThisMonth;
 
-    const interestForMonth = Math.min(
-      Math.round(balanceAtStart * monthlyRate),
-      totalAmount
-    );
-    const principalForMonth = totalAmount - interestForMonth;
+    const allocations = allocateMonthPrincipalInterest({
+      balanceAtMonthStart: balanceAtStart,
+      monthlyRate,
+      paymentsInMonth: inMonth,
+    });
 
-    let assignedPrincipal = 0;
     for (let i = 0; i < inMonth.length; i++) {
-      const p = inMonth[i];
-      const principalPortion =
-        i === inMonth.length - 1
-          ? principalForMonth - assignedPrincipal
-          : Math.round(principalForMonth * (p.amount / totalAmount));
-      assignedPrincipal += principalPortion;
-      const interestPortion = p.amount - principalPortion;
+      const p = inMonth[i]!;
+      const { principalPortion, interestPortion } = allocations[i]!;
       p.principalPortion = principalPortion;
       p.interestPortion = interestPortion;
       await this.repo.updatePaymentPrincipalInterest(
@@ -437,7 +520,14 @@ export class MortgageService {
       note,
     });
 
-    await this.recalcPrincipalInterestForMonth(config.id, monthNumber, config);
+    const ratePeriodRows = await this.repo.getRatePeriods(config.id);
+    const rateSchedule = this.buildRateSchedule(config, ratePeriodRows);
+    await this.recalcPrincipalInterestForMonth(
+      config.id,
+      monthNumber,
+      config,
+      rateSchedule
+    );
     return true;
   }
 

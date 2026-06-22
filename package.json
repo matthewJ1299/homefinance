@@ -18,7 +18,9 @@
     "db:fresh": "npm run db:reset && npm run db:seed",
     "generate-pwa-icons": "node scripts/generate-pwa-icons.mjs",
     "generate-vapid-keys": "node scripts/generate-vapid-keys.mjs",
-    "test": "vitest run",
+    "test": "npm run test:unit",
+    "test:unit": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:watch": "vitest"
   },
   "dependencies": {

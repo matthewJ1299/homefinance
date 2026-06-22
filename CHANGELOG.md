@@ -4,6 +4,30 @@
 
 ### Added
 
+- **Hardening: unit test gate in Docker build** — `npm run test:unit` runs before `next build` in the production Dockerfile (Coolify deploy fails if tests fail). Vitest split into unit (`vitest.config.ts`) and integration (`vitest.integration.config.ts`). New edge-case tests for splits, credit, and currency; high-volume **transaction drift** tests in `src/tests/transaction-drift.test.ts` (360-month mortgage chains with per-month interest recalculation from reduced balance, 500 split/settlement cycles, 10k ledger postings). Mortgage payment principal/interest allocation extracted to `allocateMonthPrincipalInterest()` in `finance/mortgage.ts`. **Integration:** `src/__tests__/integration/mortgage-interest-recalc.integration.test.ts` exercises `MortgageService` + Postgres for 48–100 sequential payments and same-month splits.
+- **Migration ledger** — `schema_migrations` table; `db:push` applies numbered `drizzle/*_pg.sql` files in order and seeds the ledger on upgrade so existing databases are not re-migrated. See [docs/database.md](./docs/database.md).
+- **Variable mortgage rates** — `mortgage_rate_periods` table; schedule and upcoming minimum payment recalculate when the effective rate changes mid-loan. UI on `/mortgage` under **Interest rate changes**. See [docs/mortgage.md](./docs/mortgage.md).
+- **Settlement edit/delete** — Payers can edit or delete settlements from `/splits`; updates sync expense, income, and `split_settlements` atomically. Settlement-linked expenses/income cannot be edited elsewhere.
+- **Income edit/delete** — Edit and delete actions on `/income` (settlement-linked income remains managed from Splits).
+- **UI primitives** — `PageHeader`, `EmptyState`, `ConfirmDialog`, `SelectField`; [docs/design-system.md](./docs/design-system.md).
+- **Push docs** — [docs/push-notifications.md](./docs/push-notifications.md) (Android TTL, urgency, `pushsubscriptionchange` repair).
+
+### Changed
+
+- **Split math** — Equal splits use tested `splitExpense()` helper (odd-cent remainder). Per-person balances are netted before totals. Over-settlement on Splits page is rejected (not silently capped).
+- **BIGINT coercion** — Shared `coerceBigInt` for account/transfer/goal repositories (node-pg string BIGINTs).
+- **Navigation** — Desktop sidebar label **Dashboard** renamed to **Home**; PWA `themeColor` aligned to app primary blue.
+- **Android push** — Service worker always shows a notification; default TTL raised to 3600s with `urgency: high`; `pushsubscriptionchange` triggers repair.
+
+### Fixed
+
+- **`db:reset` guard** — Requires `ALLOW_DB_RESET=1` before `DROP SCHEMA public CASCADE`.
+- **Migration numbering** — `0019_ai_analysis_runs_output_json` renumbered to `0024_…`; `shared_lists` visibility columns moved to `0025_shared_lists_visibility_owner_pg.sql`.
+- **Mortgage config** — `target_equity_user_a_pct` null preserved on read (no forced `0.5`).
+- **Split settlement repository** — `splitExpenseGroupId` included on reads; `findByIncomeId` / `update` added.
+
+- **AI budget report: apply suggestions and feedback chat**: On `/budget-ai-report`, select **allocation changes** or **recommended moves** and **Apply selected** (confirm dialog; writes to the report month’s budget in one transaction). Each apply is audited in `ai_analysis_run_applications`. **Ask about this report** adds a persisted plain-text thread in `ai_analysis_run_messages` (user message saved before the LLM call). New reports use prompt version **6** with `allocation_changes[]`. Migrations `0022_ai_analysis_run_messages_pg.sql`, `0023_ai_analysis_run_applications_pg.sql`. See [docs/ai-budget-analysis.md](./docs/ai-budget-analysis.md).
+
 - **Transactions page search**: On `/expenses` (UI title **Transactions**), a **Search** field filters the expense list by note, category, person, date, or amount text.
 - **Recon posting kind**: For **needs add** pending rows, choose **Expense** or **Income** before **Process marked** (or single-row accept-add). **Expense** creates an expense (category required; optional split). **Income** creates an income entry (type **Salary** or **Other income**; no category). Duplicates remain expense-only.
 - **Shared list item reorder (persisted)**: On the list detail page (`/lists/[id]`) and under **Settings** > **Lists** > **List items**, checklist rows can be **reordered by dragging the grip** (mouse or touch: brief hold on the grip, then drag). Order is stored in `shared_list_items.sort_order`, separately for **open** vs **completed** items (completed stay below open). Server action: `reorderListItems`.
@@ -27,6 +51,8 @@
 - **Recon split-purchase total toast**: After **Process marked**, a toast shows the **total value** of newly added purchases that were marked **Split 50/50**.
 
 ### Fixed
+
+- **Push notifications (Android PWA / Pixel)**: `PushSubscriptionRepair` in the app shell re-subscribes after service worker updates (`PUSH_SW_ACTIVATED` / `controllerchange`), resume, bfcache restore, and going online—with a short delay on Android installed PWAs so the active worker is ready. `waitForPushServiceWorkerRegistration` avoids reading `pushManager` before the SW is active. Settings shows an Android PWA hint when permission is granted but no browser subscription. Logs include `androidPwa` / `standalone` context (`[PushClient]`).
 
 - **Dashboard income section regression**: Restored the **Income this month** card on the dashboard, including the inline income list and quick-add form. The dashboard quick-add once again supports both **Salary** and **Other income** (`ad_hoc`) instead of forcing salary-only entries.
 

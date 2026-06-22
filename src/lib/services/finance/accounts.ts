@@ -215,12 +215,18 @@ export function calculateSplitBalance(input: {
 
   let owedToMe = 0;
   let iOwe = 0;
-  for (const u of perUserMap.values()) {
-    if (u.owedToMe > 0) owedToMe += u.owedToMe;
-    if (u.iOwe > 0) iOwe += u.iOwe;
-  }
+  const perUser = Array.from(perUserMap.values()).map((u) => {
+    const netWithPerson = u.owedToMe - u.iOwe;
+    const netted = {
+      ...u,
+      owedToMe: netWithPerson > 0 ? netWithPerson : 0,
+      iOwe: netWithPerson < 0 ? -netWithPerson : 0,
+    };
+    owedToMe += netted.owedToMe;
+    iOwe += netted.iOwe;
+    return netted;
+  });
 
-  const perUser = Array.from(perUserMap.values());
   return {
     owedToMe,
     iOwe,

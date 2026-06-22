@@ -40,6 +40,24 @@ export function BudgetAiReportView({ report }: { report: BudgetAnalysisReport })
 
       <ListSection title="Top issues" items={report.top_issues} />
 
+      {(report.allocation_changes?.length ?? 0) > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold">Suggested budget changes</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {report.allocation_changes.map((a, i) => (
+              <div key={i} className="rounded-md border border-border/80 bg-muted/30 p-3">
+                <p className="font-medium text-card-foreground">
+                  {a.category_name}: {formatRand(a.new_allocated_cents)}
+                </p>
+                {a.reason ? <p className="mt-1 text-muted-foreground">{a.reason}</p> : null}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {report.recommended_moves.length > 0 && (
         <Card>
           <CardHeader className="pb-2">

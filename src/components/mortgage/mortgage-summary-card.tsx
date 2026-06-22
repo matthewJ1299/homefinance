@@ -15,6 +15,8 @@ interface MortgageSummaryCardProps {
   /** If provided, "months saved" is shown when payoff is earlier than original term. */
   projectedMonths?: number;
   originalTermMonths?: number;
+  upcomingAnnualRate?: number;
+  upcomingMonthNumber?: number;
 }
 
 export function MortgageSummaryCard({
@@ -28,8 +30,16 @@ export function MortgageSummaryCard({
   currentBalance,
   projectedMonths,
   originalTermMonths,
+  upcomingAnnualRate,
+  upcomingMonthNumber,
 }: MortgageSummaryCardProps) {
   const totalMonthly = monthlyBasePayment + monthlyTopUp;
+  const upcomingRatePct =
+    upcomingAnnualRate != null
+      ? upcomingAnnualRate <= 1
+        ? Math.round(upcomingAnnualRate * 1000) / 10
+        : upcomingAnnualRate
+      : null;
   const monthsSaved =
     originalTermMonths != null && projectedMonths != null
       ? Math.max(0, originalTermMonths - projectedMonths)
@@ -46,7 +56,13 @@ export function MortgageSummaryCard({
       )}
       <div className="text-sm">
         <p className="font-medium">{formatRand(totalMonthly)}</p>
-        <p className="text-muted-foreground text-xs">Total you pay per month</p>
+        <p className="text-muted-foreground text-xs">Total you pay per month (next payment)</p>
+        {upcomingRatePct != null && upcomingMonthNumber != null && (
+          <p className="text-muted-foreground text-xs mt-0.5">
+            Month {upcomingMonthNumber} rate: {upcomingRatePct}% — minimum{" "}
+            {formatRand(monthlyBasePayment)}
+          </p>
+        )}
         {monthlyTopUp > 0 && (
           <p className="text-muted-foreground text-xs mt-0.5">
             Minimum: {formatRand(monthlyBasePayment)} + extra: {formatRand(monthlyTopUp)}

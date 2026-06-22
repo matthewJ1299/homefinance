@@ -34,3 +34,15 @@ export const settleSplitSchema = z.object({
   groupId: z.number().int().positive(),
 });
 export type SettleSplitInput = z.infer<typeof settleSplitSchema>;
+
+export const updateSettlementSchema = z.object({
+  settlementId: z.number().int().positive(),
+  amountCents: z.number().int().positive(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+export type UpdateSettlementInput = z.infer<typeof updateSettlementSchema>;
+
+export const deleteSettlementSchema = z.object({
+  settlementId: z.number().int().positive(),
+});
+export type DeleteSettlementInput = z.infer<typeof deleteSettlementSchema>;

@@ -1,6 +1,6 @@
 import { getRequestContext } from "./request-context";
 import type { IDbClient } from "./types";
-import { postgresClient } from "./postgres-client";
+import { postgresClient, withTransaction } from "./postgres-client";
 
 /** Postgres (DATABASE_URL) is required. */
 function getClient(): IDbClient {
@@ -102,3 +102,5 @@ export async function all<T = Record<string, unknown>>(
 export function startPersistLoop(intervalMs = 60_000): void {
   getClient().startPersistLoop(intervalMs);
 }
+
+export { withTransaction };

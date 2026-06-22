@@ -15,6 +15,8 @@ COPY . .
 # Ensure PWA icons exist (they may not be committed; script generates into public/icons)
 RUN node scripts/generate-pwa-icons.mjs
 
+RUN npm run test:unit
+
 ENV NODE_ENV=production
 RUN npm run build \
  && npm prune --omit=dev \

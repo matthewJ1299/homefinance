@@ -57,7 +57,7 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 
 ### Mortgage (optional)
 
-Plain-language summary of balance, monthly cost, payoff horizon, and each person’s share; amortisation and edits sit under **More details**. Recorded months stay as history; changing rate or payment recalculates only **future** schedule from the current balance.
+Plain-language summary of balance, monthly cost, payoff horizon, and each person’s share; amortisation and edits sit under **More details**. Recorded months stay as history; changing rate or payment recalculates only **future** schedule from the current balance. **Interest rate changes** (e.g. 10% for months 1–5, then 11%) recalculate the upcoming minimum payment from the reduced balance — see [docs/mortgage.md](./docs/mortgage.md).
 
 ### Automation and export
 
@@ -67,7 +67,7 @@ Plain-language summary of balance, monthly cost, payoff horizon, and each person
 ### Summary and optional intelligence
 
 - **Summary** — Per-user monthly snapshot (income, expenses, budget adherence) plus household trends.
-- **AI budget analysis (optional)** — Off by default; needs server-side allow **and** **Settings** > **AI analysis**. **Free** vs **Paid** (paid prefers OpenAI with Gemini fallback). **Analyze spending** uses roll-ups; **Include all transactions** sends full detail; optional **Extra AI context** lets you append plain-language budget notes to the request. Structured output on `/budget-ai-report`; runs stored and rate-limited. See [docs/ai-budget-analysis.md](./docs/ai-budget-analysis.md) and [docs/feature-access.md](./docs/feature-access.md).
+- **AI budget analysis (optional)** — Off by default; needs server-side allow **and** **Settings** > **AI analysis**. **Free** vs **Paid** (paid prefers OpenAI with Gemini fallback). **Analyze spending** uses roll-ups; **Include all transactions** sends full detail; optional **Extra AI context** lets you append plain-language budget notes to the request. Structured output on `/budget-ai-report`; runs stored and rate-limited. On the report page you can **apply selected** budget suggestions (confirm first; audited) and **ask follow-up questions** (saved chat per report). See [docs/ai-budget-analysis.md](./docs/ai-budget-analysis.md) and [docs/feature-access.md](./docs/feature-access.md).
 - **Bank email reconciliation / Recon (optional)** — Outlook via Microsoft Graph: parse bank-notification mail, surface likely duplicates, accept or ignore manually (including bulk). Gated by allow flag plus Settings. See [docs/recon.md](./docs/recon.md) and [Recon and Microsoft Graph (Outlook)](#recon-and-microsoft-graph-outlook).
 
 ## Setup
@@ -196,12 +196,12 @@ If you see redirects to `https://0.0.0.0:3000/...` in production, your reverse p
 
 ## Database migrations and existing data
 
-- **`npm run db:push`** (used on deploy and in Docker entrypoint) runs **additive** migrations only: it creates tables or columns when they are **missing**. It does **not** `DROP` tables, `TRUNCATE` data, or wipe rows. Your existing expenses, users, and other data stay intact when new migrations (e.g. Recon tables in `drizzle/0013_recon_pg.sql`, or `ai_analysis_runs.output_json` from `drizzle/0019_ai_analysis_runs_output_json_pg.sql`) are applied.
-- **Destructive operations** (only when you explicitly want to reset): `npm run db:reset` drops and recreates the public schema; `npm run db:seed` clears application data; `npm run db:fresh` combines reset + seed. Do not use those on production databases you care about.
+- **`npm run db:push`** (used on deploy and in Docker entrypoint) runs **additive** migrations only, tracked in a `schema_migrations` ledger. On first run against an existing database, the ledger is **seeded** from schema detection so migrations are not re-applied. It does **not** `DROP` tables or wipe rows. See [docs/database.md](./docs/database.md).
+- **Destructive operations** (only when you explicitly want to reset): `npm run db:reset` drops and recreates the public schema (**requires `ALLOW_DB_RESET=1`**); `npm run db:seed` clears application data; `npm run db:fresh` combines reset + seed. Do not use those on production databases you care about.
 
 ## Database ERD
 
-The diagram below reflects the **PostgreSQL** schema built from additive migrations in `drizzle/*_pg.sql` (applied by `npm run db:push`). If a deployed database predates a migration, compare with live introspection (`drizzle/push.ts` order is the in-repo source of truth).
+The diagram below reflects the **PostgreSQL** schema built from numbered migrations in `drizzle/*_pg.sql` (applied in order by `npm run db:push`). See [docs/database.md](./docs/database.md) for the migration manifest.
 
 **Notes:**
 
@@ -649,7 +649,7 @@ HomeFinance can be installed as a Progressive Web App (PWA) on phones and deskto
   This creates `icon-180x180.png`, `icon-192x192.png`, `icon-512x512.png`, `icon-maskable-512x512.png`, and iOS `splash-*` images for common device sizes. To use your own icon, replace the PNGs (see `public/icons/README.md`). Maskable icons should keep important content in the center 80%.
 - **Install prompt**: When the app meets install criteria (HTTPS, valid manifest, service worker, icons), supported browsers show a custom install banner. The app detects standalone mode and hides the prompt when already installed. **On iOS Safari**: the prompt appears after a 3-second delay; tap "How to Install" to expand step-by-step instructions (Share, Add to Home Screen, Add). Dismiss is per-session. **On Android/desktop**: the native install prompt is shown when the user taps Install. An apple-touch-icon and iOS splash screens ensure a proper home-screen launch on iOS.
 - **Push notifications**: The app can send Web Push notifications when the PWA is in the background or closed. In **Settings**, use the "Push notifications" section to enable (browser will ask for permission), send a test, or disable. The service worker handles incoming push and notification clicks (opens the app or a URL). Set VAPID keys: run `npm run generate-vapid-keys` and add `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` to your environment. Push requires HTTPS and a supporting browser (Chrome, Edge, Firefox; iOS 16.4+ when installed as PWA from home screen).
-- **Push notifications (reopen behavior)**: On reopen/resume, settings now re-check permission/subscription and re-sync existing subscriptions to the server to reduce Android/PWA cases where users needed to disable/enable again.
+- **Push notifications (reopen behavior)**: On reopen/resume, the app repairs missing browser subscriptions when permission is still granted, re-subscribes after VAPID key rotation, and re-syncs with the server. **Android installed PWAs** (e.g. Pixel): a background repair runs after SW updates and app resume (common cause of the Settings toggle flipping off while site notifications stay allowed). Filter client logs by `[PushClient]` (`androidPwa: true`); server logs by `[Push]`. `GET /api/push/status` reports server subscription count and VAPID fingerprint.
 - **Scheduled notifications**: An in-process scheduler (runs when the server starts) sends:
   - **Daily 9am summary**: If there is at least one calendar event today, a single push at 9am (configurable: `DAILY_NOTIFICATION_HOUR`, default 9; timezone: `TZ`, default UTC) to all users with notifications enabled, listing event name(s) and time(s).
   - **Per-event reminders**: For events with a reminder set (e.g. 15 minutes before), a push is sent to all users when that reminder time is reached. Set the reminder in the calendar event form (create/edit).
@@ -663,25 +663,25 @@ See [DEPLOY.md](./DEPLOY.md) for deploying to a VPS with Coolify (Docker + Traef
 
 ## Testing
 
-- **Unit tests**: Run `npm run test` (or `npm run test:watch` for watch mode). Tests cover:
-  - **Calculations**: Currency (toMinorUnits, fromMinorUnits, formatRand), date utils (prevMonth, nextMonth, monthFromDate, isValidMonth), mortgage (standardMonthlyPayment, simulateSchedule, calculateTopUp, generateSchedule, projectScheduleFromBalance), and budget/summary formulas (balance = income - expenses, remaining = allocated - spent, unallocated, adherencePct).
-  - **Finance calculation layer**: Pure financial formulas live in `src/lib/services/finance/*` and are tested in `src/tests/finance.test.ts` (including golden scenarios for deterministic simulations). Services include small parity checks against the pure helpers in `src/tests/finance.service-non-regression.test.ts` to ensure no regressions.
-  - **Calendar**: Recurrence expansion (none, weekly, monthly, yearly) in `src/lib/utils/recurrence.test.ts`.
-  - **Design**: Calculation logic is tested in isolation; services call pure helper functions in `src/lib/services/finance/*` and use repository interfaces so unit tests mock repositories and assert only on formulas (SOLID, DRY).
-- **Integration tests**: In `src/__tests__/integration/api-and-db.integration.test.ts`. They call API route handlers and the real database. They **run only when `DATABASE_URL` is set** (e.g. local Postgres or CI). Use a seeded DB (`npm run db:fresh`). State is restored after each test: created expenses and income are deleted by ID; budget allocation changes are reverted by upserting the previous amount. This keeps the database in its previous state so tests are repeatable and do not pollute dev data.
+- **Unit tests (offline)**: `npm run test:unit` — no database required. The production **Docker build** runs this before `next build`, so Coolify deploys fail if unit tests fail.
+- **Integration tests**: `npm run test:integration` — requires `DATABASE_URL` and a seeded DB (`npm run db:fresh`). See `src/__tests__/integration/` (API/DB smoke tests and **mortgage interest recalc** through `MortgageService` + Postgres).
+- **Watch mode**: `npm run test:watch`
+- Coverage includes currency, date utils, mortgage engine, split/settlement balance math, credit edge cases, finance service parity checks in `src/tests/`, and high-volume **drift** tests in `src/tests/transaction-drift.test.ts` (long mortgage schedules, hundreds of split/settlement cycles, 10k ledger postings).
+- **Design**: Pure logic in `src/lib/services/finance/*`; services use repository interfaces for testability. See [docs/design-system.md](./docs/design-system.md) and [docs/push-notifications.md](./docs/push-notifications.md).
 
 ## Scripts
 
 - `npm run dev` – Start dev server (Turbopack)
 - `npm run build` / `npm run start` – Production build and start
-- `npm run db:push` – Apply **additive** schema and migrations (creates missing tables/columns; does not delete existing data). Runs Postgres migrations from `drizzle/` (including numbered steps—for example Recon `0013_recon_pg.sql` or AI report storage `0019_ai_analysis_runs_output_json_pg.sql`) when tables or columns are missing. Use this after deploying, if you see "groupId missing" on the Splits page, or Postgres errors about a missing column such as `output_json` on `ai_analysis_runs`.
-- `npm run db:reset` – Recreate DB from scratch (drop/recreate public schema). Then run push (and optionally seed). Do not run while the app is using the DB.
+- `npm run db:push` – Apply pending migrations (ledger-backed; safe on production). See [docs/database.md](./docs/database.md).
+- `npm run db:reset` – Recreate DB from scratch (requires `ALLOW_DB_RESET=1`). Then run push (and optionally seed).
 - `npm run db:seed` – Clear all data, then seed users, categories, 3 months of income/expenses, and sample split expenses
 - `npm run db:fresh` – Reset DB then seed (recreate from scratch and seed in one go)
 - `npm run generate-pwa-icons` – Generate PWA icons into `public/icons/` (requires `sharp`). Run once or when changing app icon.
 - `npm run generate-vapid-keys` – Print VAPID key pair for Web Push. Add the two lines to your env (e.g. `.env.local`) so push notifications work.
-- `npm run test` – Run unit and integration tests (Vitest). Integration tests are skipped when `DATABASE_URL` is unset.
-- `npm run test:watch` – Run tests in watch mode.
+- `npm run test` / `npm run test:unit` – Run offline unit tests (Vitest)
+- `npm run test:integration` – Run DB integration tests (requires `DATABASE_URL`)
+- `npm run test:watch` – Run unit tests in watch mode
 - `npm run start:server` – Start the custom Node server (initDb + persist loop); use for cPanel. See DEPLOY.md.
 
 The app uses **Postgres** only (via `pg`). `DATABASE_URL` is required. Repositories use a small abstraction (`run`, `get`, `all`, `lastInsertId`). Schema is in `drizzle/0000_init_pg.sql` and numbered migrations; apply with `db:push`.

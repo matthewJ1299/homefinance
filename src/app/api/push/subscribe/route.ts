@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { setRequestContext } from "@/lib/db/request-context";
+import { pushServerLog, vapidPublicKeyFingerprint } from "@/lib/push/push-server-log";
 import { getPushSubscriptionRepository } from "@/lib/repositories";
 import { pushSubscriptionBodySchema } from "@/lib/validators/push-subscription.schema";
 
@@ -29,11 +30,27 @@ export async function POST(request: NextRequest) {
 
   const repo = getPushSubscriptionRepository();
   const userId = Number(session.user.id);
-  await repo.deleteByEndpoint(parsed.data.endpoint);
+  const endpoint = parsed.data.endpoint;
+  const fingerprint = vapidPublicKeyFingerprint();
+
+  pushServerLog("subscribe", {
+    userId,
+    endpointPrefix: endpoint.slice(0, 60),
+    vapidPublicKeyEndsWith: fingerprint.publicKeyEndsWith,
+  });
+
+  await repo.deleteByEndpoint(endpoint);
   await repo.create(userId, {
-    endpoint: parsed.data.endpoint,
+    endpoint,
     p256dh: parsed.data.keys.p256dh,
     auth: parsed.data.keys.auth,
   });
+
+  const subscriptions = await repo.findByUserId(userId);
+  pushServerLog("subscribe-done", {
+    userId,
+    subscriptionCount: subscriptions.length,
+  });
+
   return NextResponse.json({ ok: true });
 }

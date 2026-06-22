@@ -32,7 +32,7 @@ export const bottomNavItemsMobile: NavItem[] = [
 
 /** Desktop sidebar and mobile hamburger: all pages in one list */
 export const fullNavItems: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Home", icon: LayoutDashboard },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/add", label: "Add", icon: Plus },
   { href: "/lists", label: "Lists", icon: ListTodo },

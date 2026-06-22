@@ -22,6 +22,16 @@ export function isStandalone(): boolean {
   );
 }
 
+export function isAndroid(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /android/i.test(navigator.userAgent);
+}
+
+/** Installed PWA on Android (Chrome TWA / add-to-home-screen). */
+export function isAndroidPwa(): boolean {
+  return isAndroid() && isStandalone();
+}
+
 /** True when running in Safari on iOS (not Chrome/Firefox on iOS). Used to show delayed install instructions. */
 export function isIOSSafari(): boolean {
   if (typeof navigator === "undefined") return false;

@@ -109,3 +109,8 @@ export function dateForMonthAndDay(month: string, dayOfMonth: number): string {
   const day = Math.min(Math.max(1, dayOfMonth), lastDay);
   return `${month}-${String(day).padStart(2, "0")}`;
 }
+
+/** Display ISO date (yyyy-MM-dd) in a consistent short form. */
+export function formatDisplayDate(isoDate: string): string {
+  return format(new Date(isoDate + "T12:00:00"), "d MMM yyyy");
+}

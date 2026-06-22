@@ -80,9 +80,14 @@ describe("mortgage-calculator", () => {
         0,
         "2024-01"
       );
-      for (const row of result.schedule) {
+      for (let i = 0; i < result.schedule.length; i++) {
+        const row = result.schedule[i]!;
+        expect(row.interest).toBe(Math.round(row.openingBalance * baseParams.monthlyRate));
         expect(row.principal + row.interest).toBe(row.totalPayment);
         expect(row.openingBalance - row.principal).toBe(row.closingBalance);
+        if (i > 0) {
+          expect(row.interest).toBeLessThanOrEqual(result.schedule[i - 1]!.interest);
+        }
       }
     });
 
@@ -201,6 +206,9 @@ describe("mortgage-calculator", () => {
       expect(result.schedule.length).toBeGreaterThan(0);
       expect(result.schedule[0].openingBalance).toBe(startBalance);
       expect(result.schedule[0].month).toBe(startMonth);
+      expect(result.schedule[0].interest).toBe(
+        Math.round(startBalance * baseParams.monthlyRate)
+      );
     });
   });
 });

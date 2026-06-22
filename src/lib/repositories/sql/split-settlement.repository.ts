@@ -13,8 +13,21 @@ interface SettlementRow {
   expense_id: number | null;
   income_id: number | null;
   split_expense_group_id?: number | null;
-  payer_name: string;
-  recipient_name: string;
+  payer_name?: string;
+  recipient_name?: string;
+}
+
+function toRow(row: SettlementRow): SplitSettlementRow {
+  return {
+    id: row.id,
+    payerUserId: row.payer_user_id,
+    recipientUserId: row.recipient_user_id,
+    amount: row.amount,
+    date: row.date,
+    expenseId: row.expense_id,
+    incomeId: row.income_id,
+    splitExpenseGroupId: row.split_expense_group_id ?? null,
+  };
 }
 
 export class SplitSettlementRepository {
@@ -42,6 +55,14 @@ export class SplitSettlementRepository {
     return { id: await lastInsertId() };
   }
 
+  async findById(id: number): Promise<SplitSettlementRow | null> {
+    const row = await get<SettlementRow>(
+      "SELECT id, payer_user_id, recipient_user_id, amount, date, expense_id, income_id, split_expense_group_id FROM split_settlements WHERE id = ? LIMIT 1",
+      [id]
+    );
+    return row ? toRow(row) : null;
+  }
+
   async findAllForUser(userId: number, groupId?: number): Promise<SplitSettlementWithNames[]> {
     let sql = `SELECT ss.id, ss.payer_user_id, ss.recipient_user_id, ss.amount, ss.date, ss.expense_id, ss.income_id, ss.split_expense_group_id,
               p.name AS payer_name, r.name AS recipient_name
@@ -56,33 +77,42 @@ export class SplitSettlementRepository {
     }
     const rows = await all<SettlementRow>(sql, params);
     return rows.map((r) => ({
-      id: r.id,
-      payerUserId: r.payer_user_id,
-      recipientUserId: r.recipient_user_id,
-      amount: r.amount,
-      date: r.date,
-      expenseId: r.expense_id,
-      incomeId: r.income_id,
-      payerUserName: r.payer_name,
-      recipientUserName: r.recipient_name,
+      ...toRow(r),
+      payerUserName: r.payer_name ?? "",
+      recipientUserName: r.recipient_name ?? "",
     }));
   }
 
   async findByExpenseId(expenseId: number): Promise<SplitSettlementRow | null> {
     const row = await get<SettlementRow>(
-      "SELECT id, payer_user_id, recipient_user_id, amount, date, expense_id, income_id FROM split_settlements WHERE expense_id = ? LIMIT 1",
+      "SELECT id, payer_user_id, recipient_user_id, amount, date, expense_id, income_id, split_expense_group_id FROM split_settlements WHERE expense_id = ? LIMIT 1",
       [expenseId]
     );
-    if (!row) return null;
-    return {
-      id: row.id,
-      payerUserId: row.payer_user_id,
-      recipientUserId: row.recipient_user_id,
-      amount: row.amount,
-      date: row.date,
-      expenseId: row.expense_id,
-      incomeId: row.income_id,
-    };
+    return row ? toRow(row) : null;
+  }
+
+  async findByIncomeId(incomeId: number): Promise<SplitSettlementRow | null> {
+    const row = await get<SettlementRow>(
+      "SELECT id, payer_user_id, recipient_user_id, amount, date, expense_id, income_id, split_expense_group_id FROM split_settlements WHERE income_id = ? LIMIT 1",
+      [incomeId]
+    );
+    return row ? toRow(row) : null;
+  }
+
+  async update(id: number, data: { amount?: number; date?: string }): Promise<void> {
+    const updates: string[] = [];
+    const params: (string | number | boolean | null)[] = [];
+    if (data.amount != null) {
+      updates.push("amount = ?");
+      params.push(data.amount);
+    }
+    if (data.date != null) {
+      updates.push("date = ?");
+      params.push(data.date);
+    }
+    if (updates.length === 0) return;
+    params.push(id);
+    await run(`UPDATE split_settlements SET ${updates.join(", ")} WHERE id = ?`, params);
   }
 
   async delete(id: number): Promise<void> {
