@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import type { IncomeEntry } from "@/lib/repositories/interfaces/income.repository";
 import { formatRand } from "@/lib/utils/currency";
 import { formatDisplayDate } from "@/lib/utils/date";
-import { formatDisplayDate } from "@/lib/utils/date";
 import { deleteIncome, getIncomeForEdit } from "@/lib/actions/income.actions";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";

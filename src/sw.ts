@@ -85,8 +85,8 @@ self.addEventListener("notificationclick", (event: NotificationEvent) => {
   );
 });
 
-self.addEventListener("pushsubscriptionchange", (event: Event) => {
-  event.waitUntil(
+self.addEventListener("pushsubscriptionchange", (event) => {
+  (event as ExtendableEvent).waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {
         client.postMessage({ type: "PUSH_SUBSCRIPTION_CHANGE" });
