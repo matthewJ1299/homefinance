@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "async_hooks";
+import type pg from "pg";
 
 export interface RequestContext {
   userId?: string;
@@ -9,6 +10,8 @@ export interface RequestContext {
   isSuperAdmin?: boolean;
   /** Set by Postgres client after INSERT so lastInsertId() is request-scoped. */
   lastInsertId?: number;
+  /** When set, DB calls use this client inside an open transaction. */
+  pgClient?: pg.PoolClient;
 }
 
 /**

@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { SplitService } from "@/lib/services/split.service";
-import { getUserRepository } from "@/lib/repositories";
-import { settleSplitSchema } from "@/lib/validators/split.schema";
+import { getUserRepository, getSplitSettlementRepository } from "@/lib/repositories";
+import { formatRand } from "@/lib/utils/currency";
+import { settleSplitSchema, updateSettlementSchema, deleteSettlementSchema } from "@/lib/validators/split.schema";
 import type { SplitBalance, SplitHistoryItem } from "@/lib/types";
 
 export type SettleSplitResult = { success: true } | { success: false; error: string };
@@ -67,7 +68,13 @@ export async function settleSplit(formData: {
   const balance = await splitService.getBalance(payerUserId, parsed.data.groupId);
   const perUser = balance.perUser.find((u) => u.userId === parsed.data.recipientUserId);
   const iOweToRecipient = perUser?.iOwe ?? 0;
-  const amountCents = Math.min(parsed.data.amountCents, iOweToRecipient);
+  if (parsed.data.amountCents > iOweToRecipient) {
+    return {
+      success: false,
+      error: `You only owe ${formatRand(iOweToRecipient)}. Enter at most that amount to settle.`,
+    };
+  }
+  const amountCents = parsed.data.amountCents;
   if (amountCents <= 0) {
     return { success: false, error: "You do not owe this person anything to settle in this group." };
   }
@@ -93,6 +100,90 @@ export async function settleSplit(formData: {
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to record settlement.",
+    };
+  }
+
+  revalidatePath("/splits");
+  revalidatePath("/dashboard");
+  revalidatePath("/expenses");
+  revalidatePath("/income");
+  revalidatePath("/budget");
+  return { success: true };
+}
+
+export async function updateSettlement(formData: {
+  settlementId: number;
+  amountCents: number;
+  date: string;
+}): Promise<SettleSplitResult> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, error: "Unauthorized" };
+  }
+  setRequestContextFromSession(session);
+  const payerUserId = Number(session.user.id);
+  const parsed = updateSettlementSchema.safeParse(formData);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.message };
+  }
+
+  const splitService = new SplitService();
+  const settlementRow = await getSplitSettlementRepository().findById(parsed.data.settlementId);
+  if (!settlementRow) {
+    return { success: false, error: "Settlement not found." };
+  }
+  if (settlementRow.payerUserId !== payerUserId) {
+    return { success: false, error: "Only the payer can edit this settlement." };
+  }
+
+  const userRepo = getUserRepository();
+  const recipient = await userRepo.findById(settlementRow.recipientUserId);
+  if (!recipient) {
+    return { success: false, error: "Recipient not found." };
+  }
+
+  try {
+    await splitService.updateSettlement(
+      parsed.data.settlementId,
+      payerUserId,
+      parsed.data.amountCents,
+      parsed.data.date,
+      recipient.name
+    );
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update settlement.",
+    };
+  }
+
+  revalidatePath("/splits");
+  revalidatePath("/dashboard");
+  revalidatePath("/expenses");
+  revalidatePath("/income");
+  revalidatePath("/budget");
+  return { success: true };
+}
+
+export async function deleteSettlement(settlementId: number): Promise<SettleSplitResult> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, error: "Unauthorized" };
+  }
+  setRequestContextFromSession(session);
+  const payerUserId = Number(session.user.id);
+  const parsed = deleteSettlementSchema.safeParse({ settlementId });
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.message };
+  }
+
+  const splitService = new SplitService();
+  try {
+    await splitService.deleteSettlement(parsed.data.settlementId, payerUserId);
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to delete settlement.",
     };
   }
 

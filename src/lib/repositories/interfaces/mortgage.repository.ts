@@ -30,6 +30,14 @@ export interface MortgagePaymentRow {
   createdAt: string;
 }
 
+export interface MortgageRatePeriodRow {
+  id: number;
+  mortgageId: number;
+  effectiveFromMonth: number;
+  annualInterestRate: number;
+  createdAt: string;
+}
+
 export interface IMortgageRepository {
   getActiveConfig(): Promise<MortgageConfigRow | null>;
   getUserConfigs(mortgageId: number): Promise<MortgageUserConfigRow[]>;
@@ -74,4 +82,9 @@ export interface IMortgageRepository {
     userAFinalEquityPct: number;
     userBFinalEquityPct: number;
   }): Promise<void>;
+  getRatePeriods(mortgageId: number): Promise<MortgageRatePeriodRow[]>;
+  replaceRatePeriods(
+    mortgageId: number,
+    periods: Array<{ effectiveFromMonth: number; annualInterestRate: number }>
+  ): Promise<void>;
 }

@@ -13,7 +13,7 @@ type DashboardTileKey =
   | "splitBalance"
   | "budgetWarning"
   | "aiAnalysis"
-  | "recentExpenses"
+  | "transactions"
   | "incomeSection"
   | "populateMonth";
 

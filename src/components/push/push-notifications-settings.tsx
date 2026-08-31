@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   isPushSupported,
   getNotificationPermission,
   subscribeToPush,
-  unsubscribeFromPush,
-  getCurrentSubscription,
-  syncPushSubscriptionWithServer,
+  disablePushNotifications,
 } from "@/lib/push/client";
+import { pushClientLog } from "@/lib/push/push-log";
+import { runPushRepair } from "@/lib/push/push-repair-coordinator";
+import { isAndroidPwa } from "@/lib/utils/device-detection";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -22,39 +23,50 @@ export function PushNotificationsSettings() {
     text: string;
     keyFingerprints?: { publicKeyStartsWith: string; publicKeyEndsWith: string; privateKeyStartsWith: string };
   } | null>(null);
+  const lastSubscribedRef = useRef<boolean | null>(null);
 
-  const updateState = useCallback(async () => {
+  const updateState = useCallback(async (trigger: string) => {
     const pushSupported = isPushSupported();
     setSupported(pushSupported);
-    setPermission(getNotificationPermission());
+    const perm = getNotificationPermission();
+    setPermission(perm);
+
+    pushClientLog("settings-refresh", { trigger, pushSupported, permission: perm });
+
     if (!pushSupported) {
       setSubscribed(false);
       return;
     }
-    try {
-      const sub = await syncPushSubscriptionWithServer();
-      setSubscribed(!!sub);
-    } catch {
-      const sub = await getCurrentSubscription();
-      setSubscribed(!!sub);
+
+    const sub = await runPushRepair(`settings-${trigger}`);
+    const nextSubscribed = !!sub;
+    if (lastSubscribedRef.current !== null && lastSubscribedRef.current !== nextSubscribed) {
+      pushClientLog("settings-subscribed-changed", {
+        trigger,
+        from: lastSubscribedRef.current,
+        to: nextSubscribed,
+        permission: perm,
+      });
     }
+    lastSubscribedRef.current = nextSubscribed;
+    setSubscribed(nextSubscribed);
   }, []);
 
   useEffect(() => {
-    updateState();
+    void updateState("mount");
   }, [updateState]);
 
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === "visible") {
-        void updateState();
+        void updateState("visibility");
       }
     };
     const onFocus = () => {
-      void updateState();
+      void updateState("focus");
     };
     const onPageShow = () => {
-      void updateState();
+      void updateState("pageshow");
     };
 
     document.addEventListener("visibilitychange", onVisible);
@@ -74,14 +86,15 @@ export function PushNotificationsSettings() {
       await subscribeToPush();
       setPermission("granted");
       setSubscribed(true);
+      lastSubscribedRef.current = true;
+      pushClientLog("settings-enable-success", {});
       setMessage({ type: "success", text: "Notifications enabled." });
       toast.success("Notifications enabled.");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to enable notifications.");
-      setMessage({
-        type: "error",
-        text: e instanceof Error ? e.message : "Failed to enable notifications",
-      });
+      const text = e instanceof Error ? e.message : "Failed to enable notifications.";
+      pushClientLog("settings-enable-failed", { message: text });
+      toast.error(text);
+      setMessage({ type: "error", text });
     } finally {
       setLoading(false);
     }
@@ -91,20 +104,17 @@ export function PushNotificationsSettings() {
     setMessage(null);
     setLoading(true);
     try {
-      const sub = await getCurrentSubscription();
-      if (sub) {
-        await unsubscribeFromPush(sub.endpoint);
-        await sub.unsubscribe();
-      }
+      await disablePushNotifications();
       setSubscribed(false);
+      lastSubscribedRef.current = false;
+      pushClientLog("settings-disable-success", {});
       setMessage({ type: "success", text: "Notifications disabled." });
       toast.success("Notifications disabled.");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to disable notifications.");
-      setMessage({
-        type: "error",
-        text: e instanceof Error ? e.message : "Failed to disable",
-      });
+      const text = e instanceof Error ? e.message : "Failed to disable notifications.";
+      pushClientLog("settings-disable-failed", { message: text });
+      toast.error(text);
+      setMessage({ type: "error", text });
     } finally {
       setLoading(false);
     }
@@ -126,6 +136,7 @@ export function PushNotificationsSettings() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        pushClientLog("settings-test-failed", { status: res.status, error: data.error });
         toast.error(data.error ?? "Failed to send test notification.");
         setMessage({
           type: "error",
@@ -134,14 +145,14 @@ export function PushNotificationsSettings() {
         });
         return;
       }
+      pushClientLog("settings-test-success", { sent: data.sent, failed: data.failed });
       setMessage({ type: "success", text: "Test notification sent." });
       toast.success("Test notification sent.");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to send test notification.");
-      setMessage({
-        type: "error",
-        text: e instanceof Error ? e.message : "Failed to send test",
-      });
+      const text = e instanceof Error ? e.message : "Failed to send test notification.";
+      pushClientLog("settings-test-error", { message: text });
+      toast.error(text);
+      setMessage({ type: "error", text });
     } finally {
       setLoading(false);
     }
@@ -218,6 +229,14 @@ export function PushNotificationsSettings() {
       {permission === "denied" && (
         <p className="text-xs text-muted-foreground mt-2">
           Notifications were blocked. Allow them in your browser settings for this site, then try again.
+        </p>
+      )}
+
+      {isAndroidPwa() && permission === "granted" && !subscribed && (
+        <p className="text-xs text-muted-foreground mt-2">
+          On Android, the installed app can lose its push registration after an update or when the app was
+          closed for a while. Tap Enable notifications once; the app will also try to restore it when you
+          reopen HomeFinance.
         </p>
       )}
     </section>

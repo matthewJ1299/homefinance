@@ -14,7 +14,7 @@ type DashboardTileKey =
   | "splitBalance"
   | "budgetWarning"
   | "aiAnalysis"
-  | "recentExpenses"
+  | "transactions"
   | "incomeSection"
   | "populateMonth";
 
@@ -32,7 +32,7 @@ const defaultState: DashboardTilesSettingsState = {
   splitBalance: true,
   budgetWarning: true,
   aiAnalysis: true,
-  recentExpenses: true,
+  transactions: true,
   incomeSection: true,
   populateMonth: true,
 };
@@ -42,8 +42,12 @@ function loadSettings(): DashboardTilesSettingsState {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultState;
-    const parsed = JSON.parse(raw) as Partial<DashboardTilesSettingsState>;
-    return { ...defaultState, ...parsed };
+    const parsed = JSON.parse(raw) as Partial<DashboardTilesSettingsState> & { recentExpenses?: boolean };
+    const merged: Partial<DashboardTilesSettingsState> = { ...parsed };
+    if (merged.transactions === undefined && typeof parsed.recentExpenses === "boolean") {
+      merged.transactions = parsed.recentExpenses;
+    }
+    return { ...defaultState, ...merged };
   } catch {
     return defaultState;
   }
@@ -89,7 +93,7 @@ export function DashboardTilesSettings() {
     { key: "splitBalance", label: "Split balance card", description: "Show who owes whom summary for split expenses." },
     { key: "budgetWarning", label: "Budget warning tile", description: "Show warnings when categories are overspent." },
     { key: "aiAnalysis", label: "AI analysis button", description: "Show the Analyze spending button (when AI is configured)." },
-    { key: "recentExpenses", label: "Recent expenses", description: "Show the Recent expenses list and pagination." },
+    { key: "transactions", label: "Recent transactions", description: "Show recent expenses and income for the month (newest first)." },
     { key: "incomeSection", label: "Income this month", description: "Show the Income this month list and quick add form." },
     { key: "populateMonth", label: "Populate this month", description: "Show the Populate this month button at the bottom." },
   ];

@@ -2,11 +2,17 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { BudgetAiApplyPanel } from "@/components/budget-ai/budget-ai-apply-panel";
+import { BudgetAiReportFeedbackPanel } from "@/components/budget-ai/budget-ai-report-feedback-panel";
 import { BudgetAiReportView } from "@/components/budget-ai/budget-ai-report-view";
 import { AiAnalysisButton } from "@/components/dashboard/ai-analysis-button";
 import { MonthNavigator } from "@/components/layout/month-navigator";
 import { cn } from "@/lib/utils";
+import type { AIAnalysisRunApplicationRow } from "@/lib/repositories/interfaces/ai-analysis-run-application.repository";
+import type { AIAnalysisRunMessageRow } from "@/lib/repositories/interfaces/ai-analysis-run-message.repository";
 import type { AIAnalysisRunDetailRow, AIAnalysisRunSummaryRow } from "@/lib/repositories/interfaces/ai-analysis-run.repository";
+import type { BudgetAnalysisReport } from "@/lib/types/budget-ai-report";
+import type { BudgetCategoryOverviewItem } from "@/components/budget-ai/budget-ai-apply-panel";
 import { formatBudgetMonthLabel } from "@/lib/utils/date";
 import { useBudgetMonthStartDay } from "@/components/settings/budget-month-start-context";
 import { ChevronDown, ChevronUp } from "lucide-react";
@@ -35,11 +41,19 @@ export function BudgetAiReportPageClient({
   monthParam,
   runs,
   selectedRun,
+  report,
+  categories,
+  messages,
+  applications,
 }: {
   enabled: boolean;
   monthParam: string;
   runs: AIAnalysisRunSummaryRow[];
   selectedRun: AIAnalysisRunDetailRow | null;
+  report: BudgetAnalysisReport | null;
+  categories: BudgetCategoryOverviewItem[];
+  messages: AIAnalysisRunMessageRow[];
+  applications: AIAnalysisRunApplicationRow[];
 }) {
   const startDay = useBudgetMonthStartDay();
   const router = useRouter();
@@ -152,7 +166,24 @@ export function BudgetAiReportPageClient({
         <p className="text-sm font-medium">AI provider used</p>
         <p className="text-sm text-muted-foreground mt-1">{providerLabel ?? "Unknown (older report / not recorded)"}</p>
       </div>
-      <BudgetAiReportView report={selected.outputJson as any} />
+      {report ? <BudgetAiReportView report={report} /> : null}
+
+      {report && selected ? (
+        <BudgetAiApplyPanel runId={selected.id} report={report} categories={categories} enabled={enabled} />
+      ) : null}
+
+      {selected ? (
+        <BudgetAiReportFeedbackPanel runId={selected.id} messages={messages} enabled={enabled} />
+      ) : null}
+
+      {applications.length > 0 ? (
+        <div className="rounded-lg border bg-card p-3">
+          <p className="text-sm font-medium">Applied to budget</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {applications.length} change(s) recorded for this report (audit log).
+          </p>
+        </div>
+      ) : null}
 
       <div className="rounded-lg border border-border bg-card">
         <button

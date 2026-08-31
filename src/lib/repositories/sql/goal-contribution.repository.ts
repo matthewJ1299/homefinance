@@ -1,5 +1,6 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
 import { requireHouseholdId } from "@/lib/db/request-context";
+import { coerceBigInt } from "@/lib/db/coerce-bigint";
 import type { GoalContribution, GoalContributionKind } from "@/lib/types";
 import type {
   IGoalContributionRepository,
@@ -21,12 +22,12 @@ interface GoalContributionRow {
 
 function toGoalContribution(row: GoalContributionRow): GoalContribution {
   return {
-    id: row.id,
-    goalId: row.goal_id,
-    ownerUserId: row.owner_user_id,
-    accountTransactionId: row.account_transaction_id,
+    id: coerceBigInt(row.id),
+    goalId: coerceBigInt(row.goal_id),
+    ownerUserId: coerceBigInt(row.owner_user_id),
+    accountTransactionId: coerceBigInt(row.account_transaction_id),
     kind: row.kind,
-    amount: row.amount,
+    amount: coerceBigInt(row.amount),
     effectiveDate: row.effective_date,
     note: row.note,
     createdAt: row.created_at,

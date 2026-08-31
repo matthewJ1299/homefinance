@@ -31,7 +31,7 @@ export function MortgageUpdateSection({ users, initialValues }: MortgageUpdateSe
       {open && (
         <div className="border-t p-4">
           <p className="text-sm text-muted-foreground mb-4">
-            Update interest rate, loan term, property or loan amount, or each person&apos;s share and maximum monthly payment.
+            Update loan term, property or loan amount, starting interest rate, or each person&apos;s share and maximum monthly payment. For mid-loan bank rate changes, use <strong>Interest rate changes</strong> below.
           </p>
           <MortgageSetupForm users={users} initialValues={initialValues} />
         </div>

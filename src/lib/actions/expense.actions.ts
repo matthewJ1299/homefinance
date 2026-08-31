@@ -19,6 +19,7 @@ import {
 import type { ExpenseWithDetails } from "@/lib/types";
 import { createExpenseSchema, updateExpenseSchema } from "@/lib/validators/expense.schema";
 import { createSplitExpenseSchema } from "@/lib/validators/split.schema";
+import { splitExpense } from "@/lib/services/finance/accounts";
 import { formatRand } from "@/lib/utils/currency";
 
 export type ExpenseActionResult =
@@ -209,6 +210,15 @@ export async function updateExpense(
     return { success: false, error: "You can only edit your own expenses." };
   }
 
+  const settlementRepo = getSplitSettlementRepository();
+  const linkedSettlement = await settlementRepo.findByExpenseId(id);
+  if (linkedSettlement) {
+    return {
+      success: false,
+      error: "This is a split settlement. Edit it from the Splits page.",
+    };
+  }
+
   const updatePayload: { categoryId?: number; amount?: number; note?: string | null; date?: string; month?: string } = {};
   if (parsed.data.categoryId != null) updatePayload.categoryId = parsed.data.categoryId;
   if (parsed.data.amount != null) updatePayload.amount = parsed.data.amount;
@@ -236,9 +246,14 @@ export async function updateExpense(
     let amountOwed: number;
     if (parsed.data.splitType != null) {
       switch (parsed.data.splitType) {
-        case "equal":
-          amountOwed = Math.floor(totalCents / 2);
+        case "equal": {
+          const shares = splitExpense({
+            amount: totalCents,
+            users: ["payer", "other"],
+          });
+          amountOwed = shares.other ?? Math.floor(totalCents / 2);
           break;
+        }
         case "full":
           amountOwed = totalCents;
           break;
@@ -278,6 +293,9 @@ export async function deleteExpense(id: number): Promise<ExpenseActionResult> {
   const expense = await expenseRepo.findById(id);
   if (!expense) {
     return { success: false, error: "Expense not found." };
+  }
+  if (expense.userId !== Number(session.user.id)) {
+    return { success: false, error: "You can only delete your own expenses." };
   }
   if (expense.splitGroupId) {
     await expenseRepo.deleteBySplitGroupId(expense.splitGroupId);

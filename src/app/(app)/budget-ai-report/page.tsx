@@ -1,9 +1,16 @@
 import { BudgetAiReportPageClient } from "@/components/budget-ai/budget-ai-report-page-client";
 import { auth } from "@/lib/auth";
-import { getAIAnalysisRunRepository, getUserRepository } from "@/lib/repositories";
+import {
+  getAIAnalysisRunApplicationRepository,
+  getAIAnalysisRunMessageRepository,
+  getAIAnalysisRunRepository,
+  getUserRepository,
+} from "@/lib/repositories";
+import { BudgetService } from "@/lib/services/budget.service";
 import { isAIConfiguredForTier } from "@/lib/services/ai.service";
 import { resolveAiInteractiveEnabled } from "@/lib/services/feature-access.service";
 import { getCurrentBudgetMonth } from "@/lib/utils/date";
+import { normalizeBudgetAnalysisReport } from "@/lib/utils/normalize-budget-analysis-report";
 
 type BudgetAiReportPageProps = {
   searchParams: Promise<{ month?: string; runId?: string }>;
@@ -32,12 +39,42 @@ export default async function BudgetAiReportPage({ searchParams }: BudgetAiRepor
         ? await repo.getLatestExpenseMonthlyRunForMonth(userId, month)
         : null;
 
+  const report = selected ? normalizeBudgetAnalysisReport(selected.outputJson) : null;
+
+  let categories: { categoryId: number; categoryName: string; allocated: number; remaining: number }[] = [];
+  let messages: Awaited<ReturnType<ReturnType<typeof getAIAnalysisRunMessageRepository>["listByRun"]>> = [];
+  let applications: Awaited<
+    ReturnType<ReturnType<typeof getAIAnalysisRunApplicationRepository>["listByRun"]>
+  > = [];
+
+  if (userId && selected) {
+    const budgetService = new BudgetService();
+    const overview = await budgetService.getOverview(selected.month, userId);
+    categories = overview.categories.map((c) => ({
+      categoryId: c.categoryId,
+      categoryName: c.categoryName,
+      allocated: c.allocated,
+      remaining: c.remaining,
+    }));
+    try {
+      messages = await getAIAnalysisRunMessageRepository().listByRun(userId, selected.id);
+      applications = await getAIAnalysisRunApplicationRepository().listByRun(userId, selected.id);
+    } catch {
+      messages = [];
+      applications = [];
+    }
+  }
+
   return (
     <BudgetAiReportPageClient
       enabled={aiEnabled}
       monthParam={month}
       runs={runs}
       selectedRun={selected}
+      report={report}
+      categories={categories}
+      messages={messages}
+      applications={applications}
     />
   );
 }

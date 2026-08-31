@@ -31,11 +31,13 @@ export async function POST(
     const result = await service.acceptAdd(
       userId,
       itemId,
-      parsed.data.categoryId,
+      parsed.data.entryKind === "expense" ? parsed.data.categoryId : undefined,
       parsed.data.accountId ?? null,
       parsed.data.split ?? false,
       parsed.data.note,
-      parsed.data.amount
+      parsed.data.amount,
+      parsed.data.entryKind,
+      parsed.data.incomeType
     );
     return NextResponse.json(result);
   } catch (e) {

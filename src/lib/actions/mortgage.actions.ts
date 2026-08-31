@@ -60,3 +60,31 @@ export async function recordExtraPayment(data: {
   revalidatePath("/mortgage");
   return { success: true };
 }
+
+export async function saveMortgageRatePeriods(data: {
+  periods: Array<{ effectiveFromMonth: number; annualInterestRate: number }>;
+}): Promise<MortgageActionResult> {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+  setRequestContextFromSession(session);
+
+  const { mortgageRatePeriodsSchema } = await import("@/lib/validators/mortgage-rate-period.schema");
+  const parsed = mortgageRatePeriodsSchema.safeParse(data);
+  if (!parsed.success) return { success: false, error: parsed.error.message };
+
+  const sorted = [...parsed.data.periods].sort(
+    (a, b) => a.effectiveFromMonth - b.effectiveFromMonth
+  );
+  const seen = new Set<number>();
+  for (const period of sorted) {
+    if (seen.has(period.effectiveFromMonth)) {
+      return { success: false, error: "Each loan month can only have one rate change." };
+    }
+    seen.add(period.effectiveFromMonth);
+  }
+
+  const service = new MortgageService();
+  await service.saveRatePeriods(sorted);
+  revalidatePath("/mortgage");
+  return { success: true };
+}

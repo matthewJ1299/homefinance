@@ -24,7 +24,13 @@ export interface ISplitSettlementRepository {
     incomeId?: number | null;
     splitExpenseGroupId?: number | null;
   }): Promise<{ id: number }>;
+  findById(id: number): Promise<SplitSettlementRow | null>;
   findAllForUser(userId: number, groupId?: number): Promise<SplitSettlementWithNames[]>;
   findByExpenseId(expenseId: number): Promise<SplitSettlementRow | null>;
+  findByIncomeId(incomeId: number): Promise<SplitSettlementRow | null>;
+  update(
+    id: number,
+    data: { amount?: number; date?: string }
+  ): Promise<void>;
   delete(id: number): Promise<void>;
 }

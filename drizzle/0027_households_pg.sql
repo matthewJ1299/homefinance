@@ -1,5 +1,5 @@
 -- Multi-household tenancy: legacy installs default into one household; rows scoped by household_id.
--- Applied when the multi-household end-state is still incomplete (see src/lib/db/push.ts).
+-- Applied via the schema_migrations ledger (see src/lib/db/push.ts). Idempotent / resumable.
 
 CREATE TABLE IF NOT EXISTS households (
   id SERIAL PRIMARY KEY,

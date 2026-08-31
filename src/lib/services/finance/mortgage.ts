@@ -38,6 +38,53 @@ export function calculateAmortizationStep(input: MortgageAmortizationStepInput):
   return { interest, principal, totalPayment, closingBalance };
 }
 
+export interface MonthPaymentSlice {
+  amount: number;
+}
+
+export interface MonthPaymentAllocation {
+  principalPortion: number;
+  interestPortion: number;
+}
+
+/**
+ * Splits recorded payment(s) in one month into principal and interest using the
+ * opening balance for that month (after all prior principal has been applied).
+ */
+export function allocateMonthPrincipalInterest(input: {
+  balanceAtMonthStart: number;
+  monthlyRate: number;
+  paymentsInMonth: ReadonlyArray<MonthPaymentSlice>;
+}): MonthPaymentAllocation[] {
+  const { balanceAtMonthStart, monthlyRate, paymentsInMonth } = input;
+  if (paymentsInMonth.length === 0) return [];
+
+  const totalAmount = paymentsInMonth.reduce((sum, payment) => sum + payment.amount, 0);
+  const interestForMonth = Math.min(
+    Math.round(balanceAtMonthStart * monthlyRate),
+    totalAmount
+  );
+  const principalForMonth = totalAmount - interestForMonth;
+
+  let assignedPrincipal = 0;
+  const allocations: MonthPaymentAllocation[] = [];
+
+  for (let i = 0; i < paymentsInMonth.length; i++) {
+    const payment = paymentsInMonth[i]!;
+    const principalPortion =
+      i === paymentsInMonth.length - 1
+        ? principalForMonth - assignedPrincipal
+        : Math.round(principalForMonth * (payment.amount / totalAmount));
+    assignedPrincipal += principalPortion;
+    allocations.push({
+      principalPortion,
+      interestPortion: payment.amount - principalPortion,
+    });
+  }
+
+  return allocations;
+}
+
 export function simulateMortgage(input: {
   loanAmount: number;
   rate: number; // monthly rate

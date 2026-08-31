@@ -50,6 +50,10 @@ import { ReconImportItemRepository } from "./sql/recon-import-item.repository";
 import { VendorCategoryMappingRepository } from "./sql/vendor-category-mapping.repository";
 import type { IAIAnalysisRunRepository } from "./interfaces/ai-analysis-run.repository";
 import { AIAnalysisRunRepository } from "./sql/ai-analysis-run.repository";
+import type { IAIAnalysisRunMessageRepository } from "./interfaces/ai-analysis-run-message.repository";
+import { AIAnalysisRunMessageRepository } from "./sql/ai-analysis-run-message.repository";
+import type { IAIAnalysisRunApplicationRepository } from "./interfaces/ai-analysis-run-application.repository";
+import { AIAnalysisRunApplicationRepository } from "./sql/ai-analysis-run-application.repository";
 import type { INoteRepository } from "./interfaces/note.repository";
 import { NoteRepository } from "./sql/note.repository";
 import type { IHouseholdRepository } from "./interfaces/household.repository";
@@ -81,6 +85,8 @@ let reconGraphConnectionRepo: IReconGraphConnectionRepository | null = null;
 let reconImportItemRepo: IReconImportItemRepository | null = null;
 let vendorCategoryMappingRepo: IVendorCategoryMappingRepository | null = null;
 let aiAnalysisRunRepo: IAIAnalysisRunRepository | null = null;
+let aiAnalysisRunMessageRepo: IAIAnalysisRunMessageRepository | null = null;
+let aiAnalysisRunApplicationRepo: IAIAnalysisRunApplicationRepository | null = null;
 let noteRepo: INoteRepository | null = null;
 let householdRepo: IHouseholdRepository | null = null;
 
@@ -213,6 +219,17 @@ export function getVendorCategoryMappingRepository(): IVendorCategoryMappingRepo
 export function getAIAnalysisRunRepository(): IAIAnalysisRunRepository {
   if (!aiAnalysisRunRepo) aiAnalysisRunRepo = new AIAnalysisRunRepository();
   return aiAnalysisRunRepo;
+}
+
+export function getAIAnalysisRunMessageRepository(): IAIAnalysisRunMessageRepository {
+  if (!aiAnalysisRunMessageRepo) aiAnalysisRunMessageRepo = new AIAnalysisRunMessageRepository();
+  return aiAnalysisRunMessageRepo;
+}
+
+export function getAIAnalysisRunApplicationRepository(): IAIAnalysisRunApplicationRepository {
+  if (!aiAnalysisRunApplicationRepo)
+    aiAnalysisRunApplicationRepo = new AIAnalysisRunApplicationRepository();
+  return aiAnalysisRunApplicationRepo;
 }
 
 export function getNoteRepository(): INoteRepository {

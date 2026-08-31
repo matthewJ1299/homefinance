@@ -20,11 +20,18 @@ export interface BudgetAnalysisNewCategory {
   reason: string;
 }
 
+export interface BudgetAnalysisAllocationChange {
+  category_name: string;
+  new_allocated_cents: number;
+  reason: string;
+}
+
 /** Parsed model output for monthly budget coaching (JSON). */
 export interface BudgetAnalysisReport {
   summary: string;
   top_issues: string[];
   recommended_moves: BudgetAnalysisRecommendedMove[];
+  allocation_changes: BudgetAnalysisAllocationChange[];
   recategorisations: BudgetAnalysisRecategorisation[];
   new_categories: BudgetAnalysisNewCategory[];
   next_month_plan: string[];

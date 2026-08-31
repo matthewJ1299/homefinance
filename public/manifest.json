@@ -18,7 +18,7 @@
   ],
   "shortcuts": [
     { "name": "Dashboard", "short_name": "Dashboard", "description": "Open dashboard", "url": "/dashboard", "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }] },
-    { "name": "Expenses", "short_name": "Expenses", "description": "View and add expenses", "url": "/expenses", "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }] },
+    { "name": "Transactions", "short_name": "Transactions", "description": "View and add expenses and income", "url": "/expenses", "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }] },
     { "name": "Summary", "short_name": "Summary", "description": "View monthly summary", "url": "/summary", "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }] }
   ]
 }

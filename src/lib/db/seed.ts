@@ -105,6 +105,7 @@ async function seed() {
   await run("DELETE FROM income");
   await run("DELETE FROM mortgage_schedule_snapshots");
   await run("DELETE FROM mortgage_payments");
+  await run("DELETE FROM mortgage_rate_periods");
   await run("DELETE FROM mortgage_user_configs");
   await run("DELETE FROM mortgage_configs");
   await run("DELETE FROM categories");

@@ -1,4 +1,11 @@
 import type { MortgageParams, AmortisationRow, ScheduleResult } from "@/lib/types/mortgage.types";
+import type { MortgageRateSchedule } from "@/lib/services/finance/mortgage-rate-periods";
+import {
+  calculateBasePaymentForMonth,
+  calculateUserBBaseForPayment,
+  hasRateChangeAtMonth,
+  resolveMonthlyRateForMonth,
+} from "@/lib/services/finance/mortgage-rate-periods";
 import { addMonths, format } from "date-fns";
 
 export function standardMonthlyPayment(
@@ -26,28 +33,53 @@ export function simulateSchedule(
   userBBase: number,
   topUp: number,
   startDate: string,
-  getExtraPayment?: (monthNumber: number) => number
+  getExtraPayment?: (monthNumber: number) => number,
+  rateSchedule?: MortgageRateSchedule
 ): SimulationResult {
   let balance = params.loanAmount;
   let userATotalPayments = 0;
   let userBTotalPayments = 0;
   const schedule: AmortisationRow[] = [];
   let month = 0;
+  let currentM = M;
+  let currentUserBBase = userBBase;
+  const totalTermMonths = params.termMonths;
   const [startYear, startMonth] = startDate.slice(0, 7).split("-").map(Number);
   let currentDate = new Date(startYear, startMonth - 1, 1);
 
   while (balance > 0.5) {
     month++;
     const openingBalance = balance;
-    const interest = Math.round(balance * params.monthlyRate);
+    const monthlyRate = rateSchedule
+      ? resolveMonthlyRateForMonth(month, rateSchedule)
+      : params.monthlyRate;
+
+    if (
+      rateSchedule &&
+      (month === 1 || hasRateChangeAtMonth(month, rateSchedule))
+    ) {
+      currentM = calculateBasePaymentForMonth({
+        monthNumber: month,
+        openingBalance,
+        totalTermMonths,
+        rateSchedule,
+      });
+      currentUserBBase = calculateUserBBaseForPayment(
+        currentM,
+        params.userB.baseSplitPct,
+        params.userB.monthlyCap
+      );
+    }
+
+    const interest = Math.round(openingBalance * monthlyRate);
 
     const extra = getExtraPayment ? getExtraPayment(month) : 0;
-    let totalPayment = M + topUp + extra;
+    let totalPayment = currentM + topUp + extra;
     if (totalPayment > balance + interest) {
       totalPayment = balance + interest;
     }
 
-    let userBPay = Math.min(userBBase, totalPayment);
+    let userBPay = Math.min(currentUserBBase, totalPayment);
     const userAPay = totalPayment - userBPay;
 
     const principal = totalPayment - interest;
@@ -97,11 +129,14 @@ export function simulateSchedule(
 export function calculateTopUp(
   params: MortgageParams,
   startDate: string,
-  targetEquityUserA: number = 0.5
+  targetEquityUserA: number = 0.5,
+  rateSchedule?: MortgageRateSchedule
 ): number {
   const M = standardMonthlyPayment(
     params.loanAmount,
-    params.monthlyRate,
+    rateSchedule
+      ? resolveMonthlyRateForMonth(1, rateSchedule)
+      : params.monthlyRate,
     params.termMonths
   );
   const userBBase = Math.min(
@@ -109,7 +144,15 @@ export function calculateTopUp(
     params.userB.monthlyCap ?? Infinity
   );
 
-  const resultAtZero = simulateSchedule(params, M, userBBase, 0, startDate);
+  const resultAtZero = simulateSchedule(
+    params,
+    M,
+    userBBase,
+    0,
+    startDate,
+    undefined,
+    rateSchedule
+  );
   const totalContribZero =
     params.userA.deposit +
     params.userB.deposit +
@@ -128,7 +171,15 @@ export function calculateTopUp(
 
   for (let i = 0; i < 100; i++) {
     const T = Math.round((lo + hi) / 2);
-    const result = simulateSchedule(params, M, userBBase, T, startDate);
+    const result = simulateSchedule(
+      params,
+      M,
+      userBBase,
+      T,
+      startDate,
+      undefined,
+      rateSchedule
+    );
     const totalContrib =
       params.userA.deposit +
       params.userB.deposit +
@@ -153,19 +204,36 @@ export function calculateTopUp(
 export function generateSchedule(
   params: MortgageParams,
   startDate: string,
-  targetEquityUserA: number = 0.5
+  targetEquityUserA: number = 0.5,
+  rateSchedule?: MortgageRateSchedule
 ): ScheduleResult {
-  const M = standardMonthlyPayment(
-    params.loanAmount,
-    params.monthlyRate,
-    params.termMonths
+  const M = rateSchedule
+    ? calculateBasePaymentForMonth({
+        monthNumber: 1,
+        openingBalance: params.loanAmount,
+        totalTermMonths: params.termMonths,
+        rateSchedule,
+      })
+    : standardMonthlyPayment(
+        params.loanAmount,
+        params.monthlyRate,
+        params.termMonths
+      );
+  const userBBase = calculateUserBBaseForPayment(
+    M,
+    params.userB.baseSplitPct,
+    params.userB.monthlyCap
   );
-  const userBBase = Math.min(
-    Math.round(params.userB.baseSplitPct * M),
-    params.userB.monthlyCap ?? Infinity
+  const topUp = calculateTopUp(params, startDate, targetEquityUserA, rateSchedule);
+  const result = simulateSchedule(
+    params,
+    M,
+    userBBase,
+    topUp,
+    startDate,
+    undefined,
+    rateSchedule
   );
-  const topUp = calculateTopUp(params, startDate, targetEquityUserA);
-  const result = simulateSchedule(params, M, userBBase, topUp, startDate);
 
   const totalContrib =
     params.userA.deposit +
@@ -231,6 +299,9 @@ export interface ProjectFromBalanceOptions {
   initialUserBTotal: number;
   getExtraPayment?: (monthNumber: number) => number;
   maxMonths?: number;
+  /** Original loan term; required when rateSchedule is set. */
+  totalTermMonths?: number;
+  rateSchedule?: MortgageRateSchedule;
 }
 
 /**
@@ -252,12 +323,16 @@ export function projectScheduleFromBalance(
     initialUserBTotal,
     getExtraPayment,
     maxMonths = params.termMonths * 2,
+    totalTermMonths = params.termMonths,
+    rateSchedule,
   } = options;
 
   let balance = startBalance;
   let userATotalPayments = initialUserATotal;
   let userBTotalPayments = initialUserBTotal;
   const schedule: AmortisationRow[] = [];
+  let currentM = M;
+  let currentUserBBase = userBBase;
   const [startYear, startMonthNum] = startDate.slice(0, 7).split("-").map(Number);
   let currentDate = new Date(startYear, startMonthNum - 1, 1);
   currentDate = addMonths(currentDate, startMonth - 1);
@@ -267,15 +342,36 @@ export function projectScheduleFromBalance(
   while (balance > 0.5 && month < maxMonth) {
     month++;
     const openingBalance = balance;
-    const interest = Math.round(balance * params.monthlyRate);
+    const monthlyRate = rateSchedule
+      ? resolveMonthlyRateForMonth(month, rateSchedule)
+      : params.monthlyRate;
+
+    if (
+      rateSchedule &&
+      (month === startMonth || hasRateChangeAtMonth(month, rateSchedule))
+    ) {
+      currentM = calculateBasePaymentForMonth({
+        monthNumber: month,
+        openingBalance,
+        totalTermMonths,
+        rateSchedule,
+      });
+      currentUserBBase = calculateUserBBaseForPayment(
+        currentM,
+        params.userB.baseSplitPct,
+        params.userB.monthlyCap
+      );
+    }
+
+    const interest = Math.round(openingBalance * monthlyRate);
 
     const extra = getExtraPayment ? getExtraPayment(month) : 0;
-    let totalPayment = M + topUp + extra;
+    let totalPayment = currentM + topUp + extra;
     if (totalPayment > balance + interest) {
       totalPayment = balance + interest;
     }
 
-    let userBPay = Math.min(userBBase, totalPayment);
+    let userBPay = Math.min(currentUserBBase, totalPayment);
     const userAPay = totalPayment - userBPay;
 
     const principal = totalPayment - interest;

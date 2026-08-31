@@ -34,6 +34,14 @@ interface PaymentRow {
   created_at: string;
 }
 
+interface RatePeriodRow {
+  id: number;
+  mortgage_id: number;
+  effective_from_month: number;
+  annual_interest_rate: number;
+  created_at: string;
+}
+
 function toConfigRow(r: ConfigRow) {
   return {
     id: r.id,
@@ -42,7 +50,7 @@ function toConfigRow(r: ConfigRow) {
     annualInterestRate: r.annual_interest_rate,
     loanTermMonths: r.loan_term_months,
     startDate: r.start_date,
-    targetEquityUserAPct: r.target_equity_user_a_pct ?? 0.5,
+    targetEquityUserAPct: r.target_equity_user_a_pct,
   };
 }
 
@@ -226,5 +234,33 @@ export class MortgageRepository implements IMortgageRepository {
         hid,
       ]
     );
+  }
+
+  async getRatePeriods(mortgageId: number) {
+    const rows = await all<RatePeriodRow>(
+      `SELECT id, mortgage_id, effective_from_month, annual_interest_rate, created_at
+       FROM mortgage_rate_periods WHERE mortgage_id = ? ORDER BY effective_from_month`,
+      [mortgageId]
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      mortgageId: row.mortgage_id,
+      effectiveFromMonth: row.effective_from_month,
+      annualInterestRate: row.annual_interest_rate,
+      createdAt: row.created_at,
+    }));
+  }
+
+  async replaceRatePeriods(
+    mortgageId: number,
+    periods: Array<{ effectiveFromMonth: number; annualInterestRate: number }>
+  ) {
+    await run("DELETE FROM mortgage_rate_periods WHERE mortgage_id = ?", [mortgageId]);
+    for (const period of periods) {
+      await run(
+        `INSERT INTO mortgage_rate_periods (mortgage_id, effective_from_month, annual_interest_rate) VALUES (?, ?, ?)`,
+        [mortgageId, period.effectiveFromMonth, period.annualInterestRate]
+      );
+    }
   }
 }

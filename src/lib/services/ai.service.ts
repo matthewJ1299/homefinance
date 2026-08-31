@@ -6,12 +6,17 @@ import { IncomeService } from "@/lib/services/income.service";
 import { GoalProjectionService } from "@/lib/services/goal-projection.service";
 import { formatRand } from "@/lib/utils/currency";
 import { prevMonth } from "@/lib/utils/date";
-import { getAIAnalysisRunRepository } from "@/lib/repositories";
+import { getAIAnalysisRunMessageRepository, getAIAnalysisRunRepository } from "@/lib/repositories";
 import type { AIAnalysisType } from "@/lib/repositories/interfaces/ai-analysis-run.repository";
 import type { ExpenseWithDetails } from "@/lib/types";
 import type { BudgetAnalysisModelPayload, BudgetAnalysisReport } from "@/lib/types/budget-ai-report";
 import { buildBudgetAnalysisUserPrompt, getBudgetAnalysisSystemPrompt } from "@/lib/services/ai/budget-analysis-prompts";
+import {
+  buildBudgetAnalysisFollowUpUserPrompt,
+  getBudgetAnalysisFollowUpSystemPrompt,
+} from "@/lib/services/ai/budget-analysis-followup-prompts";
 import { parseBudgetAnalysisReportFromModelText } from "@/lib/services/ai/parse-budget-analysis-response";
+import { normalizeBudgetAnalysisReport } from "@/lib/utils/normalize-budget-analysis-report";
 
 export type AITier = "free" | "paid";
 
@@ -92,6 +97,27 @@ export interface AnalyzeGoalsError {
 }
 
 export type AnalyzeGoalsOutcome = AnalyzeGoalsResult | AnalyzeGoalsError;
+
+export interface ReplyToBudgetReportResult {
+  success: true;
+  reply: string;
+  userMessageId: number;
+  assistantMessageId: number;
+}
+
+export interface ReplyToBudgetReportError {
+  success: false;
+  error: string;
+  userMessageId?: number;
+}
+
+export type ReplyToBudgetReportOutcome = ReplyToBudgetReportResult | ReplyToBudgetReportError;
+
+function normalizeFollowUpMessage(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  return trimmed.slice(0, 2000);
+}
 
 function buildBudgetAnalysisModelPayload(params: {
   month: string;
@@ -292,7 +318,7 @@ export class AIService {
         analysisType: "expenses_monthly",
         month: params.month,
         promptTemplateId: "expenses_monthly",
-        promptVersion: 5,
+        promptVersion: 6,
         inputJson: data,
         inputText: inputDebugText,
         outputText: analysisText,
@@ -364,7 +390,7 @@ export class AIService {
         analysisType: "expenses_monthly",
         month: params.month,
         promptTemplateId: "expenses_monthly",
-        promptVersion: 5,
+        promptVersion: 6,
         inputJson: data,
         inputText: inputDebugText,
         outputText: analysisText,
@@ -507,6 +533,108 @@ export class AIService {
     } catch (err) {
       const message = err instanceof Error ? err.message : "AI request failed.";
       return { success: false, error: message };
+    }
+  }
+
+  async replyToBudgetReport(
+    runId: number,
+    userId: number,
+    message: string,
+    tier: AITier = "free"
+  ): Promise<ReplyToBudgetReportOutcome> {
+    const trimmed = normalizeFollowUpMessage(message);
+    if (!trimmed) {
+      return { success: false, error: "Enter a message." };
+    }
+
+    const runRepo = getAIAnalysisRunRepository();
+    const messageRepo = getAIAnalysisRunMessageRepository();
+    const run = await runRepo.getRunForUser(userId, runId);
+    if (!run || run.analysisType !== "expenses_monthly") {
+      return { success: false, error: "Report not found." };
+    }
+
+    const report = normalizeBudgetAnalysisReport(run.outputJson);
+    if (!report) {
+      return { success: false, error: "Report data is invalid." };
+    }
+
+    let userMessageId: number;
+    try {
+      userMessageId = await messageRepo.insertMessage(userId, runId, "user", trimmed);
+    } catch (err) {
+      if (isMissingDbObjectError(err)) {
+        return { success: false, error: "Chat is not available. Run `npm run db:push`." };
+      }
+      throw err;
+    }
+
+    const priorMessages = await messageRepo.listByRun(userId, runId);
+    const systemPrompt = getBudgetAnalysisFollowUpSystemPrompt();
+    const userPrompt = buildBudgetAnalysisFollowUpUserPrompt({
+      month: run.month,
+      inputJson: run.inputJson,
+      report,
+      priorMessages: priorMessages.filter((m) => m.id !== userMessageId),
+      userMessage: trimmed,
+    });
+
+    const callGemini = async (apiTier: AITier): Promise<string | null> => {
+      const apiKey = getApiKeyForTier(apiTier);
+      if (!apiKey) return null;
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({
+        model: getModelForTier(apiTier),
+        systemInstruction: systemPrompt,
+        generationConfig: { temperature: 0.5 },
+      });
+      const result = await model.generateContent(userPrompt);
+      const text = result.response?.text()?.trim();
+      return text || null;
+    };
+
+    const callOpenAI = async (): Promise<string | null> => {
+      const apiKey = getOpenAIApiKey();
+      if (!apiKey) return null;
+      const client = new OpenAI({ apiKey });
+      const resp = await client.chat.completions.create({
+        model: getOpenAIModel(),
+        temperature: 0.5,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      });
+      const text = resp.choices?.[0]?.message?.content?.trim();
+      return text || null;
+    };
+
+    try {
+      let reply: string | null = null;
+      if (tier === "paid" && getOpenAIApiKey()) {
+        try {
+          reply = await callOpenAI();
+        } catch (err) {
+          if (!isOpenAIInsufficientQuotaError(err)) throw err;
+          reply = await callGemini("free");
+        }
+      } else {
+        reply = await callGemini(tier === "paid" ? "paid" : "free");
+      }
+
+      if (!reply) {
+        return {
+          success: false,
+          error: "No reply was returned.",
+          userMessageId,
+        };
+      }
+
+      const assistantMessageId = await messageRepo.insertMessage(userId, runId, "assistant", reply);
+      return { success: true, reply, userMessageId, assistantMessageId };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "AI request failed.";
+      return { success: false, error: msg, userMessageId };
     }
   }
 }

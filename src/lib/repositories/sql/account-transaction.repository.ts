@@ -1,5 +1,6 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
 import { requireHouseholdId } from "@/lib/db/request-context";
+import { coerceBigInt, coerceBigIntOrNull } from "@/lib/db/coerce-bigint";
 import type {
   IAccountTransactionRepository,
   AccountTransaction,
@@ -19,12 +20,12 @@ interface AccountTransactionRow {
 
 function toAccountTransaction(row: AccountTransactionRow): AccountTransaction {
   return {
-    id: row.id,
-    accountId: row.account_id,
-    amount: row.amount,
+    id: coerceBigInt(row.id),
+    accountId: coerceBigInt(row.account_id),
+    amount: coerceBigInt(row.amount),
     transactionType: row.transaction_type as AccountTransaction["transactionType"],
     referenceType: row.reference_type as AccountTransaction["referenceType"] | undefined,
-    referenceId: row.reference_id ?? undefined,
+    referenceId: row.reference_id != null ? coerceBigInt(row.reference_id) : undefined,
     note: row.note,
     createdAt: row.created_at,
   };

@@ -1,5 +1,6 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
 import { requireHouseholdId } from "@/lib/db/request-context";
+import { coerceBigIntOrNull } from "@/lib/db/coerce-bigint";
 import type { BudgetMonthPeriod } from "@/lib/types/budget-month";
 import type { IncomeEntry } from "../interfaces/income.repository";
 import type {
@@ -38,7 +39,7 @@ function toIncomeEntry(r: IncomeEntryRow): IncomeEntry {
     description: r.description,
     date: r.date,
     month: r.month,
-    accountId: r.accountId ?? undefined,
+    accountId: r.accountId != null ? coerceBigIntOrNull(r.accountId) ?? undefined : undefined,
     createdAt: r.createdAt,
   };
 }

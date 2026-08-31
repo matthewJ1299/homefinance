@@ -1,5 +1,6 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
 import { requireHouseholdId } from "@/lib/db/request-context";
+import { coerceBigInt } from "@/lib/db/coerce-bigint";
 import type {
   ITransferRepository,
   CreateTransferInput,
@@ -17,10 +18,10 @@ interface TransferRow {
 
 function toTransfer(row: TransferRow): Transfer {
   return {
-    id: row.id,
-    fromAccountId: row.from_account_id,
-    toAccountId: row.to_account_id,
-    amount: row.amount,
+    id: coerceBigInt(row.id),
+    fromAccountId: coerceBigInt(row.from_account_id),
+    toAccountId: coerceBigInt(row.to_account_id),
+    amount: coerceBigInt(row.amount),
     note: row.note,
     createdAt: row.created_at,
   };

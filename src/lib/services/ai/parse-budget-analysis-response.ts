@@ -1,4 +1,5 @@
 import type {
+  BudgetAnalysisAllocationChange,
   BudgetAnalysisConfidence,
   BudgetAnalysisNewCategory,
   BudgetAnalysisRecategorisation,
@@ -41,6 +42,25 @@ function parseRecategorisation(value: unknown): BudgetAnalysisRecategorisation |
     current_category: o.current_category,
     suggested_category: o.suggested_category,
     confidence: parseConfidence(o.confidence),
+    reason: typeof o.reason === "string" ? o.reason : "",
+  };
+}
+
+function parseAllocationChange(value: unknown): BudgetAnalysisAllocationChange | null {
+  if (!value || typeof value !== "object") return null;
+  const o = value as Record<string, unknown>;
+  if (typeof o.category_name !== "string") return null;
+  const amount = o.new_allocated_cents;
+  const amountCents =
+    typeof amount === "number" && Number.isFinite(amount)
+      ? Math.round(amount)
+      : typeof amount === "string" && /^-?\d+$/.test(amount.trim())
+        ? Number.parseInt(amount, 10)
+        : null;
+  if (amountCents == null || !Number.isFinite(amountCents) || amountCents < 0) return null;
+  return {
+    category_name: o.category_name,
+    new_allocated_cents: amountCents,
     reason: typeof o.reason === "string" ? o.reason : "",
   };
 }
@@ -91,11 +111,17 @@ export function parseBudgetAnalysisReportFromModelText(raw: string): BudgetAnaly
   const newCats = Array.isArray(o.new_categories)
     ? o.new_categories.map(parseNewCategory).filter((x): x is BudgetAnalysisNewCategory => x != null)
     : [];
+  const allocationChanges = Array.isArray(o.allocation_changes)
+    ? o.allocation_changes
+        .map(parseAllocationChange)
+        .filter((x): x is BudgetAnalysisAllocationChange => x != null)
+    : [];
 
   return {
     summary: o.summary,
     top_issues: parseStringArray(o.top_issues),
     recommended_moves: recommended,
+    allocation_changes: allocationChanges,
     recategorisations: recats,
     new_categories: newCats,
     next_month_plan: parseStringArray(o.next_month_plan),

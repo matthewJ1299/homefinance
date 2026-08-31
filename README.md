@@ -8,23 +8,21 @@ All database writes use **optimistic UI**: the UI updates immediately, then a to
 
 Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in the linked docs.
 
-### Design and theme tokens
+### Look and feel
 
-- The app uses shared global tokens in `src/app/globals.css` (`--background`, `--card`, `--border`, `--foreground`, `--primary`, and related semantic variables) so component styling stays consistent.
-- Current light mode follows a **cool** palette (`#F4F6FA` background, `#FAFBFD` surfaces, `#DDE3EE` borders, `#0F1520` text) with blue brand accents (`#2563EB` primary).
-- Current dark mode is **tinted navy** (not pure black): `#0F1117` background, `#161B27` surfaces, `#1E2738` borders, `#E8EDF5` text, and `#5B8DEF` primary.
+- **Themes** — Shared CSS variables in `src/app/globals.css` feed Tailwind semantic colours for **light** and **dark** (cool light surfaces and blue accents; dark mode uses tinted navy cards instead of pure black). Use the header theme toggle (`next-themes`).
 
 ### Multi-household tenancy
 
 - Each user belongs to **exactly one household**. Domain data (categories, transactions, budgets, goals, lists, calendar, Recon, AI runs, etc.) is scoped by **`household_id`** so independent families do not see each other’s data in a shared database.
 - **Onboarding**: open **`/register`** to create a household, default categories, and the first user, or use **`npm run db:seed`** for full demo households locally, or **`npm run db:push && npm run db:seed:users`** for login users only. Details and upgrade steps: [docs/multi-household.md](./docs/multi-household.md).
-- **Existing installs**: run **`npm run db:push`** to apply `drizzle/0022_households_pg.sql`; the migration is now safe to retry if an older deploy stopped mid-run around `calendar_categories`. Legacy installs are backfilled into a single default household unless you already split data across households. Users should **sign out and sign in** once so the session/JWT includes `householdId`.
+- **Existing installs**: run **`npm run db:push`** to apply `drizzle/0027_households_pg.sql` via the migration ledger; the migration is idempotent and safe to retry if an older deploy stopped mid-run around `calendar_categories`. Legacy installs are backfilled into a single default household unless you already split data across households. Users should **sign out and sign in** once so the session/JWT includes `householdId`.
 
 ### Admin portal (global super-admin)
 
 - The admin portal lives under **`/admin`** and is only accessible to users with **`users.is_super_admin = true`**.
 - It provides allowlisted, read-only operational queries under **`/api/admin/queries/*`** (example: `GET /api/admin/queries/overview`).
-- **Setup**: run **`npm run db:push`** to apply `drizzle/0023_super_admin_and_household_feature_policy_pg.sql` (adds `users.is_super_admin` plus household-level feature policy columns).
+- **Setup**: run **`npm run db:push`** to apply `drizzle/0028_super_admin_and_household_feature_policy_pg.sql` (adds `users.is_super_admin` plus household-level feature policy columns).
 - **Grant access** (example SQL):
   - `UPDATE users SET is_super_admin = true WHERE email = 'you@example.com';`
 
@@ -38,7 +36,7 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 ### Money in and out
 
 - **Income** — Record salary and one-off income per month. The dashboard shows only **your** income for the selected budget month.
-- **Expenses** — Log spending by category with notes and link rows to accounts. On the **Expenses** page, switch between **My** expenses, another household member’s, or **Combined** totals; filter by account and category. When splitting with a partner, pick a split group plus equal split, exact amounts (live helper to balance to zero), or “full amount owed to you.”
+- **Transactions** (`/expenses`) — Log spending by category with notes and link rows to accounts; the same page shows month income totals and balance. Switch between **My** activity, another household member’s, or **Combined**; filter by account and category and **search** the expense list. When splitting with a partner, pick a split group plus equal split, exact amounts (live helper to balance to zero), or “full amount owed to you.”
 - **Categories** — **Fixed** categories behave like steady monthly costs and can seed new months with a default amount; **variable** categories change month to month.
 
 ### Budget
@@ -53,7 +51,7 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 ### Accounts and balances
 
 - **Account types** — Bank, savings, and credit under **Settings** > **Accounts**. Balances are derived from an **account ledger** of transactions.
-- **Primary account** — Dashboard **Recent** expenses and **Quick add expense** post to the primary account (**Set as primary** when you have more than one; a single account is always primary). Dates fall inside the budget month you are viewing so new lines show in **Recent**; **View more** opens Expenses for that month.
+- **Primary account** — Dashboard **Recent transactions** (combined income + expenses for the month) and **Quick add expense** respect the primary account when filtering (**Set as primary** when you have more than one; a single account is always primary). Dates fall inside the budget month you are viewing; **View more** opens the **Transactions** page for that month.
 - **Moving money between accounts** — **Transfer Money** (dashboard or Settings) for savings moves or paying down credit. Credit rows show limit and available credit.
 
 ### Shared costs (Splits)
@@ -74,13 +72,13 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 
 ### Home dashboard and navigation
 
-- **Dashboard** — Month income with inline quick add (**Salary** or **Other income**), **Recent** expenses (primary account), tasks/events/budget shortcuts, upcoming calendar, quick-add expense (same category UX as **`/add`**). Greeting and header date use **Africa/Johannesburg (UTC+2)**, not the device clock.
+- **Dashboard** — Month income with inline quick add (**Salary** or **Other income**), **Recent transactions** (newest income and expenses, optionally filtered to the primary account), tasks/events/budget shortcuts, upcoming calendar, quick-add expense (same category UX as **`/add`**). Greeting and header date use **Africa/Johannesburg (UTC+2)**, not the device clock. Under **Settings** > **Dashboard tiles**, the list tile is named **Recent transactions** (migrates from the old “Recent expenses” toggle in local storage).
 - **Create hub (`/add`)** — Mobile center **Add** and desktop sidebar: new list item, event, or expense; quick line for tasks; expense shorthand such as `120 groceries` pre-fills amount and note. After save: expense → Dashboard; task → that list; event → Calendar.
 - **Mobile** — Bottom bar: Home, Calendar, Add (center), Lists, Budget. The header menu mirrors the desktop sidebar, including **Recon** and **Budget AI report** when your account is allowed and enabled.
 
 ### Mortgage (optional)
 
-Plain-language summary of balance, monthly cost, payoff horizon, and each person’s share; amortisation and edits sit under **More details**. Recorded months stay as history; changing rate or payment recalculates only **future** schedule from the current balance.
+Plain-language summary of balance, monthly cost, payoff horizon, and each person’s share; amortisation and edits sit under **More details**. Recorded months stay as history; changing rate or payment recalculates only **future** schedule from the current balance. **Interest rate changes** (e.g. 10% for months 1–5, then 11%) recalculate the upcoming minimum payment from the reduced balance — see [docs/mortgage.md](./docs/mortgage.md).
 
 ### Automation and export
 
@@ -90,7 +88,7 @@ Plain-language summary of balance, monthly cost, payoff horizon, and each person
 ### Summary and optional intelligence
 
 - **Summary** — Per-user monthly snapshot (income, expenses, budget adherence) plus household trends.
-- **AI budget analysis (optional)** — Off by default; needs server-side allow **and** **Settings** > **AI analysis**. **Free** vs **Paid** (paid prefers OpenAI with Gemini fallback). **Analyze spending** uses roll-ups; **Include all transactions** sends full detail; optional **Extra AI context** lets you append plain-language budget notes to the request. Structured output on `/budget-ai-report`; runs stored and rate-limited. See [docs/ai-budget-analysis.md](./docs/ai-budget-analysis.md) and [docs/feature-access.md](./docs/feature-access.md).
+- **AI budget analysis (optional)** — Off by default; needs server-side allow **and** **Settings** > **AI analysis**. **Free** vs **Paid** (paid prefers OpenAI with Gemini fallback). **Analyze spending** uses roll-ups; **Include all transactions** sends full detail; optional **Extra AI context** lets you append plain-language budget notes to the request. Structured output on `/budget-ai-report`; runs stored and rate-limited. On the report page you can **apply selected** budget suggestions (confirm first; audited) and **ask follow-up questions** (saved chat per report). See [docs/ai-budget-analysis.md](./docs/ai-budget-analysis.md) and [docs/feature-access.md](./docs/feature-access.md).
 - **Bank email reconciliation / Recon (optional)** — Outlook via Microsoft Graph: parse bank-notification mail, surface likely duplicates, accept or ignore manually (including bulk). Gated by allow flag plus Settings. See [docs/recon.md](./docs/recon.md) and [Recon and Microsoft Graph (Outlook)](#recon-and-microsoft-graph-outlook).
 
 ## Setup
@@ -223,13 +221,13 @@ If you see redirects to `https://0.0.0.0:3000/...` in production, your reverse p
 
 ## Database migrations and existing data
 
-- **`npm run db:push`** (used on deploy and in Docker entrypoint) runs **additive** migrations only: it creates tables or columns when they are **missing**. It does **not** `DROP` tables, `TRUNCATE` data, or wipe rows. Your existing expenses, users, and other data stay intact when new migrations (e.g. Recon tables in `drizzle/0013_recon_pg.sql`, or `ai_analysis_runs.output_json` from `drizzle/0019_ai_analysis_runs_output_json_pg.sql`) are applied.
-- **Multi-household** (`drizzle/0022_households_pg.sql`): adds `households`, `users.household_id`, and `household_id` on tenant-owned tables (including **categories**), with backfill for existing rows. For legacy single-household installs, the migration keeps shared lookup data in one default household instead of cloning per user. `db:push` now checks late-stage markers so a partially applied `0022` reruns instead of being treated as complete. After deploy, users should **re-authenticate** so `householdId` is present on the session. See [docs/multi-household.md](./docs/multi-household.md).
-- **Destructive operations** (only when you explicitly want to reset): `npm run db:reset` drops and recreates the public schema; `npm run db:seed` clears application data; `npm run db:fresh` combines reset + seed. Do not use those on production databases you care about.
+- **`npm run db:push`** (used on deploy and in Docker entrypoint) runs **additive** migrations only, tracked in a `schema_migrations` ledger. On first run against an existing database, the ledger is **seeded** from schema detection so migrations are not re-applied. It does **not** `DROP` tables or wipe rows. See [docs/database.md](./docs/database.md).
+- **Multi-household** (`drizzle/0027_households_pg.sql`): adds `households`, `users.household_id`, and `household_id` on tenant-owned tables (including **categories**), with backfill for existing rows. For legacy single-household installs, the migration keeps shared lookup data in one default household instead of cloning per user. The migration is idempotent, so a partially applied run resumes cleanly on the next `db:push`. After deploy, users should **re-authenticate** so `householdId` is present on the session. See [docs/multi-household.md](./docs/multi-household.md).
+- **Destructive operations** (only when you explicitly want to reset): `npm run db:reset` drops and recreates the public schema (**requires `ALLOW_DB_RESET=1`**); `npm run db:seed` clears application data; `npm run db:fresh` combines reset + seed. Do not use those on production databases you care about.
 
 ## Database ERD
 
-The diagram below reflects the **PostgreSQL** schema built from additive migrations in `drizzle/*_pg.sql` (applied by `npm run db:push`). If a deployed database predates a migration, compare with live introspection (`drizzle/push.ts` order is the in-repo source of truth).
+The diagram below reflects the **PostgreSQL** schema built from numbered migrations in `drizzle/*_pg.sql` (applied in order by `npm run db:push`). See [docs/database.md](./docs/database.md) for the migration manifest.
 
 **Notes:**
 
@@ -691,7 +689,7 @@ HomeFinance can be installed as a Progressive Web App (PWA) on phones and deskto
   This creates `icon-180x180.png`, `icon-192x192.png`, `icon-512x512.png`, `icon-maskable-512x512.png`, and iOS `splash-*` images for common device sizes. To use your own icon, replace the PNGs (see `public/icons/README.md`). Maskable icons should keep important content in the center 80%.
 - **Install prompt**: When the app meets install criteria (HTTPS, valid manifest, service worker, icons), supported browsers show a custom install banner. The app detects standalone mode and hides the prompt when already installed. **On iOS Safari**: the prompt appears after a 3-second delay; tap "How to Install" to expand step-by-step instructions (Share, Add to Home Screen, Add). Dismiss is per-session. **On Android/desktop**: the native install prompt is shown when the user taps Install. An apple-touch-icon and iOS splash screens ensure a proper home-screen launch on iOS.
 - **Push notifications**: The app can send Web Push notifications when the PWA is in the background or closed. In **Settings**, use the "Push notifications" section to enable (browser will ask for permission), send a test, or disable. The service worker handles incoming push and notification clicks (opens the app or a URL). Set VAPID keys: run `npm run generate-vapid-keys` and add `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` to your environment. Push requires HTTPS and a supporting browser (Chrome, Edge, Firefox; iOS 16.4+ when installed as PWA from home screen).
-- **Push notifications (reopen behavior)**: On reopen/resume, settings now re-check permission/subscription and re-sync existing subscriptions to the server to reduce Android/PWA cases where users needed to disable/enable again.
+- **Push notifications (reopen behavior)**: On reopen/resume, the app repairs missing browser subscriptions when permission is still granted, re-subscribes after VAPID key rotation, and re-syncs with the server. **Android installed PWAs** (e.g. Pixel): a background repair runs after SW updates and app resume (common cause of the Settings toggle flipping off while site notifications stay allowed). Filter client logs by `[PushClient]` (`androidPwa: true`); server logs by `[Push]`. `GET /api/push/status` reports server subscription count and VAPID fingerprint.
 - **Scheduled notifications**: An in-process scheduler (runs when the server starts) sends:
   - **Daily 9am summary**: If there is at least one calendar event today, a single push at 9am (configurable: `DAILY_NOTIFICATION_HOUR`, default 9; timezone: `TZ`, default UTC) to all users with notifications enabled, listing event name(s) and time(s).
   - **Per-event reminders**: For events with a reminder set (e.g. 15 minutes before), a push is sent to all users when that reminder time is reached. Set the reminder in the calendar event form (create/edit).
@@ -705,27 +703,27 @@ See [DEPLOY.md](./DEPLOY.md) for deploying to a VPS with Coolify (Docker + Traef
 
 ## Testing
 
-- **Unit tests**: Run `npm run test` (or `npm run test:watch` for watch mode). Tests cover:
-  - **Calculations**: Currency (toMinorUnits, fromMinorUnits, formatRand), date utils (prevMonth, nextMonth, monthFromDate, isValidMonth), mortgage (standardMonthlyPayment, simulateSchedule, calculateTopUp, generateSchedule, projectScheduleFromBalance), and budget/summary formulas (balance = income - expenses, remaining = allocated - spent, unallocated, adherencePct).
-  - **Finance calculation layer**: Pure financial formulas live in `src/lib/services/finance/*` and are tested in `src/tests/finance.test.ts` (including golden scenarios for deterministic simulations). Services include small parity checks against the pure helpers in `src/tests/finance.service-non-regression.test.ts` to ensure no regressions.
-  - **Calendar**: Recurrence expansion (none, weekly, monthly, yearly) in `src/lib/utils/recurrence.test.ts`.
-  - **Design**: Calculation logic is tested in isolation; services call pure helper functions in `src/lib/services/finance/*` and use repository interfaces so unit tests mock repositories and assert only on formulas (SOLID, DRY).
-- **Integration tests**: In `src/__tests__/integration/api-and-db.integration.test.ts`. They call API route handlers and the real database. They **run only when `DATABASE_URL` is set** (e.g. local Postgres or CI). Use a seeded DB (`npm run db:fresh`). State is restored after each test: created expenses and income are deleted by ID; budget allocation changes are reverted by upserting the previous amount. This keeps the database in its previous state so tests are repeatable and do not pollute dev data.
+- **Unit tests (offline)**: `npm run test:unit` — no database required. The production **Docker build** runs this before `next build`, so Coolify deploys fail if unit tests fail.
+- **Integration tests**: `npm run test:integration` — requires `DATABASE_URL` and a seeded DB (`npm run db:fresh`). See `src/__tests__/integration/` (API/DB smoke tests and **mortgage interest recalc** through `MortgageService` + Postgres).
+- **Watch mode**: `npm run test:watch`
+- Coverage includes currency, date utils, mortgage engine, split/settlement balance math, credit edge cases, finance service parity checks in `src/tests/`, and high-volume **drift** tests in `src/tests/transaction-drift.test.ts` (long mortgage schedules, hundreds of split/settlement cycles, 10k ledger postings).
+- **Design**: Pure logic in `src/lib/services/finance/*`; services use repository interfaces for testability. See [docs/design-system.md](./docs/design-system.md) and [docs/push-notifications.md](./docs/push-notifications.md).
 
 ## Scripts
 
 - `npm run dev` – Start dev server (Turbopack)
 - `npm run build` / `npm run start` – Production build and start
-- `npm run db:push` – Apply **additive** schema and migrations (creates missing tables/columns; does not delete existing data). Runs Postgres migrations from `drizzle/` (including numbered steps—for example Recon `0013_recon_pg.sql` or AI report storage `0019_ai_analysis_runs_output_json_pg.sql`) when tables or columns are missing. Use this after deploying, if you see "groupId missing" on the Splits page, or Postgres errors about a missing column such as `output_json` on `ai_analysis_runs`.
-- `npm run db:reset` – Recreate DB from scratch (drop/recreate public schema). Then run push (and optionally seed). Do not run while the app is using the DB.
+- `npm run db:push` – Apply pending migrations (ledger-backed; safe on production). See [docs/database.md](./docs/database.md).
+- `npm run db:reset` – Recreate DB from scratch (requires `ALLOW_DB_RESET=1`). Then run push (and optionally seed).
 - `npm run db:seed:users` – Create or update only the two env-driven login users and create households for them if needed
 - `npm run db:seed:minimal` – Seed an empty DB with two households, users, default categories, and default split groups
 - `npm run db:seed` – Clear all data, then seed two households, users, categories, 3 months of income/expenses, and in-household split samples
 - `npm run db:fresh` – Reset DB then seed (recreate from scratch and seed in one go)
 - `npm run generate-pwa-icons` – Generate PWA icons into `public/icons/` (requires `sharp`). Run once or when changing app icon.
 - `npm run generate-vapid-keys` – Print VAPID key pair for Web Push. Add the two lines to your env (e.g. `.env.local`) so push notifications work.
-- `npm run test` – Run unit and integration tests (Vitest). Integration tests are skipped when `DATABASE_URL` is unset.
-- `npm run test:watch` – Run tests in watch mode.
+- `npm run test` / `npm run test:unit` – Run offline unit tests (Vitest)
+- `npm run test:integration` – Run DB integration tests (requires `DATABASE_URL`)
+- `npm run test:watch` – Run unit tests in watch mode
 - `npm run start:server` – Start the custom Node server (initDb + persist loop); use for cPanel. See DEPLOY.md.
 
 The app uses **Postgres** only (via `pg`). `DATABASE_URL` is required. Repositories use a small abstraction (`run`, `get`, `all`, `lastInsertId`). Schema is in `drizzle/0000_init_pg.sql` and numbered migrations; apply with `db:push`.

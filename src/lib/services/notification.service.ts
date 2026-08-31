@@ -12,7 +12,7 @@ export interface NotificationPayload {
 }
 
 const VAPID_CONTACT = (process.env.VAPID_SUBJECT ?? "mailto:push@homefinance.app").trim();
-const DEFAULT_TTL = 60;
+const DEFAULT_TTL = 3600;
 
 /**
  * True if the push service response indicates the subscription or VAPID auth is invalid.
@@ -73,7 +73,7 @@ async function sendOne(
     await webpush.sendNotification(
       { endpoint, keys: { p256dh, auth } },
       body,
-      { TTL: ttl, agent: pushAgent }
+      { TTL: ttl, urgency: "high", agent: pushAgent }
     );
     return { sent: true, stale: false };
   } catch (err: unknown) {

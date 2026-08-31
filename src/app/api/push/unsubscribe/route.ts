@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
+import { pushServerLog } from "@/lib/push/push-server-log";
 import { getPushSubscriptionRepository } from "@/lib/repositories";
 import { pushUnsubscribeBodySchema } from "@/lib/validators/push-subscription.schema";
 
@@ -23,7 +24,22 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const userId = Number(session.user.id);
+  const endpoint = parsed.data.endpoint;
+
+  pushServerLog("unsubscribe", {
+    userId,
+    endpointPrefix: endpoint.slice(0, 60),
+  });
+
   const repo = getPushSubscriptionRepository();
-  await repo.deleteByEndpointAndUserId(parsed.data.endpoint, Number(session.user.id));
+  await repo.deleteByEndpointAndUserId(endpoint, userId);
+
+  const remaining = await repo.findByUserId(userId);
+  pushServerLog("unsubscribe-done", {
+    userId,
+    subscriptionCount: remaining.length,
+  });
+
   return NextResponse.json({ ok: true });
 }

@@ -68,6 +68,8 @@ interface ProcessMarkedSummary {
   acceptedAddCount: number;
   addMinor: number;
   addByCategory: { categoryName: string; count: number; totalMinor: number }[];
+  acceptedIncomeCount: number;
+  incomeMinor: number;
   skippedNoCategory: number;
   skippedInvalidAmount: number;
 }
@@ -194,6 +196,8 @@ export function ReconPageClient() {
     bodyContent: string;
   }>(null);
   const [bulkIntentByItemId, setBulkIntentByItemId] = useState<Record<number, ReconBulkIntent>>({});
+  const [entryKindByItemId, setEntryKindByItemId] = useState<Record<number, "expense" | "income">>({});
+  const [incomeTypeByItemId, setIncomeTypeByItemId] = useState<Record<number, "salary" | "ad_hoc">>({});
   const [bulkProcessing, setBulkProcessing] = useState(false);
   const [processMarkedSummaryOpen, setProcessMarkedSummaryOpen] = useState(false);
   const [processMarkedSummary, setProcessMarkedSummary] = useState<ProcessMarkedSummary | null>(null);
@@ -283,6 +287,20 @@ export function ReconPageClient() {
       }
       return next;
     });
+    setEntryKindByItemId((prev) => {
+      const next = { ...prev };
+      for (const item of itemsForCategoryInit) {
+        if (next[item.id] === undefined) next[item.id] = "expense";
+      }
+      return next;
+    });
+    setIncomeTypeByItemId((prev) => {
+      const next = { ...prev };
+      for (const item of itemsForCategoryInit) {
+        if (next[item.id] === undefined) next[item.id] = "ad_hoc";
+      }
+      return next;
+    });
   }, [itemsForCategoryInit]);
 
   useEffect(() => {
@@ -305,6 +323,22 @@ export function ReconPageClient() {
     });
     setAmountRandByItemId((prev) => {
       const next: Record<number, string> = {};
+      for (const [k, v] of Object.entries(prev)) {
+        const id = Number(k);
+        if (valid.has(id)) next[id] = v;
+      }
+      return next;
+    });
+    setEntryKindByItemId((prev) => {
+      const next: Record<number, "expense" | "income"> = {};
+      for (const [k, v] of Object.entries(prev)) {
+        const id = Number(k);
+        if (valid.has(id)) next[id] = v;
+      }
+      return next;
+    });
+    setIncomeTypeByItemId((prev) => {
+      const next: Record<number, "salary" | "ad_hoc"> = {};
       for (const [k, v] of Object.entries(prev)) {
         const id = Number(k);
         if (valid.has(id)) next[id] = v;
@@ -364,32 +398,6 @@ export function ReconPageClient() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const actAdd = useMutation({
-    mutationFn: (vars: {
-      itemId: number;
-      categoryId: number;
-      accountId?: number | null;
-      split?: boolean;
-      note: string;
-      amount: number;
-    }) =>
-      fetchJson<{ expenseId: number }>(`/api/recon/items/${vars.itemId}/accept-add`, {
-        method: "POST",
-        body: JSON.stringify({
-          categoryId: vars.categoryId,
-          accountId: vars.accountId ?? undefined,
-          split: vars.split ?? false,
-          note: vars.note,
-          amount: vars.amount,
-        }),
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["recon-items"] });
-      toast.success("Expense added.");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
   const actIgnore = useMutation({
     mutationFn: (itemId: number) =>
       fetchJson<{ ok: boolean }>(`/api/recon/items/${itemId}/ignore`, { method: "POST" }),
@@ -432,6 +440,13 @@ export function ReconPageClient() {
     [categoryByItemId]
   );
 
+  const setEntryKindForItem = useCallback((itemId: number, value: "expense" | "income") => {
+    setEntryKindByItemId((p) => ({ ...p, [itemId]: value }));
+    if (value === "income") {
+      setSplitByItemId((p) => ({ ...p, [itemId]: false }));
+    }
+  }, []);
+
   const processMarked = useCallback(async () => {
     if (bulkProcessing) return;
     const toIgnore = items.filter((i) => (bulkIntentByItemId[i.id] ?? "none") === "ignore");
@@ -446,6 +461,7 @@ export function ReconPageClient() {
     let ignored = 0;
     let duped = 0;
     let added = 0;
+    let addedIncome = 0;
     let splitAdded = 0;
     let skippedNoCat = 0;
     let skippedInvalidAmount = 0;
@@ -455,6 +471,7 @@ export function ReconPageClient() {
     let duplicateMinor = 0;
     let addMinor = 0;
     let splitAddMinor = 0;
+    let incomeAddMinor = 0;
     const addCategoryMap = new Map<string, { count: number; totalMinor: number }>();
     try {
       for (const item of toIgnore) {
@@ -475,44 +492,72 @@ export function ReconPageClient() {
           duplicateMinor += item.amount;
           continue;
         }
+        const postKind =
+          item.status === "pending_add" ? entryKindByItemId[item.id] ?? "expense" : "expense";
+        const expenseNote = noteByItemId[item.id] ?? defaultExpenseNoteForReconItem(item);
+        const rawAmt = amountRandByItemId[item.id] ?? defaultAmountRandForItem(item);
+        const parsedAmt = parseRandInputToMinor(rawAmt);
+        if (!parsedAmt.ok) {
+          skippedInvalidAmount++;
+          continue;
+        }
+        const amountMinor = parsedAmt.minor;
+
+        if (postKind === "income") {
+          const incomeType = incomeTypeByItemId[item.id] ?? "ad_hoc";
+          await fetchJson<{ expenseId?: number; incomeId?: number }>(
+            `/api/recon/items/${item.id}/accept-add`,
+            {
+              method: "POST",
+              body: JSON.stringify({
+                entryKind: "income",
+                incomeType,
+                note: expenseNote,
+                amount: amountMinor,
+                accountId: acc ?? undefined,
+              }),
+            }
+          );
+          addedIncome++;
+          processedIds.push(item.id);
+          processedDates.push(item.txnDate);
+          incomeAddMinor += amountMinor;
+          continue;
+        }
+
         const cat = effectiveCategory(item);
         if (typeof cat !== "number" || !cat) {
           skippedNoCat++;
           continue;
         }
         const split = splitByItemId[item.id] ?? false;
-        const expenseNote = noteByItemId[item.id] ?? defaultExpenseNoteForReconItem(item);
-        const rawAmt =
-          amountRandByItemId[item.id] ?? defaultAmountRandForItem(item);
-        const parsedAmt = parseRandInputToMinor(rawAmt);
-        if (!parsedAmt.ok) {
-          skippedInvalidAmount++;
-          continue;
-        }
-        const expenseMinor = parsedAmt.minor;
-        await fetchJson<{ expenseId: number }>(`/api/recon/items/${item.id}/accept-add`, {
-          method: "POST",
-          body: JSON.stringify({
-            categoryId: cat,
-            accountId: acc ?? undefined,
-            split,
-            note: expenseNote,
-            amount: expenseMinor,
-          }),
-        });
+        await fetchJson<{ expenseId?: number; incomeId?: number }>(
+          `/api/recon/items/${item.id}/accept-add`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              categoryId: cat,
+              accountId: acc ?? undefined,
+              split,
+              note: expenseNote,
+              amount: amountMinor,
+              entryKind: "expense",
+            }),
+          }
+        );
         added++;
         if (split) {
           splitAdded++;
-          splitAddMinor += expenseMinor;
+          splitAddMinor += amountMinor;
         }
         processedIds.push(item.id);
         processedDates.push(item.txnDate);
-        addMinor += expenseMinor;
+        addMinor += amountMinor;
         const cname = categoryNameForId(categories, cat);
         const prev = addCategoryMap.get(cname) ?? { count: 0, totalMinor: 0 };
         addCategoryMap.set(cname, {
           count: prev.count + 1,
-          totalMinor: prev.totalMinor + expenseMinor,
+          totalMinor: prev.totalMinor + amountMinor,
         });
       }
       void queryClient.invalidateQueries({ queryKey: ["recon-items"] });
@@ -537,8 +582,22 @@ export function ReconPageClient() {
         }
         return next;
       });
-      const processedCount = ignored + duped + added;
-      const acceptedTotalMinor = duplicateMinor + addMinor;
+      setEntryKindByItemId((prev) => {
+        const next = { ...prev };
+        for (const id of processedIds) {
+          delete next[id];
+        }
+        return next;
+      });
+      setIncomeTypeByItemId((prev) => {
+        const next = { ...prev };
+        for (const id of processedIds) {
+          delete next[id];
+        }
+        return next;
+      });
+      const processedCount = ignored + duped + added + addedIncome;
+      const acceptedTotalMinor = duplicateMinor + addMinor + incomeAddMinor;
       const addByCategory = [...addCategoryMap.entries()]
         .map(([categoryName, v]) => ({
           categoryName,
@@ -557,6 +616,8 @@ export function ReconPageClient() {
         acceptedAddCount: added,
         addMinor,
         addByCategory,
+        acceptedIncomeCount: addedIncome,
+        incomeMinor: incomeAddMinor,
         skippedNoCategory: skippedNoCat,
         skippedInvalidAmount,
       });
@@ -570,7 +631,7 @@ export function ReconPageClient() {
       }
       if (skippedNoCat > 0) {
         toast.message(
-          `${skippedNoCat} accept-marked row(s) had no category and were skipped. Fix categories and run Process marked again if needed.`
+          `${skippedNoCat} accept-marked expense row(s) had no category and were skipped. Choose a category or switch those rows to Income, then run Process marked again if needed.`
         );
       }
       if (skippedInvalidAmount > 0) {
@@ -594,6 +655,8 @@ export function ReconPageClient() {
     categories,
     noteByItemId,
     amountRandByItemId,
+    entryKindByItemId,
+    incomeTypeByItemId,
   ]);
 
   const openMessage = useCallback(async (row: FetchedMailDebugRow) => {
@@ -997,9 +1060,10 @@ export function ReconPageClient() {
             </Button>
             <p className="text-xs text-muted-foreground sm:max-w-xl">
               In the Mark column, choose None, Ignore, or Accept (one radio group per row). Rows marked Ignore or Accept
-              are shaded. None skips that row for bulk. Process marked runs ignores first, then accepts (duplicates need
-              no category; adds need a category or they stay pending), then opens a summary: date range, counts, totals
-              by category for new expenses, and overall total.
+              are shaded. Process marked runs ignores first, then accepts. For <strong>needs add</strong> rows, choose
+              <strong> Posting</strong>: <strong>Expense</strong> (requires category; optional split) or{" "}
+              <strong>Income</strong> (no category; creates an income entry). Duplicates are always posted as expense
+              resolution. Then a summary shows date range, counts, new expenses by category, and totals.
             </p>
           </div>
         ) : null}
@@ -1009,7 +1073,7 @@ export function ReconPageClient() {
           <p className="text-sm text-muted-foreground">No pending recon items. Sync after connecting Outlook.</p>
         ) : (
           <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-            <table className="w-full text-sm border-collapse min-w-[920px]">
+            <table className="w-full text-sm border-collapse min-w-[1040px]">
               <thead>
                 <tr className="border-b border-border text-left text-muted-foreground">
                   <th className="py-2 pr-2 font-medium w-[148px] min-w-[148px]">Mark</th>
@@ -1018,15 +1082,17 @@ export function ReconPageClient() {
                   <th className="py-2 pr-3 font-medium">Description</th>
                   <th className="py-2 pr-3 font-medium tabular-nums">Amount</th>
                   <th className="py-2 pr-3 font-medium">Status</th>
+                  <th className="py-2 pr-3 font-medium w-[120px] min-w-[120px]">Posting</th>
                   <th className="py-2 pr-3 font-medium">Category</th>
-                  <th className="py-2 pr-3 font-medium min-w-[200px]">Expense note</th>
+                  <th className="py-2 pr-3 font-medium min-w-[200px]">Note</th>
                   <th className="py-2 pr-3 font-medium">Split</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((item) => {
                   const cat = effectiveCategory(item);
-                  const canAdd = typeof cat === "number" && cat > 0;
+                  const postKind =
+                    item.status === "pending_add" ? entryKindByItemId[item.id] ?? "expense" : "expense";
                   const acc =
                     accountId === "" ? undefined : typeof accountId === "number" ? accountId : undefined;
                   const split = splitByItemId[item.id] ?? false;
@@ -1116,22 +1182,73 @@ export function ReconPageClient() {
                           value={amountRand}
                           onChange={(e) => setAmountRand(item.id, e.target.value)}
                           placeholder={fromMinorUnits(item.amount).toFixed(2)}
-                          title="Amount in ZAR for the new expense (defaults from parsed bank amount)"
+                          title="Amount in ZAR for the posted row (defaults from parsed bank amount)"
                         />
                       </td>
                       <td className="py-3 pr-3">
                         <div>{statusLabel(item.status)}</div>
                       </td>
+                      <td className="py-3 pr-3 align-top min-w-[120px]">
+                        {item.status === "pending_add" ? (
+                          <div className="flex flex-col gap-2">
+                            <div
+                              className="flex flex-col gap-1"
+                              role="radiogroup"
+                              aria-label={`Post recon item ${item.id} as expense or income`}
+                            >
+                              <label className="flex items-center gap-2 cursor-pointer text-xs leading-none">
+                                <input
+                                  type="radio"
+                                  name={`recon-kind-${item.id}`}
+                                  className="h-3.5 w-3.5 shrink-0 border-input accent-primary"
+                                  checked={postKind === "expense"}
+                                  onChange={() => setEntryKindForItem(item.id, "expense")}
+                                />
+                                Expense
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer text-xs leading-none">
+                                <input
+                                  type="radio"
+                                  name={`recon-kind-${item.id}`}
+                                  className="h-3.5 w-3.5 shrink-0 border-input accent-primary"
+                                  checked={postKind === "income"}
+                                  onChange={() => setEntryKindForItem(item.id, "income")}
+                                />
+                                Income
+                              </label>
+                            </div>
+                            {postKind === "income" ? (
+                              <select
+                                className="w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
+                                value={incomeTypeByItemId[item.id] ?? "ad_hoc"}
+                                onChange={(e) =>
+                                  setIncomeTypeByItemId((p) => ({
+                                    ...p,
+                                    [item.id]: e.target.value as "salary" | "ad_hoc",
+                                  }))
+                                }
+                                aria-label={`Income type for recon item ${item.id}`}
+                              >
+                                <option value="ad_hoc">Other income</option>
+                                <option value="salary">Salary</option>
+                              </select>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Expense</span>
+                        )}
+                      </td>
                       <td className="py-3 pr-3 min-w-[160px]">
                         <select
-                          className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+                          className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm disabled:opacity-50"
+                          disabled={postKind === "income"}
                           value={cat === "" ? "" : String(cat)}
                           onChange={(e) => {
                             const v = e.target.value;
                             setCategory(item.id, v === "" ? "" : Number(v));
                           }}
                         >
-                          <option value="">Select category…</option>
+                          <option value="">{postKind === "income" ? "—" : "Select category…"}</option>
                           {categories.map((c) => (
                             <option key={c.id} value={c.id}>
                               {c.name}
@@ -1141,7 +1258,7 @@ export function ReconPageClient() {
                       </td>
                       <td className="py-3 pr-3 min-w-[200px] max-w-[280px]">
                         <label htmlFor={`recon-note-${item.id}`} className="sr-only">
-                          Expense note for recon item {item.id}
+                          Note for recon item {item.id}
                         </label>
                         <textarea
                           id={`recon-note-${item.id}`}
@@ -1150,7 +1267,7 @@ export function ReconPageClient() {
                           className="w-full min-h-[2.75rem] rounded-md border border-input bg-background px-2 py-1.5 text-sm resize-y"
                           value={expenseNote}
                           onChange={(e) => setExpenseNote(item.id, e.target.value)}
-                          placeholder="Note on new expense"
+                          placeholder={postKind === "income" ? "Income description" : "Note on new expense"}
                         />
                       </td>
                       <td className="py-3 pr-3 min-w-[140px]">
@@ -1158,7 +1275,8 @@ export function ReconPageClient() {
                           <input
                             id={`recon-split-${item.id}`}
                             type="checkbox"
-                            className="h-4 w-4 rounded border-input"
+                            className="h-4 w-4 rounded border-input disabled:opacity-50"
+                            disabled={postKind === "income"}
                             checked={split}
                             onChange={(e) => setSplit(item.id, e.target.checked)}
                           />
@@ -1175,7 +1293,7 @@ export function ReconPageClient() {
                           isMarked ? "bg-muted/40 text-muted-foreground" : "bg-muted/20"
                         )}
                       >
-                        <td colSpan={10} className="py-2 px-3 pb-3 align-top">
+                        <td colSpan={11} className="py-2 px-3 pb-3 align-top">
                           <p className="text-xs font-medium text-muted-foreground mb-2">
                             Possible duplicate — expense already on file (same calendar day and amount)
                           </p>
@@ -1217,7 +1335,7 @@ export function ReconPageClient() {
                           isMarked ? "bg-muted/40 text-muted-foreground" : "bg-muted/20"
                         )}
                       >
-                        <td colSpan={10} className="py-2 px-3 text-xs text-muted-foreground">
+                        <td colSpan={11} className="py-2 px-3 text-xs text-muted-foreground">
                           Possible duplicate: linked expense(s) are no longer found (they may have been deleted).
                         </td>
                       </tr>
@@ -1361,11 +1479,15 @@ export function ReconPageClient() {
               <span>
                 Accepted{" "}
                 <span className="font-semibold tabular-nums">
-                  {processMarkedSummary.acceptedDuplicateCount + processMarkedSummary.acceptedAddCount}
+                  {processMarkedSummary.acceptedDuplicateCount +
+                    processMarkedSummary.acceptedAddCount +
+                    processMarkedSummary.acceptedIncomeCount}
                 </span>
                 <span className="text-muted-foreground text-xs block sm:inline sm:ml-1">
                   ({processMarkedSummary.acceptedAddCount} new expense
                   {processMarkedSummary.acceptedAddCount === 1 ? "" : "s"},{" "}
+                  {processMarkedSummary.acceptedIncomeCount} new income
+                  {processMarkedSummary.acceptedIncomeCount === 1 ? "" : "s"},{" "}
                   {processMarkedSummary.acceptedDuplicateCount} duplicate
                   {processMarkedSummary.acceptedDuplicateCount === 1 ? "" : "s"})
                 </span>
@@ -1376,7 +1498,7 @@ export function ReconPageClient() {
               </span>
               {processMarkedSummary.skippedNoCategory > 0 ? (
                 <span className="text-amber-700 dark:text-amber-500">
-                  Skipped (no category on row) {processMarkedSummary.skippedNoCategory}
+                  Skipped (expense rows with no category) {processMarkedSummary.skippedNoCategory}
                 </span>
               ) : null}
               {processMarkedSummary.skippedInvalidAmount > 0 ? (
@@ -1407,6 +1529,14 @@ export function ReconPageClient() {
                   </tbody>
                 </table>
               </div>
+            ) : null}
+            {processMarkedSummary.acceptedIncomeCount > 0 ? (
+              <p className="text-sm text-muted-foreground">
+                New income posted: {processMarkedSummary.acceptedIncomeCount} ·{" "}
+                <span className="font-medium tabular-nums text-foreground">
+                  {formatRand(processMarkedSummary.incomeMinor)}
+                </span>
+              </p>
             ) : null}
             {(processMarkedSummary.acceptedDuplicateCount > 0 || processMarkedSummary.ignoredCount > 0) && (
               <ul className="space-y-1 text-muted-foreground">
@@ -1456,7 +1586,7 @@ export function ReconPageClient() {
 
       {accounts.length > 0 ? (
         <section className="rounded-xl border border-border bg-card p-4 space-y-2">
-          <SectionHeader title="Default account for new expenses" />
+          <SectionHeader title="Default account for posted rows" />
           <select
             className="w-full max-w-md rounded-md border border-input bg-background px-2 py-1.5 text-sm"
             value={accountId === "" ? "" : String(accountId)}
@@ -1471,7 +1601,10 @@ export function ReconPageClient() {
               </option>
             ))}
           </select>
-          <p className="text-xs text-muted-foreground">Used when you accept and add an expense (single row or bulk Process marked).</p>
+          <p className="text-xs text-muted-foreground">
+            Used when you accept-add as an expense or as income (single row or bulk Process marked), when an account is
+            applicable.
+          </p>
         </section>
       ) : null}
     </div>

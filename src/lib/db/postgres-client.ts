@@ -1,6 +1,6 @@
 import pg from "pg";
 import type { IDbClient } from "./types";
-import { getRequestContext, setRequestContext } from "./request-context";
+import { getRequestContext, setRequestContext, type RequestContext } from "./request-context";
 
 const { Pool } = pg;
 
@@ -29,6 +29,39 @@ async function getPool(): Promise<pg.Pool> {
   return pool;
 }
 
+async function queryPg<T extends pg.QueryResultRow = pg.QueryResultRow>(
+  sql: string,
+  params: (string | number | boolean | null)[]
+): Promise<pg.QueryResult<T>> {
+  const [pgSql, pgParams] = toPgParams(sql, params);
+  const txClient = getRequestContext()?.pgClient;
+  if (txClient) {
+    return txClient.query<T>(pgSql, pgParams);
+  }
+  const p = await getPool();
+  return p.query<T>(pgSql, pgParams);
+}
+
+export async function withTransaction<T>(fn: () => Promise<T>): Promise<T> {
+  const p = await getPool();
+  const client = await p.connect();
+  const prev = getRequestContext();
+  const baseCtx: RequestContext = prev ? { ...prev } : {};
+  try {
+    await client.query("BEGIN");
+    setRequestContext({ ...baseCtx, pgClient: client });
+    const result = await fn();
+    await client.query("COMMIT");
+    return result;
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    if (prev) setRequestContext(prev);
+    client.release();
+  }
+}
+
 const postgresClient: IDbClient = {
   async initDb(): Promise<void> {
     const p = await getPool();
@@ -44,6 +77,18 @@ const postgresClient: IDbClient = {
   },
 
   async run(sql: string, params: (string | number | boolean | null)[] = []): Promise<void> {
+    const txClient = getRequestContext()?.pgClient;
+    if (txClient) {
+      const [pgSql, pgParams] = toPgParams(sql, params);
+      await txClient.query(pgSql, pgParams);
+      if (isInsert(sql)) {
+        const res = await txClient.query("SELECT lastval() AS id");
+        const id = res.rows[0]?.id != null ? Number(res.rows[0].id) : null;
+        const ctx = getRequestContext();
+        if (ctx) setRequestContext({ ...ctx, lastInsertId: id ?? undefined });
+      }
+      return;
+    }
     const p = await getPool();
     const client = await p.connect();
     try {
@@ -73,9 +118,7 @@ const postgresClient: IDbClient = {
     sql: string,
     params: (string | number | boolean | null)[] = []
   ): Promise<T | null> {
-    const p = await getPool();
-    const [pgSql, pgParams] = toPgParams(sql, params);
-    const res = await p.query(pgSql, pgParams);
+    const res = await queryPg(sql, params);
     const row = res.rows[0];
     return (row as T) ?? null;
   },
@@ -84,9 +127,7 @@ const postgresClient: IDbClient = {
     sql: string,
     params: (string | number | boolean | null)[] = []
   ): Promise<T[]> {
-    const p = await getPool();
-    const [pgSql, pgParams] = toPgParams(sql, params);
-    const res = await p.query(pgSql, pgParams);
+    const res = await queryPg(sql, params);
     return res.rows as T[];
   },
 };

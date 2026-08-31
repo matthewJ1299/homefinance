@@ -10,6 +10,7 @@ import { Trash2, Pencil } from "lucide-react";
 import { deleteExpense, getExpenseForEdit } from "@/lib/actions/expense.actions";
 import { Button } from "@/components/ui/button";
 import { EditExpenseDialog } from "./edit-expense-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 
 interface ExpenseItemProps {
@@ -36,6 +37,7 @@ export function ExpenseItem({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [editAllocations, setEditAllocations] = useState<
     Array<{ userId: number; userName: string; amount: number }> | undefined
   >(undefined);
@@ -62,13 +64,17 @@ export function ExpenseItem({
   };
 
   const handleDelete = () => {
-    if (!confirm("Delete this expense? This cannot be undone.")) return;
     if (isTemp) return;
+    setDeleteOpen(true);
+  };
+
+  const confirmDelete = () => {
     const rollback = onOptimisticRemoveExpense?.(expense);
     startTransition(async () => {
       const result = await deleteExpense(expense.id);
       if (result.success) {
         toast.success("Expense deleted.");
+        setDeleteOpen(false);
         void router.refresh();
       } else {
         rollback?.();
@@ -148,6 +154,16 @@ export function ExpenseItem({
         categories={categories}
         otherUserName={otherUserName}
         onOptimisticUpsertExpense={onOptimisticUpsertExpense}
+      />
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete expense"
+        description="This cannot be undone."
+        confirmLabel="Delete"
+        destructive
+        isPending={isPending}
+        onConfirm={confirmDelete}
       />
     </>
   );

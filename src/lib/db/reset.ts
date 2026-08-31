@@ -8,6 +8,13 @@
 export {};
 
 async function resetPostgres(): Promise<void> {
+  if (process.env.ALLOW_DB_RESET !== "1") {
+    console.error(
+      "Refusing to reset database. This drops ALL data (DROP SCHEMA public CASCADE).\n" +
+        "Set ALLOW_DB_RESET=1 to confirm you intend to wipe the database."
+    );
+    process.exit(1);
+  }
   const pg = await import("pg");
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL is required for Postgres reset");
