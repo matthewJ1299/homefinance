@@ -75,10 +75,7 @@ function LoginForm() {
             {loading ? "Signing in..." : "Sign in"}
           </Button>
           <p className="text-sm text-muted-foreground text-center">
-            New household?{" "}
-            <a href="/register" className="underline">
-              Register
-            </a>
+            Accounts are created by an administrator.
           </p>
         </form>
       </CardContent>

@@ -2,8 +2,9 @@ import { getUserRepository } from "@/lib/repositories";
 
 /**
  * Whether AI buttons, report page interactivity, and analysis API should work for this user.
- * Combines admin-style feature access (`users.ai_feature_allowed`) with the user's Settings toggle
- * and whether the server's keys support their chosen tier.
+ * Combines feature access (`households.ai_feature_allowed` AND `users.ai_feature_allowed`,
+ * both resolved by `getAiFeatureAllowed`) with the user's Settings toggle and whether the
+ * server's keys support their chosen tier.
  */
 export async function resolveAiInteractiveEnabled(
   userId: number,
@@ -19,7 +20,8 @@ export async function resolveAiInteractiveEnabled(
 
 /**
  * Whether Recon nav, page, Graph connect, and mutating APIs should allow this user.
- * Combines admin-style feature access (`users.recon_feature_allowed`) with the user's Settings toggle.
+ * Combines feature access (`households.recon_feature_allowed` AND `users.recon_feature_allowed`,
+ * both resolved by `getReconFeatureAllowed`) with the user's Settings toggle.
  */
 export async function resolveReconInteractiveEnabled(userId: number): Promise<boolean> {
   const repo = getUserRepository();

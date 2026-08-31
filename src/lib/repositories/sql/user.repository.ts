@@ -181,11 +181,16 @@ export class UserRepository implements IUserRepository {
 
   async getReconFeatureAllowed(userId: number): Promise<boolean> {
     try {
-      const row = await get<{ recon_feature_allowed: boolean | null }>(
-        "SELECT recon_feature_allowed FROM users WHERE id = ?",
+      // Gate = household policy AND per-user allow. Admin portal sets the household
+      // flag (households.recon_feature_allowed); the user row keeps the per-user opt-in.
+      const row = await get<{ allowed: boolean | null }>(
+        `SELECT (u.recon_feature_allowed AND h.recon_feature_allowed) AS allowed
+         FROM users u
+         JOIN households h ON h.id = u.household_id
+         WHERE u.id = ?`,
         [userId]
       );
-      return row?.recon_feature_allowed === true;
+      return row?.allowed === true;
     } catch (err) {
       if (err && typeof err === "object" && "code" in err && err.code === "42703") {
         return false;
@@ -233,11 +238,16 @@ export class UserRepository implements IUserRepository {
 
   async getAiFeatureAllowed(userId: number): Promise<boolean> {
     try {
-      const row = await get<{ ai_feature_allowed: boolean | null }>(
-        "SELECT ai_feature_allowed FROM users WHERE id = ?",
+      // Gate = household policy AND per-user allow. Admin portal sets the household
+      // flag (households.ai_feature_allowed); the user row keeps the per-user opt-in.
+      const row = await get<{ allowed: boolean | null }>(
+        `SELECT (u.ai_feature_allowed AND h.ai_feature_allowed) AS allowed
+         FROM users u
+         JOIN households h ON h.id = u.household_id
+         WHERE u.id = ?`,
         [userId]
       );
-      return row?.ai_feature_allowed === true;
+      return row?.allowed === true;
     } catch (err) {
       if (err && typeof err === "object" && "code" in err && err.code === "42703") {
         return false;

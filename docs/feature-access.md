@@ -1,21 +1,24 @@
 # Feature access (AI and Recon)
 
-Tenant isolation for finance data is described in [multi-household.md](./multi-household.md). The flags below are **per user** within a household (`users.ai_feature_allowed`, `users.recon_feature_allowed`).
+Tenant isolation for finance data is described in [multi-household.md](./multi-household.md).
 
 Related: **Settings** (per-user preferences), **AI analysis** ([docs/ai-budget-analysis.md](./ai-budget-analysis.md)), **Recon** ([docs/recon.md](./recon.md)).
 
 ## Model
 
-Two layers per feature:
+Three layers per feature, all required:
 
-1. **Admin-style gate** (intended for a future admin UI; set in the database today):
+1. **Household policy** (admin portal `/admin/features`, `/admin/houses`):
+   - `households.ai_feature_allowed` / `households.recon_feature_allowed` — the whole household may use the feature.
+
+2. **Per-user allow** (admin portal `/admin/users`, or one-off SQL):
    - `users.ai_feature_allowed` — user may use AI analysis APIs and Settings AI toggles at all.
-   - `users.recon_feature_allowed` — user may use Recon (Graph OAuth, sync, pending list APIs) and Settings Recon toggle at all.
+   - `users.recon_feature_allowed` — user may use Recon (Graph OAuth, sync, pending list APIs) and the Settings Recon toggle at all.
 
-2. **User preference** (existing):
+3. **User preference** (existing):
    - `users.ai_enabled`, `users.recon_enabled` — “I want this on” under **Settings**.
 
-Effective access requires **both** columns true for that feature. Server actions and `/api/recon/*` routes enforce this; `analyzeExpenses` and AI preference actions check `ai_feature_allowed`.
+`UserRepository.getAiFeatureAllowed(userId)` / `getReconFeatureAllowed(userId)` resolve **layers 1 AND 2 together** (join `households` on `users.household_id`), so every call site — pages, actions, `/api/recon/*`, `/api/admin` — gets the combined result with no extra wiring. Effective interactive access additionally requires layer 3 (and, for AI, that the chosen tier's keys are configured).
 
 Resolution helpers live in `src/lib/services/feature-access.service.ts` (`resolveAiInteractiveEnabled`, `resolveReconInteractiveEnabled`).
 
@@ -23,11 +26,10 @@ Resolution helpers live in `src/lib/services/feature-access.service.ts` (`resolv
 
 ## Migration and defaults
 
-- Schema: `drizzle/0020_users_feature_access_pg.sql` adds both columns (`NOT NULL DEFAULT false`).
-- **Existing databases**: `npm run db:push` runs that migration; the SQL then sets **`ai_feature_allowed` and `recon_feature_allowed` to `true` only for `users.id = 1`** (adjust that `UPDATE` in the migration file or run SQL / admin UI later for other users). Everyone else stays `false` until granted.
-- **Already applied an older 0020** that updated all users: this file change does not re-run automatically (columns already exist). Use SQL to set flags per user if needed.
-- **New users**: application inserts should set the flags explicitly. Seeds (`seed.ts`, `seed-categories.ts`) set both to `true` for dev users.
+- Schema: `drizzle/0020_users_feature_access_pg.sql` adds the **user** columns; `drizzle/0028_super_admin_and_household_feature_policy_pg.sql` adds the **household** columns (all `NOT NULL DEFAULT false`).
+- **Existing databases**: `npm run db:push` runs both migrations. `0020` sets the user flags `true` for `users.id = 1`; `0028` sets the matching household flags `true` for user 1's household (back-compat so existing access is not lost). Everyone else stays `false` until granted.
+- **New users/households**: `0028` defaults household flags to `false`. Super-admin enables the household in `/admin`, then the user in `/admin/users`. Seeds (`seed.ts`, `seed-categories.ts`) set both household and user flags `true` for dev users.
 
 ## Repository
 
-`IUserRepository` exposes `getAiFeatureAllowed` / `setAiFeatureAllowed` and `getReconFeatureAllowed` / `setReconFeatureAllowed` for the future admin UI and one-off SQL alternatives.
+`IUserRepository` exposes `getAiFeatureAllowed` / `setAiFeatureAllowed` and `getReconFeatureAllowed` / `setReconFeatureAllowed` (per-user column). `AdminHouseholdRepository.updateFeaturePolicy` sets the household columns. The `get*` methods return `household_flag AND user_flag`.

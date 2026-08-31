@@ -24,9 +24,15 @@ async function seedMinimal() {
   const user1Name = process.env.SEED_USER1_NAME ?? "Matt";
   const user2Name = process.env.SEED_USER2_NAME ?? "Sydney";
 
-  await run("INSERT INTO households (name) VALUES (?)", [`${user1Name} household`]);
+  await run(
+    "INSERT INTO households (name, ai_feature_allowed, recon_feature_allowed) VALUES (?, true, true)",
+    [`${user1Name} household`]
+  );
   const household1Id = await lastInsertId();
-  await run("INSERT INTO households (name) VALUES (?)", [`${user2Name} household`]);
+  await run(
+    "INSERT INTO households (name, ai_feature_allowed, recon_feature_allowed) VALUES (?, true, true)",
+    [`${user2Name} household`]
+  );
   const household2Id = await lastInsertId();
 
   await run(

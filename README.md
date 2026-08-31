@@ -15,7 +15,7 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 ### Multi-household tenancy
 
 - Each user belongs to **exactly one household**. Domain data (categories, transactions, budgets, goals, lists, calendar, Recon, AI runs, etc.) is scoped by **`household_id`** so independent families do not see each other’s data in a shared database.
-- **Onboarding**: open **`/register`** to create a household, default categories, and the first user, or use **`npm run db:seed`** for full demo households locally, or **`npm run db:push && npm run db:seed:users`** for login users only. Details and upgrade steps: [docs/multi-household.md](./docs/multi-household.md).
+- **Onboarding**: a global super-admin creates households and users from the **admin portal** (`/admin`) — public self-registration is disabled. For local dev use **`npm run db:seed`** for full demo households, or **`npm run db:push && npm run db:seed:users`** for login users only. Details and upgrade steps: [docs/multi-household.md](./docs/multi-household.md).
 - **Existing installs**: run **`npm run db:push`** to apply `drizzle/0027_households_pg.sql` via the migration ledger; the migration is idempotent and safe to retry if an older deploy stopped mid-run around `calendar_categories`. Legacy installs are backfilled into a single default household unless you already split data across households. Users should **sign out and sign in** once so the session/JWT includes `householdId`.
 
 ### Admin portal (global super-admin)
@@ -100,7 +100,7 @@ Plain-language summary of balance, monthly cost, payoff horizon, and each person
    - Seed only the two login users: `npm run db:seed:users` (creates or updates the two env-driven users and creates households for them if needed).
    - Minimal setup seed: `npm run db:seed:minimal` (assumes an empty DB and seeds two households, default categories per household, split groups, and two users).
    - Full demo seed: `npm run db:seed` (clears all data, then seeds two households with full demo data).
-   - **Self-serve**: with the app running, visit **`/register`** to create another household + user (no seed script).
+   - **Add more households/users**: sign in as a super-admin and use the **admin portal** (`/admin`) — there is no public `/register`. Grant super-admin with `UPDATE users SET is_super_admin = true WHERE email = '…';`.
 
 **Local Postgres with Docker:** Run `docker compose up --build` to start Postgres and the production app image on the internal Compose network (deploy parity), then in the app container run push and seed (see [DEPLOY.md](./DEPLOY.md)).
 
@@ -236,7 +236,7 @@ The diagram below reflects the **PostgreSQL** schema built from numbered migrati
 - `notes.linked_type` and `notes.linked_id` form a **polymorphic** pointer for user-authored notes on arbitrary domain rows (type keys are app-defined; no FK to targets). See `getNoteRepository()` / `INoteRepository`.
 - **Shared list items**: optional notes use `linked_type = 'shared_list_item'` (`NOTE_LINKED_TYPE_SHARED_LIST_ITEM`) and `linked_id = shared_list_items.id`. There is no column on the item row; zero or many note rows per item are allowed. `notes.owner_user_id` scopes who wrote the note. Deleting a list, an item, or completed items removes attached notes via the list repositories.
 - `expenses.split_group_id` is a legacy text field; split grouping also uses `split_expense_group_id` → `split_groups`.
-- **Tenant column**: From migration `0022` onward, most domain tables include **`household_id`** (FK to `households`). The diagram lists it on `users`, `categories`, and `split_groups`; other tables follow the same pattern (see `drizzle/0022_households_pg.sql`).
+- **Tenant column**: Migration `drizzle/0027_households_pg.sql` adds **`household_id`** (FK to `households`) to most domain tables. The diagram lists it on `users`, `categories`, and `split_groups`; other tables follow the same pattern. Child tables without their own `household_id` (`account_transactions`, `shared_list_items`, `sent_reminders`, `mortgage_rate_periods`, `ai_analysis_run_messages`/`_applications`) are isolated by joining their parent.
 
 ```mermaid
 erDiagram

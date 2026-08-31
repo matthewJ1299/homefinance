@@ -1,4 +1,4 @@
-import { lastInsertId, run } from "@/lib/db";
+import { all, lastInsertId, run } from "@/lib/db";
 import type { IHouseholdRepository } from "../interfaces/household.repository";
 
 export class HouseholdRepository implements IHouseholdRepository {
@@ -9,5 +9,10 @@ export class HouseholdRepository implements IHouseholdRepository {
       throw new Error("Household insert did not return an id");
     }
     return id;
+  }
+
+  async listAllHouseholdIds(): Promise<number[]> {
+    const rows = await all<{ id: number }>("SELECT id FROM households ORDER BY id");
+    return rows.map((r) => Number(r.id));
   }
 }

@@ -1,4 +1,5 @@
 import { all, get } from "@/lib/db";
+import { requireHouseholdId } from "@/lib/db/request-context";
 import type {
   AIAnalysisRunApplicationRow,
   CreateAIAnalysisRunApplicationInput,
@@ -50,11 +51,14 @@ export class AIAnalysisRunApplicationRepository implements IAIAnalysisRunApplica
       suggestion_index: number;
       created_at: string;
     }>(
-      `SELECT id, run_id, user_id, month, action_type, category_id, from_category_id, to_category_id,
-        amount_cents, previous_allocated_cents, previous_from_allocated_cents, previous_to_allocated_cents,
-        suggestion_kind, suggestion_index, created_at
-       FROM ai_analysis_run_applications WHERE user_id = ? AND run_id = ? ORDER BY created_at ASC`,
-      [userId, runId]
+      `SELECT a.id, a.run_id, a.user_id, a.month, a.action_type, a.category_id, a.from_category_id, a.to_category_id,
+        a.amount_cents, a.previous_allocated_cents, a.previous_from_allocated_cents, a.previous_to_allocated_cents,
+        a.suggestion_kind, a.suggestion_index, a.created_at
+       FROM ai_analysis_run_applications a
+       INNER JOIN ai_analysis_runs ar ON ar.id = a.run_id
+       WHERE ar.household_id = ? AND a.user_id = ? AND a.run_id = ?
+       ORDER BY a.created_at ASC`,
+      [requireHouseholdId(), userId, runId]
     );
     return rows.map((r) => ({
       id: Number(r.id),

@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { bootstrapHouseholdDefaults } from "@/lib/db/bootstrap-household-defaults";
 import { getUserRepository } from "@/lib/repositories";
 import type { IAdminHouseholdRepository } from "@/lib/repositories/interfaces/admin-household.repository";
 import type { IAdminUserRepository } from "@/lib/repositories/interfaces/admin-user.repository";
@@ -37,6 +38,9 @@ export class AdminUserProvisioningService implements IAdminUserProvisioningServi
       throw new Error("Email already exists");
     }
     const householdId = await this.households.createHousehold(input.householdName);
+    // New households need a default split group + categories or the app is unusable
+    // (no budget categories, "groupId missing" on Splits).
+    await bootstrapHouseholdDefaults(householdId);
     const passwordHash = await bcrypt.hash(input.ownerPassword, 10);
     const userId = await this.users.createUser({
       householdId,

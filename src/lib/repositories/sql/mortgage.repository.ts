@@ -237,10 +237,14 @@ export class MortgageRepository implements IMortgageRepository {
   }
 
   async getRatePeriods(mortgageId: number) {
+    const hid = requireHouseholdId();
     const rows = await all<RatePeriodRow>(
-      `SELECT id, mortgage_id, effective_from_month, annual_interest_rate, created_at
-       FROM mortgage_rate_periods WHERE mortgage_id = ? ORDER BY effective_from_month`,
-      [mortgageId]
+      `SELECT rp.id, rp.mortgage_id, rp.effective_from_month, rp.annual_interest_rate, rp.created_at
+       FROM mortgage_rate_periods rp
+       INNER JOIN mortgage_configs mc ON mc.id = rp.mortgage_id
+       WHERE rp.mortgage_id = ? AND mc.household_id = ?
+       ORDER BY rp.effective_from_month`,
+      [mortgageId, hid]
     );
     return rows.map((row) => ({
       id: row.id,
@@ -255,6 +259,15 @@ export class MortgageRepository implements IMortgageRepository {
     mortgageId: number,
     periods: Array<{ effectiveFromMonth: number; annualInterestRate: number }>
   ) {
+    const hid = requireHouseholdId();
+    // Guard: only touch rate periods for a mortgage owned by this household.
+    const owned = await get<{ id: number }>(
+      "SELECT id FROM mortgage_configs WHERE id = ? AND household_id = ? LIMIT 1",
+      [mortgageId, hid]
+    );
+    if (!owned) {
+      throw new Error("Mortgage not found for this household");
+    }
     await run("DELETE FROM mortgage_rate_periods WHERE mortgage_id = ?", [mortgageId]);
     for (const period of periods) {
       await run(

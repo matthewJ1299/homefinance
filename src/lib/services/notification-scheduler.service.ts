@@ -2,7 +2,8 @@ import cron from "node-cron";
 import { format, parseISO, subMinutes, addDays } from "date-fns";
 import { CalendarService } from "@/lib/services/calendar.service";
 import { NotificationService, isNotificationConfigured } from "@/lib/services/notification.service";
-import { getSentReminderRepository, getUserRepository } from "@/lib/repositories";
+import { getHouseholdRepository, getSentReminderRepository, getUserRepository } from "@/lib/repositories";
+import { setRequestContext } from "@/lib/db/request-context";
 import { formatEventLine } from "@/lib/utils/format-time";
 import type { CalendarEventOccurrence } from "@/lib/services/calendar.service";
 
@@ -17,28 +18,44 @@ function getDailyHour(): number {
 }
 
 /**
- * Runs the same logic as GET /api/cron/daily-calendar-notification: today's events summary to all users.
+ * Runs the same logic as GET /api/cron/daily-calendar-notification: today's events summary
+ * to every user. Iterates households and binds tenant request context per household so the
+ * calendar/push repositories (which require household scope) resolve correctly.
  */
 async function runDailySummary(): Promise<void> {
   if (!isNotificationConfigured()) return;
   try {
     const today = format(new Date(), "yyyy-MM-dd");
-    const calendarService = new CalendarService();
-    const userRepo = getUserRepository();
-    const users = await userRepo.findAll();
-    const notificationService = new NotificationService();
-    const title = "HomeFinance";
-    for (const user of users) {
-      const occurrences = await calendarService.getByDateRange(today, today, user.id);
-      if (occurrences.length === 0) continue;
-      const body =
-        occurrences.length === 1
-          ? `You have an upcoming event: ${formatEventLine(occurrences[0].name, occurrences[0].time)}.`
-          : `You have upcoming events: ${occurrences.map((o) => formatEventLine(o.name, o.time)).join("; ")}.`;
-      await notificationService.sendToUser(user.id, { title, body, url: "/calendar" }, { ttl: 86400 });
+    const householdIds = await getHouseholdRepository().listAllHouseholdIds();
+    for (const householdId of householdIds) {
+      try {
+        setRequestContext({ householdId });
+        await sendDailySummaryForHousehold(today);
+      } catch (err) {
+        console.error(
+          `[NotificationScheduler] Daily summary failed for household ${householdId}:`,
+          err
+        );
+      }
     }
   } catch (err) {
     console.error("[NotificationScheduler] Daily summary failed:", err);
+  }
+}
+
+async function sendDailySummaryForHousehold(today: string): Promise<void> {
+  const calendarService = new CalendarService();
+  const users = await getUserRepository().findAll();
+  const notificationService = new NotificationService();
+  const title = "HomeFinance";
+  for (const user of users) {
+    const occurrences = await calendarService.getByDateRange(today, today, user.id);
+    if (occurrences.length === 0) continue;
+    const body =
+      occurrences.length === 1
+        ? `You have an upcoming event: ${formatEventLine(occurrences[0].name, occurrences[0].time)}.`
+        : `You have upcoming events: ${occurrences.map((o) => formatEventLine(o.name, o.time)).join("; ")}.`;
+    await notificationService.sendToUser(user.id, { title, body, url: "/calendar" }, { ttl: 86400 });
   }
 }
 
@@ -62,6 +79,7 @@ function getReminderTime(occ: CalendarEventOccurrence): { date: string; time: st
 
 /**
  * Every minute: find occurrences whose reminder time is "now" and send push (and mark sent).
+ * Iterates households and binds tenant request context per household.
  */
 async function runPerEventReminders(): Promise<void> {
   if (!isNotificationConfigured()) return;
@@ -70,31 +88,50 @@ async function runPerEventReminders(): Promise<void> {
     const todayStr = format(now, "yyyy-MM-dd");
     const tomorrowStr = format(addDays(now, 1), "yyyy-MM-dd");
     const minuteStr = format(now, "HH:mm");
-    const calendarService = new CalendarService();
-    const sentReminderRepo = getSentReminderRepository();
-    const occurrences = await calendarService.getAllOccurrencesInRange(todayStr, tomorrowStr);
-    for (const occ of occurrences) {
-      const reminder = getReminderTime(occ);
-      if (!reminder || reminder.time !== minuteStr) continue;
-      if (reminder.date !== todayStr && reminder.date !== tomorrowStr) continue;
-      const alreadySent = await sentReminderRepo.hasBeenSent(occ.eventId, occ.date);
-      if (alreadySent) continue;
-      const title = "HomeFinance";
-      const body = `Reminder: ${formatEventLine(occ.name, occ.time)}`;
-      const notificationService = new NotificationService();
-      if (occ.isShared) {
-        await notificationService.sendToAll({ title, body, url: "/calendar" }, { ttl: 3600 });
-      } else {
-        await notificationService.sendToUser(
-          occ.createdByUserId,
-          { title, body, url: "/calendar" },
-          { ttl: 3600 }
+    const householdIds = await getHouseholdRepository().listAllHouseholdIds();
+    for (const householdId of householdIds) {
+      try {
+        setRequestContext({ householdId });
+        await sendPerEventRemindersForHousehold(todayStr, tomorrowStr, minuteStr);
+      } catch (err) {
+        console.error(
+          `[NotificationScheduler] Per-event reminders failed for household ${householdId}:`,
+          err
         );
       }
-      await sentReminderRepo.markSent(occ.eventId, occ.date);
     }
   } catch (err) {
     console.error("[NotificationScheduler] Per-event reminders failed:", err);
+  }
+}
+
+async function sendPerEventRemindersForHousehold(
+  todayStr: string,
+  tomorrowStr: string,
+  minuteStr: string
+): Promise<void> {
+  const calendarService = new CalendarService();
+  const sentReminderRepo = getSentReminderRepository();
+  const occurrences = await calendarService.getAllOccurrencesInRange(todayStr, tomorrowStr);
+  for (const occ of occurrences) {
+    const reminder = getReminderTime(occ);
+    if (!reminder || reminder.time !== minuteStr) continue;
+    if (reminder.date !== todayStr && reminder.date !== tomorrowStr) continue;
+    const alreadySent = await sentReminderRepo.hasBeenSent(occ.eventId, occ.date);
+    if (alreadySent) continue;
+    const title = "HomeFinance";
+    const body = `Reminder: ${formatEventLine(occ.name, occ.time)}`;
+    const notificationService = new NotificationService();
+    if (occ.isShared) {
+      await notificationService.sendToAll({ title, body, url: "/calendar" }, { ttl: 3600 });
+    } else {
+      await notificationService.sendToUser(
+        occ.createdByUserId,
+        { title, body, url: "/calendar" },
+        { ttl: 3600 }
+      );
+    }
+    await sentReminderRepo.markSent(occ.eventId, occ.date);
   }
 }
 

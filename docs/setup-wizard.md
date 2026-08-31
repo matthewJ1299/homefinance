@@ -23,7 +23,7 @@ Wizard progress is stored per user on `users`:
 - `users.setup_wizard_dismissed_at` (optional)
 - `users.setup_wizard_completed_at` (optional)
 
-Schema migration: `drizzle/0024_users_setup_wizard_state_pg.sql` (applied via `npm run db:push`).
+Schema migration: `drizzle/0029_users_setup_wizard_state_pg.sql` (applied via `npm run db:push`).
 
 ## Feature-access interaction (AI and Recon)
 

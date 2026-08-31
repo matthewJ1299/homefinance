@@ -28,14 +28,9 @@ export const authConfig: NextAuthConfig = {
       if (isOnApp && !isLoggedIn) {
         return false;
       }
-      const isRegister = nextUrl.pathname.startsWith("/register");
-      if (isRegister && !isLoggedIn) {
-        return true;
-      }
+      // Public self-registration is disabled; households + users are provisioned
+      // from the admin portal. Any /register request falls through to a 404.
       if (auth?.user && nextUrl.pathname === "/login") {
-        return Response.redirect(new URL("/dashboard", nextUrl));
-      }
-      if (auth?.user && isRegister) {
         return Response.redirect(new URL("/dashboard", nextUrl));
       }
       return true;
