@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { requireSuperAdmin } from "@/lib/db/request-context";
+import { bootstrapHouseholdDefaults } from "@/lib/db/bootstrap-household-defaults";
 import { AdminHouseholdRepository } from "@/lib/repositories/sql/admin-household.repository";
 
 export async function adminCreateHousehold(formData: FormData): Promise<void> {
@@ -19,7 +20,9 @@ export async function adminCreateHousehold(formData: FormData): Promise<void> {
   }
 
   const repo = new AdminHouseholdRepository();
-  await repo.createHousehold(name);
+  const id = await repo.createHousehold(name);
+  // Default split group + categories, or the household's users land in an unusable app.
+  await bootstrapHouseholdDefaults(id);
 }
 
 export async function adminUpdateHouseholdPolicy(formData: FormData): Promise<void> {

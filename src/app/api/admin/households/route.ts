@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { requireSuperAdmin } from "@/lib/db/request-context";
+import { bootstrapHouseholdDefaults } from "@/lib/db/bootstrap-household-defaults";
 import { AdminHouseholdRepository } from "@/lib/repositories/sql/admin-household.repository";
 
 export async function GET() {
@@ -44,6 +45,8 @@ export async function POST(request: NextRequest) {
 
   const repo = new AdminHouseholdRepository();
   const id = await repo.createHousehold(name);
+  // Default split group + categories, or the household's users land in an unusable app.
+  await bootstrapHouseholdDefaults(id);
   return NextResponse.json({ id }, { status: 201 });
 }
 
