@@ -58,7 +58,6 @@ export default async function OwedToMePage({ searchParams }: OwedToMePageProps) 
   const statement = await new SplitService().getStatementSinceLastSettlement(
     userId,
     them.id,
-    view,
     asOfDate
   );
 
@@ -69,6 +68,18 @@ export default async function OwedToMePage({ searchParams }: OwedToMePageProps) 
   ]);
   const subjectUserId = view === "owed" ? them.id : userId;
   const mortgageAmount = mortgageShareForUser(subjectUserId, month, schedule, userConfigs);
+
+  const isOwedView = view === "owed";
+  const lineItems = isOwedView ? statement.owedItems : statement.owingItems;
+  const lineItemsTotal = isOwedView ? statement.owedTotal : statement.owingTotal;
+  const contraTotal = isOwedView ? statement.owingTotal : statement.owedTotal;
+  const splitNet = lineItemsTotal - contraTotal;
+  const subtotalLabel = isOwedView
+    ? `${them.name}'s share of what you paid`
+    : `Your share of what ${them.name} paid`;
+  const contraLabel = isOwedView
+    ? `Less: your share of ${them.name}'s splits`
+    : `Less: ${them.name}'s share of your splits`;
 
   const title =
     view === "owed" ? `What ${them.name} owes you` : `What you owe ${them.name}`;
@@ -85,12 +96,16 @@ export default async function OwedToMePage({ searchParams }: OwedToMePageProps) 
       </Suspense>
       <PageHeader
         title={title}
-        description={`${splitPeriodLabel}. Mortgage is this budget month.`}
+        description={`${splitPeriodLabel}. Split total is the net still owed, not the sum of listed costs. Mortgage is this budget month.`}
         actions={<PrintButton />}
       />
       <StatementTotals
-        lineItems={statement.lineItems}
-        splitTotal={statement.splitTotal}
+        lineItems={lineItems}
+        lineItemsTotal={lineItemsTotal}
+        subtotalLabel={subtotalLabel}
+        contraTotal={contraTotal}
+        contraLabel={contraLabel}
+        splitNet={splitNet}
         mortgageAmount={mortgageAmount}
         mortgageLabel={mortgageLabel}
       />

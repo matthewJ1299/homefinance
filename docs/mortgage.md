@@ -29,15 +29,22 @@ On `/mortgage`, open **Interest rate changes** to add rows such as “from loan 
 `/owed-to-me` is a statement for the signed-in user, gated by `users.owed_to_me_enabled`
 (Settings: **Show Owed to me**). Default is off; `0028` turns it on for `users.id = 1` only.
 
-Toggle **Owed to me** / **What I owe** (`?view=owing`). Split costs are allocations since the
-**day after** the latest settlement between the two users (all history if they have never
+Toggle **Owed to me** / **What I owe** (`?view=owing`). Split line items are allocations since
+the **day after** the latest settlement between the two users (all history if they have never
 settled). The last settlement is the cutoff, so settlement amounts are not subtracted again.
-Line items sit in an accordion under **Total split costs**. **Total mortgage amount** is the
-selected budget month’s share for the person in view (their share when “owed to me”, yours
-when “what I owe”), from `getSchedule()` (`userA` / `userB` by `base_split_pct`, falling back
-to `monthlyPaymentUserA` / `monthlyPaymentUserB`). Budget-month key vs schedule `yyyy-MM` is
-an approximation. **Total** is splits + mortgage. Month navigator only changes the mortgage
-month.
+
+**Split balance** is a net, not the sum of the listed lines: on “owed to me” it is her share
+of what you paid minus your share of what she paid (same period). The accordion still lists
+the current view’s lines, then a **Less** row for the other direction. If the net is negative,
+the other person is ahead on splits; use the toggle. This matches the Splits page net
+(`owedToMe - iOwe`) for activity after the cutoff, not a running leftover from a partial
+settlement before that date.
+
+**Total mortgage amount** is the selected budget month’s share for the person in view (their
+share when “owed to me”, yours when “what I owe”), from `getSchedule()` (`userA` / `userB` by
+`base_split_pct`, falling back to `monthlyPaymentUserA` / `monthlyPaymentUserB`). Budget-month
+key vs schedule `yyyy-MM` is an approximation. **Total** is split balance + mortgage. Month
+navigator only changes the mortgage month.
 
 ### Related
 

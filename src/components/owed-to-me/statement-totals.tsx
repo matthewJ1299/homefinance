@@ -5,29 +5,38 @@ import type { OwedLineItemRow } from "@/lib/repositories/interfaces/split-alloca
 
 interface StatementTotalsProps {
   lineItems: OwedLineItemRow[];
-  splitTotal: number;
+  lineItemsTotal: number;
+  subtotalLabel: string;
+  contraTotal: number;
+  contraLabel: string;
+  splitNet: number;
   mortgageAmount: number;
   mortgageLabel: string;
 }
 
 export function StatementTotals({
   lineItems,
-  splitTotal,
+  lineItemsTotal,
+  subtotalLabel,
+  contraTotal,
+  contraLabel,
+  splitNet,
   mortgageAmount,
   mortgageLabel,
 }: StatementTotalsProps) {
-  const total = splitTotal + mortgageAmount;
+  const total = splitNet + mortgageAmount;
+  const hasContra = contraTotal > 0;
 
   return (
     <div className="rounded-lg border bg-card">
       <details className="group">
         <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm hover:bg-muted/50 [&::-webkit-details-marker]:hidden">
-          <span className="font-medium">Total split costs</span>
-          <span className="ml-auto tabular-nums font-medium">{formatRand(splitTotal)}</span>
+          <span className="font-medium">Split balance</span>
+          <span className="ml-auto tabular-nums font-medium">{formatRand(splitNet)}</span>
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180 print:hidden" />
         </summary>
         <div className="border-t border-border px-4 py-3">
-          {lineItems.length === 0 ? (
+          {lineItems.length === 0 && !hasContra ? (
             <p className="text-sm text-muted-foreground">No split costs in this period.</p>
           ) : (
             <div className="overflow-x-auto">
@@ -54,6 +63,38 @@ export function StatementTotals({
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  {hasContra ? (
+                    <>
+                      {lineItems.length > 0 ? (
+                        <tr className="text-muted-foreground">
+                          <td className="py-2 pr-3" colSpan={2}>
+                            {subtotalLabel}
+                          </td>
+                          <td className="py-2 text-right tabular-nums whitespace-nowrap">
+                            {formatRand(lineItemsTotal)}
+                          </td>
+                        </tr>
+                      ) : null}
+                      <tr className="text-muted-foreground">
+                        <td className="py-2 pr-3" colSpan={2}>
+                          {contraLabel}
+                        </td>
+                        <td className="py-2 text-right tabular-nums whitespace-nowrap">
+                          -{formatRand(contraTotal)}
+                        </td>
+                      </tr>
+                    </>
+                  ) : null}
+                  <tr className="font-medium">
+                    <td className="py-2 pr-3" colSpan={2}>
+                      Net split
+                    </td>
+                    <td className="py-2 text-right tabular-nums whitespace-nowrap">
+                      {formatRand(splitNet)}
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           )}
