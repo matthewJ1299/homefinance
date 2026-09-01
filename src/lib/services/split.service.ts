@@ -63,6 +63,10 @@ export class SplitService {
       case "exact":
         amountOwed = options.otherShareCents;
         break;
+      default: {
+        const _exhaustive: never = options;
+        throw new Error(`Unhandled split type: ${String(_exhaustive)}`);
+      }
     }
     if (amountOwed <= 0) {
       const month = await budgetMonthKeyForUser(paidByUserId, date);
@@ -116,6 +120,43 @@ export class SplitService {
       throw e;
     }
     return { id: expenseId };
+  }
+
+  /**
+   * Month-scoped "what does the other person owe me" statement: split expenses the
+   * viewer paid where the other person has an allocation, minus settlements the other
+   * person paid the viewer, all within the given inclusive date range.
+   */
+  async getWhatIsOwedToMe(
+    viewerUserId: number,
+    otherUserId: number,
+    period: { start: string; end: string },
+    groupId?: number
+  ) {
+    const lineItems = await this.allocationRepo.findOwedToPayerInPeriod(
+      viewerUserId,
+      otherUserId,
+      period.start,
+      period.end,
+      groupId
+    );
+    const allSettlements = await this.settlementRepo.findAllForUser(viewerUserId, groupId);
+    const settlements = allSettlements.filter(
+      (s) =>
+        s.payerUserId === otherUserId &&
+        s.recipientUserId === viewerUserId &&
+        s.date >= period.start &&
+        s.date <= period.end
+    );
+    const splitSubtotal = lineItems.reduce((sum, i) => sum + i.amount, 0);
+    const settlementsTotal = settlements.reduce((sum, s) => sum + s.amount, 0);
+    return {
+      lineItems,
+      settlements,
+      splitSubtotal,
+      settlementsTotal,
+      splitNet: splitSubtotal - settlementsTotal,
+    };
   }
 
   async getBalance(currentUserId: number, groupId?: number): Promise<SplitBalance> {

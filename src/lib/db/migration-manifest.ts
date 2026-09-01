@@ -30,4 +30,6 @@ export const MIGRATION_FILES: readonly string[] = [
   "0023_ai_analysis_run_applications_pg.sql",
   "0025_shared_lists_visibility_owner_pg.sql",
   "0026_mortgage_rate_periods_pg.sql",
+  "0027_calendar_event_reminders_pg.sql",
+  "0028_users_owed_to_me_enabled_pg.sql",
 ];

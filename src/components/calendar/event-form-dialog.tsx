@@ -1,30 +1,27 @@
 "use client";
 
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQuery } from "@tanstack/react-query";
+import { Plus, X } from "lucide-react";
 import { Dialog, DialogHeader, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createCalendarEventSchema } from "@/lib/validators/calendar-event.schema";
+import {
+  DEFAULT_REMINDER_SEND_TIME,
+  offsetRequiresTime,
+  reminderOffsetOptionsIncluding,
+  normalizeReminderSendTime,
+} from "@/lib/utils/reminder-time";
 
 const formSchema = createCalendarEventSchema;
 type FormValues = z.infer<typeof formSchema>;
 
-const REMINDER_OPTIONS: { value: number | null; label: string }[] = [
-  { value: null, label: "None" },
-  { value: 0, label: "At event time" },
-  { value: 5, label: "5 minutes before" },
-  { value: 10, label: "10 minutes before" },
-  { value: 15, label: "15 minutes before" },
-  { value: 30, label: "30 minutes before" },
-  { value: 60, label: "1 hour before" },
-  { value: 120, label: "2 hours before" },
-  { value: 1440, label: "1 day before" },
-];
+const MAX_REMINDERS = 10;
 
 const PRIORITY_OPTIONS: { value: number; label: string }[] = [
   { value: 1, label: "Low" },
@@ -55,12 +52,15 @@ export function buildCalendarEventApiBody(values: FormValues): Record<string, un
       Number.isNaN(Number(values.recurrenceDayOfMonth))
         ? null
         : Number(values.recurrenceDayOfMonth),
-    reminderMinutes:
-      values.reminderMinutes === undefined ||
-      values.reminderMinutes === null ||
-      Number.isNaN(Number(values.reminderMinutes))
-        ? null
-        : Number(values.reminderMinutes),
+    reminders: (values.reminders ?? []).map((r) => {
+      const offsetMinutes = Number(r.offsetMinutes);
+      return {
+        offsetMinutes,
+        sendTime: offsetRequiresTime(offsetMinutes)
+          ? normalizeReminderSendTime(r.sendTime)
+          : null,
+      };
+    }),
     categoryId: values.categoryId ?? null,
     isShared: values.isShared,
     priority: values.priority ?? 2,
@@ -77,7 +77,7 @@ export interface CalendarEventFormValues {
   notes: string | null;
   recurrenceType: "none" | "weekly" | "monthly" | "yearly";
   recurrenceDayOfMonth: number | null;
-  reminderMinutes: number | null;
+  reminders: { offsetMinutes: number; sendTime: string | null }[];
   categoryId: number | null;
   isShared: boolean;
   priority: number;
@@ -117,9 +117,12 @@ export function EventFormDialog({
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     watch,
+    setValue,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -133,14 +136,18 @@ export function EventFormDialog({
       notes: null,
       recurrenceType: "none",
       recurrenceDayOfMonth: null,
-      reminderMinutes: null,
+      reminders: [],
       categoryId: null,
       isShared: true,
       priority: 2,
     },
   });
 
+  const { fields: reminderFields, append: appendReminder, remove: removeReminder } =
+    useFieldArray({ control, name: "reminders" });
+
   const recurrenceType = watch("recurrenceType");
+  const reminderValues = watch("reminders");
 
   useEffect(() => {
     if (open) {
@@ -155,7 +162,7 @@ export function EventFormDialog({
           notes: initialValues.notes,
           recurrenceType: initialValues.recurrenceType,
           recurrenceDayOfMonth: initialValues.recurrenceDayOfMonth,
-          reminderMinutes: initialValues.reminderMinutes ?? null,
+          reminders: initialValues.reminders ?? [],
           categoryId: initialValues.categoryId ?? null,
           isShared: initialValues.isShared !== false,
           priority: initialValues.priority ?? 2,
@@ -171,7 +178,7 @@ export function EventFormDialog({
           notes: null,
           recurrenceType: "none",
           recurrenceDayOfMonth: null,
-          reminderMinutes: null,
+          reminders: [],
           categoryId: null,
           isShared: true,
           priority: 2,
@@ -301,24 +308,82 @@ export function EventFormDialog({
           </select>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="reminderMinutes">Reminder</Label>
-          <select
-            id="reminderMinutes"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            {...register("reminderMinutes", {
-              setValueAs: (v) => {
-                if (v === "" || v === undefined) return null;
-                const n = parseInt(String(v), 10);
-                return Number.isNaN(n) ? null : n;
-              },
-            })}
-          >
-            {REMINDER_OPTIONS.map((opt) => (
-              <option key={opt.label} value={opt.value ?? ""}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center justify-between">
+            <Label>Reminders</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={reminderFields.length >= MAX_REMINDERS}
+              onClick={() =>
+                appendReminder({ offsetMinutes: 0, sendTime: null })
+              }
+              className="gap-1"
+            >
+              <Plus className="h-4 w-4" />
+              Add reminder
+            </Button>
+          </div>
+          {reminderFields.length === 0 && (
+            <p className="text-xs text-muted-foreground">No reminders for this event.</p>
+          )}
+          {reminderFields.map((field, index) => {
+            const currentOffset = Number(reminderValues?.[index]?.offsetMinutes ?? 0);
+            const needsTime = offsetRequiresTime(currentOffset);
+            const offsetRegister = register(`reminders.${index}.offsetMinutes` as const, {
+              valueAsNumber: true,
+            });
+            return (
+              <div key={field.id} className="flex items-start gap-2">
+                <select
+                  className="flex h-10 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  {...offsetRegister}
+                  onChange={(e) => {
+                    void offsetRegister.onChange(e);
+                    const mins = Number(e.target.value);
+                    if (offsetRequiresTime(mins)) {
+                      const current = getValues(`reminders.${index}.sendTime`);
+                      if (!current) {
+                        setValue(
+                          `reminders.${index}.sendTime`,
+                          DEFAULT_REMINDER_SEND_TIME
+                        );
+                      }
+                    } else {
+                      setValue(`reminders.${index}.sendTime`, null);
+                    }
+                  }}
+                >
+                  {reminderOffsetOptionsIncluding(currentOffset).map((opt) => (
+                    <option key={opt.minutes} value={opt.minutes}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                {needsTime && (
+                  <Input
+                    type="time"
+                    className="w-32"
+                    {...register(`reminders.${index}.sendTime` as const)}
+                  />
+                )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeReminder(index)}
+                  aria-label="Remove reminder"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            );
+          })}
+          <p className="text-xs text-muted-foreground">
+            Minute-based reminders need an event start time. Day and week reminders send at the
+            chosen time; leave the time empty to keep the old behaviour (event start minus the
+            offset).
+          </p>
         </div>
         {recurrenceType === "monthly" && (
           <div className="space-y-2">

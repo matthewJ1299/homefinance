@@ -37,6 +37,7 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 
 - **Split groups** — Separate “who owes whom” per context (e.g. home vs. trip). New split expenses default to a **Default** group unless you choose another.
 - **Splits page** — Per-group summary and history; **Settle** applies to the active group. You can also settle with a **Splits** category expense (default group) from the dashboard.
+- **Owed to me (`/owed-to-me`)** — Month statement of what the other person owes you (their split shares minus settlements they paid you, plus their mortgage share). Print from the page. Off by default except `users.id = 1`; enable or disable under **Settings**.
 
 ### Goals (savings and debt intent)
 
@@ -46,14 +47,14 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 
 ### Household coordination
 
-- **Calendar** — Month grid and day views, multi-day spans, recurrence, reminders, color categories (separate from budget categories), shared vs. personal events, priorities, and notes. On narrow screens, swipe the month grid to change months. Push follows shared vs. personal rules. See `/calendar`.
+- **Calendar** — Month grid and day views, multi-day spans, recurrence, **multiple reminders** per event (offset + optional send time), color categories (separate from budget categories), shared vs. personal events, priorities, and notes. On narrow screens, swipe the month grid to change months. Push follows shared vs. personal rules. See [docs/calendar.md](./docs/calendar.md).
 - **Lists** — Shared household lists and personal lists; **My lists** overview; detail at `/lists/[id]` with check-off, quantity, **per-user optional notes** (one-line subtitle; expand for read-only preview, then tap to edit; `http`/`www` links open in a new tab), **drag the grip** to prioritise (open vs. completed sections keep their own order; persisted), and **Delete all completed**. Manage lists under **Settings** > **Lists**.
 
 ### Home dashboard and navigation
 
 - **Dashboard** — Month income with inline quick add (**Salary** or **Other income**), **Recent transactions** (newest income and expenses, optionally filtered to the primary account), tasks/events/budget shortcuts, upcoming calendar, quick-add expense (same category UX as **`/add`**). Greeting and header date use **Africa/Johannesburg (UTC+2)**, not the device clock. Under **Settings** > **Dashboard tiles**, the list tile is named **Recent transactions** (migrates from the old “Recent expenses” toggle in local storage).
 - **Create hub (`/add`)** — Mobile center **Add** and desktop sidebar: new list item, event, or expense; quick line for tasks; expense shorthand such as `120 groceries` pre-fills amount and note. After save: expense → Dashboard; task → that list; event → Calendar.
-- **Mobile** — Bottom bar: Home, Calendar, Add (center), Lists, Budget. The header menu mirrors the desktop sidebar, including **Recon** and **Budget AI report** when your account is allowed and enabled.
+- **Mobile** — Bottom bar: Home, Calendar, Add (center), Lists, Budget. Desktop uses a left sidebar (collapsible). The header menu mirrors the desktop sidebar, including **Recon**, **Budget AI report**, and **Owed to me** when those are enabled for your account.
 
 ### Mortgage (optional)
 
@@ -222,6 +223,7 @@ erDiagram
     int budget_month_start_day
     bigint primary_account_id FK
     boolean recon_enabled
+    boolean owed_to_me_enabled
     boolean ai_use_paid
     boolean ai_enabled
     boolean ai_feature_allowed
@@ -413,9 +415,18 @@ erDiagram
     int priority
   }
 
+  calendar_event_reminders {
+    serial id PK
+    int event_id FK
+    int offset_minutes
+    text send_time
+    timestamptz created_at
+  }
+
   sent_reminders {
     serial id PK
     int event_id FK
+    int reminder_id FK
     text occurrence_date
     timestamptz sent_at
   }
@@ -605,7 +616,9 @@ erDiagram
   mortgage_payments ||--o| mortgage_schedule_snapshots : trigger
 
   calendar_categories ||--o{ calendar_events : tag
+  calendar_events ||--o{ calendar_event_reminders : reminders
   calendar_events ||--o{ sent_reminders : reminders_sent
+  calendar_event_reminders ||--o{ sent_reminders : per_reminder
 
   shared_lists ||--o{ shared_list_items : contains
   shared_list_items }o--o{ notes : optional_polymorphic_item_notes
@@ -652,7 +665,7 @@ HomeFinance can be installed as a Progressive Web App (PWA) on phones and deskto
 - **Push notifications (reopen behavior)**: On reopen/resume, the app repairs missing browser subscriptions when permission is still granted, re-subscribes after VAPID key rotation, and re-syncs with the server. **Android installed PWAs** (e.g. Pixel): a background repair runs after SW updates and app resume (common cause of the Settings toggle flipping off while site notifications stay allowed). Filter client logs by `[PushClient]` (`androidPwa: true`); server logs by `[Push]`. `GET /api/push/status` reports server subscription count and VAPID fingerprint.
 - **Scheduled notifications**: An in-process scheduler (runs when the server starts) sends:
   - **Daily 9am summary**: If there is at least one calendar event today, a single push at 9am (configurable: `DAILY_NOTIFICATION_HOUR`, default 9; timezone: `TZ`, default UTC) to all users with notifications enabled, listing event name(s) and time(s).
-  - **Per-event reminders**: For events with a reminder set (e.g. 15 minutes before), a push is sent to all users when that reminder time is reached. Set the reminder in the calendar event form (create/edit).
+  - **Per-event reminders**: Each event can have several reminders (offset from the event, optional send time for day/week offsets). The in-process scheduler sends a push when that instant is reached. Shared events notify everyone; personal events notify the creator. Set reminders in the calendar event form.
 - **Real-time notifications**: When one user adds a **todo** (list item), a **calendar event**, or a **split expense**, the other user receives a push (e.g. "User One added 'Milk' to Shopping", "User One added event 'Dentist' on 2025-03-15").
 - **Cron endpoint (optional)**: `GET /api/cron/daily-calendar-notification` can be called externally (e.g. cron job) as a fallback for the daily summary. Protect with `CRON_SECRET` (Authorization header or `x-cron-secret`). See DEPLOY.md.
 - **Requirements**: Install works over HTTPS (or localhost). See [DEPLOY.md](./DEPLOY.md) for production deployment.

@@ -14,6 +14,7 @@ import {
   Plus,
   GitCompare,
   Sparkles,
+  ReceiptText,
 } from "lucide-react";
 
 export interface NavItem {
@@ -39,6 +40,7 @@ export const fullNavItems: NavItem[] = [
   { href: "/expenses", label: "Transactions", icon: Receipt },
   { href: "/recon", label: "Recon", icon: GitCompare },
   { href: "/splits", label: "Splits", icon: SplitSquareVertical },
+  { href: "/owed-to-me", label: "Owed to me", icon: ReceiptText },
   { href: "/budget", label: "Budget", icon: PiggyBank },
   { href: "/budget-ai-report", label: "Budget AI report", icon: Sparkles },
   { href: "/accounts", label: "Accounts", icon: CreditCard },
@@ -48,14 +50,16 @@ export const fullNavItems: NavItem[] = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-/** Sidebar / hamburger: hide Recon and Budget AI report when those features are unavailable for the user. */
+/** Sidebar / hamburger: hide Recon, Budget AI report, and Owed to me when those features are off for the user. */
 export function navItemsForUserPreferences(
   items: NavItem[],
   reconEnabled: boolean,
-  aiFeatureAllowed: boolean
+  aiFeatureAllowed: boolean,
+  owedToMeEnabled: boolean
 ): NavItem[] {
   let out = items;
   if (!reconEnabled) out = out.filter((i) => i.href !== "/recon");
   if (!aiFeatureAllowed) out = out.filter((i) => i.href !== "/budget-ai-report");
+  if (!owedToMeEnabled) out = out.filter((i) => i.href !== "/owed-to-me");
   return out;
 }

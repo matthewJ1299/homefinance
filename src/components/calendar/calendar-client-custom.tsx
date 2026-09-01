@@ -109,7 +109,7 @@ export function CalendarClientCustom() {
             notes: string | null;
             recurrenceType: "none" | "weekly" | "monthly" | "yearly";
             recurrenceDayOfMonth: number | null;
-            reminderMinutes: number | null;
+            reminders: { offsetMinutes: number; sendTime: string | null }[] | null;
             categoryId: number | null;
             isShared: boolean;
             priority: number;
@@ -124,7 +124,7 @@ export function CalendarClientCustom() {
               notes: data.notes ?? null,
               recurrenceType: data.recurrenceType,
               recurrenceDayOfMonth: data.recurrenceDayOfMonth ?? null,
-              reminderMinutes: data.reminderMinutes ?? null,
+              reminders: data.reminders ?? [],
               categoryId: data.categoryId ?? null,
               isShared: data.isShared !== false,
               priority: typeof data.priority === "number" ? data.priority : 2,
@@ -143,7 +143,7 @@ export function CalendarClientCustom() {
             notes: occurrence.notes,
             recurrenceType: "none",
             recurrenceDayOfMonth: null,
-            reminderMinutes: null,
+            reminders: [],
             categoryId: occurrence.categoryId ?? null,
             isShared: occurrence.isShared,
             priority: occurrence.priority ?? 2,
@@ -183,7 +183,8 @@ export function CalendarClientCustom() {
         createdByUserId: 0,
         createdByName: "You",
         recurrenceType: String(body.recurrenceType ?? "none"),
-        reminderMinutes: (body.reminderMinutes as number | null | undefined) ?? null,
+        reminderMinutes: null,
+        reminders: [],
         categoryId: (body.categoryId as number | null | undefined) ?? null,
         categoryName: null,
         categoryColor: null,

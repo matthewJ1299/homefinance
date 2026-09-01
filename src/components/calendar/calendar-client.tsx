@@ -139,7 +139,8 @@ export function CalendarClient() {
         createdByUserId: 0,
         createdByName: "You",
         recurrenceType: String(body.recurrenceType ?? "none"),
-        reminderMinutes: (body.reminderMinutes as number | null | undefined) ?? null,
+        reminderMinutes: null,
+        reminders: [],
         categoryId: (body.categoryId as number | null | undefined) ?? null,
         categoryName: null,
         categoryColor: null,
@@ -271,7 +272,7 @@ export function CalendarClient() {
           notes: string | null;
           recurrenceType: "none" | "weekly" | "monthly" | "yearly";
           recurrenceDayOfMonth: number | null;
-          reminderMinutes: number | null;
+          reminders: { offsetMinutes: number; sendTime: string | null }[] | null;
           categoryId: number | null;
           isShared: boolean;
           priority: number;
@@ -286,7 +287,7 @@ export function CalendarClient() {
             notes: data.notes ?? null,
             recurrenceType: data.recurrenceType,
             recurrenceDayOfMonth: data.recurrenceDayOfMonth ?? null,
-            reminderMinutes: data.reminderMinutes ?? null,
+            reminders: data.reminders ?? [],
             categoryId: data.categoryId ?? null,
             isShared: data.isShared !== false,
             priority: typeof data.priority === "number" ? data.priority : 2,
@@ -304,7 +305,7 @@ export function CalendarClient() {
             notes: event.resource.notes,
             recurrenceType: "none",
             recurrenceDayOfMonth: null,
-            reminderMinutes: null,
+            reminders: [],
             categoryId: null,
             isShared: true,
             priority: 2,

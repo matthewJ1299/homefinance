@@ -36,6 +36,9 @@ On first run against an **existing** database (users table present, empty ledger
 - **`db:reset` destroys all data.** It refuses to run unless `ALLOW_DB_RESET=1` is set.
 - Coolify/docker entrypoint runs `db:push` on container start before serving traffic.
 - Money is stored as integer minor units (cents) in `INTEGER` or `BIGINT` columns.
+- **`0027_calendar_event_reminders_pg.sql`**: new `calendar_event_reminders` table and `sent_reminders.reminder_id`. Backfills from `calendar_events.reminder_minutes` and re-points existing `sent_reminders` rows. Does not drop existing event rows.
+- **`0028_users_owed_to_me_enabled_pg.sql`**: `users.owed_to_me_enabled` (default false; set true for `users.id = 1`).
+- **Do not merge `multi-tenant-admin` onto this branch without renumbering.** That branch already used `0027`–`0029` for households / super-admin / setup wizard. This branch now uses `0027` for calendar reminders and `0028` for owed-to-me.
 
 ## Related
 

@@ -12,6 +12,7 @@ Two layers per feature:
 
 2. **User preference** (existing):
    - `users.ai_enabled`, `users.recon_enabled` — “I want this on” under **Settings**.
+   - `users.owed_to_me_enabled` — preference only (no admin allow column). Hides **Owed to me** from the menu and blocks the page body until enabled. Default false; `drizzle/0028_users_owed_to_me_enabled_pg.sql` sets `true` for `users.id = 1`.
 
 Effective access requires **both** columns true for that feature. Server actions and `/api/recon/*` routes enforce this; `analyzeExpenses` and AI preference actions check `ai_feature_allowed`.
 

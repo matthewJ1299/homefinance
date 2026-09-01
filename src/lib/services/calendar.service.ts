@@ -7,7 +7,8 @@ import {
 } from "date-fns";
 import { getCalendarEventRepository } from "@/lib/repositories";
 import { expandRecurrence } from "@/lib/utils/recurrence";
-import type { CalendarEvent } from "@/lib/repositories/interfaces/calendar-event.repository";
+import type { CalendarEvent, EventReminder } from "@/lib/repositories/interfaces/calendar-event.repository";
+import type { ReminderSpec } from "@/lib/utils/reminder-time";
 
 export interface CalendarEventOccurrence {
   eventId: number;
@@ -23,7 +24,9 @@ export interface CalendarEventOccurrence {
   createdByUserId: number;
   createdByName: string;
   recurrenceType: string;
+  /** @deprecated superseded by `reminders`. */
   reminderMinutes: number | null;
+  reminders: EventReminder[];
   categoryId: number | null;
   categoryName: string | null;
   categoryColor: string | null;
@@ -41,7 +44,9 @@ export interface CreateCalendarEventInput {
   notes?: string | null;
   recurrenceType: "none" | "weekly" | "monthly" | "yearly";
   recurrenceDayOfMonth?: number | null;
+  /** @deprecated no longer written; use `reminders`. */
   reminderMinutes?: number | null;
+  reminders?: ReminderSpec[];
   categoryId?: number | null;
   isShared?: boolean;
   priority?: number;
@@ -57,7 +62,9 @@ export interface UpdateCalendarEventInput {
   notes?: string | null;
   recurrenceType?: "none" | "weekly" | "monthly" | "yearly";
   recurrenceDayOfMonth?: number | null;
+  /** @deprecated no longer written; use `reminders`. */
   reminderMinutes?: number | null;
+  reminders?: ReminderSpec[];
   categoryId?: number | null;
   isShared?: boolean;
   priority?: number;
@@ -79,6 +86,57 @@ function occurrenceSort(a: CalendarEventOccurrence, b: CalendarEventOccurrence):
 
 export class CalendarService {
   constructor(private repo = getCalendarEventRepository()) {}
+
+  /**
+   * Events visible to the signed-in user: shared household events plus that user's personal events.
+   */
+  async getByDateRange(
+    start: string,
+    end: string,
+    viewerUserId: number
+  ): Promise<CalendarEventOccurrence[]> {
+    const events = await this.repo.findByDateRangeForViewer(start, end, viewerUserId);
+    return this.expandEventsToOccurrences(events, start, end);
+  }
+
+  /**
+   * All events in range (ignores personal vs shared). Used for reminder scheduling.
+   */
+  async getAllOccurrencesInRange(start: string, end: string): Promise<CalendarEventOccurrence[]> {
+    const events = await this.repo.findByDateRangeAll(start, end);
+    return this.expandEventsToOccurrences(events, start, end);
+  }
+
+  async create(userId: number, data: CreateCalendarEventInput): Promise<{ id: number }> {
+    return this.repo.create({
+      createdByUserId: userId,
+      name: data.name,
+      location: data.location,
+      date: data.date,
+      endDate: data.endDate,
+      time: data.time,
+      endTime: data.endTime,
+      notes: data.notes,
+      recurrenceType: data.recurrenceType,
+      recurrenceDayOfMonth: data.recurrenceDayOfMonth,
+      reminders: data.reminders,
+      categoryId: data.categoryId,
+      isShared: data.isShared,
+      priority: data.priority,
+    });
+  }
+
+  async update(id: number, data: UpdateCalendarEventInput): Promise<void> {
+    await this.repo.update(id, data);
+  }
+
+  async delete(id: number): Promise<void> {
+    await this.repo.delete(id);
+  }
+
+  async getEvent(id: number): Promise<CalendarEvent | null> {
+    return this.repo.findById(id);
+  }
 
   private expandEventsToOccurrences(
     events: CalendarEvent[],
@@ -116,6 +174,7 @@ export class CalendarService {
           createdByName: event.createdByName,
           recurrenceType: event.recurrenceType,
           reminderMinutes: event.reminderMinutes ?? null,
+          reminders: event.reminders,
           categoryId: event.categoryId,
           categoryName: event.categoryName,
           categoryColor: event.categoryColor,
@@ -126,56 +185,5 @@ export class CalendarService {
     }
     occurrences.sort(occurrenceSort);
     return occurrences;
-  }
-
-  /**
-   * Events visible to the signed-in user: shared household events plus that user's personal events.
-   */
-  async getByDateRange(
-    start: string,
-    end: string,
-    viewerUserId: number
-  ): Promise<CalendarEventOccurrence[]> {
-    const events = await this.repo.findByDateRangeForViewer(start, end, viewerUserId);
-    return this.expandEventsToOccurrences(events, start, end);
-  }
-
-  /**
-   * All events in range (ignores personal vs shared). Used for reminder scheduling.
-   */
-  async getAllOccurrencesInRange(start: string, end: string): Promise<CalendarEventOccurrence[]> {
-    const events = await this.repo.findByDateRangeAll(start, end);
-    return this.expandEventsToOccurrences(events, start, end);
-  }
-
-  async create(userId: number, data: CreateCalendarEventInput): Promise<{ id: number }> {
-    return this.repo.create({
-      createdByUserId: userId,
-      name: data.name,
-      location: data.location,
-      date: data.date,
-      endDate: data.endDate,
-      time: data.time,
-      endTime: data.endTime,
-      notes: data.notes,
-      recurrenceType: data.recurrenceType,
-      recurrenceDayOfMonth: data.recurrenceDayOfMonth,
-      reminderMinutes: data.reminderMinutes,
-      categoryId: data.categoryId,
-      isShared: data.isShared,
-      priority: data.priority,
-    });
-  }
-
-  async update(id: number, data: UpdateCalendarEventInput): Promise<void> {
-    await this.repo.update(id, data);
-  }
-
-  async delete(id: number): Promise<void> {
-    await this.repo.delete(id);
-  }
-
-  async getEvent(id: number): Promise<CalendarEvent | null> {
-    return this.repo.findById(id);
   }
 }

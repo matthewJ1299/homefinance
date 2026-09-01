@@ -20,7 +20,7 @@ export default async function ReconPage() {
     return <ReconDisabledPlaceholder reason="preference" />;
   }
   return (
-    <div className="p-4 max-w-5xl mx-auto">
+    <div className="p-4 max-w-5xl mx-auto min-w-0">
       <Suspense fallback={<div className="text-sm text-muted-foreground">Loading…</div>}>
         <ReconPageClient />
       </Suspense>

@@ -23,6 +23,10 @@ export type UpdateAiEnabledResult =
   | { success: true }
   | { success: false; error: string };
 
+export type UpdateOwedToMeEnabledResult =
+  | { success: true }
+  | { success: false; error: string };
+
 export async function updateBudgetMonthStartDayAction(
   day: number
 ): Promise<UpdateBudgetMonthStartDayResult> {
@@ -131,5 +135,26 @@ export async function updateAiEnabledAction(enabled: boolean): Promise<UpdateAiE
   revalidatePath("/settings");
   revalidatePath("/summary");
   revalidatePath("/budget-ai-report");
+  return { success: true };
+}
+
+export async function updateOwedToMeEnabledAction(
+  enabled: boolean
+): Promise<UpdateOwedToMeEnabledResult> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, error: "Unauthorized" };
+  }
+  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  const userId = Number(session.user.id);
+  try {
+    await getUserRepository().setOwedToMeEnabled(userId, enabled);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to update Owed to me setting.";
+    return { success: false, error: message };
+  }
+  revalidatePath("/dashboard");
+  revalidatePath("/settings");
+  revalidatePath("/owed-to-me");
   return { success: true };
 }

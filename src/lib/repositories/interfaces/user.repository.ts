@@ -25,6 +25,12 @@ export interface IUserRepository {
   getReconEnabled(userId: number): Promise<boolean>;
   setReconEnabled(userId: number, enabled: boolean): Promise<void>;
   /**
+   * Printable "owed to me" statement. Off until enabled in Settings.
+   * Intended for the household member who invoices the other.
+   */
+  getOwedToMeEnabled(userId: number): Promise<boolean>;
+  setOwedToMeEnabled(userId: number, enabled: boolean): Promise<void>;
+  /**
    * Admin-style gate: user may use Recon at all (Outlook connect, sync, APIs).
    * Independent of {@link getReconEnabled} (user preference). Intended for a future admin UI.
    */

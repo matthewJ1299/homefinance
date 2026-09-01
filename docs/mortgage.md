@@ -24,6 +24,18 @@ Loan months are numbered from `start_date` (month 1 = first payment month).
 
 On `/mortgage`, open **Interest rate changes** to add rows such as “from loan month 6 → 11%”. Saving recalculates the projected schedule and upcoming payment amounts.
 
+### "Owed to me" page
+
+`/owed-to-me` invoices the other household member for a budget month: their split-cost
+allocations plus their mortgage share. The page and nav item are gated by
+`users.owed_to_me_enabled` (Settings: **Show Owed to me**). Default is off; `0028` turns it
+on for `users.id = 1` only so the other household member does not see it unless they enable it.
+The mortgage share is read from `getSchedule()` —
+`schedule.find(r => r.date === month)?.userBPayment` / `userAPayment` (user resolved by
+sorting `userConfigs` on `base_split_pct` desc, like `MortgageService.buildParams`), falling
+back to the flat `monthlyPaymentUserB` / `monthlyPaymentUserA` when the month is outside the
+schedule. Note the budget-month key vs the schedule's calendar `yyyy-MM` is an approximation.
+
 ### Related
 
 - Unit tests: `src/tests/mortgage-rate-periods.test.ts`, `src/tests/transaction-drift.test.ts`

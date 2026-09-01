@@ -1,10 +1,10 @@
 import cron from "node-cron";
-import { format, parseISO, subMinutes, addDays } from "date-fns";
+import { format, addDays } from "date-fns";
 import { CalendarService } from "@/lib/services/calendar.service";
 import { NotificationService, isNotificationConfigured } from "@/lib/services/notification.service";
 import { getSentReminderRepository, getUserRepository } from "@/lib/repositories";
 import { formatEventLine } from "@/lib/utils/format-time";
-import type { CalendarEventOccurrence } from "@/lib/services/calendar.service";
+import { computeReminderInstant, REMINDER_LOOKAHEAD_DAYS } from "@/lib/utils/reminder-time";
 
 const DEFAULT_DAILY_HOUR = 9;
 const TIMEZONE = process.env.TZ ?? "UTC";
@@ -43,55 +43,45 @@ async function runDailySummary(): Promise<void> {
 }
 
 /**
- * For a timed occurrence, compute the reminder time (occurrence time minus reminder_minutes).
- * Returns null if occurrence has no time or no reminder.
- */
-function getReminderTime(occ: CalendarEventOccurrence): { date: string; time: string } | null {
-  if (occ.reminderMinutes == null || occ.time == null || !occ.time.trim()) return null;
-  try {
-    const occurrenceDt = parseISO(`${occ.date}T${occ.time}`);
-    const reminderDt = subMinutes(occurrenceDt, occ.reminderMinutes);
-    return {
-      date: format(reminderDt, "yyyy-MM-dd"),
-      time: format(reminderDt, "HH:mm"),
-    };
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Every minute: find occurrences whose reminder time is "now" and send push (and mark sent).
+ * Every minute: find event-occurrence reminders whose send instant is "now" and push them
+ * (once per event/occurrence/reminder). The lookahead window must cover the largest
+ * supported reminder offset so week-ahead reminders are found.
  */
 async function runPerEventReminders(): Promise<void> {
   if (!isNotificationConfigured()) return;
   try {
     const now = new Date();
     const todayStr = format(now, "yyyy-MM-dd");
-    const tomorrowStr = format(addDays(now, 1), "yyyy-MM-dd");
+    const endStr = format(addDays(now, REMINDER_LOOKAHEAD_DAYS), "yyyy-MM-dd");
     const minuteStr = format(now, "HH:mm");
     const calendarService = new CalendarService();
     const sentReminderRepo = getSentReminderRepository();
-    const occurrences = await calendarService.getAllOccurrencesInRange(todayStr, tomorrowStr);
+    const occurrences = await calendarService.getAllOccurrencesInRange(todayStr, endStr);
     for (const occ of occurrences) {
-      const reminder = getReminderTime(occ);
-      if (!reminder || reminder.time !== minuteStr) continue;
-      if (reminder.date !== todayStr && reminder.date !== tomorrowStr) continue;
-      const alreadySent = await sentReminderRepo.hasBeenSent(occ.eventId, occ.date);
-      if (alreadySent) continue;
-      const title = "HomeFinance";
-      const body = `Reminder: ${formatEventLine(occ.name, occ.time)}`;
-      const notificationService = new NotificationService();
-      if (occ.isShared) {
-        await notificationService.sendToAll({ title, body, url: "/calendar" }, { ttl: 3600 });
-      } else {
-        await notificationService.sendToUser(
-          occ.createdByUserId,
-          { title, body, url: "/calendar" },
-          { ttl: 3600 }
-        );
+      for (const reminder of occ.reminders) {
+        const instant = computeReminderInstant({
+          eventDate: occ.date,
+          eventTime: occ.time,
+          offsetMinutes: reminder.offsetMinutes,
+          sendTime: reminder.sendTime,
+        });
+        if (!instant || instant.date !== todayStr || instant.time !== minuteStr) continue;
+        const alreadySent = await sentReminderRepo.hasBeenSent(occ.eventId, occ.date, reminder.id);
+        if (alreadySent) continue;
+        const title = "HomeFinance";
+        const body = `Reminder: ${formatEventLine(occ.name, occ.time)}`;
+        const notificationService = new NotificationService();
+        if (occ.isShared) {
+          await notificationService.sendToAll({ title, body, url: "/calendar" }, { ttl: 3600 });
+        } else {
+          await notificationService.sendToUser(
+            occ.createdByUserId,
+            { title, body, url: "/calendar" },
+            { ttl: 3600 }
+          );
+        }
+        await sentReminderRepo.markSent(occ.eventId, occ.date, reminder.id);
       }
-      await sentReminderRepo.markSent(occ.eventId, occ.date);
     }
   } catch (err) {
     console.error("[NotificationScheduler] Per-event reminders failed:", err);

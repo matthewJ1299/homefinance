@@ -26,6 +26,7 @@ import { AccountsManage } from "@/components/accounts/accounts-manage";
 import { BudgetMonthRangeSettings } from "@/components/settings/budget-month-range-settings";
 import { ExportTransactionsSettings } from "@/components/settings/export-transactions-settings";
 import { ReconSettings } from "@/components/settings/recon-settings";
+import { OwedToMeSettings } from "@/components/settings/owed-to-me-settings";
 import { AiSettings } from "@/components/settings/ai-settings";
 
 export default async function SettingsPage() {
@@ -55,13 +56,15 @@ export default async function SettingsPage() {
 
   const userRepoForSettings = getUserRepository();
   const budgetMonthStartDay = await userRepoForSettings.getBudgetMonthStartDay(userId);
-  const [reconFeatureAllowed, reconEnabled, aiFeatureAllowed, aiEnabled, aiUsePaid] = await Promise.all([
-    userRepoForSettings.getReconFeatureAllowed(userId),
-    userRepoForSettings.getReconEnabled(userId),
-    userRepoForSettings.getAiFeatureAllowed(userId),
-    userRepoForSettings.getAiEnabled(userId),
-    userRepoForSettings.getAiUsePaid(userId),
-  ]);
+  const [reconFeatureAllowed, reconEnabled, aiFeatureAllowed, aiEnabled, aiUsePaid, owedToMeEnabled] =
+    await Promise.all([
+      userRepoForSettings.getReconFeatureAllowed(userId),
+      userRepoForSettings.getReconEnabled(userId),
+      userRepoForSettings.getAiFeatureAllowed(userId),
+      userRepoForSettings.getAiEnabled(userId),
+      userRepoForSettings.getAiUsePaid(userId),
+      userRepoForSettings.getOwedToMeEnabled(userId),
+    ]);
   const currentMonth = await getDefaultBudgetMonthForUser(userId);
 
   return (
@@ -73,6 +76,7 @@ export default async function SettingsPage() {
 
       <PushNotificationsSettings />
       <ReconSettings reconFeatureAllowed={reconFeatureAllowed} reconEnabled={reconEnabled} />
+      <OwedToMeSettings owedToMeEnabled={owedToMeEnabled} />
       {aiFeatureAllowed ? <AiSettings aiEnabled={aiEnabled} aiUsePaid={aiUsePaid} /> : null}
       <ExportTransactionsSettings />
       <BudgetMonthRangeSettings currentStartDay={budgetMonthStartDay} />
