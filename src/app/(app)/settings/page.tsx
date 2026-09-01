@@ -26,7 +26,7 @@ import { AccountsManage } from "@/components/accounts/accounts-manage";
 import { BudgetMonthRangeSettings } from "@/components/settings/budget-month-range-settings";
 import { ExportTransactionsSettings } from "@/components/settings/export-transactions-settings";
 import { ReconSettings } from "@/components/settings/recon-settings";
-import { OwedToMeSettings } from "@/components/settings/owed-to-me-settings";
+import { WhatIOweSettings } from "@/components/settings/what-i-owe-settings";
 import { AiSettings } from "@/components/settings/ai-settings";
 
 export default async function SettingsPage() {
@@ -76,7 +76,7 @@ export default async function SettingsPage() {
 
       <PushNotificationsSettings />
       <ReconSettings reconFeatureAllowed={reconFeatureAllowed} reconEnabled={reconEnabled} />
-      <OwedToMeSettings owedToMeEnabled={owedToMeEnabled} />
+      <WhatIOweSettings owedToMeEnabled={owedToMeEnabled} />
       {aiFeatureAllowed ? <AiSettings aiEnabled={aiEnabled} aiUsePaid={aiUsePaid} /> : null}
       <ExportTransactionsSettings />
       <BudgetMonthRangeSettings currentStartDay={budgetMonthStartDay} />

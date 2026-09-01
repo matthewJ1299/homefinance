@@ -9,17 +9,17 @@ import { formatBudgetMonthLabel, formatDisplayDate } from "@/lib/utils/date";
 import { MonthNavigator } from "@/components/layout/month-navigator";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
-import { PrintButton } from "@/components/owed-to-me/print-button";
-import { OwedToMeDisabledPlaceholder } from "@/components/owed-to-me/disabled-placeholder";
-import { StatementViewToggle } from "@/components/owed-to-me/view-toggle";
-import { StatementTotals } from "@/components/owed-to-me/statement-totals";
-import { parseOwedStatementView } from "@/components/owed-to-me/statement-view";
+import { PrintButton } from "@/components/what-i-owe/print-button";
+import { WhatIOweDisabledPlaceholder } from "@/components/what-i-owe/disabled-placeholder";
+import { StatementViewToggle } from "@/components/what-i-owe/view-toggle";
+import { StatementTotals } from "@/components/what-i-owe/statement-totals";
+import { parseOwedStatementView } from "@/components/what-i-owe/statement-view";
 
-interface OwedToMePageProps {
+interface WhatIOwePageProps {
   searchParams: Promise<{ month?: string; view?: string }>;
 }
 
-export default async function OwedToMePage({ searchParams }: OwedToMePageProps) {
+export default async function WhatIOwePage({ searchParams }: WhatIOwePageProps) {
   const session = await auth();
   if (!session?.user?.id) return null;
   const userId = Number(session.user.id);
@@ -27,7 +27,7 @@ export default async function OwedToMePage({ searchParams }: OwedToMePageProps) 
   const userRepo = getUserRepository();
   const enabled = await userRepo.getOwedToMeEnabled(userId);
   if (!enabled) {
-    return <OwedToMeDisabledPlaceholder />;
+    return <WhatIOweDisabledPlaceholder />;
   }
 
   const { month: monthParam, view: viewParam } = await searchParams;
@@ -44,10 +44,10 @@ export default async function OwedToMePage({ searchParams }: OwedToMePageProps) 
   if (!them) {
     return (
       <div className="p-4 space-y-6 pb-24 md:pb-6">
-        <PageHeader title="Owed to me" />
+        <PageHeader title="What I owe" />
         <Card>
           <CardContent className="py-6 text-sm text-muted-foreground">
-            No other household member to invoice.
+            No other household member to share costs with.
           </CardContent>
         </Card>
       </div>

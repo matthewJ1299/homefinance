@@ -25,8 +25,8 @@ export interface IUserRepository {
   getReconEnabled(userId: number): Promise<boolean>;
   setReconEnabled(userId: number, enabled: boolean): Promise<void>;
   /**
-   * Printable "owed to me" statement. Off until enabled in Settings.
-   * Intended for the household member who invoices the other.
+   * Printable `/what-i-owe` statement. Off until enabled in Settings.
+   * Column is `users.owed_to_me_enabled` (historical name).
    */
   getOwedToMeEnabled(userId: number): Promise<boolean>;
   setOwedToMeEnabled(userId: number, enabled: boolean): Promise<void>;

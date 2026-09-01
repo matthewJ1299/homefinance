@@ -150,11 +150,11 @@ export async function updateOwedToMeEnabledAction(
   try {
     await getUserRepository().setOwedToMeEnabled(userId, enabled);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to update Owed to me setting.";
+    const message = err instanceof Error ? err.message : "Failed to update What I owe setting.";
     return { success: false, error: message };
   }
   revalidatePath("/dashboard");
   revalidatePath("/settings");
-  revalidatePath("/owed-to-me");
+  revalidatePath("/what-i-owe");
   return { success: true };
 }

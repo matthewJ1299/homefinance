@@ -37,7 +37,7 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 
 - **Split groups** — Separate “who owes whom” per context (e.g. home vs. trip). New split expenses default to a **Default** group unless you choose another.
 - **Splits page** — Per-group summary and history; **Settle** applies to the active group. You can also settle with a **Splits** category expense (default group) from the dashboard.
-- **Owed to me (`/owed-to-me`)** — Statement of what the other person owes you, or what you owe them. Split **balance** is net since the last settlement (expand for line items and the offsetting side) plus this month’s mortgage share. Off by default except `users.id = 1`; enable under **Settings**.
+- **What I owe (`/what-i-owe`)** — Statement of what you owe the other person (default), or what they owe you (toggle). Split **balance** is net since the last full settlement (expand for line items and the offsetting side) plus this month’s mortgage share. Off by default except `users.id = 1`; enable under **Settings**. `/owed-to-me` redirects here.
 
 ### Goals (savings and debt intent)
 
@@ -54,7 +54,7 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 
 - **Dashboard** — Month income with inline quick add (**Salary** or **Other income**), **Recent transactions** (newest income and expenses, optionally filtered to the primary account), tasks/events/budget shortcuts, upcoming calendar, quick-add expense (same category UX as **`/add`**). Greeting and header date use **Africa/Johannesburg (UTC+2)**, not the device clock. Under **Settings** > **Dashboard tiles**, the list tile is named **Recent transactions** (migrates from the old “Recent expenses” toggle in local storage).
 - **Create hub (`/add`)** — Mobile center **Add** and desktop sidebar: new list item, event, or expense; quick line for tasks; expense shorthand such as `120 groceries` pre-fills amount and note. After save: expense → Dashboard; task → that list; event → Calendar.
-- **Mobile** — Bottom bar: Home, Calendar, Add (center), Lists, Budget. Desktop uses a left sidebar (collapsible). The header menu mirrors the desktop sidebar, including **Recon**, **Budget AI report**, and **Owed to me** when those are enabled for your account.
+- **Mobile** — Bottom bar: Home, Calendar, Add (center), Lists, Budget. Desktop uses a left sidebar (collapsible). The header menu mirrors the desktop sidebar, including **Recon**, **Budget AI report**, and **What I owe** when those are enabled for your account.
 
 ### Mortgage (optional)
 

@@ -5,7 +5,7 @@
 ### Added
 
 - **Multiple calendar reminders**: Events can have up to 10 reminders (`calendar_event_reminders`: offset + optional send time). Day/week offsets fire at a chosen clock time; sub-day offsets still need an event start time. Legacy `calendar_events.reminder_minutes` is backfilled once and no longer written. Migration `drizzle/0027_calendar_event_reminders_pg.sql`. See [docs/calendar.md](./docs/calendar.md).
-- **Owed to me (`/owed-to-me`)**: Printable statement of what the other person owes you, or what you owe them (toggle). Split **balance** is net (their share of your payments minus your share of theirs) since the day after the last settlement, plus this budget month’s mortgage share. Gated by `users.owed_to_me_enabled`. See [docs/mortgage.md](./docs/mortgage.md).
+- **What I owe (`/what-i-owe`)**: Printable statement of what you owe the other person (default), or what they owe you (`?view=owed`). Split **balance** is net (their share of your payments minus your share of theirs) since the day after the last **full** settlement, plus this budget month’s mortgage share. Gated by `users.owed_to_me_enabled`. `/owed-to-me` redirects here. See [docs/mortgage.md](./docs/mortgage.md).
 
 - **Hardening: unit test gate in Docker build** — `npm run test:unit` runs before `next build` in the production Dockerfile (Coolify deploy fails if tests fail). Vitest split into unit (`vitest.config.ts`) and integration (`vitest.integration.config.ts`). New edge-case tests for splits, credit, and currency; high-volume **transaction drift** tests in `src/tests/transaction-drift.test.ts` (360-month mortgage chains with per-month interest recalculation from reduced balance, 500 split/settlement cycles, 10k ledger postings). Mortgage payment principal/interest allocation extracted to `allocateMonthPrincipalInterest()` in `finance/mortgage.ts`. **Integration:** `src/__tests__/integration/mortgage-interest-recalc.integration.test.ts` exercises `MortgageService` + Postgres for 48–100 sequential payments and same-month splits.
 - **Migration ledger** — `schema_migrations` table; `db:push` applies numbered `drizzle/*_pg.sql` files in order and seeds the ledger on upgrade so existing databases are not re-migrated. See [docs/database.md](./docs/database.md).
@@ -17,6 +17,7 @@
 
 ### Changed
 
+- **What I owe** — Nav and route renamed from **Owed to me** / `/owed-to-me` to **What I owe** / `/what-i-owe`. Default view is what you owe; `?view=owed` is the other direction. Old URL redirects.
 - **Split math** — Equal splits use tested `splitExpense()` helper (odd-cent remainder). Per-person balances are netted before totals. Over-settlement on Splits page is rejected (not silently capped).
 - **BIGINT coercion** — Shared `coerceBigInt` for account/transfer/goal repositories (node-pg string BIGINTs).
 - **Desktop layout** — Sidebar is a left-hand sticky column (`DesktopSidebar`, collapsible) instead of a right overlay with `md:pr-[20%]` content inset. Mobile still uses the bottom bar only. Recon tables use `min-w-0` so they scroll inside the content column.
@@ -25,7 +26,7 @@
 
 ### Fixed
 
-- **Owed to me split total** — Accordion and **Total** used the sum of one direction’s split allocations. They now use the net still owed (`their share of what you paid` minus `your share of what they paid`) since the last settlement, matching Splits-page netting for that period.
+- **What I owe split total** — Accordion and **Total** used the sum of one direction’s split allocations. They now use the net still owed (`their share of what you paid` minus `your share of what they paid`) since the last settlement, matching Splits-page netting for that period.
 - **Login Sign in button** — Shared `Button` now uses `cursor-pointer` (and `disabled:cursor-not-allowed`) so the login submit control is clearly clickable.
 - **Calendar reminder save** — Updating an event keeps matching reminder rows (same offset + send time) instead of delete-all/insert, so `sent_reminders` is not cascaded away and the same occurrence is not pushed again.
 - **Calendar reminder offsets** — Restored **5 minutes** and **15 minutes** from the previous single-reminder picker. Day-offset reminders with a null send time keep the old “event start minus offset” behaviour.

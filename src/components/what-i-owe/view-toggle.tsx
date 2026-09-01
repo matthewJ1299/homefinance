@@ -10,30 +10,18 @@ export function StatementViewToggle({ current }: { current: OwedStatementView })
 
   const setView = (view: OwedStatementView) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (view === "owed") {
+    if (view === "owing") {
       params.delete("view");
     } else {
-      params.set("view", "owing");
+      params.set("view", "owed");
     }
     const query = params.toString();
-    router.push(query ? `/owed-to-me?${query}` : "/owed-to-me");
+    router.push(query ? `/what-i-owe?${query}` : "/what-i-owe");
     router.refresh();
   };
 
   return (
     <div className="flex rounded-md border border-input p-0.5 print:hidden w-fit">
-      <button
-        type="button"
-        onClick={() => setView("owed")}
-        className={cn(
-          "px-3 py-1.5 text-sm font-medium rounded-md cursor-pointer",
-          current === "owed"
-            ? "bg-primary text-primary-foreground"
-            : "text-muted-foreground hover:text-foreground"
-        )}
-      >
-        Owed to me
-      </button>
       <button
         type="button"
         onClick={() => setView("owing")}
@@ -45,6 +33,18 @@ export function StatementViewToggle({ current }: { current: OwedStatementView })
         )}
       >
         What I owe
+      </button>
+      <button
+        type="button"
+        onClick={() => setView("owed")}
+        className={cn(
+          "px-3 py-1.5 text-sm font-medium rounded-md cursor-pointer",
+          current === "owed"
+            ? "bg-primary text-primary-foreground"
+            : "text-muted-foreground hover:text-foreground"
+        )}
+      >
+        Owed to me
       </button>
     </div>
   );

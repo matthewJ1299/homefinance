@@ -40,7 +40,7 @@ export const fullNavItems: NavItem[] = [
   { href: "/expenses", label: "Transactions", icon: Receipt },
   { href: "/recon", label: "Recon", icon: GitCompare },
   { href: "/splits", label: "Splits", icon: SplitSquareVertical },
-  { href: "/owed-to-me", label: "Owed to me", icon: ReceiptText },
+  { href: "/what-i-owe", label: "What I owe", icon: ReceiptText },
   { href: "/budget", label: "Budget", icon: PiggyBank },
   { href: "/budget-ai-report", label: "Budget AI report", icon: Sparkles },
   { href: "/accounts", label: "Accounts", icon: CreditCard },
@@ -50,7 +50,7 @@ export const fullNavItems: NavItem[] = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-/** Sidebar / hamburger: hide Recon, Budget AI report, and Owed to me when those features are off for the user. */
+/** Sidebar / hamburger: hide Recon, Budget AI report, and What I owe when those features are off for the user. */
 export function navItemsForUserPreferences(
   items: NavItem[],
   reconEnabled: boolean,
@@ -60,6 +60,6 @@ export function navItemsForUserPreferences(
   let out = items;
   if (!reconEnabled) out = out.filter((i) => i.href !== "/recon");
   if (!aiFeatureAllowed) out = out.filter((i) => i.href !== "/budget-ai-report");
-  if (!owedToMeEnabled) out = out.filter((i) => i.href !== "/owed-to-me");
+  if (!owedToMeEnabled) out = out.filter((i) => i.href !== "/what-i-owe");
   return out;
 }

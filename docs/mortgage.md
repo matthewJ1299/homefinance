@@ -24,21 +24,24 @@ Loan months are numbered from `start_date` (month 1 = first payment month).
 
 On `/mortgage`, open **Interest rate changes** to add rows such as “from loan month 6 → 11%”. Saving recalculates the projected schedule and upcoming payment amounts.
 
-### "Owed to me" page
+### "What I owe" page
 
-`/owed-to-me` is a statement for the signed-in user, gated by `users.owed_to_me_enabled`
-(Settings: **Show Owed to me**). Default is off; `0028` turns it on for `users.id = 1` only.
+`/what-i-owe` is a statement for the signed-in user, gated by `users.owed_to_me_enabled`
+(Settings: **Show What I owe**). Default is off; `0028` turns it on for `users.id = 1` only.
+`/owed-to-me` redirects to `/what-i-owe`.
 
-Toggle **Owed to me** / **What I owe** (`?view=owing`). Split line items are allocations since
+Toggle **What I owe** / **Owed to me**. Default is **What I owe** (no query param);
+`?view=owed` is the other direction. Split line items are allocations since
 the **day after** the latest settlement between the two users (all history if they have never
-settled). The last settlement is the cutoff, so settlement amounts are not subtracted again.
+settled). **Settlements are always the full outstanding balance.** That makes the last
+settlement a clean cutoff: the running split debt is zero on that date, so the statement does
+not subtract settlement amounts again (those rows would already net to zero).
 
 **Split balance** is a net, not the sum of the listed lines: on “owed to me” it is her share
 of what you paid minus your share of what she paid (same period). The accordion still lists
 the current view’s lines, then a **Less** row for the other direction. If the net is negative,
-the other person is ahead on splits; use the toggle. This matches the Splits page net
-(`owedToMe - iOwe`) for activity after the cutoff, not a running leftover from a partial
-settlement before that date.
+the other person is ahead on splits; use the toggle. This is the same net as the Splits page
+(`owedToMe - iOwe`) for activity after that cutoff.
 
 **Total mortgage amount** is the selected budget month’s share for the person in view (their
 share when “owed to me”, yours when “what I owe”), from `getSchedule()` (`userA` / `userB` by
