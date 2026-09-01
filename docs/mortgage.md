@@ -26,15 +26,18 @@ On `/mortgage`, open **Interest rate changes** to add rows such as “from loan 
 
 ### "Owed to me" page
 
-`/owed-to-me` invoices the other household member for a budget month: their split-cost
-allocations plus their mortgage share. The page and nav item are gated by
-`users.owed_to_me_enabled` (Settings: **Show Owed to me**). Default is off; `0028` turns it
-on for `users.id = 1` only so the other household member does not see it unless they enable it.
-The mortgage share is read from `getSchedule()` —
-`schedule.find(r => r.date === month)?.userBPayment` / `userAPayment` (user resolved by
-sorting `userConfigs` on `base_split_pct` desc, like `MortgageService.buildParams`), falling
-back to the flat `monthlyPaymentUserB` / `monthlyPaymentUserA` when the month is outside the
-schedule. Note the budget-month key vs the schedule's calendar `yyyy-MM` is an approximation.
+`/owed-to-me` is a statement for the signed-in user, gated by `users.owed_to_me_enabled`
+(Settings: **Show Owed to me**). Default is off; `0028` turns it on for `users.id = 1` only.
+
+Toggle **Owed to me** / **What I owe** (`?view=owing`). Split costs are allocations since the
+**day after** the latest settlement between the two users (all history if they have never
+settled). The last settlement is the cutoff, so settlement amounts are not subtracted again.
+Line items sit in an accordion under **Total split costs**. **Total mortgage amount** is the
+selected budget month’s share for the person in view (their share when “owed to me”, yours
+when “what I owe”), from `getSchedule()` (`userA` / `userB` by `base_split_pct`, falling back
+to `monthlyPaymentUserA` / `monthlyPaymentUserB`). Budget-month key vs schedule `yyyy-MM` is
+an approximation. **Total** is splits + mortgage. Month navigator only changes the mortgage
+month.
 
 ### Related
 

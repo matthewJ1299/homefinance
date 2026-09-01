@@ -38,9 +38,9 @@ export function OwedToMeSettings({ owedToMeEnabled }: OwedToMeSettingsProps) {
       <div>
         <h2 className="text-sm font-medium">Owed to me</h2>
         <p className="text-xs text-muted-foreground mt-1">
-          When enabled, the menu shows a printable month statement of what the other person owes you
-          (their split shares minus payments they made, plus their mortgage share). Off by default.
-          Turn it on only on the account that sends that statement.
+          When enabled, the menu shows a printable statement of what the other person owes you
+          (or what you owe them): split costs since the last settlement, plus this month’s
+          mortgage share. Off by default. Turn it on only on the account that uses that statement.
         </p>
       </div>
       <label className="flex items-start gap-2 cursor-pointer">

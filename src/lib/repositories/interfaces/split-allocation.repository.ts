@@ -31,8 +31,8 @@ export interface ISplitAllocationRepository {
   findByExpenseId(expenseId: number): Promise<SplitAllocationWithUser[]>;
   findAllForBalance(groupId?: number): Promise<SplitAllocationBalanceRow[]>;
   /**
-   * Split expenses paid by `payerUserId` in the given inclusive date range where
-   * `debtorUserId` was allocated a share. Used by the "owed to me" statement.
+   * Split expenses paid by `payerUserId` where `debtorUserId` was allocated a share,
+   * with `e.date` in the inclusive range. Used by the owed statement.
    */
   findOwedToPayerInPeriod(
     payerUserId: number,

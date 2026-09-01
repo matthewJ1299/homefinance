@@ -26,6 +26,12 @@ export interface ISplitSettlementRepository {
   }): Promise<{ id: number }>;
   findById(id: number): Promise<SplitSettlementRow | null>;
   findAllForUser(userId: number, groupId?: number): Promise<SplitSettlementWithNames[]>;
+  /** Latest settlement between these two users, any direction. */
+  findLatestBetween(
+    userIdA: number,
+    userIdB: number,
+    groupId?: number
+  ): Promise<SplitSettlementRow | null>;
   findByExpenseId(expenseId: number): Promise<SplitSettlementRow | null>;
   findByIncomeId(incomeId: number): Promise<SplitSettlementRow | null>;
   update(

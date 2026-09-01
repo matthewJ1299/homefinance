@@ -1,5 +1,6 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
 import type {
+  ISplitSettlementRepository,
   SplitSettlementRow,
   SplitSettlementWithNames,
 } from "../interfaces/split-settlement.repository";
@@ -30,7 +31,7 @@ function toRow(row: SettlementRow): SplitSettlementRow {
   };
 }
 
-export class SplitSettlementRepository {
+export class SplitSettlementRepository implements ISplitSettlementRepository {
   async create(data: {
     payerUserId: number;
     recipientUserId: number;
@@ -81,6 +82,27 @@ export class SplitSettlementRepository {
       payerUserName: r.payer_name ?? "",
       recipientUserName: r.recipient_name ?? "",
     }));
+  }
+
+  async findLatestBetween(
+    userIdA: number,
+    userIdB: number,
+    groupId?: number
+  ): Promise<SplitSettlementRow | null> {
+    let sql = `SELECT id, payer_user_id, recipient_user_id, amount, date, expense_id, income_id, split_expense_group_id
+       FROM split_settlements
+       WHERE (
+         (payer_user_id = ? AND recipient_user_id = ?)
+         OR (payer_user_id = ? AND recipient_user_id = ?)
+       )`;
+    const params: (string | number | boolean | null)[] = [userIdA, userIdB, userIdB, userIdA];
+    if (groupId != null) {
+      sql += " AND split_expense_group_id = ?";
+      params.push(groupId);
+    }
+    sql += " ORDER BY date DESC, id DESC LIMIT 1";
+    const row = await get<SettlementRow>(sql, params);
+    return row ? toRow(row) : null;
   }
 
   async findByExpenseId(expenseId: number): Promise<SplitSettlementRow | null> {

@@ -1,3 +1,4 @@
+import { addDays, format, parseISO } from "date-fns";
 import {
   getExpenseRepository,
   getSplitAllocationRepository,
@@ -8,6 +9,7 @@ import {
   getIncomeRepository,
   getAccountTransactionRepository,
 } from "@/lib/repositories";
+import type { OwedLineItemRow } from "@/lib/repositories/interfaces/split-allocation.repository";
 import { budgetMonthKeyForUser } from "@/lib/utils/budget-month-for-user";
 import type { SplitBalance, SplitHistoryItem } from "@/lib/types";
 import { calculateSplitBalance, splitExpense } from "@/lib/services/finance/accounts";
@@ -123,39 +125,58 @@ export class SplitService {
   }
 
   /**
-   * Month-scoped "what does the other person owe me" statement: split expenses the
-   * viewer paid where the other person has an allocation, minus settlements the other
-   * person paid the viewer, all within the given inclusive date range.
+   * Split line items since the day after the last settlement between these two users
+   * (all history if they have never settled). Direction is who paid vs who was allocated.
+   * Settlements themselves are the cutoff, so they are not subtracted again.
    */
-  async getWhatIsOwedToMe(
+  async getStatementSinceLastSettlement(
     viewerUserId: number,
     otherUserId: number,
-    period: { start: string; end: string },
+    direction: "owed" | "owing",
+    asOfDate: string,
     groupId?: number
-  ) {
-    const lineItems = await this.allocationRepo.findOwedToPayerInPeriod(
+  ): Promise<{
+    lineItems: OwedLineItemRow[];
+    splitTotal: number;
+    lastSettlementDate: string | null;
+  }> {
+    let payerUserId: number;
+    let debtorUserId: number;
+    switch (direction) {
+      case "owed":
+        payerUserId = viewerUserId;
+        debtorUserId = otherUserId;
+        break;
+      case "owing":
+        payerUserId = otherUserId;
+        debtorUserId = viewerUserId;
+        break;
+      default: {
+        const _exhaustive: never = direction;
+        throw new Error(`Unhandled statement direction: ${String(_exhaustive)}`);
+      }
+    }
+
+    const last = await this.settlementRepo.findLatestBetween(
       viewerUserId,
       otherUserId,
-      period.start,
-      period.end,
       groupId
     );
-    const allSettlements = await this.settlementRepo.findAllForUser(viewerUserId, groupId);
-    const settlements = allSettlements.filter(
-      (s) =>
-        s.payerUserId === otherUserId &&
-        s.recipientUserId === viewerUserId &&
-        s.date >= period.start &&
-        s.date <= period.end
+    const start = last
+      ? format(addDays(parseISO(last.date), 1), "yyyy-MM-dd")
+      : "1970-01-01";
+    const lineItems = await this.allocationRepo.findOwedToPayerInPeriod(
+      payerUserId,
+      debtorUserId,
+      start,
+      asOfDate,
+      groupId
     );
-    const splitSubtotal = lineItems.reduce((sum, i) => sum + i.amount, 0);
-    const settlementsTotal = settlements.reduce((sum, s) => sum + s.amount, 0);
+    const splitTotal = lineItems.reduce((sum, i) => sum + i.amount, 0);
     return {
       lineItems,
-      settlements,
-      splitSubtotal,
-      settlementsTotal,
-      splitNet: splitSubtotal - settlementsTotal,
+      splitTotal,
+      lastSettlementDate: last?.date ?? null,
     };
   }
 

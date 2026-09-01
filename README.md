@@ -37,7 +37,7 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 
 - **Split groups** — Separate “who owes whom” per context (e.g. home vs. trip). New split expenses default to a **Default** group unless you choose another.
 - **Splits page** — Per-group summary and history; **Settle** applies to the active group. You can also settle with a **Splits** category expense (default group) from the dashboard.
-- **Owed to me (`/owed-to-me`)** — Month statement of what the other person owes you (their split shares minus settlements they paid you, plus their mortgage share). Print from the page. Off by default except `users.id = 1`; enable or disable under **Settings**.
+- **Owed to me (`/owed-to-me`)** — Statement of what the other person owes you, or what you owe them. Split costs since the last settlement (expand for line items) plus this month’s mortgage share. Off by default except `users.id = 1`; enable under **Settings**.
 
 ### Goals (savings and debt intent)
 

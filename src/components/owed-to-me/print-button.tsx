@@ -10,7 +10,12 @@ export function PrintButton() {
       variant="outline"
       size="sm"
       className="gap-2 print:hidden"
-      onClick={() => window.print()}
+      onClick={() => {
+        document.querySelectorAll("details").forEach((el) => {
+          el.open = true;
+        });
+        window.print();
+      }}
     >
       <Printer className="h-4 w-4" />
       Print
