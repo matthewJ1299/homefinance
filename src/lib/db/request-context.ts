@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { AsyncLocalStorage } from "async_hooks";
 import type pg from "pg";
 
@@ -12,6 +13,60 @@ export interface RequestContext {
   lastInsertId?: number;
   /** When set, DB calls use this client inside an open transaction. */
   pgClient?: pg.PoolClient;
+}
+
+/**
+ * Request-scoped context storage.
+ *
+ * Two mechanisms are kept in sync because neither alone covers every entry point:
+ *
+ * - **React `cache()`** — scoped to a whole Server Component render tree. Next.js
+ *   does NOT propagate an `AsyncLocalStorage` store set in a layout into sibling/
+ *   child component renders, so pages lost tenant context with ALS alone. `cache()`
+ *   does propagate across every async boundary in an RSC render, and is isolated
+ *   per request (no cross-request bleed).
+ * - **`AsyncLocalStorage`** — covers route handlers, server actions, and (via
+ *   `runWithRequestContext`) background jobs, where `cache()` is not memoised.
+ *
+ * `setRequestContext` writes both; `getRequestContext` prefers the populated
+ * `cache()` holder (RSC) then falls back to the ALS store.
+ */
+const als = new AsyncLocalStorage<{ ctx: RequestContext }>();
+
+// One holder object per RSC render tree (React memoises by fn identity).
+const reactHolder = cache((): { ctx: RequestContext } => ({ ctx: {} }));
+
+function reactHolderOrNull(): { ctx: RequestContext } | null {
+  try {
+    return reactHolder();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Set the current context. In a page this happens via `auth()` (see src/lib/auth.ts);
+ * route handlers / actions call it after `auth()` too.
+ */
+export function setRequestContext(ctx: RequestContext): void {
+  const held = reactHolderOrNull();
+  if (held) held.ctx = ctx;
+  als.enterWith({ ctx });
+}
+
+/** Get the current context, if any. */
+export function getRequestContext(): RequestContext | undefined {
+  const held = reactHolderOrNull();
+  if (held && Object.keys(held.ctx).length > 0) return held.ctx;
+  return als.getStore()?.ctx;
+}
+
+/**
+ * Run `fn` with an explicit context bound via AsyncLocalStorage. Use for work that
+ * runs outside a server request (background jobs / schedulers).
+ */
+export function runWithRequestContext<T>(ctx: RequestContext, fn: () => T): T {
+  return als.run({ ctx }, fn);
 }
 
 /**
@@ -33,21 +88,4 @@ export function requireSuperAdmin(): void {
   if (!isAllowed) {
     throw new Error("Forbidden");
   }
-}
-
-const requestStore = new AsyncLocalStorage<RequestContext>();
-
-/**
- * Set the current request context (who is making the request).
- * Call this at the start of layout, server actions, and API routes after auth().
- */
-export function setRequestContext(ctx: RequestContext): void {
-  requestStore.enterWith(ctx);
-}
-
-/**
- * Get the current request context, if any.
- */
-export function getRequestContext(): RequestContext | undefined {
-  return requestStore.getStore();
 }

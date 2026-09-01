@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { BudgetService } from "@/lib/services/budget.service";
 import { transferSchema } from "@/lib/validators/budget.schema";
 
 export async function POST(request: NextRequest) {
   const session = await auth();
+  setRequestContextFromSession(session);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

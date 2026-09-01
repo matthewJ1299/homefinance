@@ -1,3 +1,4 @@
+import { auth } from "@/lib/auth";
 import { getUserRepository } from "@/lib/repositories";
 import { MortgageService } from "@/lib/services/mortgage.service";
 import { fromMinorUnits } from "@/lib/utils/currency";
@@ -10,6 +11,7 @@ import { MortgagePaymentsList } from "@/components/mortgage/mortgage-payments-li
 import { MortgageRatePeriodsSection } from "@/components/mortgage/mortgage-rate-periods-section";
 
 export default async function MortgagePage() {
+  await auth(); // binds tenant request context (see src/lib/auth.ts)
   const service = new MortgageService();
   const { config, userConfigs } = await service.getConfig();
 

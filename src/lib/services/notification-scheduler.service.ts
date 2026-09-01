@@ -3,7 +3,7 @@ import { format, parseISO, subMinutes, addDays } from "date-fns";
 import { CalendarService } from "@/lib/services/calendar.service";
 import { NotificationService, isNotificationConfigured } from "@/lib/services/notification.service";
 import { getHouseholdRepository, getSentReminderRepository, getUserRepository } from "@/lib/repositories";
-import { setRequestContext } from "@/lib/db/request-context";
+import { runWithRequestContext } from "@/lib/db/request-context";
 import { formatEventLine } from "@/lib/utils/format-time";
 import type { CalendarEventOccurrence } from "@/lib/services/calendar.service";
 
@@ -29,8 +29,7 @@ async function runDailySummary(): Promise<void> {
     const householdIds = await getHouseholdRepository().listAllHouseholdIds();
     for (const householdId of householdIds) {
       try {
-        setRequestContext({ householdId });
-        await sendDailySummaryForHousehold(today);
+        await runWithRequestContext({ householdId }, () => sendDailySummaryForHousehold(today));
       } catch (err) {
         console.error(
           `[NotificationScheduler] Daily summary failed for household ${householdId}:`,
@@ -91,8 +90,9 @@ async function runPerEventReminders(): Promise<void> {
     const householdIds = await getHouseholdRepository().listAllHouseholdIds();
     for (const householdId of householdIds) {
       try {
-        setRequestContext({ householdId });
-        await sendPerEventRemindersForHousehold(todayStr, tomorrowStr, minuteStr);
+        await runWithRequestContext({ householdId }, () =>
+          sendPerEventRemindersForHousehold(todayStr, tomorrowStr, minuteStr)
+        );
       } catch (err) {
         console.error(
           `[NotificationScheduler] Per-event reminders failed for household ${householdId}:`,

@@ -190,14 +190,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         total={incomeResult.totals.overall}
       />
 
-      <DashboardIncomeSection
-        month={month}
-        monthLabelPretty={monthLabelPretty}
-        defaultDate={quickAddExpenseDate}
-        entries={incomeResult.entries}
-        total={incomeResult.totals.overall}
-      />
-
       <WhenDashboardTileEnabled tile="aiAnalysis">
         <AiAnalysisButton month={month} enabled={aiEnabled} />
       </WhenDashboardTileEnabled>

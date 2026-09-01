@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { CalendarService } from "@/lib/services/calendar.service";
 import { createCalendarEventSchema, getCalendarEventsQuerySchema } from "@/lib/validators/calendar-event.schema";
 import { differenceInDays, parseISO } from "date-fns";
@@ -8,6 +9,7 @@ const MAX_RANGE_DAYS = 366;
 
 export async function GET(request: NextRequest) {
   const session = await auth();
+  setRequestContextFromSession(session);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -34,6 +36,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const session = await auth();
+  setRequestContextFromSession(session);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

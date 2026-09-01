@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { AIService } from "@/lib/services/ai.service";
 import { checkRateLimit, recordCall } from "@/lib/services/ai-rate-limiter";
 import type { AnalyzeExpensesOutcome } from "@/lib/services/ai.service";
@@ -18,6 +19,7 @@ export async function analyzeExpenses(
   options: AnalyzeExpensesOptions = {}
 ): Promise<AnalyzeExpensesOutcome> {
   const session = await auth();
+  setRequestContextFromSession(session);
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
