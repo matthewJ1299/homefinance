@@ -4,48 +4,51 @@ import { useEffect, useState } from "react";
 import { Label } from "@/components/ui/label";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 
-type DashboardTileKey =
+export type DashboardTileKey =
   | "quickAdd"
-  | "accounts"
-  | "goalsSummary"
-  | "creditSummary"
-  | "goalAlerts"
   | "today"
   | "splitBalance"
   | "budgetWarning"
   | "aiAnalysis"
   | "transactions"
-  | "incomeSection"
-  | "populateMonth";
+  | "incomeSection";
 
 type DashboardTilesSettingsState = Record<DashboardTileKey, boolean>;
 
-const STORAGE_KEY = "homefinance-dashboard-tiles-v1";
+const STORAGE_KEY = "homefinance-dashboard-tiles-v2";
 
 const defaultState: DashboardTilesSettingsState = {
   quickAdd: true,
-  accounts: true,
-  goalsSummary: true,
-  creditSummary: true,
-  goalAlerts: true,
   today: true,
   splitBalance: true,
   budgetWarning: true,
   aiAnalysis: true,
   transactions: true,
   incomeSection: true,
-  populateMonth: true,
 };
+
+const LEGACY_DEAD_KEYS = ["accounts", "goalsSummary", "creditSummary", "goalAlerts", "populateMonth"] as const;
 
 function loadSettings(): DashboardTilesSettingsState {
   if (typeof window === "undefined") return defaultState;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultState;
-    const parsed = JSON.parse(raw) as Partial<DashboardTilesSettingsState> & { recentExpenses?: boolean };
-    const merged: Partial<DashboardTilesSettingsState> = { ...parsed };
+    const rawV2 = window.localStorage.getItem(STORAGE_KEY);
+    if (rawV2) {
+      const parsed = JSON.parse(rawV2) as Partial<DashboardTilesSettingsState>;
+      return { ...defaultState, ...parsed };
+    }
+    const rawV1 = window.localStorage.getItem("homefinance-dashboard-tiles-v1");
+    if (!rawV1) return defaultState;
+    const parsed = JSON.parse(rawV1) as Partial<DashboardTilesSettingsState> & { recentExpenses?: boolean };
+    const merged: Partial<DashboardTilesSettingsState> = {};
+    for (const key of Object.keys(defaultState) as DashboardTileKey[]) {
+      if (typeof parsed[key] === "boolean") merged[key] = parsed[key];
+    }
     if (merged.transactions === undefined && typeof parsed.recentExpenses === "boolean") {
       merged.transactions = parsed.recentExpenses;
+    }
+    for (const dead of LEGACY_DEAD_KEYS) {
+      void dead;
     }
     return { ...defaultState, ...merged };
   } catch {
@@ -85,17 +88,12 @@ export function DashboardTilesSettings() {
 
   const items: Array<{ key: DashboardTileKey; label: string; description?: string }> = [
     { key: "quickAdd", label: "Quick add expense", description: "Show the amount field and Add button at the top of the dashboard." },
-    { key: "accounts", label: "Accounts tile", description: "Show the accounts summary tile (net worth, cash, debt)." },
-    { key: "goalsSummary", label: "Savings goals tile", description: "Show savings goal progress and monthly compliance." },
-    { key: "creditSummary", label: "Credit goals tile", description: "Show credit payoff status and suggested payment." },
-    { key: "goalAlerts", label: "Goal alerts tile", description: "Show alerts when you are behind on monthly goal targets." },
-    { key: "today", label: "Today’s events tile", description: "Show today’s calendar events on the dashboard." },
+    { key: "today", label: "Today's events tile", description: "Show today's calendar events on the dashboard." },
     { key: "splitBalance", label: "Split balance card", description: "Show who owes whom summary for split expenses." },
     { key: "budgetWarning", label: "Budget warning tile", description: "Show warnings when categories are overspent." },
-    { key: "aiAnalysis", label: "AI analysis button", description: "Show the Analyze spending button (when AI is configured)." },
+    { key: "aiAnalysis", label: "AI analysis button", description: "Show the Analyze spending button when AI is enabled for your household." },
     { key: "transactions", label: "Recent transactions", description: "Show recent expenses and income for the month (newest first)." },
     { key: "incomeSection", label: "Income this month", description: "Show the Income this month list and quick add form." },
-    { key: "populateMonth", label: "Populate this month", description: "Show the Populate this month button at the bottom." },
   ];
 
   return (
@@ -114,9 +112,9 @@ export function DashboardTilesSettings() {
             />
             <span>
               <Label className="text-sm font-medium cursor-pointer">{item.label}</Label>
-              {item.description && (
+              {item.description ? (
                 <p className="text-xs text-muted-foreground">{item.description}</p>
-              )}
+              ) : null}
             </span>
           </label>
         ))}
@@ -124,4 +122,3 @@ export function DashboardTilesSettings() {
     </CollapsibleSection>
   );
 }
-

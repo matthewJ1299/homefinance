@@ -39,4 +39,7 @@ export const MIGRATION_FILES: readonly string[] = [
   "0027_households_pg.sql",
   "0028_super_admin_and_household_feature_policy_pg.sql",
   "0029_users_setup_wizard_state_pg.sql",
+  "0030_household_features_pg.sql",
+  "0031_user_password_management_pg.sql",
+  "0032_household_approval_pg.sql",
 ];

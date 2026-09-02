@@ -24,6 +24,8 @@ export interface UpdateSharedListItemInput {
 
 export interface ISharedListItemRepository {
   findByListId(listId: number): Promise<SharedListItem[]>;
+  /** Open (incomplete) item counts per list id — one query for dashboard/settings aggregates. */
+  countOpenItemsByListIds(listIds: number[]): Promise<Map<number, number>>;
   findById(id: number): Promise<SharedListItem | null>;
   create(data: CreateSharedListItemInput): Promise<{ id: number }>;
   update(id: number, data: UpdateSharedListItemInput): Promise<void>;

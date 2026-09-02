@@ -16,6 +16,10 @@ export default async function AdminLayout({
     redirect("/login");
   }
 
+  if (session.user.mustChangePassword === true) {
+    redirect("/change-password");
+  }
+
   setRequestContextFromSession(session);
   try {
     requireSuperAdmin();

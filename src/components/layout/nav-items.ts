@@ -15,7 +15,10 @@ import {
   GitCompare,
   Sparkles,
   ReceiptText,
+  CircleDollarSign,
+  Shield,
 } from "lucide-react";
+import { NAV_HREF_FEATURE, type FeatureKey } from "@/lib/features/registry";
 
 export interface NavItem {
   href: string;
@@ -38,6 +41,7 @@ export const fullNavItems: NavItem[] = [
   { href: "/add", label: "Add", icon: Plus },
   { href: "/lists", label: "Lists", icon: ListTodo },
   { href: "/expenses", label: "Transactions", icon: Receipt },
+  { href: "/income", label: "Income", icon: CircleDollarSign },
   { href: "/recon", label: "Recon", icon: GitCompare },
   { href: "/splits", label: "Splits", icon: SplitSquareVertical },
   { href: "/what-i-owe", label: "What I owe", icon: ReceiptText },
@@ -50,16 +54,21 @@ export const fullNavItems: NavItem[] = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-/** Sidebar / hamburger: hide Recon, Budget AI report, and What I owe when those features are off for the user. */
-export function navItemsForUserPreferences(
+/** Admin portal link — shown only to super-admins. */
+export const adminNavItem: NavItem = { href: "/admin", label: "Admin", icon: Shield };
+
+/** Filter nav items by household entitlements (catalogue-driven). */
+export function navItemsForFeatures(
   items: NavItem[],
-  reconEnabled: boolean,
-  aiFeatureAllowed: boolean,
-  owedToMeEnabled: boolean
+  features: ReadonlySet<FeatureKey>,
+  options?: { includeAdmin?: boolean }
 ): NavItem[] {
-  let out = items;
-  if (!reconEnabled) out = out.filter((i) => i.href !== "/recon");
-  if (!aiFeatureAllowed) out = out.filter((i) => i.href !== "/budget-ai-report");
-  if (!owedToMeEnabled) out = out.filter((i) => i.href !== "/what-i-owe");
+  let out = items.filter((item) => {
+    const gate = NAV_HREF_FEATURE.get(item.href);
+    return gate == null || features.has(gate);
+  });
+  if (options?.includeAdmin) {
+    out = [...out, adminNavItem];
+  }
   return out;
 }

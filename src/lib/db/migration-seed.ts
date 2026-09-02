@@ -92,6 +92,16 @@ export async function isMigrationAlreadyApplied(
       return columnExists(query, "users", "is_super_admin");
     case "0029_users_setup_wizard_state_pg.sql":
       return columnExists(query, "users", "setup_wizard_status");
+    case "0030_household_features_pg.sql":
+      // Late-stage marker: households.ai_tier is added after the table and all backfills.
+      return (
+        (await tableExists(query, "household_features")) &&
+        (await columnExists(query, "households", "ai_tier"))
+      );
+    case "0031_user_password_management_pg.sql":
+      return columnExists(query, "users", "must_change_password");
+    case "0032_household_approval_pg.sql":
+      return columnExists(query, "households", "approval_status");
     default:
       return false;
   }

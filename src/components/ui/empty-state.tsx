@@ -1,17 +1,22 @@
 import { cn } from "@/lib/utils";
+import type { ReactNode } from "react";
 
 interface EmptyStateProps {
   message: string;
+  title?: string;
+  action?: ReactNode;
   className?: string;
 }
 
-export function EmptyState({ message, className }: EmptyStateProps) {
+export function EmptyState({ message, title, action, className }: EmptyStateProps) {
   return (
-    <p
-      className={cn("text-sm text-muted-foreground py-6 text-center", className)}
+    <div
+      className={cn("py-6 text-center space-y-3", className)}
       role="status"
     >
-      {message}
-    </p>
+      {title ? <p className="text-sm font-medium">{title}</p> : null}
+      <p className="text-sm text-muted-foreground">{message}</p>
+      {action ? <div className="pt-1">{action}</div> : null}
+    </div>
   );
 }

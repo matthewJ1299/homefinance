@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { withTransaction } from "@/lib/db";
 import { bootstrapHouseholdDefaults } from "@/lib/db/bootstrap-household-defaults";
 import { getUserRepository } from "@/lib/repositories";
 import type { IAdminHouseholdRepository } from "@/lib/repositories/interfaces/admin-household.repository";
@@ -10,6 +11,7 @@ export interface IAdminUserProvisioningService {
     ownerName: string;
     ownerEmail: string;
     ownerPassword: string;
+    grantedByUserId: number;
   }): Promise<{ householdId: number; userId: number }>;
 
   createUserInHousehold(input: {
@@ -31,22 +33,28 @@ export class AdminUserProvisioningService implements IAdminUserProvisioningServi
     ownerName: string;
     ownerEmail: string;
     ownerPassword: string;
+    grantedByUserId: number;
   }): Promise<{ householdId: number; userId: number }> {
     const userRepo = getUserRepository();
     const exists = await userRepo.emailExists(input.ownerEmail);
     if (exists) {
       throw new Error("Email already exists");
     }
-    const householdId = await this.households.createHousehold(input.householdName);
-    // New households need a default split group + categories or the app is unusable
-    // (no budget categories, "groupId missing" on Splits).
-    await bootstrapHouseholdDefaults(householdId);
-    const passwordHash = await bcrypt.hash(input.ownerPassword, 10);
-    const userId = await this.users.createUser({
-      householdId,
-      name: input.ownerName,
-      email: input.ownerEmail,
-      passwordHash,
+
+    let householdId = 0;
+    let userId = 0;
+    await withTransaction(async () => {
+      householdId = await this.households.createHousehold(input.householdName, "active");
+      await bootstrapHouseholdDefaults(householdId);
+      await this.households.grantCoreFeatures(householdId, input.grantedByUserId);
+      const passwordHash = await bcrypt.hash(input.ownerPassword, 10);
+      userId = await this.users.createUser({
+        householdId,
+        name: input.ownerName,
+        email: input.ownerEmail,
+        passwordHash,
+        mustChangePassword: true,
+      });
     });
     return { householdId, userId };
   }
@@ -68,8 +76,8 @@ export class AdminUserProvisioningService implements IAdminUserProvisioningServi
       name: input.name,
       email: input.email,
       passwordHash,
+      mustChangePassword: true,
     });
     return { userId };
   }
 }
-

@@ -1,0 +1,565 @@
+Block a
+164.160.89.134 10.0.3.1 10.0.6.1 10.0.4.1 10.0.5.1 10.0.2.1 10.0.1.1 10.0.0.1 fd48:7275:5c65::1 
+Wed Jul 29 19:06:54 SAST 2026
+ 19:06:54 up 5 min,  3 users,  load average: 0.23, 0.22, 0.11
+root
+
+Block b
+root     ttyS0        2026-07-29 19:06
+ 19:07:33 up 6 min,  3 users,  load average: 0.22, 0.22, 0.11
+USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU  WHAT
+root     ttyS0    -                19:06    1.00s  0.02s   ?    w
+root              10.0.1.5         19:01    6:07   0.00s   ?    sshd: root@nott
+root              10.0.1.5         19:01    6:07   0.00s   ?    sshd: root@nott
+reboot   system boot  Wed Jul 29 19:01   still running      6.8.0-136-generic
+reboot   system boot  Mon Jul 27 19:31 - 19:01 (1+23:29)    6.8.0-136-generic
+reboot   system boot  Sun Jul 19 18:49 - 15:46 (7+20:57)    6.8.0-136-generic
+root     pts/0        Fri Apr 17 11:00 - 12:00  (01:00)     10.0.1.6
+root     pts/0        Fri Apr 17 10:22 - 10:22  (00:00)     10.0.1.6
+root     pts/0        Fri Apr 17 10:21 - 10:22  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 19:32 - 19:33  (00:01)     10.0.1.6
+root     pts/0        Wed Apr 15 19:32 - 19:32  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 19:05 - 19:06  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 16:39 - 16:47  (00:07)     10.0.1.6
+root     pts/0        Wed Apr 15 16:32 - 16:32  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 16:23 - 16:24  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 16:16 - 16:17  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 15:52 - 15:52  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 15:01 - 15:02  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 15:01 - 15:01  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 14:55 - 14:58  (00:02)     10.0.1.6
+root     pts/0        Wed Apr 15 14:55 - 14:55  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 14:46 - 14:50  (00:04)     10.0.1.6
+root     pts/0        Wed Apr 15 14:40 - 14:42  (00:01)     10.0.1.6
+root     pts/0        Wed Apr 15 14:35 - 14:37  (00:02)     10.0.1.6
+root     pts/0        Wed Apr 15 14:34 - 14:35  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 14:34 - 14:34  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 14:34 - 14:34  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 14:33 - 14:34  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 14:17 - 14:26  (00:09)     10.0.1.6
+root     pts/0        Wed Apr 15 14:17 - 14:17  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 14:16 - 14:17  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 14:16 - 14:16  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 14:06 - 14:12  (00:06)     10.0.1.6
+root     pts/0        Wed Apr 15 14:06 - 14:06  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 13:53 - 14:01  (00:07)     10.0.1.6
+root     pts/0        Wed Apr 15 13:51 - 13:53  (00:01)     10.0.1.6
+root     pts/0        Wed Apr 15 13:18 - 13:19  (00:01)     10.0.1.6
+root     pts/0        Wed Apr 15 13:17 - 13:17  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 13:15 - 13:15  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 13:15 - 13:15  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 13:11 - 13:12  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 13:11 - 13:11  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 12:43 - 12:43  (00:00)     10.0.1.6
+root     pts/0        Wed Apr 15 12:43 - 12:43  (00:00)     10.0.1.6
+root     pts/0        Thu Apr  9 16:35 - 16:35  (00:00)     10.0.1.6
+root     pts/0        Thu Apr  9 16:35 - 16:35  (00:00)     10.0.1.6
+root     pts/0        Thu Apr  9 16:30 - 16:31  (00:01)     10.0.1.6
+root     pts/0        Thu Apr  9 16:30 - 16:30  (00:00)     10.0.1.6
+root     pts/0        Thu Apr  9 16:27 - 16:27  (00:00)     10.0.1.6
+root     pts/0        Thu Apr  9 16:27 - 16:27  (00:00)     10.0.1.6
+root     pts/0        Thu Apr  9 14:30 - 14:30  (00:00)     10.0.1.6
+root     pts/0        Thu Apr  9 13:48 - 13:48  (00:00)     10.0.1.6
+root     pts/0        Wed Apr  8 18:02 - 18:04  (00:01)     10.0.1.6
+
+C.1
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+9999       20749  100  1.1 184852 47980 ?        R    19:07   0:00 php artisan start:nightwatch
+root        4077  1.4  2.2 1317180 90512 ?       Ssl  19:01   0:05 /app/sentinel
+root         907  1.2  2.9 2900064 118720 ?      Ssl  19:01   0:04 /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
+root         802  0.9  1.6 2434924 66276 ?       Ssl  19:01   0:03 /usr/bin/containerd
+9999       18309  0.7  2.0 193964 80844 ?        S    19:07   0:00 /usr/local/bin/php artisan horizon:work redis --name=default --supervisor=dff1333406a8-QQXa:s6 --backoff=0 --max-time=0 --max-jobs=400 --memory=128 --queue=high,default --sleep=3 --timeout=36000 --tries=1 --rest=0
+root        2682  0.3  2.1 319636 86124 ?        Sl   19:01   0:01 soketi-server
+999         1872  0.3  0.2  49752 11092 ?        Ssl  19:01   0:01 redis-server *:6379
+1001        1837  0.2  3.2 11251928 128296 ?     Ssl  19:01   0:01 next-server (v
+1001        1911  0.2  3.0 11246464 123064 ?     Ssl  19:01   0:01 next-server (v
+9999        2974  0.1  1.2 177368 50996 ?        S    19:01   0:00 php-fpm: pool www
+root        1899  0.1  2.2 1400692 90480 ?       Ssl  19:01   0:00 traefik traefik --ping=true --ping.entrypoint=http --api.dashboard=true --entrypoints.http.address=:80 --entrypoints.https.address=:443 --entrypoints.http.http.encodequerysemicolons=true --entryPoints.http.http2.maxConcurrentStreams=250 --entrypoints.https.http.encodequerysemicolons=true --entryPoints.https.http2.maxConcurrentStreams=250 --entrypoints.https.http3 --providers.file.directory=/traefik/dynamic/ --providers.file.watch=true --certificatesresolvers.letsencrypt.acme.httpchallenge=true --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=http --certificatesresolvers.letsencrypt.acme.storage=/traefik/acme.json --api.insecure=false --providers.docker=true --providers.docker.exposedbydefault=false
+root           1  0.1  0.3  22468 13668 ?        Ss   19:01   0:00 /sbin/init
+root        1772  0.1  2.6 11843480 106188 ?     Ssl  19:01   0:00 node server.js
+9999        3710  0.1  1.7 189308 71384 ?        S    19:01   0:00 php artisan start:scheduler
+9999        3714  0.1  1.8 191376 72284 ?        S    19:01   0:00 php artisan start:horizon
+9999        3932  0.1  1.7 189304 71460 ?        S    19:01   0:00 /usr/local/bin/php artisan horizon:supervisor dff1333406a8-QQXa:s6 redis --workers-name=default --balance=false --max-processes=4 --min-processes=1 --nice=0 --balance-cooldown=1 --balance-max-shift=1 --parent-id=198 --auto-scaling-strategy=size --backoff=0 --max-time=0 --max-jobs=400 --memory=128 --queue=high,default --sleep=3 --timeout=36000 --tries=1 --rest=0
+9999        3378  0.1  1.2 177368 48120 ?        S    19:01   0:00 php-fpm: pool www
+root        1794  0.0  1.7 11196728 68436 ?      Ssl  19:01   0:00 node dist/index.js
+root        1739  0.0  0.3 1233840 12296 ?       Sl   19:01   0:00 /usr/bin/containerd-shim-runc-v2 -namespace moby -id dff1333406a8df54701c58b15240aeb11f030bb3c6c844e9bb7da29cb2f5527a -address /run/containerd/containerd.sock
+root        1462  0.0  0.3 1234096 12232 ?       Sl   19:01   0:00 /usr/bin/containerd-shim-runc-v2 -namespace moby -id f428a1ee33e0bb11395423d94f415703bf04964e48e918f4a6b753b91f324545 -address /run/containerd/containerd.sock
+root        1466  0.0  0.3 1233840 12152 ?       Sl   19:01   0:00 /usr/bin/containerd-shim-runc-v2 -namespace moby -id bfb004a417a6c83f2cb5acdfc3f7036c9edd15a53105b6413dd7555a916d9a68 -address /run/containerd/containerd.sock
+root        1390  0.0  0.3 1234096 12416 ?       Sl   19:01   0:00 /usr/bin/containerd-shim-runc-v2 -namespace moby -id 88272ded9e649c10dc345bef2967f52dcb98e61701ebba51d423b7ff80d688fc -address /run/containerd/containerd.sock
+root        1463  0.0  0.3 1233840 12276 ?       Sl   19:01   0:00 /usr/bin/containerd-shim-runc-v2 -namespace moby -id a6980813b648494c8e36f99c5aaa354b92324e2c311ccc0397028e6ee0623720 -address /run/containerd/containerd.sock
+root        1429  0.0  0.3 1233840 12384 ?       Sl   19:01   0:00 /usr/bin/containerd-shim-runc-v2 -namespace moby -id 8e172767521e178911eef4fbeca44ee487946552003675d9d43324759f16baf0 -address /run/containerd/containerd.sock
+root        1431  0.0  0.3 1234096 12516 ?       Sl   19:01   0:00 /usr/bin/containerd-shim-runc-v2 -namespace moby -id accbdedebebf2d18d975b80cea79d0d54a8b25e107ad348e4590bf89062bd0c6 -address /run/containerd/containerd.sock
+root        1451  0.0  0.3 1233840 12396 ?       Sl   19:01   0:00 /usr/bin/containerd-shim-runc-v2 -namespace moby -id 6cab3cfab647fb315dbe8d4d102f630b2e54da6fffb2960ffc3e445c01ed93ef -address /run/containerd/containerd.sock
+root        1389  0.0  0.3 1233840 12308 ?       Sl   19:01   0:00 /usr/bin/containerd-shim-runc-v2 -namespace moby -id 00f1c682a7e818b6eb9422c418247f17f186734ae3c80541e9df02b9f84730c9 -address /run/containerd/containerd.sock
+root        2681  0.0  1.2 10785452 50588 ?      Sl   19:01   0:00 node /terminal/terminal-server.js
+root          17  0.0  0.0      0     0 ?        I    19:01   0:00 [rcu_preempt]
+
+c.2
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+1001        1837  0.2  3.2 11252976 129508 ?     Ssl  19:01   0:01 next-server (v
+1001        1911  0.2  3.0 11247284 124264 ?     Ssl  19:01   0:01 next-server (v
+root         907  1.2  3.0 2900064 121368 ?      Ssl  19:01   0:05 /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
+root        1772  0.1  2.6 11843480 106188 ?     Ssl  19:01   0:00 node server.js
+root        4077  1.4  2.2 1317184 90644 ?       Ssl  19:01   0:05 /app/sentinel
+root        1899  0.1  2.2 1400692 90480 ?       Ssl  19:01   0:00 traefik traefik --ping=true --ping.entrypoint=http --api.dashboard=true --entrypoints.http.address=:80 --entrypoints.https.address=:443 --entrypoints.http.http.encodequerysemicolons=true --entryPoints.http.http2.maxConcurrentStreams=250 --entrypoints.https.http.encodequerysemicolons=true --entryPoints.https.http2.maxConcurrentStreams=250 --entrypoints.https.http3 --providers.file.directory=/traefik/dynamic/ --providers.file.watch=true --certificatesresolvers.letsencrypt.acme.httpchallenge=true --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=http --certificatesresolvers.letsencrypt.acme.storage=/traefik/acme.json --api.insecure=false --providers.docker=true --providers.docker.exposedbydefault=false
+root        2682  0.3  2.1 319644 86128 ?        Sl   19:01   0:01 soketi-server
+9999       20980  2.3  1.9 191820 77800 ?        S    19:08   0:00 /usr/local/bin/php artisan horizon:work redis --name=default --supervisor=dff1333406a8-QQXa:s6 --backoff=0 --max-time=0 --max-jobs=400 --memory=128 --queue=high,default --sleep=3 --timeout=36000 --tries=1 --rest=0
+9999        3714  0.1  1.8 191376 72284 ?        S    19:01   0:00 php artisan start:horizon
+9999        3932  0.1  1.7 189304 71460 ?        S    19:01   0:00 /usr/local/bin/php artisan horizon:supervisor dff1333406a8-QQXa:s6 redis --workers-name=default --balance=false --max-processes=4 --min-processes=1 --nice=0 --balance-cooldown=1 --balance-max-shift=1 --parent-id=198 --auto-scaling-strategy=size --backoff=0 --max-time=0 --max-jobs=400 --memory=128 --queue=high,default --sleep=3 --timeout=36000 --tries=1 --rest=0
+9999        3710  0.1  1.7 189308 71384 ?        S    19:01   0:00 php artisan start:scheduler
+root        1794  0.0  1.7 11196728 68444 ?      Ssl  19:01   0:00 node dist/index.js
+root         802  0.9  1.6 2434924 66892 ?       Ssl  19:01   0:03 /usr/bin/containerd
+9999        2974  0.1  1.2 177368 50996 ?        S    19:01   0:00 php-fpm: pool www
+root        2681  0.0  1.2 10785452 50592 ?      Sl   19:01   0:00 node /terminal/terminal-server.js
+9999        3378  0.1  1.2 177368 48120 ?        S    19:01   0:00 php-fpm: pool www
+9999       21653 92.8  1.1 182792 46232 ?        R    19:08   0:00 php artisan start:nightwatch
+999         1796  0.0  0.6 216732 28044 ?        Ss   19:01   0:00 postgres
+root         353  0.0  0.6 289120 27456 ?        SLsl 19:01   0:00 /sbin/multipathd -d -s
+70          1816  0.0  0.6 175360 27212 ?        Ss   19:01   0:00 postgres
+70          1890  0.0  0.6 174540 26840 ?        Ss   19:01   0:00 postgres
+70          1803  0.0  0.6 174540 26632 ?        Ss   19:01   0:00 postgres
+70          1799  0.0  0.6 174536 26616 ?        Ss   19:01   0:00 postgres
+70          1785  0.0  0.6 173848 26304 ?        Ss   19:01   0:00 postgres
+root         805  0.0  0.5 110004 23276 ?        Ssl  19:01   0:00 /usr/bin/python3 /usr/share/unattended-upgrades/unattended-upgrade-shutdown --wait-for-signal
+9999        2924  0.0  0.5 176372 21152 ?        Ss   19:01   0:00 php-fpm: master process (/usr/local/etc/php-fpm.conf)
+root         307  0.0  0.4  50512 16904 ?        S<s  19:01   0:00 /usr/lib/systemd/systemd-journald
+70         20987  0.0  0.4 176724 16420 ?        Ss   19:08   0:00 postgres: coolify coolify 10.0.1.5(41084) idle
+root         761  0.0  0.3 469080 13932 ?        Ssl  19:01   0:00 /usr/libexec/udisks2/udisksd
+
+c.3
+Filesystem      Size  Used Avail Use% Mounted on
+tmpfs           392M  2.6M  389M   1% /run
+/dev/sda1        48G   18G   30G  38% /
+tmpfs           2.0G     0  2.0G   0% /dev/shm
+tmpfs           5.0M     0  5.0M   0% /run/lock
+/dev/sda16      881M  117M  703M  15% /boot
+/dev/sda15      105M  6.2M   99M   6% /boot/efi
+overlay          48G   18G   30G  38% /var/lib/docker/rootfs/overlayfs/f428a1ee33e0bb11395423d94f415703bf04964e48e918f4a6b753b91f324545
+overlay          48G   18G   30G  38% /var/lib/docker/rootfs/overlayfs/bfb004a417a6c83f2cb5acdfc3f7036c9edd15a53105b6413dd7555a916d9a68
+overlay          48G   18G   30G  38% /var/lib/docker/rootfs/overlayfs/accbdedebebf2d18d975b80cea79d0d54a8b25e107ad348e4590bf89062bd0c6
+overlay          48G   18G   30G  38% /var/lib/docker/rootfs/overlayfs/7403ca79d1c76c58da4946973d17609db60e9b040d9893c87beb59c95bb25bcc
+overlay          48G   18G   30G  38% /var/lib/docker/rootfs/overlayfs/88272ded9e649c10dc345bef2967f52dcb98e61701ebba51d423b7ff80d688fc
+overlay          48G   18G   30G  38% /var/lib/docker/rootfs/overlayfs/00f1c682a7e818b6eb9422c418247f17f186734ae3c80541e9df02b9f84730c9
+overlay          48G   18G   30G  38% /var/lib/docker/rootfs/overlayfs/a6980813b648494c8e36f99c5aaa354b92324e2c311ccc0397028e6ee0623720
+overlay          48G   18G   30G  38% /var/lib/docker/rootfs/overlayfs/10adc0bc396d8e7cdaea57ae098ccfc7994077d10b7fb4621536654033f4986d
+overlay          48G   18G   30G  38% /var/lib/docker/rootfs/overlayfs/6cab3cfab647fb315dbe8d4d102f630b2e54da6fffb2960ffc3e445c01ed93ef
+overlay          48G   18G   30G  38% /var/lib/docker/rootfs/overlayfs/046c9e2ea3632e3ca325ae76e61e4326a60936c3ecfb41565236a34ec3ff2bee
+overlay          48G   18G   30G  38% /var/lib/docker/rootfs/overlayfs/b326014b2aed703a81d6b3cbfb636b9e58f7ea1f3a8f244edcdd31fbc4ca5c54
+overlay          48G   18G   30G  38% /var/lib/docker/rootfs/overlayfs/f4962dcd88f7bd2bf45f5e6a981e2f694318c9af7970a693b43d1f3a1af142f1
+overlay          48G   18G   30G  38% /var/lib/docker/rootfs/overlayfs/8e172767521e178911eef4fbeca44ee487946552003675d9d43324759f16baf0
+overlay          48G   18G   30G  38% /var/lib/docker/rootfs/overlayfs/81f4f1edf42f8982276442c14a25b09671ba82b6e6afc8250eceeef041846d6f
+overlay          48G   18G   30G  38% /var/lib/docker/rootfs/overlayfs/f79366e3612c056902803a70faca7e32c8664a3b36b3a609b76c3eebbeb02e21
+overlay          48G   18G   30G  38% /var/lib/docker/rootfs/overlayfs/dff1333406a8df54701c58b15240aeb11f030bb3c6c844e9bb7da29cb2f5527a
+tmpfs           392M   12K  392M   1% /run/user/0
+overlay          48G   18G   30G  38% /var/lib/docker/rootfs/overlayfs/2d6ec1bf364fe0667141e7f6f2a40f46312945b0e13af44956facf2dfe1d46db
+
+Block D
+Netid   State    Recv-Q   Send-Q     Local Address:Port     Peer Address:Port   Process                                                                         
+udp     UNCONN   0        0             127.0.0.54:53            0.0.0.0:*       users:(("systemd-resolve",pid=502,fd=16))                                      
+udp     UNCONN   0        0          127.0.0.53%lo:53            0.0.0.0:*       users:(("systemd-resolve",pid=502,fd=14))                                      
+udp     UNCONN   0        0                0.0.0.0:443           0.0.0.0:*       users:(("docker-proxy",pid=3086,fd=8))                                         
+udp     UNCONN   0        0                   [::]:443              [::]:*       users:(("docker-proxy",pid=3091,fd=8))                                         
+tcp     LISTEN   0        4096             0.0.0.0:3000          0.0.0.0:*       users:(("docker-proxy",pid=2454,fd=8))                                         
+tcp     LISTEN   0        4096             0.0.0.0:22            0.0.0.0:*       users:(("sshd",pid=3318,fd=3),("systemd",pid=1,fd=94))                         
+tcp     LISTEN   0        4096             0.0.0.0:80            0.0.0.0:*       users:(("docker-proxy",pid=3017,fd=8))                                         
+tcp     LISTEN   0        4096             0.0.0.0:443           0.0.0.0:*       users:(("docker-proxy",pid=3058,fd=8))                                         
+tcp     LISTEN   0        4096       127.0.0.53%lo:53            0.0.0.0:*       users:(("systemd-resolve",pid=502,fd=15))                                      
+tcp     LISTEN   0        4096          127.0.0.54:53            0.0.0.0:*       users:(("systemd-resolve",pid=502,fd=17))                                      
+tcp     LISTEN   0        4096             0.0.0.0:8080          0.0.0.0:*       users:(("docker-proxy",pid=3117,fd=8))                                         
+tcp     LISTEN   0        4096             0.0.0.0:6002          0.0.0.0:*       users:(("docker-proxy",pid=2647,fd=8))                                         
+tcp     LISTEN   0        4096             0.0.0.0:6001          0.0.0.0:*       users:(("docker-proxy",pid=2621,fd=8))                                         
+tcp     LISTEN   0        4096             0.0.0.0:8000          0.0.0.0:*       users:(("docker-proxy",pid=2698,fd=8))                                         
+tcp     LISTEN   0        4096             0.0.0.0:5432          0.0.0.0:*       users:(("docker-proxy",pid=2142,fd=8))                                         
+tcp     LISTEN   0        4096                [::]:3000             [::]:*       users:(("docker-proxy",pid=2465,fd=8))                                         
+tcp     LISTEN   0        4096                [::]:22               [::]:*       users:(("sshd",pid=3318,fd=4),("systemd",pid=1,fd=95))                         
+tcp     LISTEN   0        4096                [::]:80               [::]:*       users:(("docker-proxy",pid=3022,fd=8))                                         
+tcp     LISTEN   0        4096                [::]:443              [::]:*       users:(("docker-proxy",pid=3066,fd=8))                                         
+tcp     LISTEN   0        4096                [::]:8080             [::]:*       users:(("docker-proxy",pid=3122,fd=8))                                         
+tcp     LISTEN   0        4096                [::]:6002             [::]:*       users:(("docker-proxy",pid=2653,fd=8))                                         
+tcp     LISTEN   0        4096                [::]:6001             [::]:*       users:(("docker-proxy",pid=2626,fd=8))                                         
+tcp     LISTEN   0        4096                [::]:8000             [::]:*       users:(("docker-proxy",pid=2706,fd=8))                                         
+tcp     LISTEN   0        4096                [::]:5432             [::]:*       users:(("docker-proxy",pid=2166,fd=8))    
+
+State Recv-Q Send-Q Local Address:Port Peer Address:Port Process                        
+ESTAB 0      0           10.0.0.1:22       10.0.1.5:43592 users:(("sshd",pid=3319,fd=4))
+ESTAB 0      0           10.0.0.1:22       10.0.1.5:43600 users:(("sshd",pid=3625,fd=4))
+
+
+Block E
+CONTAINER ID   IMAGE                                                                        COMMAND                  CREATED         STATUS                   PORTS                                                                                                                                                                NAMES
+2d6ec1bf364f   ghcr.io/coollabsio/sentinel:0.0.21                                           "/app/sentinel"          8 minutes ago   Up 8 minutes (healthy)                                                                                                                                                                        coolify-sentinel
+f79366e3612c   lckwc044k8s4gkco0wo4o48o_app:162f3e488fc71cfacbee19e3876fc46119b1026c        "/docker-entrypoint."   5 weeks ago     Up 8 minutes             0.0.0.0:3000->3000/tcp, [::]:3000->3000/tcp                                                                                                                          app-lckwc044k8s4gkco0wo4o48o-070959023038
+accbdedebebf   postgres:16-alpine                                                           "docker-entrypoint.s…"   5 weeks ago     Up 8 minutes (healthy)   5432/tcp                                                                                                                                                             db-lckwc044k8s4gkco0wo4o48o-070959019437
+10adc0bc396d   tml17ofhnzdx7s03f8oszgy6_frontend:08487362b8dbb02e263dac326417d73bcc85d037   "/docker-entrypoint."   3 months ago    Up 8 minutes             80/tcp                                                                                                                                                               frontend-tml17ofhnzdx7s03f8oszgy6-083000621243
+7403ca79d1c7   tml17ofhnzdx7s03f8oszgy6_server:08487362b8dbb02e263dac326417d73bcc85d037     "docker-entrypoint.s…"   3 months ago    Up 8 minutes (healthy)   3001/tcp                                                                                                                                                             server-tml17ofhnzdx7s03f8oszgy6-083000616946
+88272ded9e64   postgres:16-alpine                                                           "docker-entrypoint.s…"   3 months ago    Up 8 minutes (healthy)   5432/tcp                                                                                                                                                             postgres-tml17ofhnzdx7s03f8oszgy6-083000612273
+046c9e2ea363   aovyoyub8ufg7eukqxxkl0eo_app:d829c071a02dcb721140bc5f2bbadc93a62cfd68        "/docker-entrypoint.…"   3 months ago    Up 8 minutes             3000/tcp                                                                                                                                                             app-aovyoyub8ufg7eukqxxkl0eo-081309893707
+00f1c682a7e8   postgres:16-alpine                                                           "docker-entrypoint.s…"   3 months ago    Up 8 minutes (healthy)   5432/tcp                                                                                                                                                             db-aovyoyub8ufg7eukqxxkl0eo-081309891036
+81f4f1edf42f   koheagpds8l74v1eevnt8mx9_frontend:2ff6f12d2f1e43b257c11d77249df29a04acf7ba   "/docker-entrypoint.…"   3 months ago    Up 8 minutes             80/tcp                                                                                                                                                               frontend-koheagpds8l74v1eevnt8mx9-080321911985
+b326014b2aed   koheagpds8l74v1eevnt8mx9_backend:2ff6f12d2f1e43b257c11d77249df29a04acf7ba    "/docker-entrypoint.…"   3 months ago    Up 8 minutes             3001/tcp                                                                                                                                                             backend-koheagpds8l74v1eevnt8mx9-080321905954
+a6980813b648   postgres:17-alpine                                                           "docker-entrypoint.s…"   3 months ago    Up 8 minutes (healthy)   5432/tcp                                                                                                                                                             postgres-koheagpds8l74v1eevnt8mx9-080321901703
+dff1333406a8   ghcr.io/coollabsio/coolify:4.0.0-beta.470                                    "docker-php-serversi…"   4 months ago    Up 8 minutes (healthy)   8000/tcp, 8443/tcp, 9000/tcp, 0.0.0.0:8000->8080/tcp, [::]:8000->8080/tcp                                                                                            coolify
+bfb004a417a6   postgres:15-alpine                                                           "docker-entrypoint.s…"   4 months ago    Up 8 minutes (healthy)   5432/tcp                                                                                                                                                             coolify-db
+6cab3cfab647   redis:7-alpine                                                               "docker-entrypoint.s"   4 months ago    Up 8 minutes (healthy)   6379/tcp                                                                                                                                                             coolify-redis
+8e172767521e   ghcr.io/coollabsio/coolify-realtime:1.0.11                                   "/bin/sh /soketi-ent…"   4 months ago    Up 8 minutes (healthy)   0.0.0.0:6001-6002->6001-6002/tcp, [::]:6001-6002->6001-6002/tcp                                                                                                      coolify-realtime
+f4962dcd88f7   postgres:16                                                                  "docker-entrypoint.s…"   4 months ago    Up 8 minutes             0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp                                                                                                                          postgres-postgres-1
+f428a1ee33e0   traefik:v3.6                                                                 "/entrypoint.sh --pi…"   4 months ago    Up 8 minutes (healthy)   0.0.0.0:80->80/tcp, [::]:80->80/tcp, 0.0.0.0:443->443/tcp, [::]:443->443/tcp, 0.0.0.0:8080->8080/tcp, [::]:8080->8080/tcp, 0.0.0.0:443->443/udp, [::]:443->443/udp   coolify-proxy
+
+CONTAINER ID   NAME                                             CPU %     MEM USAGE / LIMIT     MEM %     NET I/O           BLOCK I/O         PIDS
+2d6ec1bf364f   coolify-sentinel                                 0.00%     98.71MiB / 3.823GiB   2.52%     8.4kB / 233kB     404MB / 10.4MB    8
+f79366e3612c   app-lckwc044k8s4gkco0wo4o48o-070959023038        0.00%     97.05MiB / 3.823GiB   2.48%     23.7kB / 19.8kB   42MB / 24.6kB     11
+accbdedebebf   db-lckwc044k8s4gkco0wo4o48o-070959019437         1.42%     24.26MiB / 3.823GiB   0.62%     21.4kB / 22.2kB   7.43MB / 692kB    6
+10adc0bc396d   frontend-tml17ofhnzdx7s03f8oszgy6-083000621243   0.00%     3.031MiB / 3.823GiB   0.08%     2.03kB / 126B     168kB / 4.1kB     3
+7403ca79d1c7   server-tml17ofhnzdx7s03f8oszgy6-083000616946     0.00%     28.54MiB / 3.823GiB   0.73%     1.65kB / 126B     9.72MB / 0B       11
+88272ded9e64   postgres-tml17ofhnzdx7s03f8oszgy6-083000612273   1.47%     20.98MiB / 3.823GiB   0.54%     1.69kB / 126B     3.44MB / 692kB    6
+046c9e2ea363   app-aovyoyub8ufg7eukqxxkl0eo-081309893707        0.00%     143.2MiB / 3.823GiB   3.66%     7.75kB / 8.02kB   89.4MB / 36.9kB   11
+00f1c682a7e8   db-aovyoyub8ufg7eukqxxkl0eo-081309891036         1.47%     39.08MiB / 3.823GiB   1.00%     9.68kB / 5.97kB   23.6MB / 692kB    6
+81f4f1edf42f   frontend-koheagpds8l74v1eevnt8mx9-080321911985   0.00%     10.02MiB / 3.823GiB   0.26%     1.84kB / 126B     8.01MB / 4.1kB    3
+b326014b2aed   backend-koheagpds8l74v1eevnt8mx9-080321905954    0.00%     118.2MiB / 3.823GiB   3.02%     5.34kB / 47.2kB   79MB / 0B         11
+a6980813b648   postgres-koheagpds8l74v1eevnt8mx9-080321901703   1.47%     48.23MiB / 3.823GiB   1.23%     48.9kB / 3.44kB   32.4MB / 823kB    6
+dff1333406a8   coolify                                          31.15%    324.4MiB / 3.823GiB   8.29%     9.82MB / 5.98MB   65.8MB / 13.1MB   25
+bfb004a417a6   coolify-db                                       1.49%     47.64MiB / 3.823GiB   1.22%     633kB / 1.93MB    30MB / 1.62MB     7
+6cab3cfab647   coolify-redis                                    1.48%     17.05MiB / 3.823GiB   0.44%     5.87MB / 6.01MB   16.5MB / 7.91MB   7
+8e172767521e   coolify-realtime                                 1.40%     94.98MiB / 3.823GiB   2.43%     8.81kB / 289kB    60.6MB / 0B       21
+f4962dcd88f7   postgres-postgres-1                              0.00%     48.1MiB / 3.823GiB    1.23%     1.65kB / 126B     33MB / 496kB      6
+f428a1ee33e0   coolify-proxy                                    0.15%     109.4MiB / 3.823GiB   2.79%     299kB / 1.97kB    96.4MB / 0B       8
+
+IMAGE                           ID             DISK USAGE   CONTENT SIZE   EXTRA
+aovyoyub8ufg7eukqxxkl0eo_app:6b618ae94ffb5dc9a4d10d0681a65191f01135d7
+                                c980b83f794e       1.23GB          250MB        
+aovyoyub8ufg7eukqxxkl0eo_app:d829c071a02dcb721140bc5f2bbadc93a62cfd68
+                                157318704cc6       1.23GB          250MB    U   
+ghcr.io/coollabsio/coolify-helper:1.0.12
+                                aa6d39275d4a        409MB          110MB        
+ghcr.io/coollabsio/coolify-realtime:1.0.11
+                                47d6a0ffc773      1e+03MB          238MB    U   
+ghcr.io/coollabsio/coolify:4.0.0-beta.470
+                                2370f00af778        597MB          133MB    U   
+ghcr.io/coollabsio/sentinel:0.0.21
+                                389996c7f1b9       48.2MB         13.4MB    U   
+koheagpds8l74v1eevnt8mx9_backend:2ff6f12d2f1e43b257c11d77249df29a04acf7ba
+                                01aac0a748dc       1.46GB          404MB    U   
+koheagpds8l74v1eevnt8mx9_frontend:2ff6f12d2f1e43b257c11d77249df29a04acf7ba
+                                469646b49aca        114MB         40.9MB    U   
+lckwc044k8s4gkco0wo4o48o_app:0152e5f27cc641054e858c5db314aff296d53019
+                                83d9735a0283       1.23GB          250MB        
+lckwc044k8s4gkco0wo4o48o_app:162f3e488fc71cfacbee19e3876fc46119b1026c
+                                c32f5ed3f8ab       1.23GB          250MB    U   
+postgres:15-alpine              fceb6f86328c        392MB          110MB    U   
+postgres:16                     78df81b1442d        641MB          166MB    U   
+postgres:16-alpine              20edbde7749f        395MB          111MB    U   
+postgres:17-alpine              6f30057d31f5        399MB          112MB    U   
+redis:7-alpine                  8b81dd37ff02       61.2MB         17.7MB    U   
+tml17ofhnzdx7s03f8oszgy6_frontend:08487362b8dbb02e263dac326417d73bcc85d037
+                                0ada2648a700       75.2MB         21.3MB    U   
+tml17ofhnzdx7s03f8oszgy6_frontend:9c8bfb0d1ffbb30dc044f0470777c74d65abc913
+                                42bd52cd02a9       75.2MB         21.3MB        
+tml17ofhnzdx7s03f8oszgy6_server:08487362b8dbb02e263dac326417d73bcc85d037
+                                9a3dd74aa284        220MB         51.3MB    U   
+traefik:v3.6                    9004e1cd1e33        242MB         53.3MB    U   
+
+Block F
+no crontab for root
+
+no crontab fls -la /etc/cron.d; ls -la /var/spool/cron; ls -la /var/spool/cron/crontabs
+total 20:~# ls -la /etc/cron.d; ls -la /var/spool/cron; ls -la /var/spool/cron/crontabs
+drwxr-xr-x   2 root root 4096 Feb 17 15:13 .
+drwxr-xr-x 109 root root 4096 Jul 29 12:59 ..
+-rw-r--r--   1 root root  102 Mar 31  2024 .placeholder
+-rw-r--r--   1 root root  201 Apr  8  2024 e2scrub_all
+-rw-r--r--   1 root root  396 Jan  9  2024 sysstat
+total 12
+drwxr-xr-x 3 root root    4096 Feb 17 15:04 .
+drwxr-xr-x 4 root root    4096 Feb 17 15:04 ..
+drwx-wx--T 2 root crontab 4096 Mar 31  2024 crontabs
+total 8
+drwx-wx--T 2 root crontab 4096 Mar 31  2024 .
+drwxr-xr-x 3 root root    4096 Feb 17 15:04 ..
+
+===== /etc/cron.d/e2scrub_all =====
+30 3 * * 0 root test -e /run/systemd/system || SERVICE_MODE=1 /usr/lib/x86_64-linux-gnu/e2fsprogs/e2scrub_all_cron
+10 3 * * * root test -e /run/systemd/system || SERVICE_MODE=1 /sbin/e2scrub_all -A -r
+===== /etc/cron.d/sysstat =====
+# The first element of the path is a directory where the debian-sa1
+# script is located
+PATH=/usr/lib/sysstat:/usr/sbin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Activity reports every 10 minutes everyday
+5-55/10 * * * * root command -v debian-sa1 > /dev/null && debian-sa1 1 1
+
+# Additional run at 23:59 to rotate the statistics file
+59 23 * * * root command -v debian-sa1 > /dev/null && debian-sa1 60 2
+===== /etc/crontab =====
+# /etc/crontab: system-wide crontab
+# Unlike any other crontab you don't have to run the `crontab'
+# command to install the new version when you edit this file
+# and files in /etc/cron.d. These files also have username fields,
+# that none of the other crontabs do.
+
+SHELL=/bin/sh
+# You can also override PATH, but by default, newer versions inherit it from the environment
+#PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Example of job definition:
+# .---------------- minute (0 - 59)
+# |  .------------- hour (0 - 23)
+# |  |  .---------- day of month (1 - 31)
+# |  |  |  .------- month (1 - 12) OR jan,feb,mar,apr ...
+# |  |  |  |  .---- day of week (0 - 6) (Sunday=0 or 7) OR sun,mon,tue,wed,thu,fri,sat
+# |  |  |  |  |
+# *  *  *  *  * user-name command to be executed
+17 *    * * *   root    cd / && run-parts --report /etc/cron.hourly
+25 6    * * *   root    test -x /usr/sbin/anacron || { cd / && run-parts --report /etc/cron.daily; }
+47 6    * * 7   root    test -x /usr/sbin/anacron || { cd / && run-parts --report /etc/cron.weekly; }
+52 6    1 * *   root    test -x /usr/sbin/anacron || { cd / && run-parts --report /etc/cron.monthly; }
+#
+
+  UNIT                        LOAD   ACTIVE SUB     DESCRIPTION                >
+  containerd.service          loaded active running containerd container runtime
+  cron.service                loaded active running Regular background program >
+  dbus.service                loaded active running D-Bus System Message Bus
+  docker.service              loaded active running Docker Application Containe>
+  getty@tty1.service          loaded active running Getty on tty1
+  ModemManager.service        loaded active running Modem Manager
+  multipathd.service          loaded active running Device-Mapper Multipath Dev>
+  polkit.service              loaded active running Authorization Manager
+  qemu-guest-agent.service    loaded active running QEMU Guest Agent
+  rsyslog.service             loaded active running System Logging Service
+  serial-getty@ttyS0.service  loaded active running Serial Getty on ttyS0
+  ssh.service                 loaded active running OpenBSD Secure Shell server
+  systemd-journald.service    loaded active running Journal Service
+  systemd-logind.service      loaded active running User Login Management
+  systemd-networkd.service    loaded active running Network Configuration
+  systemd-resolved.service    loaded active running Network Name Resolution
+  systemd-timesyncd.service   loaded active running Network Time Synchronization
+  systemd-udevd.service       loaded active running Rule-based Manager for Devi>
+  udisks2.service             loaded active running Disk Manager
+  unattended-upgrades.service loaded active running Unattended Upgrades Shutdown
+  user@0.service              loaded active running User Manager for UID 0
+
+Legend: LOAD   → Reflects whether the unit definition was properly loaded.
+        ACTIVE → The high-level unit activation state, i.e. generalization of S>
+        SUB    → The low-level unit activation state, values depend on unit typ>
+
+21 loaded units listed.
+
+Block G
+● ssh.service - OpenBSD Secure Shell server
+     Loaded: loaded (/usr/lib/systemd/system/ssh.service; disabled; preset: ena>
+     Active: active (running) since Wed 2026-07-29 19:01:33 SAST; 11min ago
+TriggeredBy: ● ssh.socket
+       Docs: man:sshd(8)
+             man:sshd_config(5)
+    Process: 3316 ExecStartPre=/usr/sbin/sshd -t (code=exited, status=0/SUCCESS)
+   Main PID: 3318 (sshd)
+      Tasks: 1 (limit: 4651)
+     Memory: 6.7M (peak: 7.5M)
+        CPU: 43ms
+     CGroup: /system.slice/ssh.service
+             └─3318 "sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups"
+
+Jul 29 19:01:33 vps systemd[1]: Starting ssh.service - OpenBSD Secure Shell ser>
+Jul 29 19:01:33 vps sshd[3318]: Server listening on 0.0.0.0 port 22.
+Jul 29 19:01:33 vps systemd[1]: Started ssh.service - OpenBSD Secure Shell serv>
+Jul 29 19:01:33 vps sshd[3318]: Server listening on :: port 22.
+Jul 29 19:01:33 vps sshd[3319]: Accepted publickey for root from 10.0.1.5 port >
+Jul 29 19:01:33 vps sshd[3319]: pam_unix(sshd:session): session opened for user>
+Jul 29 19:01:35 vps sshd[3625]: Accepted publickey for root from 10.0.1.5 port >
+Jul 29 19:01:35 vps sshd[3625]: pam_unix(sshd:session): session opened for user>
+lines 1-22/22 (END)
+
+tcp   LISTEN 0      4096         0.0.0.0:22        0.0.0.0:*    users:(("sshd",pid=3318,fd=3),("systemd",pid=1,fd=94))
+tcp   LISTEN 0      4096            [::]:22           [::]:*    users:(("sshd",pid=3318,fd=4),("systemd",pid=1,fd=95))
+
+tcp   LISTEN 0      4096         0.0.0.0:22        0.0.0.0:*    users:(("sshd",pid=3318,fd=3),("systemd",pid=1,fd=94))
+tcp   LISTEN 0      4096            [::]:22           [::]:*    users:(("sshd",pid=3318,fd=4),("systemd",pid=1,fd=95))
+root@vps:~# ufw status verbose
+Status: active
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), deny (routed)
+New profiles: skip
+
+To                         Action      From
+--                         ------      ----
+22                         ALLOW IN    Anywhere                  
+80                         ALLOW IN    Anywhere                  
+443                        ALLOW IN    Anywhere                  
+22 (v6)                    ALLOW IN    Anywhere (v6)             
+80 (v6)                    ALLOW IN    Anywhere (v6)             
+443 (v6)                   ALLOW IN    Anywhere (v6)             
+
+Chain INPUT (policy DROP 26 packets, 1560 bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+ 1957  436K ufw-before-logging-input  0    --  *      *       0.0.0.0/0            0.0.0.0/0           
+ 1957  436K ufw-before-input  0    --  *      *       0.0.0.0/0            0.0.0.0/0           
+ 1590  383K ufw-after-input  0    --  *      *       0.0.0.0/0            0.0.0.0/0           
+  106  7480 ufw-after-logging-input  0    --  *      *       0.0.0.0/0            0.0.0.0/0           
+  106  7480 ufw-reject-input  0    --  *      *       0.0.0.0/0            0.0.0.0/0           
+  106  7480 ufw-track-input  0    --  *      *       0.0.0.0/0            0.0.0.0/0           
+
+Chain FORWARD (policy DROP 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+  703 1821K DOCKER-USER  0    --  *      *       0.0.0.0/0            0.0.0.0/0           
+  703 1821K DOCKER-FORWARD  0    --  *      *       0.0.0.0/0            0.0.0.0/0           
+    0     0 ufw-before-logging-forward  0    --  *      *       0.0.0.0/0            0.0.0.0/0           
+    0     0 ufw-before-forward  0    --  *      *       0.0.0.0/0            0.0.0.0/0           
+    0     0 ufw-after-forward  0    --  *      *       0.0.0.0/0            0.0.0.0/0           
+    0     0 ufw-after-logging-forward  0    --  *      *       0.0.0.0/0            0.0.0.0/0           
+    0     0 ufw-reject-forward  0    --  *      *       0.0.0.0/0            0.0.0.0/0           
+    0     0 ufw-track-forward  0    --  *      *       0.0.0.0/0            0.0.0.0/0           
+
+Chain OUTPUT (policy ACCEPT 15 packets, 600 bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+  411 66487 ufw-before-logging-output  0    --  *      *       0.0.0.0/0            0.0.0.0/0           
+  411 66487 ufw-before-output  0    --  *      *       0.0.0.0/0            0.0.0.0/0           
+  121  8464 ufw-after-output  0    --  *      *       0.0.0.0/0            0.0.0.0/0           
+  121  8464 ufw-after-logging-output  0    --  *      *       0.0.0.0/0            0.0.0.0/0           
+  121  8464 ufw-reject-output  0    --  *      *       0.0.0.0/0            0.0.0.0/0           
+  121  8464 ufw-track-output  0    --  *      *       0.0.0.0/0            0.0.0.0/0           
+
+Chain DOCKER (7 references)
+ pkts bytes target     prot opt in     out     source               destination         
+    0     0 ACCEPT     6    --  !br-500bff810bb8 br-500bff810bb8  0.0.0.0/0            10.0.1.6             tcp dpt:8080
+    0     0 ACCEPT     17   --  !br-500bff810bb8 br-500bff810bb8  0.0.0.0/0            10.0.1.6             udp dpt:443
+    0     0 ACCEPT     6    --  !br-500bff810bb8 br-500bff810bb8  0.0.0.0/0            10.0.1.6             tcp dpt:443
+    0     0 ACCEPT     6    --  !br-500bff810bb8 br-500bff810bb8  0.0.0.0/0            10.0.1.6             tcp dpt:80
+   12   720 ACCEPT     6    --  !br-500bff810bb8 br-500bff810bb8  0.0.0.0/0            10.0.1.5             tcp dpt:8080
+    0     0 ACCEPT     6    --  !br-500bff810bb8 br-500bff810bb8  0.0.0.0/0            10.0.1.3             tcp dpt:6002
+    0     0 ACCEPT     6    --  !br-500bff810bb8 br-500bff810bb8  0.0.0.0/0            10.0.1.3             tcp dpt:6001
+    0     0 ACCEPT     6    --  !br-cdd1a17d5365 br-cdd1a17d5365  0.0.0.0/0            10.0.3.4             tcp dpt:3000
+    0     0 ACCEPT     6    --  !br-2310a974a068 br-2310a974a068  0.0.0.0/0            10.0.2.2             tcp dpt:5432
+    0     0 DROP       0    --  !br-cdd1a17d5365 br-cdd1a17d5365  0.0.0.0/0            0.0.0.0/0           
+    0     0 DROP       0    --  !br-e2a2eb805ce1 br-e2a2eb805ce1  0.0.0.0/0            0.0.0.0/0           
+    0     0 DROP       0    --  !br-ec79d8f61ddf br-ec79d8f61ddf  0.0.0.0/0            0.0.0.0/0           
+    0     0 DROP       0    --  !br-1023ffe19a94 br-1023ffe19a94  0.0.0.0/0            0.0.0.0/0           
+    0     0 DROP       0    --  !br-2310a974a068 br-2310a974a068  0.0.0.0/0            0.0.0.0/0           
+    0     0 DROP       0    --  !br-500bff810bb8 br-500bff810bb8  0.0.0.0/0            0.0.0.0/0           
+    0     0 DROP       0    --  !docker0 docker0  0.0.0.0/0            0.0.0.0/0           
+
+Chain DOCKER-BRIDGE (1 references)
+ pkts bytes target     prot opt in     out     source               destination         
+    0     0 DOCKER     0    --  *      br-cdd1a17d5365  0.0.0.0/0            0.0.0.0/0           
+    0     0 DOCKER     0    --  *      br-e2a2eb805ce1  0.0.0.0/0            0.0.0.0/0           
+    0     0 DOCKER     0    --  *      br-ec79d8f61ddf  0.0.0.0/0            0.0.0.0/0           
+    0     0 DOCKER     0    --  *      br-1023ffe19a94  0.0.0.0/0            0.0.0.0/0           
+    0     0 DOCKER     0    --  *      br-2310a974a068  0.0.0.0/0            0.0.0.0/0           
+   12   720 DOCKER     0    --  *      br-500bff810bb8  0.0.0.0/0            0.0.0.0/0           
+    0     0 DOCKER     0    --  *      docker0  0.0.0.0/0            0.0.0.0/0           
+
+Chain DOCKER-CT (1 references)
+ pkts bytes target     prot opt in     out     source               destination         
+    0     0 ACCEPT     0    --  *      br-cdd1a17d5365  0.0.0.0/0            0.0.0.0/0            ctstate RELATED,ESTABLISHED
+    0     0 ACCEPT     0    --  *      br-e2a2eb805ce1  0.0.0.0/0            0.0.0.0/0            ctstate RELATED,ESTABLISHED
+    0     0 ACCEPT     0    --  *      br-ec79d8f61ddf  0.0.0.0/0            0.0.0.0/0            ctstate RELATED,ESTABLISHED
+    0     0 ACCEPT     0    --  *      br-1023ffe19a94  0.0.0.0/0            0.0.0.0/0            ctstate RELATED,ESTABLISHED
+    0     0 ACCEPT     0    --  *      br-2310a974a068  0.0.0.0/0            0.0.0.0/0            ctstate RELATED,ESTABLISHED
+  365 1782K ACCEPT     0    --  *      br-500bff810bb8  0.0.0.0/0            0.0.0.0/0            ctstate RELATED,ESTABLISHED
+   84  8064 ACCEPT     0    --  *      docker0  0.0.0.0/0            0.0.0.0/0            ctstate RELATED,ESTABLISHED
+
+Chain DOCKER-FORWARD (1 references)
+ pkts bytes target     prot opt in     out     source               destination         
+  703 1821K DOCKER-CT  0    --  *      *       0.0.0.0/0            0.0.0.0/0           
+  254 31402 DOCKER-INTERNAL  0    --  *      *       0.0.0.0/0            0.0.0.0/0           
+  254 31402 DOCKER-BRIDGE  0    --  *      *       0.0.0.0/0            0.0.0.0/0           
+    0     0 ACCEPT     0    --  br-cdd1a17d5365 *       0.0.0.0/0            0.0.0.0/0           
+    0     0 ACCEPT     0    --  br-e2a2eb805ce1 *       0.0.0.0/0            0.0.0.0/0           
+    0     0 ACCEPT     0    --  br-ec79d8f61ddf *       0.0.0.0/0            0.0.0.0/0           
+    0     0 ACCEPT     0    --  br-1023ffe19a94 *       0.0.0.0/0            0.0.0.0/0           
+    0     0 ACCEPT     0    --  br-2310a974a068 *       0.0.0.0/0            0.0.0.0/0           
+  242 30682 ACCEPT     0    --  br-500bff810bb8 *       0.0.0.0/0            0.0.0.0/0           
+    0     0 ACCEPT     0    --  docker0 *       0.0.0.0/0            0.0.0.0/0 
+
+    PermitRootLogin yes
+
+    Block H
+
+total 12:~# ls -la /root/.ssh; echo '---'; cat /root/.ssh/authorized_keys 2>/dev/null
+drwx------ 2 root root 4096 Mar  6 11:23 .
+drwx------ 7 root root 4096 Jul 29 19:13 ..
+-rw------- 1 root root   89 Mar  6 11:23 authorized_keys
+---
+ssh-ed25519 sshKey coolify
+
+total 8ized_keys ---'; cat "$d/authorized_keys" 2>/dev/null; done
+drwxr-xr-x  2 root root 4096 Apr 22  2024 .
+drwxr-xr-x 23 root root 4096 Jul 29 19:01 ..
+===== /home/*/.ssh =====
+ls: cannot access '/home/*/.ssh': No such file or directory
+--- authorized_keys ---
+
+
+Block I
+/dev/shm:
+total 0
+drwxrwxrwt  2 root root   40 Jul 29 19:01 .
+drwxr-xr-x 19 root root 3980 Jul 29 19:01 ..
+
+/tmp:
+total 48
+drwxrwxrwt 12 root root 4096 Jul 29 19:16 .
+drwxr-xr-x 23 root root 4096 Jul 29 19:01 ..
+drwxrwxrwt  2 root root 4096 Jul 29 19:01 .ICE-unix
+drwxrwxrwt  2 root root 4096 Jul 29 19:01 .X11-unix
+drwxrwxrwt  2 root root 4096 Jul 29 19:01 .XIM-unix
+drwxrwxrwt  2 root root 4096 Jul 29 19:01 .font-unix
+drwx------  2 root root 4096 Jul 29 19:01 snap-private-tmp
+drwx------  3 root root 4096 Jul 29 19:01 systemd-private-bfb1f6b2d0ce49d693ceab91ea7921d3-ModemManager.service-NwE4tG
+drwx------  3 root root 4096 Jul 29 19:01 systemd-private-bfb1f6b2d0ce49d693ceab91ea7921d3-polkit.service-fQrQs7
+drwx------  3 root root 4096 Jul 29 19:01 systemd-private-bfb1f6b2d0ce49d693ceab91ea7921d3-systemd-logind.service-y2zcIu
+drwx------  3 root root 4096 Jul 29 19:01 systemd-private-bfb1f6b2d0ce49d693ceab91ea7921d3-systemd-resolved.service-Sb9wuq
+drwx------  3 root root 4096 Jul 29 19:01 systemd-private-bfb1f6b2d0ce49d693ceab91ea7921d3-systemd-timesyncd.service-14t7NY
+
+/var/tmp:
+total 32
+drwxrwxrwt  8 root root 4096 Jul 29 19:07 .
+drwxr-xr-x 13 root root 4096 Mar  6 10:45 ..
+drwxrwxrwt  2 root root 4096 Jul 29 19:01 cloud-init
+drwx------  3 root root 4096 Jul 29 19:01 systemd-private-bfb1f6b2d0ce49d693ceab91ea7921d3-ModemManager.service-9Yf6EH
+drwx------  3 root root 4096 Jul 29 19:01 systemd-private-bfb1f6b2d0ce49d693ceab91ea7921d3-polkit.service-VIXiPP
+drwx------  3 root root 4096 Jul 29 19:01 systemd-private-bfb1f6b2d0ce49d693ceab91ea7921d3-systemd-logind.service-whBftk
+drwx------  3 root root 4096 Jul 29 19:01 systemd-private-bfb1f6b2d0ce49d693ceab91ea7921d3-systemd-resolved.service-kkFvmx
+drwx------  3 root root 4096 Jul 29 19:01 systemd-private-bfb1f6b2d0ce49d693ceab91ea7921d3-systemd-timesyncd.service-dmlWuw
+
+no response to ps aux | command
+
+Block J
+CONTAINER ID   IMAGE                                                                        NAMES                                            STATUS                    PORTS
+2d6ec1bf364f   ghcr.io/coollabsio/sentinel:0.0.21                                           coolify-sentinel                                 Up 15 minutes (healthy)   
+f79366e3612c   lckwc044k8s4gkco0wo4o48o_app:162f3e488fc71cfacbee19e3876fc46119b1026c        app-lckwc044k8s4gkco0wo4o48o-070959023038        Up 15 minutes             0.0.0.0:3000->3000/tcp, [::]:3000->3000/tcp
+accbdedebebf   postgres:16-alpine                                                           db-lckwc044k8s4gkco0wo4o48o-070959019437         Up 15 minutes (healthy)   5432/tcp
+10adc0bc396d   tml17ofhnzdx7s03f8oszgy6_frontend:08487362b8dbb02e263dac326417d73bcc85d037   frontend-tml17ofhnzdx7s03f8oszgy6-083000621243   Up 15 minutes             80/tcp
+7403ca79d1c7   tml17ofhnzdx7s03f8oszgy6_server:08487362b8dbb02e263dac326417d73bcc85d037     server-tml17ofhnzdx7s03f8oszgy6-083000616946     Up 15 minutes (healthy)   3001/tcp
+88272ded9e64   postgres:16-alpine                                                           postgres-tml17ofhnzdx7s03f8oszgy6-083000612273   Up 15 minutes (healthy)   5432/tcp
+046c9e2ea363   aovyoyub8ufg7eukqxxkl0eo_app:d829c071a02dcb721140bc5f2bbadc93a62cfd68        app-aovyoyub8ufg7eukqxxkl0eo-081309893707        Up 15 minutes             3000/tcp
+00f1c682a7e8   postgres:16-alpine                                                           db-aovyoyub8ufg7eukqxxkl0eo-081309891036         Up 15 minutes (healthy)   5432/tcp
+81f4f1edf42f   koheagpds8l74v1eevnt8mx9_frontend:2ff6f12d2f1e43b257c11d77249df29a04acf7ba   frontend-koheagpds8l74v1eevnt8mx9-080321911985   Up 15 minutes             80/tcp
+b326014b2aed   koheagpds8l74v1eevnt8mx9_backend:2ff6f12d2f1e43b257c11d77249df29a04acf7ba    backend-koheagpds8l74v1eevnt8mx9-080321905954    Up 15 minutes             3001/tcp
+a6980813b648   postgres:17-alpine                                                           postgres-koheagpds8l74v1eevnt8mx9-080321901703   Up 15 minutes (healthy)   5432/tcp
+dff1333406a8   ghcr.io/coollabsio/coolify:4.0.0-beta.470                                    coolify                                          Up 15 minutes (healthy)   8000/tcp, 8443/tcp, 9000/tcp, 0.0.0.0:8000->8080/tcp, [::]:8000->8080/tcp
+bfb004a417a6   postgres:15-alpine                                                           coolify-db                                       Up 15 minutes (healthy)   5432/tcp
+6cab3cfab647   redis:7-alpine                                                               coolify-redis                                    Up 15 minutes (healthy)   6379/tcp
+8e172767521e   ghcr.io/coollabsio/coolify-realtime:1.0.11                                   coolify-realtime                                 Up 15 minutes (healthy)   0.0.0.0:6001-6002->6001-6002/tcp, [::]:6001-6002->6001-6002/tcp
+f4962dcd88f7   postgres:16                                                                  postgres-postgres-1                              Up 15 minutes             0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp
+f428a1ee33e0   traefik:v3.6                                                                 coolify-proxy                                    Up 15 minutes (healthy)   0.0.0.0:80->80/tcp, [::]:80->80/tcp, 0.0.0.0:443->443/tcp, [::]:443->443/tcp, 0.0.0.0:8080->8080/tcp, [::]:8080->8080/tcp, 0.0.0.0:443->443/udp, [::]:443->443/udp
+
+
+/data/coolify/source/docker-compose.yml
+/data/coolify/proxy/docker-compose.yml
+/var/lib/docker/rootfs/overlayfs/8e172767521e178911eef4fbeca44ee487946552003675d9d43324759f16baf0/app/node_modules/knex/scripts/stress-test/docker-compose.yml
+/var/lib/docker/rootfs/overlayfs/8e172767521e178911eef4fbeca44ee487946552003675d9d43324759f16baf0/app/node_modules/knex/scripts/docker-compose.yml
+/var/lib/docker/rootfs/overlayfs/8e172767521e178911eef4fbeca44ee487946552003675d9d43324759f16baf0/app/node_modules/@pm2/io/docker-compose.yml
+/var/lib/docker/rootfs/overlayfs/dff1333406a8df54701c58b15240aeb11f030bb3c6c844e9bb7da29cb2f5527a/var/www/html/vendor/nubs/random-name-generator/docker-compose.yml
+/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2884/fs/var/www/html/vendor/nubs/random-name-generator/docker-compose.yml
+/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/14/fs/app/node_modules/knex/scripts/stress-test/docker-compose.yml
+/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/14/fs/app/node_modules/knex/scripts/docker-compose.yml
+/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/14/fs/app/node_modules/@pm2/io/docker-compose.yml
+/opt/postgres/docker-compose.yml
+
+
+/var/lib/docker/rootfs/overlayfs/dff1333406a8df54701c58b15240aeb11f030bb3c6c844e9bb7da29cb2f5527a/var/www/html/.env
+/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/2916/fs/var/www/html/.env
+/data/coolify/source/.env
+/data/coolify/applications/koheagpds8l74v1eevnt8mx9/.env
+/data/coolify/applications/lckwc044k8s4gkco0wo4o48o/.env
+/data/coolify/applications/aovyoyub8ufg7eukqxxkl0eo/.env
+/data/coolify/applications/tml17ofhnzdx7s03f8oszgy6/.env

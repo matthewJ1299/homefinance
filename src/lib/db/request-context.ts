@@ -1,6 +1,9 @@
 import { cache } from "react";
 import { AsyncLocalStorage } from "async_hooks";
 import type pg from "pg";
+import type { FeatureKey } from "@/lib/features/registry";
+
+export type HouseholdApprovalStatus = "pending" | "active" | "rejected";
 
 export interface RequestContext {
   userId?: string;
@@ -9,6 +12,14 @@ export interface RequestContext {
   householdId?: number;
   /** True if the authenticated user is a global super-admin. */
   isSuperAdmin?: boolean;
+  /** Enabled household feature keys for this request (from household_features). */
+  featureKeys?: readonly FeatureKey[];
+  /** Admin-set AI tier for the household. */
+  aiTier?: "free" | "paid";
+  /** Self-registration approval gate; defaults to active when column is absent. */
+  householdApprovalStatus?: HouseholdApprovalStatus;
+  /** When true, user must change password before using the app. */
+  mustChangePassword?: boolean;
   /** Set by Postgres client after INSERT so lastInsertId() is request-scoped. */
   lastInsertId?: number;
   /** When set, DB calls use this client inside an open transaction. */
@@ -53,7 +64,16 @@ function reactHolderOrNull(): { ctx: RequestContext } | null {
  * join a transaction that may roll back), and would make `lastInsertId()`
  * readable across unrelated inserts.
  */
-const IDENTITY_KEYS = ["userId", "userName", "householdId", "isSuperAdmin"] as const;
+const IDENTITY_KEYS = [
+  "userId",
+  "userName",
+  "householdId",
+  "isSuperAdmin",
+  "featureKeys",
+  "aiTier",
+  "householdApprovalStatus",
+  "mustChangePassword",
+] as const;
 
 function identityOf(ctx: RequestContext): RequestContext {
   const out: RequestContext = {};

@@ -5,30 +5,18 @@ import { auth } from "@/lib/auth";
 import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { getUserRepository } from "@/lib/repositories";
 import { normalizeBudgetMonthStartDay } from "@/lib/utils/date";
-import { isAIConfiguredForTier } from "@/lib/services/ai.service";
 import type { SetupWizardStatus } from "@/lib/repositories/interfaces/user.repository";
+import { isOnboardingStep } from "@/lib/onboarding/steps";
 
 export type UpdateBudgetMonthStartDayResult =
   | { success: true }
   | { success: false; error: string };
 
-export type UpdateReconEnabledResult =
-  | { success: true }
-  | { success: false; error: string };
-
-export type UpdateAiUsePaidResult =
-  | { success: true }
-  | { success: false; error: string };
-
-export type UpdateAiEnabledResult =
-  | { success: true }
-  | { success: false; error: string };
-
-export type UpdateOwedToMeEnabledResult =
-  | { success: true }
-  | { success: false; error: string };
-
 export type UpdateSetupWizardStatusResult =
+  | { success: true }
+  | { success: false; error: string };
+
+export type UpdateSetupWizardStepResult =
   | { success: true }
   | { success: false; error: string };
 
@@ -52,120 +40,6 @@ export async function updateBudgetMonthStartDayAction(
   return { success: true };
 }
 
-export async function updateReconEnabledAction(enabled: boolean): Promise<UpdateReconEnabledResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { success: false, error: "Unauthorized" };
-  }
-  setRequestContextFromSession(session);
-  const userId = Number(session.user.id);
-  const reconFeatureAllowed = await getUserRepository().getReconFeatureAllowed(userId);
-  if (!reconFeatureAllowed) {
-    return {
-      success: false,
-      error: "Recon is not enabled for your account. An administrator can grant access.",
-    };
-  }
-  try {
-    await getUserRepository().setReconEnabled(userId, enabled);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to update Recon setting.";
-    return { success: false, error: message };
-  }
-  revalidatePath("/dashboard");
-  revalidatePath("/settings");
-  revalidatePath("/recon");
-  return { success: true };
-}
-
-export async function updateAiUsePaidAction(usePaid: boolean): Promise<UpdateAiUsePaidResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { success: false, error: "Unauthorized" };
-  }
-  setRequestContextFromSession(session);
-
-  const userId = Number(session.user.id);
-  const aiFeatureAllowed = await getUserRepository().getAiFeatureAllowed(userId);
-  if (!aiFeatureAllowed) {
-    return {
-      success: false,
-      error: "AI analysis is not enabled for your account. An administrator can grant access.",
-    };
-  }
-
-  if (usePaid && !isAIConfiguredForTier("paid")) {
-    return {
-      success: false,
-      error:
-        "Paid AI is not configured on this server. Set OPENAI_API_KEY (optional OPENAI_MODEL) or set GEMINI_PAID_API_KEY (optional GEMINI_PAID_MODEL) in the environment.",
-    };
-  }
-
-  try {
-    await getUserRepository().setAiUsePaid(userId, usePaid);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to update AI preference.";
-    return { success: false, error: message };
-  }
-  revalidatePath("/dashboard");
-  revalidatePath("/settings");
-  revalidatePath("/summary");
-  return { success: true };
-}
-
-export async function updateAiEnabledAction(enabled: boolean): Promise<UpdateAiEnabledResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { success: false, error: "Unauthorized" };
-  }
-  setRequestContextFromSession(session);
-
-  const userId = Number(session.user.id);
-  const aiFeatureAllowed = await getUserRepository().getAiFeatureAllowed(userId);
-  if (!aiFeatureAllowed) {
-    return {
-      success: false,
-      error: "AI analysis is not enabled for your account. An administrator can grant access.",
-    };
-  }
-  try {
-    await getUserRepository().setAiEnabled(userId, enabled);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to update AI setting.";
-    return { success: false, error: message };
-  }
-
-  revalidatePath("/dashboard");
-  revalidatePath("/settings");
-  revalidatePath("/summary");
-  revalidatePath("/budget-ai-report");
-  return { success: true };
-}
-
-export async function updateOwedToMeEnabledAction(
-  enabled: boolean
-): Promise<UpdateOwedToMeEnabledResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { success: false, error: "Unauthorized" };
-  }
-  // master bound context with the pre-tenancy `setRequestContext({ userId, userName })`,
-  // which omits householdId and would make tenant-scoped repositories fail closed.
-  setRequestContextFromSession(session);
-  const userId = Number(session.user.id);
-  try {
-    await getUserRepository().setOwedToMeEnabled(userId, enabled);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to update What I owe setting.";
-    return { success: false, error: message };
-  }
-  revalidatePath("/dashboard");
-  revalidatePath("/settings");
-  revalidatePath("/what-i-owe");
-  return { success: true };
-}
-
 export async function updateSetupWizardStatusAction(
   status: SetupWizardStatus
 ): Promise<UpdateSetupWizardStatusResult> {
@@ -176,8 +50,13 @@ export async function updateSetupWizardStatusAction(
   setRequestContextFromSession(session);
 
   const userId = Number(session.user.id);
+  const repo = getUserRepository();
   try {
-    await getUserRepository().setSetupWizardStatus(userId, status);
+    const current = await repo.getSetupWizardState(userId);
+    if (current.status === "completed" && status !== "completed") {
+      return { success: true };
+    }
+    await repo.setSetupWizardStatus(userId, status);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to update setup wizard state.";
     return { success: false, error: message };
@@ -185,5 +64,32 @@ export async function updateSetupWizardStatusAction(
 
   revalidatePath("/dashboard");
   revalidatePath("/settings");
+  revalidatePath("/welcome");
+  return { success: true };
+}
+
+export async function updateSetupWizardStepAction(
+  step: string | null
+): Promise<UpdateSetupWizardStepResult> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, error: "Unauthorized" };
+  }
+  setRequestContextFromSession(session);
+
+  if (step != null && !isOnboardingStep(step)) {
+    return { success: false, error: "Invalid onboarding step." };
+  }
+
+  const userId = Number(session.user.id);
+  try {
+    await getUserRepository().setSetupWizardStep(userId, step);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to update onboarding step.";
+    return { success: false, error: message };
+  }
+
+  revalidatePath("/welcome");
+  revalidatePath("/dashboard");
   return { success: true };
 }

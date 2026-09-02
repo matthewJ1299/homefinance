@@ -1,30 +1,25 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { Menu, X, LogOut } from "lucide-react";
-import { fullNavItems, navItemsForUserPreferences } from "./nav-items";
+import { fullNavItems, navItemsForFeatures } from "./nav-items";
 import { cn } from "@/lib/utils";
+import type { FeatureKey } from "@/lib/features/registry";
 
 export function MobileNavMenu({
-  reconEnabled,
-  aiFeatureAllowed,
-  owedToMeEnabled,
+  featureKeys,
+  isSuperAdmin,
 }: {
-  reconEnabled: boolean;
-  aiFeatureAllowed: boolean;
-  owedToMeEnabled: boolean;
+  featureKeys: FeatureKey[];
+  isSuperAdmin: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const menuItems = navItemsForUserPreferences(
-    fullNavItems,
-    reconEnabled,
-    aiFeatureAllowed,
-    owedToMeEnabled
-  );
+  const featureSet = useMemo(() => new Set(featureKeys), [featureKeys]);
+  const menuItems = navItemsForFeatures(fullNavItems, featureSet, { includeAdmin: isSuperAdmin });
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
 

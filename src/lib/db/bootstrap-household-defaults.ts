@@ -1,8 +1,14 @@
 import { run } from "@/lib/db";
 import { defaultCategories } from "./seed-data";
 
+const BOOTSTRAP_CATEGORIES = defaultCategories.map((c) => ({
+  ...c,
+  defaultAmount: null as number | null,
+}));
+
 /**
- * Inserts default split group and budget categories for a new household (e.g. self-registration).
+ * Inserts default split group and budget categories for a new household.
+ * Category default amounts are null so onboarding sets real amounts.
  */
 export async function bootstrapHouseholdDefaults(householdId: number): Promise<void> {
   await run(
@@ -10,10 +16,10 @@ export async function bootstrapHouseholdDefaults(householdId: number): Promise<v
     [householdId]
   );
 
-  for (const c of defaultCategories) {
+  for (const c of BOOTSTRAP_CATEGORIES) {
     await run(
       "INSERT INTO categories (name, group_name, icon, sort_order, is_active, cost_type, default_amount, household_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      [c.name, c.groupName, null, c.sortOrder, true, c.costType, c.defaultAmount ?? null, householdId]
+      [c.name, c.groupName, null, c.sortOrder, true, c.costType, c.defaultAmount, householdId]
     );
   }
 

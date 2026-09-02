@@ -1,68 +1,55 @@
-import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
-import { AppShell } from "@/components/layout/app-shell";
-import { BudgetMonthStartDayProvider } from "@/components/settings/budget-month-start-context";
-import { getUserRepository } from "@/lib/repositories";
-import { resolveReconInteractiveEnabled } from "@/lib/services/feature-access.service";
-import { SetupWizardHost } from "@/components/setup-wizard/setup-wizard-host";
-
-export default async function AppLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  // `auth()` binds request context (userId, householdId, isSuperAdmin) and repairs
-  // a missing householdId on older sessions — see src/lib/auth.ts.
-  const session = await auth();
-  if (!session?.user) {
-    redirect("/login");
-  }
-  const userId = Number(session.user.id);
-  const userRepo = getUserRepository();
-
-  const [
-    budgetMonthStartDay,
-    reconEnabled,
-    aiFeatureAllowed,
-    aiEnabled,
-    aiUsePaid,
-    reconFeatureAllowed,
-    reconPrefEnabled,
-    owedToMeEnabled,
-    setup,
-  ] = await Promise.all([
-    userRepo.getBudgetMonthStartDay(userId),
-    resolveReconInteractiveEnabled(userId),
-    userRepo.getAiFeatureAllowed(userId),
-    userRepo.getAiEnabled(userId),
-    userRepo.getAiUsePaid(userId),
-    userRepo.getReconFeatureAllowed(userId),
-    userRepo.getReconEnabled(userId),
-    userRepo.getOwedToMeEnabled(userId),
-    userRepo.getSetupWizardState(userId),
-  ]);
-
-  return (
-    <BudgetMonthStartDayProvider value={budgetMonthStartDay}>
-      <AppShell
-        reconEnabled={reconEnabled}
-        aiFeatureAllowed={aiFeatureAllowed}
-        owedToMeEnabled={owedToMeEnabled}
-      >
-        {children}
-        <SetupWizardHost
-          autoPrompt
-          bootstrap={{
-            setup,
-            budgetMonthStartDay,
-            aiFeatureAllowed,
-            aiEnabled,
-            aiUsePaid,
-            reconFeatureAllowed,
-            reconEnabled: reconPrefEnabled,
-          }}
-        />
-      </AppShell>
-    </BudgetMonthStartDayProvider>
-  );
-}
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { AppShell } from "@/components/layout/app-shell";
+import { BudgetMonthStartDayProvider } from "@/components/settings/budget-month-start-context";
+import { getUserRepository } from "@/lib/repositories";
+
+const BYPASS_PATHS = ["/pending-approval", "/welcome", "/change-password"];
+
+export default async function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/login");
+  }
+
+  if (session.user.mustChangePassword === true) {
+    redirect("/change-password");
+  }
+
+  const approval = session.user.householdApprovalStatus ?? "active";
+  const isSuperAdmin = session.user.isSuperAdmin === true;
+  if (!isSuperAdmin && approval !== "active") {
+    redirect("/pending-approval");
+  }
+
+  const userId = Number(session.user.id);
+  const userRepo = getUserRepository();
+  const featureKeys = session.user.featureKeys ?? [];
+
+  const [budgetMonthStartDay, setup] = await Promise.all([
+    userRepo.getBudgetMonthStartDay(userId),
+    userRepo.getSetupWizardState(userId),
+  ]);
+
+  const pathname = (await headers()).get("x-pathname") ?? "";
+  const onBypassPath = BYPASS_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`)
+  );
+
+  if (approval === "active" && setup.status === "not_started" && !onBypassPath) {
+    redirect("/welcome");
+  }
+
+  return (
+    <BudgetMonthStartDayProvider value={budgetMonthStartDay}>
+      <AppShell featureKeys={featureKeys} isSuperAdmin={isSuperAdmin}>
+        {children}
+      </AppShell>
+    </BudgetMonthStartDayProvider>
+  );
+}

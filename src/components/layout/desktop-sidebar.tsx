@@ -1,34 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
-import { fullNavItems, navItemsForUserPreferences } from "./nav-items";
+import { fullNavItems, navItemsForFeatures } from "./nav-items";
 import { cn } from "@/lib/utils";
+import type { FeatureKey } from "@/lib/features/registry";
 
 const STORAGE_KEY = "sidebar:collapsed";
 
 export function DesktopSidebar({
-  reconEnabled,
-  aiFeatureAllowed,
-  owedToMeEnabled,
+  featureKeys,
+  isSuperAdmin,
 }: {
-  reconEnabled: boolean;
-  aiFeatureAllowed: boolean;
-  owedToMeEnabled: boolean;
+  featureKeys: FeatureKey[];
+  isSuperAdmin: boolean;
 }) {
   const pathname = usePathname();
-  const items = navItemsForUserPreferences(
-    fullNavItems,
-    reconEnabled,
-    aiFeatureAllowed,
-    owedToMeEnabled
-  );
+  const featureSet = useMemo(() => new Set(featureKeys), [featureKeys]);
+  const items = navItemsForFeatures(fullNavItems, featureSet, { includeAdmin: isSuperAdmin });
 
-  // Always render expanded on the server and first client paint to avoid a
-  // hydration mismatch; the stored preference is applied in an effect.
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {

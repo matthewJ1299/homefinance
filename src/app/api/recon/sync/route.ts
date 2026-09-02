@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
-import { reconDisabledResponse } from "@/lib/api/recon-enabled";
+import { featureDeniedResponse } from "@/lib/api/feature-gate";
 import { ReconService } from "@/lib/services/recon/recon.service";
 
 export async function POST(request: Request) {
@@ -10,9 +10,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   setRequestContextFromSession(session);
-  const userId = Number(session.user.id);
-  const blocked = await reconDisabledResponse(userId);
+  const blocked = featureDeniedResponse("recon");
   if (blocked) return blocked;
+  const userId = Number(session.user.id);
   try {
     const body = (await request.json().catch(() => ({}))) as { since?: string; debug?: boolean; top?: number; skip?: number };
     const since = typeof body.since === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.since) ? body.since : undefined;

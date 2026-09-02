@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import { format } from "date-fns";
 import { auth } from "@/lib/auth";
 import { getUserRepository } from "@/lib/repositories";
+import { hasFeature } from "@/lib/features/access";
+import { FeatureUnavailable } from "@/components/ui/feature-unavailable";
 import { SplitService } from "@/lib/services/split.service";
 import { MortgageService } from "@/lib/services/mortgage.service";
 import { getDefaultBudgetMonthForUser } from "@/lib/utils/budget-month-for-user";
@@ -10,7 +12,6 @@ import { MonthNavigator } from "@/components/layout/month-navigator";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { PrintButton } from "@/components/what-i-owe/print-button";
-import { WhatIOweDisabledPlaceholder } from "@/components/what-i-owe/disabled-placeholder";
 import { StatementViewToggle } from "@/components/what-i-owe/view-toggle";
 import { StatementTotals } from "@/components/what-i-owe/statement-totals";
 import { parseOwedStatementView } from "@/components/what-i-owe/statement-view";
@@ -25,9 +26,8 @@ export default async function WhatIOwePage({ searchParams }: WhatIOwePageProps) 
   const userId = Number(session.user.id);
 
   const userRepo = getUserRepository();
-  const enabled = await userRepo.getOwedToMeEnabled(userId);
-  if (!enabled) {
-    return <WhatIOweDisabledPlaceholder />;
+  if (!hasFeature("what_i_owe")) {
+    return <FeatureUnavailable feature="what_i_owe" />;
   }
 
   const { month: monthParam, view: viewParam } = await searchParams;

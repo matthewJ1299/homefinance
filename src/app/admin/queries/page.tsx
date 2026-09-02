@@ -44,7 +44,7 @@ export default async function AdminQueriesPage() {
           </div>
         </div>
         <div className="px-4 pb-4 text-xs text-muted-foreground">
-          Endpoint: <code>/api/admin/queries/overview</code>
+          Counts are loaded directly from the database on this page.
         </div>
       </section>
     </div>

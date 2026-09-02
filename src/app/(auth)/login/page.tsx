@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, Suspense } from "react";
+import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -75,7 +76,10 @@ function LoginForm() {
             {loading ? "Signing in..." : "Sign in"}
           </Button>
           <p className="text-sm text-muted-foreground text-center">
-            Accounts are created by an administrator.
+            Need a household?{" "}
+            <Link href="/register" className="text-primary hover:underline">
+              Register
+            </Link>
           </p>
         </form>
       </CardContent>

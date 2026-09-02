@@ -1,10 +1,15 @@
 import { auth } from "@/lib/auth";
+import { hasFeature } from "@/lib/features/access";
+import { FeatureUnavailable } from "@/components/ui/feature-unavailable";
 import { GoalService } from "@/lib/services/goal.service";
 import { GoalsExpandedClient } from "@/components/goals/goals-expanded-client";
 
 export default async function GoalsPage() {
   const session = await auth();
   if (!session?.user?.id) return null;
+  if (!hasFeature("goals")) {
+    return <FeatureUnavailable feature="goals" />;
+  }
   const userId = Number(session.user.id);
   const goalService = new GoalService();
   const goals = await goalService.listGoals(userId);

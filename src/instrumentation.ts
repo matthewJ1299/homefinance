@@ -13,12 +13,15 @@ export async function register() {
     return;
   }
 
-  const { initDb, startPersistLoop } = await import("@/lib/db");
+  const { initDb, startPersistLoop } = await import(
+    /* webpackIgnore: true */
+    "./lib/db/index"
+  );
   await initDb();
   startPersistLoop(60_000);
-  const { NotificationScheduler } = await import(
-    "@/lib/services/notification-scheduler.service"
+  const { startNotificationScheduler } = await import(
+    /* webpackIgnore: true */
+    "./lib/server/start-notification-scheduler"
   );
-  const scheduler = new NotificationScheduler();
-  scheduler.start();
+  startNotificationScheduler();
 }

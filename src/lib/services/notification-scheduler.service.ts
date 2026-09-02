@@ -1,9 +1,8 @@
 import cron from "node-cron";
 import { format, addDays } from "date-fns";
 import { CalendarService } from "@/lib/services/calendar.service";
-import { NotificationService, isNotificationConfigured } from "@/lib/services/notification.service";
 import { getHouseholdRepository, getSentReminderRepository, getUserRepository } from "@/lib/repositories";
-import { runWithRequestContext } from "@/lib/db/request-context";
+import { runWithHouseholdFeatures } from "@/lib/features/run-with-household-features";
 import { formatEventLine } from "@/lib/utils/format-time";
 import { computeReminderInstant, REMINDER_LOOKAHEAD_DAYS } from "@/lib/utils/reminder-time";
 
@@ -22,14 +21,16 @@ function getDailyHour(): number {
  * to every user. Iterates households and binds tenant request context per household so the
  * calendar/push repositories (which require household scope) resolve correctly.
  */
+import { isPushEnvConfigured } from "@/lib/push/push-env";
+
 async function runDailySummary(): Promise<void> {
-  if (!isNotificationConfigured()) return;
+  if (!isPushEnvConfigured()) return;
   try {
     const today = format(new Date(), "yyyy-MM-dd");
     const householdIds = await getHouseholdRepository().listAllHouseholdIds();
     for (const householdId of householdIds) {
       try {
-        await runWithRequestContext({ householdId }, () => sendDailySummaryForHousehold(today));
+        await runWithHouseholdFeatures(householdId, () => sendDailySummaryForHousehold(today));
       } catch (err) {
         console.error(
           `[NotificationScheduler] Daily summary failed for household ${householdId}:`,
@@ -45,6 +46,7 @@ async function runDailySummary(): Promise<void> {
 async function sendDailySummaryForHousehold(today: string): Promise<void> {
   const calendarService = new CalendarService();
   const users = await getUserRepository().findAll();
+  const { NotificationService } = require("./notification.service") as typeof import("./notification.service");
   const notificationService = new NotificationService();
   const title = "HomeFinance";
   for (const user of users) {
@@ -68,7 +70,7 @@ async function sendDailySummaryForHousehold(today: string): Promise<void> {
  * without it.
  */
 async function runPerEventReminders(): Promise<void> {
-  if (!isNotificationConfigured()) return;
+  if (!isPushEnvConfigured()) return;
   try {
     const now = new Date();
     const todayStr = format(now, "yyyy-MM-dd");
@@ -77,7 +79,7 @@ async function runPerEventReminders(): Promise<void> {
     const householdIds = await getHouseholdRepository().listAllHouseholdIds();
     for (const householdId of householdIds) {
       try {
-        await runWithRequestContext({ householdId }, () =>
+        await runWithHouseholdFeatures(householdId, () =>
           sendPerEventRemindersForHousehold(todayStr, endStr, minuteStr)
         );
       } catch (err) {
@@ -99,6 +101,7 @@ async function sendPerEventRemindersForHousehold(
 ): Promise<void> {
   const calendarService = new CalendarService();
   const sentReminderRepo = getSentReminderRepository();
+  const { NotificationService } = require("./notification.service") as typeof import("./notification.service");
   const notificationService = new NotificationService();
   const occurrences = await calendarService.getAllOccurrencesInRange(todayStr, endStr);
   for (const occ of occurrences) {

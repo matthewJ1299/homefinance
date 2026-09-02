@@ -1,4 +1,5 @@
 import "next-auth";
+import type { FeatureKey } from "@/lib/features/registry";
 
 declare module "next-auth" {
   interface User {
@@ -17,6 +18,11 @@ declare module "next-auth" {
       name?: string | null;
       householdId?: string | null;
       isSuperAdmin?: boolean | null;
+      /** Refreshed from DB each request; not stored on JWT. */
+      featureKeys?: FeatureKey[];
+      aiTier?: "free" | "paid";
+      householdApprovalStatus?: "pending" | "active" | "rejected";
+      mustChangePassword?: boolean;
     };
   }
 }

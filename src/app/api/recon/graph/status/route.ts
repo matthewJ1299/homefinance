@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
-import { getUserRepository } from "@/lib/repositories";
+import { featureDeniedResponse } from "@/lib/api/feature-gate";
 import { ReconService } from "@/lib/services/recon/recon.service";
 
 export async function GET() {
@@ -10,21 +10,19 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   setRequestContextFromSession(session);
-  const userId = Number(session.user.id);
-  const userRepo = getUserRepository();
-  const [reconFeatureAllowed, reconEnabledPref] = await Promise.all([
-    userRepo.getReconFeatureAllowed(userId),
-    userRepo.getReconEnabled(userId),
-  ]);
-  const reconEnabled = reconFeatureAllowed && reconEnabledPref;
-  if (!reconEnabled) {
-    return NextResponse.json({
-      reconEnabled: false,
-      connected: false,
-      msAccountEmail: null,
-      lastSyncedAt: null,
-    });
+  const blocked = featureDeniedResponse("recon");
+  if (blocked) {
+    if (blocked.status === 403) {
+      return NextResponse.json({
+        reconEnabled: false,
+        connected: false,
+        msAccountEmail: null,
+        lastSyncedAt: null,
+      });
+    }
+    return blocked;
   }
+  const userId = Number(session.user.id);
   const service = new ReconService();
   const s = await service.isGraphConnected(userId);
   return NextResponse.json({ reconEnabled: true, ...s });

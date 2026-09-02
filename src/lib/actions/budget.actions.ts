@@ -37,7 +37,11 @@ export async function autoAllocateBudget(month: string): Promise<
   if (!parsed.success) return { success: false, error: parsed.error.message };
   const service = new BudgetService();
   const result = await service.autoAllocate(parsed.data.month, Number(session.user.id));
-  if (result.success) revalidatePath("/budget");
+  if (result.success) {
+    revalidatePath("/budget");
+    revalidatePath("/welcome");
+    revalidatePath("/dashboard");
+  }
   return result;
 }
 

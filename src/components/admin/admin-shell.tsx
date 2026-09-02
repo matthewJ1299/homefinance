@@ -27,6 +27,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
           <div className="font-semibold">Admin</div>
           <nav className="flex items-center gap-2">
+            <NavLink href="/dashboard" label="Back to app" />
             <NavLink href="/admin/houses" label="Houses" />
             <NavLink href="/admin/users" label="Users" />
             <NavLink href="/admin/features" label="Features" />

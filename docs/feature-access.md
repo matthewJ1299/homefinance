@@ -1,36 +1,45 @@
-# Feature access (AI and Recon)
+# Feature access
 
 Tenant isolation for finance data is described in [multi-household.md](./multi-household.md).
 
-Related: **Settings** (per-user preferences), **AI analysis** ([docs/ai-budget-analysis.md](./ai-budget-analysis.md)), **Recon** ([docs/recon.md](./recon.md)).
+Related: **AI analysis** ([docs/ai-budget-analysis.md](./ai-budget-analysis.md)), **Recon** ([docs/recon.md](./recon.md)), **Admin portal** (`/admin`).
 
 ## Model
 
-Three layers per feature, all required:
+Feature access is **per household**, not per user. There is no end-user Settings toggle for AI, Recon, or What I owe.
 
-1. **Household policy** (admin portal `/admin/features`, `/admin/houses`):
-   - `households.ai_feature_allowed` / `households.recon_feature_allowed` — the whole household may use the feature.
+1. **Household entitlement** — rows in `household_features` (one row per feature key), set only by a super-admin in `/admin/houses/[id]`. The catalogue lives in `src/lib/features/registry.ts` (`FEATURE_KEYS` / `FEATURES`).
 
-2. **Per-user allow** (admin portal `/admin/users`, or one-off SQL):
-   - `users.ai_feature_allowed` — user may use AI analysis APIs and Settings AI toggles at all.
-   - `users.recon_feature_allowed` — user may use Recon (Graph OAuth, sync, pending list APIs) and the Settings Recon toggle at all.
+2. **AI tier** — `households.ai_tier` (`free` | `paid`), admin-set on the household detail screen. Used when checking whether the server has keys for the chosen tier.
 
-3. **User preference** (existing):
-   - `users.ai_enabled`, `users.recon_enabled` — “I want this on” under **Settings**.
-   - `users.owed_to_me_enabled` — preference only (no admin allow column). Hides **What I owe** (`/what-i-owe`) from the menu and blocks the page body until enabled. Default false; `drizzle/0028_users_owed_to_me_enabled_pg.sql` sets `true` for `users.id = 1`. Column name is historical.
+3. **Server configuration** — some features also need env vars (AI API keys, Microsoft Graph OAuth). Checked via `isFeatureServerConfigured()` in `src/lib/features/server-config.ts`.
 
-`UserRepository.getAiFeatureAllowed(userId)` / `getReconFeatureAllowed(userId)` resolve **layers 1 AND 2 together** (join `households` on `users.household_id`), so every call site — pages, actions, `/api/recon/*`, `/api/admin` — gets the combined result with no extra wiring. Effective interactive access additionally requires layer 3 (and, for AI, that the chosen tier's keys are configured).
+At request time, `UserRepository.getAuthState()` loads enabled feature keys and `ai_tier` into `RequestContext`. Pages, actions, and API routes call `hasFeature(key)` from `src/lib/features/access.ts` (synchronous, no extra DB read).
 
-Resolution helpers live in `src/lib/services/feature-access.service.ts` (`resolveAiInteractiveEnabled`, `resolveReconInteractiveEnabled`).
+Interactive helpers in `src/lib/services/feature-access.service.ts`:
 
-**UI:** If `ai_feature_allowed` is false, **Settings** omits the AI analysis block entirely, and **Budget AI report** is omitted from the desktop sidebar and mobile menu (direct URL still returns the gated report page).
+- `resolveAiInteractiveEnabled()` — entitled **and** AI keys configured for the household tier.
+- `resolveReconInteractiveEnabled()` — entitled (Recon still needs Graph OAuth configured for connect/sync).
+
+**UI:** Nav items are filtered with `navItemsForFeatures()` from the entitled key set. Gated pages render `FeatureUnavailable` when `hasFeature()` is false.
+
+**Super-admins** get no implicit bypass for product features — they see what their household is sold, so support can reproduce customer issues. Access to `/admin` itself uses `requireSuperAdmin()`.
+
+## Admin portal
+
+| Screen | Purpose |
+|--------|---------|
+| `/admin/houses` | List households with member count, approval status, entitlement chips |
+| `/admin/houses/[id]` | Rename, approve/reject pending households, edit catalogue checkboxes + AI tier |
+| `/admin/features` | Catalogue view: how many households have each feature; server config status |
+| `/admin/users` | Create users, move between households, super-admin flag (no per-user feature columns) |
+
+Mutations go through server actions in `src/lib/actions/admin/*` with zod validation (`src/lib/validators/admin.schema.ts`) and `revalidatePath`. The legacy `/api/admin/*` route handlers were removed.
 
 ## Migration and defaults
 
-- Schema: `drizzle/0020_users_feature_access_pg.sql` adds the **user** columns; `drizzle/0028_super_admin_and_household_feature_policy_pg.sql` adds the **household** columns (all `NOT NULL DEFAULT false`).
-- **Existing databases**: `npm run db:push` runs both migrations. `0020` sets the user flags `true` for `users.id = 1`; `0028` sets the matching household flags `true` for user 1's household (back-compat so existing access is not lost). Everyone else stays `false` until granted.
-- **New users/households**: `0028` defaults household flags to `false`. Super-admin enables the household in `/admin`, then the user in `/admin/users`. Seeds (`seed.ts`, `seed-categories.ts`) set both household and user flags `true` for dev users.
+- `drizzle/0030_household_features_pg.sql` — creates `household_features`, backfills from legacy user/household flags, adds `households.ai_tier`.
+- `drizzle/0032_household_approval_pg.sql` — adds `households.approval_status` (`pending` | `active` | `rejected`) for self-registration approval (defaults to `active`).
+- Legacy columns on `users` and `households` (`ai_feature_allowed`, `recon_enabled`, etc.) are **deprecated** and no longer read or written by the app. A follow-up migration will drop them after the backfill is proven.
 
-## Repository
-
-`IUserRepository` exposes `getAiFeatureAllowed` / `setAiFeatureAllowed` and `getReconFeatureAllowed` / `setReconFeatureAllowed` (per-user column). `AdminHouseholdRepository.updateFeaturePolicy` sets the household columns. The `get*` methods return `household_flag AND user_flag`.
+New households created in admin get **mortgage** and **goals** enabled by default via `AdminHouseholdRepository.grantCoreFeatures()`.

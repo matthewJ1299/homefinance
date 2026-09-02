@@ -4,25 +4,19 @@ export interface AdminUserSummary {
   email: string;
   householdId: number;
   isSuperAdmin: boolean;
-  aiFeatureAllowed: boolean;
-  reconFeatureAllowed: boolean;
-  aiEnabled: boolean;
-  reconEnabled: boolean;
+  mustChangePassword: boolean;
   createdAt: string;
 }
 
 export interface IAdminUserRepository {
-  listUsers(filter?: { householdId?: number }): Promise<AdminUserSummary[]>;
+  listUsers(filter?: { householdId?: number; search?: string }): Promise<AdminUserSummary[]>;
   createUser(input: {
     householdId: number;
     name: string;
     email: string;
     passwordHash: string;
+    mustChangePassword?: boolean;
   }): Promise<number>;
-  setUserFeatureAccess(
-    userId: number,
-    access: { aiFeatureAllowed: boolean; reconFeatureAllowed: boolean }
-  ): Promise<void>;
   setUserSuperAdmin(userId: number, isSuperAdmin: boolean): Promise<void>;
+  moveUserToHousehold(userId: number, householdId: number): Promise<void>;
 }
-

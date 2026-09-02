@@ -1,33 +1,19 @@
-import { getUserRepository } from "@/lib/repositories";
+import { getRequestContext } from "@/lib/db/request-context";
+import { hasFeature } from "@/lib/features/access";
+import { isAIConfiguredForTier } from "@/lib/services/ai.service";
 
-/**
- * Whether AI buttons, report page interactivity, and analysis API should work for this user.
- * Combines feature access (`households.ai_feature_allowed` AND `users.ai_feature_allowed`,
- * both resolved by `getAiFeatureAllowed`) with the user's Settings toggle and whether the
- * server's keys support their chosen tier.
- */
-export async function resolveAiInteractiveEnabled(
-  userId: number,
-  preferredTierConfigured: boolean
-): Promise<boolean> {
-  const repo = getUserRepository();
-  const [featureAllowed, prefEnabled] = await Promise.all([
-    repo.getAiFeatureAllowed(userId),
-    repo.getAiEnabled(userId),
-  ]);
-  return featureAllowed && prefEnabled && preferredTierConfigured;
+/** Current household AI tier from request context (admin-set). */
+export function getHouseholdAiTier(): "free" | "paid" {
+  return getRequestContext()?.aiTier === "paid" ? "paid" : "free";
 }
 
-/**
- * Whether Recon nav, page, Graph connect, and mutating APIs should allow this user.
- * Combines feature access (`households.recon_feature_allowed` AND `users.recon_feature_allowed`,
- * both resolved by `getReconFeatureAllowed`) with the user's Settings toggle.
- */
-export async function resolveReconInteractiveEnabled(userId: number): Promise<boolean> {
-  const repo = getUserRepository();
-  const [featureAllowed, prefEnabled] = await Promise.all([
-    repo.getReconFeatureAllowed(userId),
-    repo.getReconEnabled(userId),
-  ]);
-  return featureAllowed && prefEnabled;
+/** Whether AI buttons, report page, and analysis APIs should work for this request. */
+export function resolveAiInteractiveEnabled(): boolean {
+  if (!hasFeature("ai_budget_analysis")) return false;
+  return isAIConfiguredForTier(getHouseholdAiTier());
+}
+
+/** Whether Recon nav, page, Graph connect, and mutating APIs should allow this request. */
+export function resolveReconInteractiveEnabled(): boolean {
+  return hasFeature("recon");
 }

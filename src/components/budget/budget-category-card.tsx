@@ -78,11 +78,11 @@ export function BudgetCategoryCard({
       <div className="flex justify-between items-start gap-3">
         <div className="min-w-0">
           <h3 className="font-medium">{categoryName}</h3>
-          {costType === "fixed" && (
-            <span className="text-xs rounded bg-primary/10 text-primary px-2 py-0.5">
-              Fixed
-            </span>
-          )}
+          {costType === "fixed" ? (
+            <p className="text-xs text-muted-foreground">Same amount every month</p>
+          ) : costType === "variable" ? (
+            <p className="text-xs text-muted-foreground">Changes each month</p>
+          ) : null}
           <p className="text-xs text-muted-foreground">{groupName}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">

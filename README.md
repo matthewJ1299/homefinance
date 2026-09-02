@@ -15,23 +15,28 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 ### Multi-household tenancy
 
 - Each user belongs to **exactly one household**. Domain data (categories, transactions, budgets, goals, lists, calendar, Recon, AI runs, etc.) is scoped by **`household_id`** so independent families do not see each other’s data in a shared database.
-- **Onboarding**: a global super-admin creates households and users from the **admin portal** (`/admin`) — public self-registration is disabled. For local dev use **`npm run db:seed`** for full demo households, or **`npm run db:push && npm run db:seed:users`** for login users only. Details and upgrade steps: [docs/multi-household.md](./docs/multi-household.md).
+- **Onboarding**: register at **`/register`** to create a pending household (super-admin approves from **`/admin/houses/[id]`**), or a super-admin provisions from **`/admin`**. Password rules and forced change: [docs/passwords.md](./docs/passwords.md). For local dev use **`npm run db:seed`** for a full demo household, or **`npm run db:push && npm run db:seed:users`** for login users only. Details: [docs/multi-household.md](./docs/multi-household.md).
 - **Existing installs**: run **`npm run db:push`** to apply `drizzle/0027_households_pg.sql` via the migration ledger; the migration is idempotent and safe to retry if an older deploy stopped mid-run around `calendar_categories`. Legacy installs are backfilled into a single default household unless you already split data across households. Users should **sign out and sign in** once so the session/JWT includes `householdId`.
 
 ### Admin portal (global super-admin)
 
-- The admin portal lives under **`/admin`** and is only accessible to users with **`users.is_super_admin = true`**.
-- It provides allowlisted, read-only operational queries under **`/api/admin/queries/*`** (example: `GET /api/admin/queries/overview`).
-- **Setup**: run **`npm run db:push`** to apply `drizzle/0028_super_admin_and_household_feature_policy_pg.sql` (adds `users.is_super_admin` plus household-level feature policy columns).
-- **Grant access** (example SQL):
-  - `UPDATE users SET is_super_admin = true WHERE email = 'you@example.com';`
+- The admin portal lives under **`/admin`** and is only accessible to users with **`users.is_super_admin = true`**. The app sidebar shows an **Admin** link when you are a super-admin.
+- **Houses** — create households, view member counts and entitlement chips, open a detail screen to rename, approve pending registrations, and edit feature checkboxes plus AI tier (`free` / `paid`).
+- **Users** — create users, reset passwords (one-time temp password), search/filter, move between households, toggle super-admin. Feature access is per household, not per user.
+- **Features** — catalogue view with how many households have each sellable feature and whether this server is configured for it.
+- **Queries** — allowlisted read-only operational counts (loaded server-side on `/admin/queries`).
+- **Setup**: run **`npm run db:push`** for migrations through `0032_household_approval_pg.sql`. Grant super-admin with `UPDATE users SET is_super_admin = true WHERE email = 'you@example.com';`
+- See [docs/feature-access.md](./docs/feature-access.md) for the entitlement model.
 
-### Setup wizard (in-app onboarding)
+### Setup guide (onboarding)
 
-- When a user’s setup is incomplete, the app can **soft-prompt** with a guided setup wizard (it does not block navigation).
-- Existing users can run it any time from **Settings** > **Setup wizard**.
-- The wizard helps configure **accounts**, **budget month start day**, and optional **AI** / **Recon** preferences. AI and Recon still respect feature-access policy; see [docs/feature-access.md](./docs/feature-access.md).
-- Details: [docs/setup-wizard.md](./docs/setup-wizard.md).
+- New users with `setup_wizard_status = not_started` are sent to **`/welcome`** — a full-page, skippable five-step flow: accounts, payday, income, categories, and first budget allocation.
+- Progress is resumable via **`users.setup_wizard_step`** (migration `0031`). Incomplete setups show a **`SetupProgressBanner`** on the dashboard.
+- Re-run from **Settings** > **Setup guide**. See [docs/onboarding.md](./docs/onboarding.md).
+
+### Setup wizard (legacy modal)
+
+- The modal wizard was removed; persistence columns on `users` are shared with the new flow. See [docs/setup-wizard.md](./docs/setup-wizard.md).
 
 ### Money in and out
 
@@ -58,7 +63,7 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 
 - **Split groups** — Separate “who owes whom” per context (e.g. home vs. trip). New split expenses default to a **Default** group unless you choose another.
 - **Splits page** — Per-group summary and history; **Settle** applies to the active group. You can also settle with a **Splits** category expense (default group) from the dashboard.
-- **What I owe (`/what-i-owe`)** — Statement of what you owe the other person (default), or what they owe you (toggle). Split **balance** is net since the last full settlement (expand for line items and the offsetting side) plus this month’s mortgage share. Off by default except `users.id = 1`; enable under **Settings**. `/owed-to-me` redirects here.
+- **`/what-i-owe`** — Statement of what you owe the other person (default), or what they owe you (toggle). Split **balance** is net since the last full settlement (expand for line items and the offsetting side) plus this month’s mortgage share. Gated by household entitlement to the `what_i_owe` feature; contact an administrator to enable. `/owed-to-me` redirects here.
 
 ### Goals (savings and debt intent)
 
@@ -69,11 +74,12 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 ### Household coordination
 
 - **Calendar** — Month grid and day views, multi-day spans, recurrence, **multiple reminders** per event (offset + optional send time), color categories (separate from budget categories), shared vs. personal events, priorities, and notes. On narrow screens, swipe the month grid to change months. Push follows shared vs. personal rules. See [docs/calendar.md](./docs/calendar.md).
-- **Lists** — Shared household lists and personal lists; **My lists** overview; detail at `/lists/[id]` with check-off, quantity, **per-user optional notes** (one-line subtitle; expand for read-only preview, then tap to edit; `http`/`www` links open in a new tab), **drag the grip** to prioritise (open vs. completed sections keep their own order; persisted), and **Delete all completed**. Manage lists under **Settings** > **Lists**.
+- **Lists** — Shared household lists and personal lists; **My lists** overview; detail at `/lists/[id]` with check-off, quantity, **per-user optional notes**, drag-to-reorder, and **Delete all completed**. Manage under **Settings** > **Household data** > **Lists** (items load when you first expand that section).
+- **Settings** — Grouped into **Profile**, **Preferences**, **Household data**, and **Data & export**. See [docs/onboarding.md](./docs/onboarding.md) for the setup guide under Profile.
 
 ### Home dashboard and navigation
 
-- **Dashboard** — Month income with inline quick add (**Salary** or **Other income**), **Recent transactions** (newest income and expenses, optionally filtered to the primary account), tasks/events/budget shortcuts, upcoming calendar, quick-add expense (same category UX as **`/add`**). Greeting and header date use **Africa/Johannesburg (UTC+2)**, not the device clock. Under **Settings** > **Dashboard tiles**, the list tile is named **Recent transactions** (migrates from the old “Recent expenses” toggle in local storage).
+- **Dashboard** — Month income with inline quick add (**Salary** or **Other income**), **Recent transactions** (newest income and expenses, optionally filtered to the primary account), tasks/events/budget shortcuts, upcoming calendar, quick-add expense (same category UX as **`/add`**). Greeting and header date use **Africa/Johannesburg (UTC+2)**, not the device clock. Under **Settings** > **Preferences** > **Dashboard tiles**, toggle only tiles that are actually wired on the dashboard (quick add, calendar, split balance, budget warning, AI button, transactions, income).
 - **Create hub (`/add`)** — Mobile center **Add** and desktop sidebar: new list item, event, or expense; quick line for tasks; expense shorthand such as `120 groceries` pre-fills amount and note. After save: expense → Dashboard; task → that list; event → Calendar.
 - **Mobile** — Bottom bar: Home, Calendar, Add (center), Lists, Budget. Desktop uses a left sidebar (collapsible). The header menu mirrors the desktop sidebar, including **Recon**, **Budget AI report**, and **What I owe** when those are enabled for your account.
 
@@ -89,8 +95,8 @@ Plain-language summary of balance, monthly cost, payoff horizon, and each person
 ### Summary and optional intelligence
 
 - **Summary** — Per-user monthly snapshot (income, expenses, budget adherence) plus household trends.
-- **AI budget analysis (optional)** — Off by default; needs server-side allow **and** **Settings** > **AI analysis**. **Free** vs **Paid** (paid prefers OpenAI with Gemini fallback). **Analyze spending** uses roll-ups; **Include all transactions** sends full detail; optional **Extra AI context** lets you append plain-language budget notes to the request. Structured output on `/budget-ai-report`; runs stored and rate-limited. On the report page you can **apply selected** budget suggestions (confirm first; audited) and **ask follow-up questions** (saved chat per report). See [docs/ai-budget-analysis.md](./docs/ai-budget-analysis.md) and [docs/feature-access.md](./docs/feature-access.md).
-- **Bank email reconciliation / Recon (optional)** — Outlook via Microsoft Graph: parse bank-notification mail, surface likely duplicates, accept or ignore manually (including bulk). Gated by allow flag plus Settings. See [docs/recon.md](./docs/recon.md) and [Recon and Microsoft Graph (Outlook)](#recon-and-microsoft-graph-outlook).
+- **AI budget analysis (optional)** — Household entitlement (super-admin) plus server API keys. **Free** vs **Paid** tier on the household. **Analyze spending** on Home when enabled; full report at `/budget-ai-report`. See [docs/ai-budget-analysis.md](./docs/ai-budget-analysis.md) and [docs/feature-access.md](./docs/feature-access.md).
+- **Bank email reconciliation / Recon (optional)** — Outlook via Microsoft Graph when the household is entitled. Connect and sync from **Recon**; accept or ignore parsed rows manually. See [docs/recon.md](./docs/recon.md) and [Recon and Microsoft Graph (Outlook)](#recon-and-microsoft-graph-outlook).
 
 ## Setup
 
@@ -98,10 +104,10 @@ Plain-language summary of balance, monthly cost, payoff horizon, and each person
 2. Configure **environment variables** (see [Environment variables](#environment-variables)). For local development use **`.env.local`** (Next.js loads it automatically). **Minimum for real use:** `DATABASE_URL`, `AUTH_SECRET`, and `NEXTAUTH_URL` (public app URL, no trailing slash). If `DATABASE_URL` is missing, the app still starts but logs a warning and skips DB-backed startup hooks; routes that hit the database will fail until Postgres is configured.
 3. Create the database and seed: `npm run db:fresh` (recreates the DB from scratch, then seeds full demo data), or:
    - Reset and create tables only: `npm run db:reset` (drops/recreates DB and runs schema push; no users or demo data are inserted).
-   - Seed only the two login users: `npm run db:seed:users` (creates or updates the two env-driven users and creates households for them if needed).
-   - Minimal setup seed: `npm run db:seed:minimal` (assumes an empty DB and seeds two households, default categories per household, split groups, and two users).
-   - Full demo seed: `npm run db:seed` (clears all data, then seeds two households with full demo data).
-   - **Add more households/users**: sign in as a super-admin and use the **admin portal** (`/admin`) — there is no public `/register`. Grant super-admin with `UPDATE users SET is_super_admin = true WHERE email = '…';`.
+   - Seed only the two login users: `npm run db:seed:users` (creates or updates Matt and Sydney in **Jordaan household**, with all features enabled).
+   - Minimal setup seed: `npm run db:seed:minimal` (assumes an empty DB and seeds one household, default categories, split group, calendar categories, and two users).
+   - Full demo seed: `npm run db:seed` (clears all data, then seeds one fully populated Jordaan household).
+   - **Add more households/users**: sign in as super-admin at `/admin`, or use public **`/register`** (creates a pending household until approved). Grant super-admin with `UPDATE users SET is_super_admin = true WHERE email = '…';`.
 
 **Local Postgres with Docker:** Run `docker compose up --build` to start Postgres and the production app image on the internal Compose network (deploy parity), then in the app container run push and seed (see [DEPLOY.md](./DEPLOY.md)).
 
@@ -158,7 +164,7 @@ Use **`.env.local`** locally, or your host’s secret/env UI in production. Do n
 | `OPENAI_API_KEY` | For paid OpenAI path | Preferred when user selects **Paid AI** and quota allows. |
 | `OPENAI_MODEL` | No | OpenAI model id (app defaults to a small mini model if unset). |
 
-Users still need `ai_feature_allowed` and Settings toggles; see [docs/feature-access.md](./docs/feature-access.md).
+Households need the **AI budget analysis** entitlement (and server API keys). See [docs/feature-access.md](./docs/feature-access.md).
 
 ### Recon / Microsoft Graph (optional)
 
@@ -178,6 +184,7 @@ Redirect URI in Azure must be `{NEXTAUTH_URL}/api/recon/graph/callback`.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
+| `SEED_HOUSEHOLD_NAME` | No | Demo household name (default `Jordaan household`). |
 | `SEED_USER_PASSWORD` | No | Password for both seeded users (default `ChangeMe123!`). |
 | `SEED_USER1_EMAIL` | No | First user email (default `matt@homefinance.local`). |
 | `SEED_USER2_EMAIL` | No | Second user email (default `sydney@homefinance.local`). |
@@ -210,7 +217,7 @@ Recon-related env vars are listed under [Recon / Microsoft Graph (optional)](#re
 ### How authentication works
 
 1. You sign in to Home Finance with **email + password** (existing credentials).
-2. Under **Settings**, enable **Bank email reconciliation (Recon)** so the **Recon** page appears in the menu.
+2. Your household must have the **Recon** entitlement (super-admin sets this in `/admin/houses/[id]`).
 3. Open **Recon** and choose **Connect Outlook** (or visit `/api/recon/graph/connect` while logged in). The app redirects to Microsoft’s login page.
 4. You sign in with your Microsoft account (e.g. `matthew.j@live.com`) and **consent** to Mail.Read.
 5. Microsoft redirects back to `/api/recon/graph/callback` with an authorization code. The server exchanges it for tokens, stores an **encrypted refresh token** per user, and redirects you to `/recon`.
@@ -679,14 +686,14 @@ erDiagram
 
 ## Seed data
 
-Full seed (`npm run db:seed` / `db:fresh`) creates **two households** (one per seeded user) so tenancy matches production. Each household gets its own **categories** and **Default** split group. Optional env: `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD`, names; see [Seed scripts](#seed-scripts-dbseedusers-dbseedminimal-dbseed-dbfresh).
+Full seed (`npm run db:seed` / `db:fresh`) creates **one** demo household — **Jordaan household** — with Matt (super-admin) and Sydney so tenancy matches a shared-home product demo. The household gets default **categories**, **Default** split group, all five **`household_features`**, `ai_tier` free, and `approval_status` active. Optional env: `SEED_HOUSEHOLD_NAME`, `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD`, names; see [Seed scripts](#seed-scripts-dbseedusers-dbseedminimal-dbseed-dbfresh). Module layout: `src/lib/db/seed/wipe.ts`, `household.ts`, `finance.ts`, `mortgage.ts`, `calendar.ts`, `lists.ts`, `recon.ts`, `ai.ts` (orchestrated by `src/lib/db/seed.ts`).
 
 - Two users, each tied to a **different** household (no cross-household rows).
 - Default categories per household (fixed/variable and default amounts where applicable).
 - **3 months** of income and expenses **per user**, scoped to that user’s household.
 - **Per-user budget allocations** for the same 3 months and a sample **budget transfer** per user where applicable.
 - **Split expenses** only **within** each household (e.g. equal splits between members of the same household). A **Splits** category exists per household for settlement-style lines.
-- **Goals**, accounts, and mortgages: sample data **per household** / per user as defined in `src/lib/db/seed.ts`.
+- **Goals**, accounts, and mortgage: sample data for both users in the shared household (see `src/lib/db/seed/`).
 
 Amounts use the same integer format as the app (e.g. cents). To start with an empty transaction history, you would need to change the seed script or clear income/expenses after seeding.
 
@@ -729,8 +736,8 @@ See [DEPLOY.md](./DEPLOY.md) for deploying to a VPS with Coolify (Docker + Traef
 - `npm run db:push` – Apply pending migrations (ledger-backed; safe on production). See [docs/database.md](./docs/database.md).
 - `npm run db:reset` – Recreate DB from scratch (requires `ALLOW_DB_RESET=1`). Then run push (and optionally seed).
 - `npm run db:seed:users` – Create or update only the two env-driven login users and create households for them if needed
-- `npm run db:seed:minimal` – Seed an empty DB with two households, users, default categories, and default split groups
-- `npm run db:seed` – Clear all data, then seed two households, users, categories, 3 months of income/expenses, and in-household split samples
+- `npm run db:seed:minimal` – Seed an empty DB with one household, two users, default categories, and default split group
+- `npm run db:seed` – Clear all data, then seed one fully populated Jordaan household (finance, splits, calendar, lists, recon queue, AI sample, mortgage, goals, recurring)
 - `npm run db:fresh` – Reset DB then seed (recreate from scratch and seed in one go)
 - `npm run generate-pwa-icons` – Generate PWA icons into `public/icons/` (requires `sharp`). Run once or when changing app icon.
 - `npm run generate-vapid-keys` – Print VAPID key pair for Web Push. Add the two lines to your env (e.g. `.env.local`) so push notifications work.

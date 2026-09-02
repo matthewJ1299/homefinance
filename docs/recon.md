@@ -2,9 +2,11 @@
 
 Recon pulls **recent mail** from your connected Outlook account using **Microsoft Graph** (REST, not GraphQL), parses bank notification emails, compares them to existing expenses, and lets you **manually** decide each row.
 
-## Feature toggle (Settings and access)
+## Feature access
 
-Recon requires **both** `users.recon_feature_allowed` (admin-style gate; see [feature access](./feature-access.md)) **and** `users.recon_enabled` (user preference under **Settings**). Without the allow flag, Settings explains that an administrator must grant access; connect and mutating APIs return **403** (or redirect to Settings with `?recon=no_access`). If only the preference is off, `/api/recon/graph/connect` and the OAuth callback redirect to **Settings**; mutating APIs return **403**. **POST `/api/recon/graph/disconnect`** remains callable when logged in to clear stored Graph tokens (cleanup).
+Recon is a **household entitlement** set by a super-admin in `/admin/houses/[id]` (`household_features.recon`). There is no end-user Settings toggle. Without the entitlement, `/recon` shows a placeholder and mutating APIs return **403**. Server-side Microsoft Graph OAuth env vars must also be configured — see [feature access](./feature-access.md).
+
+The **Outlook connection and mailbox sync** UI lives in `ReconGraphPanel` (`src/components/recon/recon-graph-panel.tsx`), mounted from `recon-page-client.tsx`.
 
 ## Related features
 

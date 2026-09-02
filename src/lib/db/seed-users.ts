@@ -1,23 +1,14 @@
-import { createRequire } from "module";
+import { saveDb, get, lastInsertId, run } from "./index";
 import bcrypt from "bcryptjs";
-import { get, lastInsertId, run, saveDb } from "./index";
-
-const require = createRequire(import.meta.url);
-try {
-  const mod = require("@next/env");
-  if (typeof mod.loadEnvConfig === "function") mod.loadEnvConfig(process.cwd());
-} catch {
-  // In Docker/standalone @next/env may not expose loadEnvConfig; use process.env (e.g. Coolify env vars).
-}
-
-const DEFAULT_PASSWORD = process.env.SEED_USER_PASSWORD ?? "ChangeMe123!";
-
-type SeedUserInput = {
-  email: string;
-  householdName: string;
-  name: string;
-  passwordHash: string;
-};
+import { FEATURE_KEYS } from "@/lib/features/registry";
+import { bootstrapHouseholdDefaults } from "./bootstrap-household-defaults";
+import "./seed/constants";
+import {
+  SEED_HOUSEHOLD_NAME,
+  SEED_MATT,
+  SEED_PASSWORD,
+  SEED_SYDNEY,
+} from "./seed/constants";
 
 type ExistingUserRow = {
   email: string;
@@ -27,88 +18,108 @@ type ExistingUserRow = {
 };
 
 async function seedUsers(): Promise<void> {
-  const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
-  const user1Email = process.env.SEED_USER1_EMAIL ?? "matt@homefinance.local";
-  const user2Email = process.env.SEED_USER2_EMAIL ?? "sydney@homefinance.local";
-  const user1Name = process.env.SEED_USER1_NAME ?? "Matt";
-  const user2Name = process.env.SEED_USER2_NAME ?? "Sydney";
+  const passwordHash = await bcrypt.hash(SEED_PASSWORD, 10);
 
-  if (user1Email.trim().toLowerCase() === user2Email.trim().toLowerCase()) {
+  if (SEED_MATT.email.trim().toLowerCase() === SEED_SYDNEY.email.trim().toLowerCase()) {
     throw new Error("SEED_USER1_EMAIL and SEED_USER2_EMAIL must be different.");
   }
 
-  const inputs: SeedUserInput[] = [
-    {
-      email: user1Email,
-      householdName: `${user1Name} household`,
-      name: user1Name,
-      passwordHash,
-    },
-    {
-      email: user2Email,
-      householdName: `${user2Name} household`,
-      name: user2Name,
-      passwordHash,
-    },
-  ];
+  const householdId = await ensureJordaanHousehold();
+  await upsertSeedUser({
+    email: SEED_MATT.email,
+    name: SEED_MATT.name,
+    passwordHash,
+    householdId,
+    isSuperAdmin: true,
+  });
+  await upsertSeedUser({
+    email: SEED_SYDNEY.email,
+    name: SEED_SYDNEY.name,
+    passwordHash,
+    householdId,
+    isSuperAdmin: false,
+  });
 
-  for (const input of inputs) {
-    await upsertSeedUser(input);
-  }
+  await ensureHouseholdFeatures(householdId);
 
   console.log("Users-only seed complete.");
-  console.log("Seeded emails:", user1Email, ",", user2Email);
-  console.log("Seeded password:", DEFAULT_PASSWORD);
+  console.log(`Household: ${SEED_HOUSEHOLD_NAME} (id ${householdId})`);
+  console.log("Seeded emails:", SEED_MATT.email, ",", SEED_SYDNEY.email);
+  console.log("Seeded password:", SEED_PASSWORD);
 }
 
-async function upsertSeedUser(input: SeedUserInput): Promise<void> {
+type UpsertInput = {
+  email: string;
+  name: string;
+  passwordHash: string;
+  householdId: number;
+  isSuperAdmin: boolean;
+};
+
+async function ensureJordaanHousehold(): Promise<number> {
+  const existing = await get<{ id: number }>(
+    "SELECT id FROM households WHERE name = ? ORDER BY id LIMIT 1",
+    [SEED_HOUSEHOLD_NAME]
+  );
+  if (existing) {
+    await run(
+      "UPDATE households SET ai_tier = 'free', approval_status = 'active' WHERE id = ?",
+      [existing.id]
+    );
+    return existing.id;
+  }
+
+  await run(
+    `INSERT INTO households (name, ai_tier, approval_status, ai_feature_allowed, recon_feature_allowed)
+     VALUES (?, 'free', 'active', true, true)`,
+    [SEED_HOUSEHOLD_NAME]
+  );
+  const householdId = await lastInsertId();
+  if (householdId == null) {
+    throw new Error(`Household insert did not return an id for ${SEED_HOUSEHOLD_NAME}`);
+  }
+
+  await bootstrapHouseholdDefaults(householdId);
+  return householdId;
+}
+
+async function ensureHouseholdFeatures(householdId: number): Promise<void> {
+  const matt = await get<{ id: number }>(
+    "SELECT id FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1",
+    [SEED_MATT.email.trim().toLowerCase()]
+  );
+  const grantedBy = matt?.id ?? null;
+
+  for (const featureKey of FEATURE_KEYS) {
+    await run(
+      `INSERT INTO household_features (household_id, feature_key, enabled, granted_by_user_id, notes)
+       VALUES (?, ?, true, ?, 'seed-users')
+       ON CONFLICT (household_id, feature_key) DO UPDATE SET enabled = true`,
+      [householdId, featureKey, grantedBy]
+    );
+  }
+}
+
+async function upsertSeedUser(input: UpsertInput): Promise<void> {
   const existing = await get<ExistingUserRow>(
     "SELECT id, name, email, household_id FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1",
     [input.email.trim().toLowerCase()]
   );
 
   if (existing) {
-    const householdId = await ensureHouseholdForUser(existing, input.householdName);
     await run(
-      "UPDATE users SET name = ?, email = ?, password_hash = ?, household_id = ? WHERE id = ?",
-      [input.name, input.email, input.passwordHash, householdId, existing.id]
+      "UPDATE users SET name = ?, email = ?, password_hash = ?, household_id = ?, is_super_admin = ? WHERE id = ?",
+      [input.name, input.email, input.passwordHash, input.householdId, input.isSuperAdmin, existing.id]
     );
     console.log(`Updated user ${input.email}.`);
     return;
   }
 
-  const householdId = await createHousehold(input.householdName);
   await run(
-    "INSERT INTO users (name, email, password_hash, household_id) VALUES (?, ?, ?, ?)",
-    [input.name, input.email, input.passwordHash, householdId]
+    "INSERT INTO users (name, email, password_hash, household_id, is_super_admin, budget_month_start_day) VALUES (?, ?, ?, ?, ?, 1)",
+    [input.name, input.email, input.passwordHash, input.householdId, input.isSuperAdmin]
   );
-  const userId = await lastInsertId();
-  if (userId == null) {
-    throw new Error(`User insert did not return an id for ${input.email}`);
-  }
   console.log(`Created user ${input.email}.`);
-}
-
-async function ensureHouseholdForUser(
-  user: ExistingUserRow,
-  householdName: string
-): Promise<number> {
-  if (Number.isFinite(user.household_id) && user.household_id != null) {
-    return user.household_id;
-  }
-
-  const householdId = await createHousehold(householdName);
-  await run("UPDATE users SET household_id = ? WHERE id = ?", [householdId, user.id]);
-  return householdId;
-}
-
-async function createHousehold(name: string): Promise<number> {
-  await run("INSERT INTO households (name) VALUES (?)", [name]);
-  const householdId = await lastInsertId();
-  if (householdId == null) {
-    throw new Error(`Household insert did not return an id for ${name}`);
-  }
-  return householdId;
 }
 
 (async () => {

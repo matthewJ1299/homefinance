@@ -2,15 +2,14 @@
 
 import { auth } from "@/lib/auth";
 import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
+import { hasFeature, featureDeniedMessage } from "@/lib/features/access";
+import { resolveAiInteractiveEnabled, getHouseholdAiTier } from "@/lib/services/feature-access.service";
 import { AIService } from "@/lib/services/ai.service";
 import { checkRateLimit, recordCall } from "@/lib/services/ai-rate-limiter";
 import type { AnalyzeExpensesOutcome } from "@/lib/services/ai.service";
-import { getUserRepository } from "@/lib/repositories";
 
 export type AnalyzeExpensesOptions = {
-  /** When true, every expense line for the month is included (larger prompt; better recategorisation hints). Default false = summary + categories only. */
   includeTransactions?: boolean;
-  /** Optional free-text budget context appended to the AI prompt. */
   budgetContext?: string;
 };
 
@@ -24,19 +23,11 @@ export async function analyzeExpenses(
     return { success: false, error: "Unauthorized" };
   }
   const userId = Number(session.user.id);
-  const userRepo = getUserRepository();
-  const [aiFeatureAllowed, aiEnabled] = await Promise.all([
-    userRepo.getAiFeatureAllowed(userId),
-    userRepo.getAiEnabled(userId),
-  ]);
-  if (!aiFeatureAllowed) {
-    return {
-      success: false,
-      error: "AI analysis is not enabled for your account. An administrator can grant access.",
-    };
+  if (!hasFeature("ai_budget_analysis")) {
+    return { success: false, error: featureDeniedMessage("ai_budget_analysis") };
   }
-  if (!aiEnabled) {
-    return { success: false, error: "AI is disabled for your user. Enable it under Settings → AI analysis." };
+  if (!resolveAiInteractiveEnabled()) {
+    return { success: false, error: "AI is not configured on this server for your household tier." };
   }
 
   const { allowed, retryAfterMs } = checkRateLimit(userId);
@@ -49,9 +40,9 @@ export async function analyzeExpenses(
   }
 
   const service = new AIService();
-  const usePaid = await userRepo.getAiUsePaid(userId);
+  const tier = getHouseholdAiTier();
   const includeTransactions = options.includeTransactions === true;
-  const result = await service.analyzeExpenses(month, userId, usePaid ? "paid" : "free", {
+  const result = await service.analyzeExpenses(month, userId, tier, {
     includeTransactions,
     budgetContext: options.budgetContext,
   });

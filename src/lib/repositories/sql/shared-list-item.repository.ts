@@ -49,6 +49,26 @@ export class SharedListItemRepository implements ISharedListItemRepository {
     return rows.map(toSharedListItem);
   }
 
+  async countOpenItemsByListIds(listIds: number[]): Promise<Map<number, number>> {
+    const hid = requireHouseholdId();
+    const map = new Map<number, number>();
+    if (listIds.length === 0) return map;
+    for (const id of listIds) map.set(id, 0);
+    const placeholders = listIds.map(() => "?").join(",");
+    const rows = await all<{ listId: number; count: number }>(
+      `SELECT i.list_id AS "listId", COUNT(*)::int AS count
+       FROM shared_list_items i
+       INNER JOIN shared_lists sl ON i.list_id = sl.id
+       WHERE sl.household_id = ? AND i.completed = false AND i.list_id IN (${placeholders})
+       GROUP BY i.list_id`,
+      [hid, ...listIds]
+    );
+    for (const row of rows) {
+      map.set(row.listId, row.count);
+    }
+    return map;
+  }
+
   async findById(id: number): Promise<SharedListItem | null> {
     const hid = requireHouseholdId();
     const row = await get<SharedListItemRow>(

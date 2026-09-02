@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { getUserRepository } from "@/lib/repositories";
 import { parseReconOAuthState } from "@/lib/services/recon/graph-oauth.service";
 import { ReconService } from "@/lib/services/recon/recon.service";
+import { runWithHouseholdFeatures } from "@/lib/features/run-with-household-features";
+import { hasFeature } from "@/lib/features/access";
 
 function toReconUrl(request: NextRequest, path: string): URL {
   const baseUrl = process.env.NEXTAUTH_URL ?? process.env.APP_BASE_URL ?? request.nextUrl.origin;
@@ -38,25 +39,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(toReconUrl(request, "/recon?error=session_mismatch"));
   }
 
-  setRequestContextFromSession(session);
-
-  const userRepo = getUserRepository();
-  const [reconFeatureAllowed, reconEnabled] = await Promise.all([
-    userRepo.getReconFeatureAllowed(userIdFromState),
-    userRepo.getReconEnabled(userIdFromState),
-  ]);
-  if (!reconFeatureAllowed) {
-    return NextResponse.redirect(toReconUrl(request, "/settings?recon=no_access"));
-  }
-  if (!reconEnabled) {
-    return NextResponse.redirect(toReconUrl(request, "/settings?recon=off"));
-  }
+  const householdId = await getUserRepository().getHouseholdId(userIdFromState);
 
   try {
-    const service = new ReconService();
-    await service.saveInitialGraphTokens(userIdFromState, code, pkceVerifier);
+    await runWithHouseholdFeatures(householdId, async () => {
+      if (!hasFeature("recon")) {
+        throw new Error("recon_not_entitled");
+      }
+      const service = new ReconService();
+      await service.saveInitialGraphTokens(userIdFromState, code, pkceVerifier);
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "token_save_failed";
+    if (msg === "recon_not_entitled") {
+      return NextResponse.redirect(toReconUrl(request, "/recon?error=not_entitled"));
+    }
     return NextResponse.redirect(toReconUrl(request, `/recon?error=${encodeURIComponent(msg)}`));
   }
 

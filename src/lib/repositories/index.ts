@@ -58,6 +58,8 @@ import type { INoteRepository } from "./interfaces/note.repository";
 import { NoteRepository } from "./sql/note.repository";
 import type { IHouseholdRepository } from "./interfaces/household.repository";
 import { HouseholdRepository } from "./sql/household.repository";
+import type { IHouseholdFeatureRepository } from "./interfaces/household-feature.repository";
+import { HouseholdFeatureRepository } from "./sql/household-feature.repository";
 
 let categoryRepo: ICategoryRepository | null = null;
 let expenseRepo: IExpenseRepository | null = null;
@@ -89,6 +91,7 @@ let aiAnalysisRunMessageRepo: IAIAnalysisRunMessageRepository | null = null;
 let aiAnalysisRunApplicationRepo: IAIAnalysisRunApplicationRepository | null = null;
 let noteRepo: INoteRepository | null = null;
 let householdRepo: IHouseholdRepository | null = null;
+let householdFeatureRepo: IHouseholdFeatureRepository | null = null;
 
 export function getCategoryRepository(): ICategoryRepository {
   if (!categoryRepo) categoryRepo = new CategoryRepository();
@@ -240,5 +243,10 @@ export function getNoteRepository(): INoteRepository {
 export function getHouseholdRepository(): IHouseholdRepository {
   if (!householdRepo) householdRepo = new HouseholdRepository();
   return householdRepo;
+}
+
+export function getHouseholdFeatureRepository(): IHouseholdFeatureRepository {
+  if (!householdFeatureRepo) householdFeatureRepo = new HouseholdFeatureRepository();
+  return householdFeatureRepo;
 }
 

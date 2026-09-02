@@ -1,4 +1,6 @@
 import { auth } from "@/lib/auth";
+import { hasFeature } from "@/lib/features/access";
+import { FeatureUnavailable } from "@/components/ui/feature-unavailable";
 import { getUserRepository } from "@/lib/repositories";
 import { MortgageService } from "@/lib/services/mortgage.service";
 import { fromMinorUnits } from "@/lib/utils/currency";
@@ -11,7 +13,10 @@ import { MortgagePaymentsList } from "@/components/mortgage/mortgage-payments-li
 import { MortgageRatePeriodsSection } from "@/components/mortgage/mortgage-rate-periods-section";
 
 export default async function MortgagePage() {
-  await auth(); // binds tenant request context (see src/lib/auth.ts)
+  await auth();
+  if (!hasFeature("mortgage")) {
+    return <FeatureUnavailable feature="mortgage" />;
+  }
   const service = new MortgageService();
   const { config, userConfigs } = await service.getConfig();
 

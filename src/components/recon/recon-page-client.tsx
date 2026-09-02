@@ -18,6 +18,7 @@ import {
   RECON_TYPE_A_FROM_SUBSTRINGS,
   RECON_TYPE_B_FROM_SUBSTRINGS,
 } from "@/lib/services/recon/parsers";
+import { ReconGraphPanel } from "@/components/recon/recon-graph-panel";
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { ...init, headers: { "Content-Type": "application/json", ...init?.headers } });
@@ -762,124 +763,20 @@ export function ReconPageClient() {
         </p>
       </div>
 
-      <section className="rounded-xl border border-border bg-card p-4 space-y-3">
-        <SectionHeader title="Outlook connection" />
-        {statusQuery.isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : (
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
-            {connected ? (
-              <>
-                <p className="text-sm">
-                  Connected{msEmail ? ` as ${msEmail}` : ""}.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <a
-                    href="/api/recon/graph/connect"
-                    className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent"
-                  >
-                    Reconnect
-                  </a>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => disconnectMutation.mutate()}
-                    disabled={disconnectMutation.isPending}
-                  >
-                    Disconnect
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <a
-                href="/api/recon/graph/connect"
-                className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-              >
-                Connect Outlook
-              </a>
-            )}
-          </div>
-        )}
-      </section>
-
-      <section className="rounded-xl border border-border bg-card p-4 space-y-3">
-        <SectionHeader
-          title="Sync"
-          action={
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => syncMutation.mutate({ skip: 0 })}
-                disabled={!connected || syncMutation.isPending}
-              >
-                {syncMutation.isPending ? "Syncing…" : "Sync from mailbox"}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  if (nextBatchSkip == null) return;
-                  syncMutation.mutate({ skip: nextBatchSkip });
-                }}
-                disabled={!connected || syncMutation.isPending || nextBatchSkip == null}
-                title={
-                  nextBatchSkip == null
-                    ? "Run Sync from mailbox first to set the starting offset."
-                    : `Fetch the next ${syncTop} messages (skip ${nextBatchSkip})`
-                }
-              >
-                {syncMutation.isPending ? "Syncing…" : `Fetch next ${syncTop}`}
-              </Button>
-            </div>
-          }
-        />
-        <p className="text-sm text-muted-foreground">
-          Fetches recent messages and parses bank templates (see docs). No transactions are added until you accept them below.
-        </p>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="recon-sync-since">Sync from (optional)</Label>
-            <input
-              id="recon-sync-since"
-              type="date"
-              className="h-9 w-full max-w-[220px] rounded-md border border-input bg-background px-2 text-sm"
-              value={syncSince}
-              onChange={(e) => setSyncSince(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="recon-sync-top">Max emails to scan</Label>
-            <input
-              id="recon-sync-top"
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={1000}
-              className="h-9 w-full max-w-[160px] rounded-md border border-input bg-background px-2 text-sm"
-              value={String(syncTop)}
-              onChange={(e) => {
-                const n = Number(e.target.value);
-                setSyncTop(Number.isFinite(n) ? Math.min(Math.max(1, Math.floor(n)), 1000) : 200);
-              }}
-            />
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Limits mailbox scanning to messages received on/after this date.
-          </p>
-        </div>
-        {nextBatchSkip != null ? (
-          <p className="text-xs text-muted-foreground">
-            Next &quot;Fetch next {syncTop}&quot; uses Graph skip {nextBatchSkip} (older mail).
-          </p>
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            Run <strong>Sync from mailbox</strong> once to enable <strong>Fetch next {syncTop}</strong> for older messages.
-          </p>
-        )}
-      </section>
+      <ReconGraphPanel
+        connected={connected}
+        msAccountEmail={msEmail}
+        statusLoading={statusQuery.isLoading}
+        syncSince={syncSince}
+        syncTop={syncTop}
+        nextBatchSkip={nextBatchSkip}
+        syncPending={syncMutation.isPending}
+        disconnectPending={disconnectMutation.isPending}
+        onSyncSinceChange={setSyncSince}
+        onSyncTopChange={setSyncTop}
+        onSync={(skip) => syncMutation.mutate({ skip })}
+        onDisconnect={() => disconnectMutation.mutate()}
+      />
 
       {syncDebug ? (
         <CollapsibleSection

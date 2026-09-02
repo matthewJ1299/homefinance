@@ -8,7 +8,6 @@ import {
   getSharedListItemRepository,
 } from "@/lib/repositories";
 import { BudgetService } from "@/lib/services/budget.service";
-import { isAIConfiguredForTier } from "@/lib/services/ai.service";
 import { resolveAiInteractiveEnabled } from "@/lib/services/feature-access.service";
 import {
   CalendarService,
@@ -35,14 +34,15 @@ import { SplitBalanceBanner } from "@/components/dashboard/split-balance-banner"
 import { HomeStatsStrip } from "@/components/dashboard/home-stats-strip";
 import { DashboardExpensesClient } from "@/components/dashboard/dashboard-expenses-client";
 import { DashboardIncomeSection } from "@/components/dashboard/dashboard-income-section";
+import { SetupProgressBanner } from "@/components/onboarding/setup-progress-banner";
 
 async function countOpenListTasks(): Promise<number> {
   const listRepo = getSharedListRepository();
   const itemRepo = getSharedListItemRepository();
   const lists = await listRepo.findAll();
   if (lists.length === 0) return 0;
-  const nested = await Promise.all(lists.map((l) => itemRepo.findByListId(l.id)));
-  return nested.flat().filter((i) => !i.completed).length;
+  const counts = await itemRepo.countOpenItemsByListIds(lists.map((l) => l.id));
+  return [...counts.values()].reduce((sum, n) => sum + n, 0);
 }
 
 /** Fetched for merging with income on the transactions tile; display count is capped in the client. */
@@ -133,12 +133,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   );
   const otherUserName = otherUsers[0]?.name;
   const budgetMonthStartDay = await userRepo.getBudgetMonthStartDay(userId);
-  const aiUsePaid = await userRepo.getAiUsePaid(userId);
-  const aiConfigured = aiUsePaid ? isAIConfiguredForTier("paid") : isAIConfiguredForTier("free");
-  const aiEnabled = await resolveAiInteractiveEnabled(userId, aiConfigured);
+  const setup = await userRepo.getSetupWizardState(userId);
+  const aiEnabled = resolveAiInteractiveEnabled();
   const monthLabelPretty = formatBudgetMonthLabel(month, budgetMonthStartDay);
   return (
     <div className="p-3 sm:p-4 space-y-5 sm:space-y-6 pb-24 md:pb-6">
+      <SetupProgressBanner status={setup.status} storedStep={setup.step} />
+
       <HomeGreetingBar
         month={month}
         budgetMonthStartDay={budgetMonthStartDay}

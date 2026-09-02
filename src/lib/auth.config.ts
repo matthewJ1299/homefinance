@@ -9,30 +9,53 @@ function normalizeHouseholdId(value: unknown): string | undefined {
   return Number.isFinite(n) ? String(n) : undefined;
 }
 
+const PUBLIC_AUTH_PATHS = new Set(["/login", "/register"]);
+
+const APP_PREFIXES = [
+  "/dashboard",
+  "/calendar",
+  "/lists",
+  "/budget",
+  "/expenses",
+  "/income",
+  "/recon",
+  "/splits",
+  "/what-i-owe",
+  "/budget-ai-report",
+  "/accounts",
+  "/mortgage",
+  "/goals",
+  "/summary",
+  "/settings",
+  "/add",
+  "/pending-approval",
+  "/welcome",
+  "/change-password",
+];
+
+function isAppRoute(pathname: string): boolean {
+  return APP_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
 export const authConfig: NextAuthConfig = {
   pages: {
     signIn: "/login",
   },
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
-      const isLoggedIn = !!auth?.user;
-      const isOnApp = nextUrl.pathname.startsWith("/dashboard") ||
-        nextUrl.pathname.startsWith("/expenses") ||
-        nextUrl.pathname.startsWith("/income") ||
-        nextUrl.pathname.startsWith("/budget") ||
-        nextUrl.pathname.startsWith("/mortgage") ||
-        nextUrl.pathname.startsWith("/summary") ||
-        nextUrl.pathname.startsWith("/categories") ||
-        nextUrl.pathname.startsWith("/recon") ||
-        nextUrl.pathname.startsWith("/admin");
-      if (isOnApp && !isLoggedIn) {
-        return false;
+      const pathname = nextUrl.pathname;
+      const isLoggedIn = !!auth?.user?.id;
+
+      if (!isLoggedIn) {
+        if (PUBLIC_AUTH_PATHS.has(pathname)) return true;
+        if (isAppRoute(pathname) || pathname.startsWith("/admin")) return false;
+        return true;
       }
-      // Public self-registration is disabled; households + users are provisioned
-      // from the admin portal. Any /register request falls through to a 404.
-      if (auth?.user && nextUrl.pathname === "/login") {
+
+      if (pathname === "/login" || pathname === "/register") {
         return Response.redirect(new URL("/dashboard", nextUrl));
       }
+
       return true;
     },
     async jwt({ token, user }) {

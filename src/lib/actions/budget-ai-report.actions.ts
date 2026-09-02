@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
-import { getUserRepository } from "@/lib/repositories";
+import { hasFeature, featureDeniedMessage } from "@/lib/features/access";
+import { resolveAiInteractiveEnabled, getHouseholdAiTier } from "@/lib/services/feature-access.service";
 import { AIService } from "@/lib/services/ai.service";
 import { BudgetAiApplyService } from "@/lib/services/budget-ai-apply.service";
 import { checkRateLimit, recordCall } from "@/lib/services/ai-rate-limiter";
@@ -27,16 +28,11 @@ export async function applyBudgetAiSuggestions(
   const userId = Number(session.user.id);
   setRequestContextFromSession(session);
 
-  const userRepo = getUserRepository();
-  const [aiFeatureAllowed, aiEnabled] = await Promise.all([
-    userRepo.getAiFeatureAllowed(userId),
-    userRepo.getAiEnabled(userId),
-  ]);
-  if (!aiFeatureAllowed) {
-    return { success: false, error: "AI analysis is not enabled for your account." };
+  if (!hasFeature("ai_budget_analysis")) {
+    return { success: false, error: featureDeniedMessage("ai_budget_analysis") };
   }
-  if (!aiEnabled) {
-    return { success: false, error: "AI is disabled. Enable it under Settings." };
+  if (!resolveAiInteractiveEnabled()) {
+    return { success: false, error: "AI is not configured on this server for your household tier." };
   }
 
   const moveIndexes = options.moveIndexes ?? [];
@@ -88,16 +84,11 @@ export async function replyToBudgetAiReport(
   const userId = Number(session.user.id);
   setRequestContextFromSession(session);
 
-  const userRepo = getUserRepository();
-  const [aiFeatureAllowed, aiEnabled] = await Promise.all([
-    userRepo.getAiFeatureAllowed(userId),
-    userRepo.getAiEnabled(userId),
-  ]);
-  if (!aiFeatureAllowed) {
-    return { success: false, error: "AI analysis is not enabled for your account." };
+  if (!hasFeature("ai_budget_analysis")) {
+    return { success: false, error: featureDeniedMessage("ai_budget_analysis") };
   }
-  if (!aiEnabled) {
-    return { success: false, error: "AI is disabled. Enable it under Settings." };
+  if (!resolveAiInteractiveEnabled()) {
+    return { success: false, error: "AI is not configured on this server for your household tier." };
   }
 
   const { allowed, retryAfterMs } = checkRateLimit(userId);
@@ -112,9 +103,9 @@ export async function replyToBudgetAiReport(
     };
   }
 
-  const usePaid = await userRepo.getAiUsePaid(userId);
+  const tier = getHouseholdAiTier();
   const service = new AIService();
-  const result = await service.replyToBudgetReport(runId, userId, message, usePaid ? "paid" : "free");
+  const result = await service.replyToBudgetReport(runId, userId, message, tier);
   if (result.success) {
     recordCall(userId);
     revalidatePath("/budget-ai-report");

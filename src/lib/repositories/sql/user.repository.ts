@@ -1,7 +1,9 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
 import { requireHouseholdId } from "@/lib/db/request-context";
 import { normalizeBudgetMonthStartDay } from "@/lib/utils/date";
-import type { UserSummary, UserForAuth } from "../interfaces/user.repository";
+import { toFeatureKeys } from "@/lib/features/registry";
+import type { HouseholdApprovalStatus } from "@/lib/db/request-context";
+import type { UserSummary, UserForAuth, UserAuthState } from "../interfaces/user.repository";
 import type { IUserRepository } from "../interfaces/user.repository";
 import type { SetupWizardState, SetupWizardStatus } from "../interfaces/user.repository";
 
@@ -111,18 +113,67 @@ export class UserRepository implements IUserRepository {
     return row.household_id;
   }
 
-  async getAuthState(
-    userId: number
-  ): Promise<{ householdId: number | null; isSuperAdmin: boolean } | null> {
-    const row = await get<{ household_id: number | null; is_super_admin: boolean | null }>(
-      "SELECT household_id, is_super_admin FROM users WHERE id = ?",
-      [userId]
-    );
-    if (!row) return null;
-    return {
-      householdId: row.household_id == null ? null : Number(row.household_id),
-      isSuperAdmin: row.is_super_admin === true,
-    };
+  async getAuthState(userId: number): Promise<UserAuthState | null> {
+    try {
+      const row = await get<{
+        household_id: number | null;
+        is_super_admin: boolean | null;
+        must_change_password: boolean | null;
+        ai_tier: string | null;
+        approval_status: string | null;
+        feature_keys: string[] | null;
+      }>(
+        `SELECT u.household_id,
+                u.is_super_admin,
+                u.must_change_password,
+                COALESCE(h.ai_tier, 'free') AS ai_tier,
+                COALESCE(h.approval_status, 'active') AS approval_status,
+                COALESCE(
+                  (SELECT array_agg(hf.feature_key)
+                     FROM household_features hf
+                    WHERE hf.household_id = u.household_id
+                      AND hf.enabled
+                      AND (hf.expires_at IS NULL OR hf.expires_at > NOW())),
+                  '{}'::text[]
+                ) AS feature_keys
+           FROM users u
+           LEFT JOIN households h ON h.id = u.household_id
+          WHERE u.id = ?`,
+        [userId]
+      );
+      if (!row) return null;
+      const approvalRaw = row.approval_status;
+      const householdApprovalStatus: HouseholdApprovalStatus =
+        approvalRaw === "pending" || approvalRaw === "rejected" ? approvalRaw : "active";
+      return {
+        householdId: row.household_id == null ? null : Number(row.household_id),
+        isSuperAdmin: row.is_super_admin === true,
+        featureKeys: toFeatureKeys(row.feature_keys ?? []),
+        aiTier: row.ai_tier === "paid" ? "paid" : "free",
+        householdApprovalStatus,
+        mustChangePassword: row.must_change_password === true,
+      };
+    } catch (err) {
+      if (err && typeof err === "object" && "code" in err) {
+        const code = String(err.code);
+        if (code === "42P01" || code === "42703") {
+          const row = await get<{ household_id: number | null; is_super_admin: boolean | null }>(
+            "SELECT household_id, is_super_admin FROM users WHERE id = ?",
+            [userId]
+          );
+          if (!row) return null;
+          return {
+            householdId: row.household_id == null ? null : Number(row.household_id),
+            isSuperAdmin: row.is_super_admin === true,
+            featureKeys: [],
+            aiTier: "free",
+            householdApprovalStatus: "active",
+            mustChangePassword: false,
+          };
+        }
+      }
+      throw err;
+    }
   }
 
   async createUser(input: {
@@ -132,7 +183,7 @@ export class UserRepository implements IUserRepository {
     passwordHash: string;
   }): Promise<number> {
     await run(
-      "INSERT INTO users (name, email, password_hash, household_id, ai_feature_allowed, recon_feature_allowed) VALUES (?, ?, ?, ?, false, false)",
+      "INSERT INTO users (name, email, password_hash, household_id) VALUES (?, ?, ?, ?)",
       [input.name, input.email, input.passwordHash, input.householdId]
     );
     const id = await lastInsertId();
@@ -181,171 +232,15 @@ export class UserRepository implements IUserRepository {
     await run("UPDATE users SET primary_account_id = ? WHERE id = ?", [accountId, userId]);
   }
 
-  async getReconEnabled(userId: number): Promise<boolean> {
-    const row = await get<{ recon_enabled: boolean | null }>(
-      "SELECT recon_enabled FROM users WHERE id = ?",
-      [userId]
-    );
-    return row?.recon_enabled === true;
-  }
-
-  async setReconEnabled(userId: number, enabled: boolean): Promise<void> {
-    await run("UPDATE users SET recon_enabled = ? WHERE id = ?", [enabled, userId]);
-  }
-
-  async getOwedToMeEnabled(userId: number): Promise<boolean> {
-    try {
-      const row = await get<{ owed_to_me_enabled: boolean | null }>(
-        "SELECT owed_to_me_enabled FROM users WHERE id = ?",
-        [userId]
-      );
-      return row?.owed_to_me_enabled === true;
-    } catch (err) {
-      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
-        return false;
-      }
-      throw err;
-    }
-  }
-
-  async setOwedToMeEnabled(userId: number, enabled: boolean): Promise<void> {
-    try {
-      await run("UPDATE users SET owed_to_me_enabled = ? WHERE id = ?", [enabled, userId]);
-    } catch (err) {
-      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
-        throw new Error(
-          'Database is missing column "users.owed_to_me_enabled". Run `npm run db:push` to apply migrations.'
-        );
-      }
-      throw err;
-    }
-  }
-
-  async getReconFeatureAllowed(userId: number): Promise<boolean> {
-    try {
-      // Gate = household policy AND per-user allow. Admin portal sets the household
-      // flag (households.recon_feature_allowed); the user row keeps the per-user opt-in.
-      const row = await get<{ allowed: boolean | null }>(
-        `SELECT (u.recon_feature_allowed AND h.recon_feature_allowed) AS allowed
-         FROM users u
-         JOIN households h ON h.id = u.household_id
-         WHERE u.id = ?`,
-        [userId]
-      );
-      return row?.allowed === true;
-    } catch (err) {
-      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
-        return false;
-      }
-      throw err;
-    }
-  }
-
-  async setReconFeatureAllowed(userId: number, allowed: boolean): Promise<void> {
-    try {
-      await run("UPDATE users SET recon_feature_allowed = ? WHERE id = ?", [allowed, userId]);
-    } catch (err) {
-      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
-        throw new Error(
-          'Database is missing column "users.recon_feature_allowed". Run `npm run db:push` to apply migrations.'
-        );
-      }
-      throw err;
-    }
-  }
-
-  async getAiEnabled(userId: number): Promise<boolean> {
-    try {
-      const row = await get<{ ai_enabled: boolean | null }>("SELECT ai_enabled FROM users WHERE id = ?", [userId]);
-      return row?.ai_enabled === true;
-    } catch (err) {
-      // Backwards-compatible: older DBs won't have the column until migrations are applied.
-      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
-        return false;
-      }
-      throw err;
-    }
-  }
-
-  async setAiEnabled(userId: number, enabled: boolean): Promise<void> {
-    try {
-      await run("UPDATE users SET ai_enabled = ? WHERE id = ?", [enabled, userId]);
-    } catch (err) {
-      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
-        throw new Error('Database is missing column "users.ai_enabled". Run `npm run db:push` to apply migrations.');
-      }
-      throw err;
-    }
-  }
-
-  async getAiFeatureAllowed(userId: number): Promise<boolean> {
-    try {
-      // Gate = household policy AND per-user allow. Admin portal sets the household
-      // flag (households.ai_feature_allowed); the user row keeps the per-user opt-in.
-      const row = await get<{ allowed: boolean | null }>(
-        `SELECT (u.ai_feature_allowed AND h.ai_feature_allowed) AS allowed
-         FROM users u
-         JOIN households h ON h.id = u.household_id
-         WHERE u.id = ?`,
-        [userId]
-      );
-      return row?.allowed === true;
-    } catch (err) {
-      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
-        return false;
-      }
-      throw err;
-    }
-  }
-
-  async setAiFeatureAllowed(userId: number, allowed: boolean): Promise<void> {
-    try {
-      await run("UPDATE users SET ai_feature_allowed = ? WHERE id = ?", [allowed, userId]);
-    } catch (err) {
-      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
-        throw new Error(
-          'Database is missing column "users.ai_feature_allowed". Run `npm run db:push` to apply migrations.'
-        );
-      }
-      throw err;
-    }
-  }
-
-  async getAiUsePaid(userId: number): Promise<boolean> {
-    try {
-      const row = await get<{ ai_use_paid: boolean | null }>(
-        "SELECT ai_use_paid FROM users WHERE id = ?",
-        [userId]
-      );
-      return row?.ai_use_paid === true;
-    } catch (err) {
-      // Backwards-compatible: older DBs won't have the column until migrations are applied.
-      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
-        return false;
-      }
-      throw err;
-    }
-  }
-
-  async setAiUsePaid(userId: number, usePaid: boolean): Promise<void> {
-    try {
-      await run("UPDATE users SET ai_use_paid = ? WHERE id = ?", [usePaid, userId]);
-    } catch (err) {
-      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
-        throw new Error('Database is missing column "users.ai_use_paid". Run `npm run db:push` to apply migrations.');
-      }
-      throw err;
-    }
-  }
-
   async getSetupWizardState(userId: number): Promise<SetupWizardState> {
     try {
       const row = await get<{
         setup_wizard_status: string | null;
+        setup_wizard_step: string | null;
         setup_wizard_dismissed_at: Date | string | null;
         setup_wizard_completed_at: Date | string | null;
       }>(
-        "SELECT setup_wizard_status, setup_wizard_dismissed_at, setup_wizard_completed_at FROM users WHERE id = ?",
+        "SELECT setup_wizard_status, setup_wizard_step, setup_wizard_dismissed_at, setup_wizard_completed_at FROM users WHERE id = ?",
         [userId]
       );
 
@@ -358,11 +253,16 @@ export class UserRepository implements IUserRepository {
       const dismissedAt = dismissedAtRaw ? new Date(dismissedAtRaw) : null;
       const completedAt = completedAtRaw ? new Date(completedAtRaw) : null;
 
-      return { status, dismissedAt, completedAt };
+      return {
+        status,
+        step: row?.setup_wizard_step ?? null,
+        dismissedAt,
+        completedAt,
+      };
     } catch (err) {
       // Backwards-compatible: older DBs won't have the columns until migrations are applied.
       if (err && typeof err === "object" && "code" in err && err.code === "42703") {
-        return { status: "not_started", dismissedAt: null, completedAt: null };
+        return { status: "not_started", step: null, dismissedAt: null, completedAt: null };
       }
       throw err;
     }
@@ -371,15 +271,29 @@ export class UserRepository implements IUserRepository {
   async setSetupWizardStatus(userId: number, status: SetupWizardStatus): Promise<void> {
     const dismissedAt = status === "dismissed" ? new Date().toISOString() : null;
     const completedAt = status === "completed" ? new Date().toISOString() : null;
+    const clearStep = status === "completed";
     try {
       await run(
-        "UPDATE users SET setup_wizard_status = ?, setup_wizard_dismissed_at = ?, setup_wizard_completed_at = ? WHERE id = ?",
-        [status, dismissedAt, completedAt, userId]
+        "UPDATE users SET setup_wizard_status = ?, setup_wizard_dismissed_at = ?, setup_wizard_completed_at = ?, setup_wizard_step = CASE WHEN ? THEN NULL ELSE setup_wizard_step END WHERE id = ?",
+        [status, dismissedAt, completedAt, clearStep, userId]
       );
     } catch (err) {
       if (err && typeof err === "object" && "code" in err && err.code === "42703") {
         throw new Error(
           'Database is missing setup wizard columns on "users". Run `npm run db:push` to apply migrations.'
+        );
+      }
+      throw err;
+    }
+  }
+
+  async setSetupWizardStep(userId: number, step: string | null): Promise<void> {
+    try {
+      await run("UPDATE users SET setup_wizard_step = ? WHERE id = ?", [step, userId]);
+    } catch (err) {
+      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
+        throw new Error(
+          'Database is missing column "users.setup_wizard_step". Run `npm run db:push` to apply migrations.'
         );
       }
       throw err;

@@ -3,14 +3,14 @@ import { auth } from "@/lib/auth";
 import { OfflineIndicator } from "./offline-indicator";
 import { ThemeToggle } from "./theme-toggle";
 import { MobileNavMenu } from "./mobile-nav-menu";
+import type { FeatureKey } from "@/lib/features/registry";
 
 interface HeaderProps {
-  reconEnabled: boolean;
-  aiFeatureAllowed: boolean;
-  owedToMeEnabled: boolean;
+  featureKeys: FeatureKey[];
+  isSuperAdmin: boolean;
 }
 
-export async function Header({ reconEnabled, aiFeatureAllowed, owedToMeEnabled }: HeaderProps) {
+export async function Header({ featureKeys, isSuperAdmin }: HeaderProps) {
   const session = await auth();
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
@@ -27,11 +27,7 @@ export async function Header({ reconEnabled, aiFeatureAllowed, owedToMeEnabled }
           </span>
           <ThemeToggle />
           <OfflineIndicator />
-          <MobileNavMenu
-            reconEnabled={reconEnabled}
-            aiFeatureAllowed={aiFeatureAllowed}
-            owedToMeEnabled={owedToMeEnabled}
-          />
+          <MobileNavMenu featureKeys={featureKeys} isSuperAdmin={isSuperAdmin} />
         </div>
       </div>
     </header>

@@ -46,6 +46,10 @@ async function bindContextFromSession(session: Session | null): Promise<void> {
         delete session.user.householdId;
       }
       session.user.isSuperAdmin = authState?.isSuperAdmin === true;
+      session.user.featureKeys = authState?.featureKeys ?? [];
+      session.user.aiTier = authState?.aiTier ?? "free";
+      session.user.householdApprovalStatus = authState?.householdApprovalStatus ?? "active";
+      session.user.mustChangePassword = authState?.mustChangePassword === true;
     } catch {
       // DB unreachable: fall back to the token's claim for tenant scope, but
       // never for privilege — an unverifiable super-admin claim is dropped.
@@ -53,6 +57,10 @@ async function bindContextFromSession(session: Session | null): Promise<void> {
       if (sessionHouseholdId != null) session.user.householdId = sessionHouseholdId;
       else delete session.user.householdId;
       session.user.isSuperAdmin = false;
+      session.user.featureKeys = [];
+      session.user.aiTier = "free";
+      session.user.householdApprovalStatus = "active";
+      session.user.mustChangePassword = false;
     }
   }
   setRequestContextFromSession(session);

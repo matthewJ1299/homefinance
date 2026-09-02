@@ -3,19 +3,14 @@
 import type { ReactNode } from "react";
 import { useDashboardTilesSettings } from "@/components/settings/dashboard-tiles-settings";
 
-type DashboardTileKey =
+export type DashboardTileKey =
   | "quickAdd"
-  | "accounts"
-  | "goalsSummary"
-  | "creditSummary"
-  | "goalAlerts"
   | "today"
   | "splitBalance"
   | "budgetWarning"
   | "aiAnalysis"
   | "transactions"
-  | "incomeSection"
-  | "populateMonth";
+  | "incomeSection";
 
 interface WhenDashboardTileEnabledProps {
   tile: DashboardTileKey;
@@ -27,4 +22,3 @@ export function WhenDashboardTileEnabled({ tile, children }: WhenDashboardTileEn
   if (!state[tile]) return null;
   return <>{children}</>;
 }
-
