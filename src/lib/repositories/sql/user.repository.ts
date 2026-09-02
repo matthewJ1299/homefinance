@@ -111,6 +111,20 @@ export class UserRepository implements IUserRepository {
     return row.household_id;
   }
 
+  async getAuthState(
+    userId: number
+  ): Promise<{ householdId: number | null; isSuperAdmin: boolean } | null> {
+    const row = await get<{ household_id: number | null; is_super_admin: boolean | null }>(
+      "SELECT household_id, is_super_admin FROM users WHERE id = ?",
+      [userId]
+    );
+    if (!row) return null;
+    return {
+      householdId: row.household_id == null ? null : Number(row.household_id),
+      isSuperAdmin: row.is_super_admin === true,
+    };
+  }
+
   async createUser(input: {
     householdId: number;
     name: string;

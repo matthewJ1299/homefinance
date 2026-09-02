@@ -27,6 +27,13 @@ export interface IUserRepository {
   findByEmailForAuth(email: string): Promise<UserForAuth | null>;
   /** households.id for this user (one household per user). */
   getHouseholdId(userId: number): Promise<number>;
+  /**
+   * Authoritative tenant + role, read fresh from the DB rather than the JWT.
+   * Used to bind request context so an admin revoking super-admin (or moving a
+   * user between households) takes effect on the next request, not after the
+   * 30-day JWT expires. Returns null when the user row is gone.
+   */
+  getAuthState(userId: number): Promise<{ householdId: number | null; isSuperAdmin: boolean } | null>;
   createUser(input: {
     householdId: number;
     name: string;

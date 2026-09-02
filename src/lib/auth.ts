@@ -21,27 +21,39 @@ function normalizeHouseholdId(value: unknown): string | undefined {
 }
 
 /**
- * Bind the AsyncLocalStorage request context (userId, householdId, isSuperAdmin)
- * from a resolved session. Next.js does NOT propagate the ALS context set in a
- * layout into page/route renders, so every server entry point that calls `auth()`
- * needs the context bound here — this wrapper does it centrally so pages, route
- * handlers and server actions don't each have to remember.
+ * Bind the request context (userId, householdId, isSuperAdmin) from a resolved
+ * session. Server Components inherit this through the React `cache()` holder;
+ * route handlers and server actions must also call
+ * `setRequestContextFromSession` themselves (see request-context.ts).
  *
- * Also repairs a missing/invalid `householdId` on older JWT sessions by reading
- * it back from the database (previously done inline in the app layout).
+ * Tenant scope and the super-admin flag are read from the **database**, not the
+ * JWT: the token is issued for 30 days and is never refreshed, so trusting it
+ * would mean an admin revoking super-admin (or moving a user to another
+ * household) had no effect until the user signed out. The DB read is one
+ * indexed lookup by primary key.
  */
 async function bindContextFromSession(session: Session | null): Promise<void> {
   if (!session?.user?.id) return;
   const userId = Number(session.user.id);
-  const sessionHouseholdId = normalizeHouseholdId(session.user.householdId);
-  if (sessionHouseholdId == null && Number.isFinite(userId)) {
+  if (Number.isFinite(userId)) {
     try {
-      session.user.householdId = String(await getUserRepository().getHouseholdId(userId));
+      const authState = await getUserRepository().getAuthState(userId);
+      if (authState?.householdId != null) {
+        session.user.householdId = String(authState.householdId);
+      } else {
+        // User row is gone, or household_id is still NULL pre-migration: fail
+        // closed so tenant-scoped repositories throw instead of leaking rows.
+        delete session.user.householdId;
+      }
+      session.user.isSuperAdmin = authState?.isSuperAdmin === true;
     } catch {
-      delete session.user.householdId;
+      // DB unreachable: fall back to the token's claim for tenant scope, but
+      // never for privilege — an unverifiable super-admin claim is dropped.
+      const sessionHouseholdId = normalizeHouseholdId(session.user.householdId);
+      if (sessionHouseholdId != null) session.user.householdId = sessionHouseholdId;
+      else delete session.user.householdId;
+      session.user.isSuperAdmin = false;
     }
-  } else if (sessionHouseholdId != null) {
-    session.user.householdId = sessionHouseholdId;
   }
   setRequestContextFromSession(session);
 }

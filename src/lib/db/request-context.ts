@@ -45,20 +45,52 @@ function reactHolderOrNull(): { ctx: RequestContext } | null {
 }
 
 /**
+ * Identity is safe to share across a whole request; `pgClient` and `lastInsertId`
+ * are NOT. They describe one in-flight statement chain, so they live only in
+ * AsyncLocalStorage. Putting them in the shared holder would let an open
+ * transaction's client leak into concurrent queries elsewhere in the same render
+ * (node-pg clients are not concurrency-safe, and those queries would silently
+ * join a transaction that may roll back), and would make `lastInsertId()`
+ * readable across unrelated inserts.
+ */
+const IDENTITY_KEYS = ["userId", "userName", "householdId", "isSuperAdmin"] as const;
+
+function identityOf(ctx: RequestContext): RequestContext {
+  const out: RequestContext = {};
+  for (const k of IDENTITY_KEYS) {
+    if (ctx[k] !== undefined) (out as Record<string, unknown>)[k] = ctx[k];
+  }
+  return out;
+}
+
+/**
  * Set the current context. In a page this happens via `auth()` (see src/lib/auth.ts);
  * route handlers / actions call it after `auth()` too.
+ *
+ * A context carrying no identity (e.g. the `{ pgClient }` update from
+ * `withTransaction`, or `{}` to clear it) updates only the async-local store and
+ * deliberately leaves the shared per-request identity alone.
  */
 export function setRequestContext(ctx: RequestContext): void {
+  const identity = identityOf(ctx);
   const held = reactHolderOrNull();
-  if (held) held.ctx = ctx;
+  if (held && Object.keys(identity).length > 0) held.ctx = identity;
   als.enterWith({ ctx });
 }
 
-/** Get the current context, if any. */
+/** Get the current context, if any. Async-local state wins over shared identity. */
 export function getRequestContext(): RequestContext | undefined {
   const held = reactHolderOrNull();
-  if (held && Object.keys(held.ctx).length > 0) return held.ctx;
-  return als.getStore()?.ctx;
+  const base = held && Object.keys(held.ctx).length > 0 ? held.ctx : undefined;
+  const store = als.getStore()?.ctx;
+  if (!base && !store) return undefined;
+  const merged: RequestContext = { ...base };
+  if (store) {
+    for (const [k, v] of Object.entries(store)) {
+      if (v !== undefined) (merged as Record<string, unknown>)[k] = v;
+    }
+  }
+  return merged;
 }
 
 /**

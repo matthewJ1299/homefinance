@@ -57,7 +57,10 @@ export async function withTransaction<T>(fn: () => Promise<T>): Promise<T> {
     await client.query("ROLLBACK");
     throw e;
   } finally {
-    if (prev) setRequestContext(prev);
+    // Always clear pgClient, even when there was no prior context — otherwise the
+    // released client stays referenced and later queries run on a pooled client
+    // that now belongs to someone else. Passing {} keeps shared identity intact.
+    setRequestContext(prev ?? {});
     client.release();
   }
 }
