@@ -193,6 +193,34 @@ export class UserRepository implements IUserRepository {
     await run("UPDATE users SET recon_enabled = ? WHERE id = ?", [enabled, userId]);
   }
 
+  async getOwedToMeEnabled(userId: number): Promise<boolean> {
+    try {
+      const row = await get<{ owed_to_me_enabled: boolean | null }>(
+        "SELECT owed_to_me_enabled FROM users WHERE id = ?",
+        [userId]
+      );
+      return row?.owed_to_me_enabled === true;
+    } catch (err) {
+      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
+        return false;
+      }
+      throw err;
+    }
+  }
+
+  async setOwedToMeEnabled(userId: number, enabled: boolean): Promise<void> {
+    try {
+      await run("UPDATE users SET owed_to_me_enabled = ? WHERE id = ?", [enabled, userId]);
+    } catch (err) {
+      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
+        throw new Error(
+          'Database is missing column "users.owed_to_me_enabled". Run `npm run db:push` to apply migrations.'
+        );
+      }
+      throw err;
+    }
+  }
+
   async getReconFeatureAllowed(userId: number): Promise<boolean> {
     try {
       // Gate = household policy AND per-user allow. Admin portal sets the household

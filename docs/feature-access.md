@@ -17,6 +17,7 @@ Three layers per feature, all required:
 
 3. **User preference** (existing):
    - `users.ai_enabled`, `users.recon_enabled` — “I want this on” under **Settings**.
+   - `users.owed_to_me_enabled` — preference only (no admin allow column). Hides **What I owe** (`/what-i-owe`) from the menu and blocks the page body until enabled. Default false; `drizzle/0028_users_owed_to_me_enabled_pg.sql` sets `true` for `users.id = 1`. Column name is historical.
 
 `UserRepository.getAiFeatureAllowed(userId)` / `getReconFeatureAllowed(userId)` resolve **layers 1 AND 2 together** (join `households` on `users.household_id`), so every call site — pages, actions, `/api/recon/*`, `/api/admin` — gets the combined result with no extra wiring. Effective interactive access additionally requires layer 3 (and, for AI, that the chosen tier's keys are configured).
 

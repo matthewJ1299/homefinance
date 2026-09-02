@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { bottomNavItemsMobile, fullNavItems, navItemsForUserPreferences, type NavItem } from "./nav-items";
+import { bottomNavItemsMobile, type NavItem } from "./nav-items";
 import { cn } from "@/lib/utils";
 
 const mobileLeftItems = bottomNavItemsMobile.slice(0, 2);
@@ -26,7 +26,7 @@ function NavLinks({
             key={href}
             href={href}
             className={cn(
-              "flex flex-col items-center justify-center gap-0.5 px-2 py-2 text-xs font-medium transition-colors md:flex-row md:justify-start md:gap-2 md:rounded-md md:px-4 cursor-pointer",
+              "flex flex-col items-center justify-center gap-0.5 px-2 py-2 text-xs font-medium transition-colors cursor-pointer",
               isActive
                 ? "text-primary bg-primary/10"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent",
@@ -35,8 +35,7 @@ function NavLinks({
             title={label}
           >
             <Icon className="h-5 w-5 shrink-0" />
-            <span className="md:hidden leading-none">{label}</span>
-            <span className="hidden md:inline">{label}</span>
+            <span className="leading-none">{label}</span>
           </Link>
         );
       })}
@@ -44,21 +43,14 @@ function NavLinks({
   );
 }
 
-export function BottomNav({
-  reconEnabled,
-  aiFeatureAllowed,
-}: {
-  reconEnabled: boolean;
-  aiFeatureAllowed: boolean;
-}) {
+export function BottomNav() {
   const pathname = usePathname();
   const addActive = pathname === "/add" || pathname.startsWith("/add/");
-  const desktopItems = navItemsForUserPreferences(fullNavItems, reconEnabled, aiFeatureAllowed);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm md:left-auto md:right-0 md:top-14 md:bottom-0 md:w-[20%] md:border-l md:border-t-0">
-      <div className="flex h-[calc(3.25rem+env(safe-area-inset-bottom))] justify-around md:h-[calc(100vh-3.5rem)] md:flex-col md:justify-start md:gap-1 md:p-2">
-        <div className="flex flex-1 justify-around items-end md:hidden pb-[env(safe-area-inset-bottom)]">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm md:hidden">
+      <div className="flex h-[calc(3.25rem+env(safe-area-inset-bottom))] justify-around">
+        <div className="flex flex-1 justify-around items-end pb-[env(safe-area-inset-bottom)]">
           <NavLinks items={mobileLeftItems} pathname={pathname} />
           <Link
             href="/add"
@@ -74,9 +66,6 @@ export function BottomNav({
             <span className="text-[10px] font-medium mt-0.5 leading-none">Add</span>
           </Link>
           <NavLinks items={mobileRightItems} pathname={pathname} />
-        </div>
-        <div className="hidden md:flex md:flex-col md:flex-1 md:gap-1">
-          <NavLinks items={desktopItems} pathname={pathname} />
         </div>
       </div>
     </nav>

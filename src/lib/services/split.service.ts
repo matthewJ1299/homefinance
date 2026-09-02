@@ -1,3 +1,4 @@
+import { addDays, format, parseISO } from "date-fns";
 import {
   getExpenseRepository,
   getSplitAllocationRepository,
@@ -8,6 +9,7 @@ import {
   getIncomeRepository,
   getAccountTransactionRepository,
 } from "@/lib/repositories";
+import type { OwedLineItemRow } from "@/lib/repositories/interfaces/split-allocation.repository";
 import { budgetMonthKeyForUser } from "@/lib/utils/budget-month-for-user";
 import type { SplitBalance, SplitHistoryItem } from "@/lib/types";
 import { calculateSplitBalance, splitExpense } from "@/lib/services/finance/accounts";
@@ -63,6 +65,10 @@ export class SplitService {
       case "exact":
         amountOwed = options.otherShareCents;
         break;
+      default: {
+        const _exhaustive: never = options;
+        throw new Error(`Unhandled split type: ${String(_exhaustive)}`);
+      }
     }
     if (amountOwed <= 0) {
       const month = await budgetMonthKeyForUser(paidByUserId, date);
@@ -116,6 +122,58 @@ export class SplitService {
       throw e;
     }
     return { id: expenseId };
+  }
+
+  /**
+   * Split allocations since the day after the last settlement between these two users
+   * (all history if they have never settled). Both directions are returned so the
+   * statement can net "what they owe me" against "what I owe them".
+   */
+  async getStatementSinceLastSettlement(
+    viewerUserId: number,
+    otherUserId: number,
+    asOfDate: string,
+    groupId?: number
+  ): Promise<{
+    owedItems: OwedLineItemRow[];
+    owingItems: OwedLineItemRow[];
+    owedTotal: number;
+    owingTotal: number;
+    lastSettlementDate: string | null;
+  }> {
+    const last = await this.settlementRepo.findLatestBetween(
+      viewerUserId,
+      otherUserId,
+      groupId
+    );
+    const start = last
+      ? format(addDays(parseISO(last.date), 1), "yyyy-MM-dd")
+      : "1970-01-01";
+    const [owedItems, owingItems] = await Promise.all([
+      this.allocationRepo.findOwedToPayerInPeriod(
+        viewerUserId,
+        otherUserId,
+        start,
+        asOfDate,
+        groupId
+      ),
+      this.allocationRepo.findOwedToPayerInPeriod(
+        otherUserId,
+        viewerUserId,
+        start,
+        asOfDate,
+        groupId
+      ),
+    ]);
+    const owedTotal = owedItems.reduce((sum, item) => sum + item.amount, 0);
+    const owingTotal = owingItems.reduce((sum, item) => sum + item.amount, 0);
+    return {
+      owedItems,
+      owingItems,
+      owedTotal,
+      owingTotal,
+      lastSettlementDate: last?.date ?? null,
+    };
   }
 
   async getBalance(currentUserId: number, groupId?: number): Promise<SplitBalance> {

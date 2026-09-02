@@ -20,8 +20,17 @@ export default async function AppLayout({
   const userId = Number(session.user.id);
   const userRepo = getUserRepository();
 
-  const [budgetMonthStartDay, reconEnabled, aiFeatureAllowed, aiEnabled, aiUsePaid, reconFeatureAllowed, reconPrefEnabled, setup] =
-    await Promise.all([
+  const [
+    budgetMonthStartDay,
+    reconEnabled,
+    aiFeatureAllowed,
+    aiEnabled,
+    aiUsePaid,
+    reconFeatureAllowed,
+    reconPrefEnabled,
+    owedToMeEnabled,
+    setup,
+  ] = await Promise.all([
     userRepo.getBudgetMonthStartDay(userId),
     resolveReconInteractiveEnabled(userId),
     userRepo.getAiFeatureAllowed(userId),
@@ -29,12 +38,17 @@ export default async function AppLayout({
     userRepo.getAiUsePaid(userId),
     userRepo.getReconFeatureAllowed(userId),
     userRepo.getReconEnabled(userId),
+    userRepo.getOwedToMeEnabled(userId),
     userRepo.getSetupWizardState(userId),
   ]);
 
   return (
     <BudgetMonthStartDayProvider value={budgetMonthStartDay}>
-      <AppShell reconEnabled={reconEnabled} aiFeatureAllowed={aiFeatureAllowed}>
+      <AppShell
+        reconEnabled={reconEnabled}
+        aiFeatureAllowed={aiFeatureAllowed}
+        owedToMeEnabled={owedToMeEnabled}
+      >
         {children}
         <SetupWizardHost
           autoPrompt

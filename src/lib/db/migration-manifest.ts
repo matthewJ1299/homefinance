@@ -30,6 +30,12 @@ export const MIGRATION_FILES: readonly string[] = [
   "0023_ai_analysis_run_applications_pg.sql",
   "0025_shared_lists_visibility_owner_pg.sql",
   "0026_mortgage_rate_periods_pg.sql",
+  // Duplicate 0027/0028 prefixes: this branch and master numbered independently.
+  // Order below is by real dependency, not by number. The calendar-reminder and
+  // owed-to-me migrations are self-contained table/column adds that never touch
+  // households, so they run first and the households stack lands on a settled schema.
+  "0027_calendar_event_reminders_pg.sql",
+  "0028_users_owed_to_me_enabled_pg.sql",
   "0027_households_pg.sql",
   "0028_super_admin_and_household_feature_policy_pg.sql",
   "0029_users_setup_wizard_state_pg.sql",

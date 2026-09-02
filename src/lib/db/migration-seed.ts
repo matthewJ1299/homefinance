@@ -78,6 +78,10 @@ export async function isMigrationAlreadyApplied(
       return columnExists(query, "shared_lists", "visibility");
     case "0026_mortgage_rate_periods_pg.sql":
       return tableExists(query, "mortgage_rate_periods");
+    case "0027_calendar_event_reminders_pg.sql":
+      return tableExists(query, "calendar_event_reminders");
+    case "0028_users_owed_to_me_enabled_pg.sql":
+      return columnExists(query, "users", "owed_to_me_enabled");
     case "0027_households_pg.sql":
       // Late-stage marker: the final statement adds household_id to schedule snapshots.
       return (

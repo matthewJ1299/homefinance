@@ -24,6 +24,10 @@ export type UpdateAiEnabledResult =
   | { success: true }
   | { success: false; error: string };
 
+export type UpdateOwedToMeEnabledResult =
+  | { success: true }
+  | { success: false; error: string };
+
 export type UpdateSetupWizardStatusResult =
   | { success: true }
   | { success: false; error: string };
@@ -136,6 +140,29 @@ export async function updateAiEnabledAction(enabled: boolean): Promise<UpdateAiE
   revalidatePath("/settings");
   revalidatePath("/summary");
   revalidatePath("/budget-ai-report");
+  return { success: true };
+}
+
+export async function updateOwedToMeEnabledAction(
+  enabled: boolean
+): Promise<UpdateOwedToMeEnabledResult> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, error: "Unauthorized" };
+  }
+  // master bound context with the pre-tenancy `setRequestContext({ userId, userName })`,
+  // which omits householdId and would make tenant-scoped repositories fail closed.
+  setRequestContextFromSession(session);
+  const userId = Number(session.user.id);
+  try {
+    await getUserRepository().setOwedToMeEnabled(userId, enabled);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to update What I owe setting.";
+    return { success: false, error: message };
+  }
+  revalidatePath("/dashboard");
+  revalidatePath("/settings");
+  revalidatePath("/what-i-owe");
   return { success: true };
 }
 

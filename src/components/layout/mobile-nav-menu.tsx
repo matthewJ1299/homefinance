@@ -12,12 +12,19 @@ import { cn } from "@/lib/utils";
 export function MobileNavMenu({
   reconEnabled,
   aiFeatureAllowed,
+  owedToMeEnabled,
 }: {
   reconEnabled: boolean;
   aiFeatureAllowed: boolean;
+  owedToMeEnabled: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const menuItems = navItemsForUserPreferences(fullNavItems, reconEnabled, aiFeatureAllowed);
+  const menuItems = navItemsForUserPreferences(
+    fullNavItems,
+    reconEnabled,
+    aiFeatureAllowed,
+    owedToMeEnabled
+  );
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
 

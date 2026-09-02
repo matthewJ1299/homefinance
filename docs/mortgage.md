@@ -24,6 +24,31 @@ Loan months are numbered from `start_date` (month 1 = first payment month).
 
 On `/mortgage`, open **Interest rate changes** to add rows such as “from loan month 6 → 11%”. Saving recalculates the projected schedule and upcoming payment amounts.
 
+### "What I owe" page
+
+`/what-i-owe` is a statement for the signed-in user, gated by `users.owed_to_me_enabled`
+(Settings: **Show What I owe**). Default is off; `0028` turns it on for `users.id = 1` only.
+`/owed-to-me` redirects to `/what-i-owe`.
+
+Toggle **What I owe** / **Owed to me**. Default is **What I owe** (no query param);
+`?view=owed` is the other direction. Split line items are allocations since
+the **day after** the latest settlement between the two users (all history if they have never
+settled). **Settlements are always the full outstanding balance.** That makes the last
+settlement a clean cutoff: the running split debt is zero on that date, so the statement does
+not subtract settlement amounts again (those rows would already net to zero).
+
+**Split balance** is a net, not the sum of the listed lines: on “owed to me” it is her share
+of what you paid minus your share of what she paid (same period). The accordion still lists
+the current view’s lines, then a **Less** row for the other direction. If the net is negative,
+the other person is ahead on splits; use the toggle. This is the same net as the Splits page
+(`owedToMe - iOwe`) for activity after that cutoff.
+
+**Total mortgage amount** is the selected budget month’s share for the person in view (their
+share when “owed to me”, yours when “what I owe”), from `getSchedule()` (`userA` / `userB` by
+`base_split_pct`, falling back to `monthlyPaymentUserA` / `monthlyPaymentUserB`). Budget-month
+key vs schedule `yyyy-MM` is an approximation. **Total** is split balance + mortgage. Month
+navigator only changes the mortgage month.
+
 ### Related
 
 - Unit tests: `src/tests/mortgage-rate-periods.test.ts`, `src/tests/transaction-drift.test.ts`

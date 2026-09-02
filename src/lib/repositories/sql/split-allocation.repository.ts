@@ -1,8 +1,10 @@
 import { all, run, lastInsertId, get } from "@/lib/db";
 import { requireHouseholdId } from "@/lib/db/request-context";
 import type {
+  ISplitAllocationRepository,
   SplitAllocationWithUser,
   SplitAllocationBalanceRow,
+  OwedLineItemRow,
 } from "../interfaces/split-allocation.repository";
 
 interface RowWithUser {
@@ -13,7 +15,7 @@ interface RowWithUser {
   name: string;
 }
 
-export class SplitAllocationRepository {
+export class SplitAllocationRepository implements ISplitAllocationRepository {
   async create(expenseId: number, userId: number, amount: number): Promise<{ id: number }> {
     const hid = requireHouseholdId();
     const ex = await get<{ id: number }>(
@@ -86,6 +88,43 @@ export class SplitAllocationRepository {
       });
     }
     return result;
+  }
+
+  async findOwedToPayerInPeriod(
+    payerUserId: number,
+    debtorUserId: number,
+    start: string,
+    end: string,
+    groupId?: number
+  ): Promise<OwedLineItemRow[]> {
+    let sql = `
+      SELECT e.id AS "expenseId", e.note, e.date, c.name AS "categoryName", sa.amount
+      FROM split_allocations sa
+      INNER JOIN expenses e ON sa.expense_id = e.id
+      LEFT JOIN categories c ON e.category_id = c.id
+      WHERE e.paid_by_user_id = ?
+        AND sa.user_id = ?
+        AND e.date >= ? AND e.date <= ?`;
+    const params: (number | string)[] = [payerUserId, debtorUserId, start, end];
+    if (groupId != null) {
+      sql += " AND e.split_expense_group_id = ?";
+      params.push(groupId);
+    }
+    sql += " ORDER BY e.date, e.id";
+    const rows = await all<{
+      expenseId: number;
+      note: string | null;
+      date: string;
+      categoryName: string | null;
+      amount: number;
+    }>(sql, params);
+    return rows.map((r) => ({
+      expenseId: r.expenseId,
+      note: r.note ?? null,
+      date: r.date,
+      categoryName: r.categoryName ?? null,
+      amount: r.amount,
+    }));
   }
 
   async deleteByExpenseId(expenseId: number): Promise<void> {

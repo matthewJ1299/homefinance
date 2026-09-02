@@ -1072,7 +1072,7 @@ export function ReconPageClient() {
         ) : items.length === 0 ? (
           <p className="text-sm text-muted-foreground">No pending recon items. Sync after connecting Outlook.</p>
         ) : (
-          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse min-w-[1040px]">
               <thead>
                 <tr className="border-b border-border text-left text-muted-foreground">

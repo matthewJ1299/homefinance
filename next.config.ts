@@ -11,6 +11,7 @@ const nextConfig: NextConfig = {
       { source: "/split-groups", destination: "/settings", permanent: false },
       { source: "/recurring-income", destination: "/settings", permanent: false },
       { source: "/recurring-expenses", destination: "/settings", permanent: false },
+      { source: "/owed-to-me", destination: "/what-i-owe", permanent: false },
     ];
   },
 };

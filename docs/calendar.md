@@ -18,7 +18,9 @@ The calendar supports **household-shared** events and **personal** events. Share
 - **Base migration**: `drizzle/0003_calendar_events_pg.sql` plus `0006_calendar_reminders_pg.sql` (`reminder_minutes`).
 - **Extensions (0009)**: `end_time` (optional, HH:mm), `category_id` (FK to `calendar_categories`, ON DELETE SET NULL), `is_shared` (boolean, default `true`), `priority` (integer 1-4, default `2` = Normal).
 - **0010**: `end_date` (optional yyyy-MM-dd, inclusive). When set after `date`, the event is a **multi-day span**. The API returns one occurrence per expanded segment with `date` = span start and `endDate` = span end (or `null` for a single day).
-- **Other fields**: `created_by_user_id`, `name`, `location`, `date` (yyyy-MM-dd), `time` (optional HH:mm), `notes`, `recurrence_type`, `recurrence_day_of_month`, `created_at`, `reminder_minutes`.
+- **0027**: `calendar_event_reminders` child table (`event_id` FK ON DELETE CASCADE, `offset_minutes`, `send_time` nullable HH:mm). An event can have up to 10 reminders. `calendar_events.reminder_minutes` is **deprecated** — still selected/backfilled once into the child table, but no longer written. `sent_reminders` gains `reminder_id` and its dedupe key becomes `(event_id, occurrence_date, COALESCE(reminder_id, 0))`. Existing `sent_reminders` rows are re-pointed at the backfilled reminder so already-fired occurrences are not pushed again.
+- **Reminder semantics**: `send_time` set → the reminder fires at `send_time` on `event date − floor(offset_minutes / 1440) days` (works for all-day events). `send_time` null (sub-day offsets: at time / 10 / 30 min / 1 / 2 h) → fires at `event start − offset_minutes`, and only if the event has a `time`.
+- **Other fields**: `created_by_user_id`, `name`, `location`, `date` (yyyy-MM-dd), `time` (optional HH:mm), `notes`, `recurrence_type`, `recurrence_day_of_month`, `created_at`, `reminder_minutes` (deprecated).
 
 ## Recurrence
 
@@ -34,13 +36,13 @@ Expansion is implemented in `src/lib/utils/recurrence.ts` and used by `CalendarS
 ## API
 
 - **GET /api/calendar/events?start=&end=**  
-  Returns expanded occurrences for the signed-in user’s **visible** events in the range (max 1 year): shared + personal where `created_by_user_id` matches. Each occurrence includes `eventId`, `date`, `endDate` (inclusive end for multi-day spans, else `null`), `time`, `endTime`, `name`, `location`, `notes`, `createdByUserId`, `createdByName`, `recurrenceType`, `reminderMinutes`, `categoryId`, `categoryName`, `categoryColor`, `isShared`, `priority`.
+  Returns expanded occurrences for the signed-in user’s **visible** events in the range (max 1 year): shared + personal where `created_by_user_id` matches. Each occurrence includes `eventId`, `date`, `endDate` (inclusive end for multi-day spans, else `null`), `time`, `endTime`, `name`, `location`, `notes`, `createdByUserId`, `createdByName`, `recurrenceType`, `reminderMinutes` (deprecated), `reminders` (`{ id, offsetMinutes, sendTime }[]`), `categoryId`, `categoryName`, `categoryColor`, `isShared`, `priority`.
 
 - **GET /api/calendar/categories**  
   Lists all calendar categories (id, name, color, sortOrder) for pickers.
 
 - **POST /api/calendar/events**  
-  Create event (body: name, location?, date, endDate? [non-recurring only], time?, endTime?, notes?, recurrenceType, recurrenceDayOfMonth?, reminderMinutes?, categoryId?, isShared?, priority?). Sets `created_by_user_id` from session.
+  Create event (body: name, location?, date, endDate? [non-recurring only], time?, endTime?, notes?, recurrenceType, recurrenceDayOfMonth?, `reminders?` (`{ offsetMinutes, sendTime? }[]`; legacy `reminderMinutes?` still accepted and folded in), categoryId?, isShared?, priority?). Sets `created_by_user_id` from session.
 
 - **GET /api/calendar/events/[id]**  
   Fetch a single event (template) by id for editing.
@@ -60,13 +62,13 @@ Any authenticated user can create, update, or delete **any** calendar event row 
 ## Notifications
 
 - **Daily summary**: Each user receives their own list of **visible** events for today (shared + their personal).
-- **Per-event reminders**: Uses `getAllOccurrencesInRange` (no visibility filter). **Shared** events: push to all subscribers; **personal** events: push only to the creator’s subscriptions.
+- **Per-event reminders**: Every minute the scheduler scans `getAllOccurrencesInRange(today, today + REMINDER_LOOKAHEAD_DAYS)` (16 days — must cover the largest offset, 2 weeks) and, for each occurrence × reminder, computes the send instant via `computeReminderInstant` (`src/lib/utils/reminder-time.ts`). It fires once per `(event_id, occurrence_date, reminder_id)` (tracked in `sent_reminders`). **Shared** events: push to all subscribers; **personal** events: push only to the creator’s subscriptions.
 - **Real-time “X added an event”**: Sent to the partner only when the new event is **shared** (`isShared` true).
 
 ## UI
 
 - **Route**: `/calendar`
-- **Components**: `CalendarClientCustom` (month grid + day schedule + FAB), `MonthGrid`, `DaySchedule`, `EventFormDialog` (create/edit with category, end time, shared flag, priority). Legacy `CalendarClient` (react-big-calendar) remains in the repo but is not the default page entry.
+- **Components**: `CalendarClientCustom` (month grid + day schedule + FAB), `MonthGrid`, `DaySchedule`, `EventFormDialog` (create/edit with category, end time, shared flag, priority, and a multi-row **Reminders** repeater — offset dropdown + a send-time picker for day/week offsets). Legacy `CalendarClient` (react-big-calendar) remains in the repo but is not the default page entry.
 - **Mobile layout**: Month header uses centered **MMMM yyyy** with chevron controls. On **narrow viewports** (max-width 767px, below Tailwind `md`), **swipe horizontally on the month grid** to change months (swipe left → next month, swipe right → previous). The grid uses compact **rounded-xl / rounded-2xl** borderless day cells (full-width within each column), transparent default (light hover tint), and tighter vertical spacing between week rows; muted out-of-month days; the **active day** is indicated by the filled primary circle on the number (today uses primary text when not selected). Category-colored **dots** for single-day events; **spanning pills** under each week row for multi-day events (same column gap as the day cells), without an extra ring or border around the bar. The schedule list uses timeline-style rows (time column, vertical color bar, card with separated title / notes / location) and a compact **date range** label when `endDate` is set.
 - **Navigation**: Calendar link in the bottom bar (mobile) and sidebar (desktop).
 
@@ -74,7 +76,7 @@ Any authenticated user can create, update, or delete **any** calendar event row 
 
 ## Implementation notes
 
-- Repository: `ICalendarEventRepository` in `src/lib/repositories/interfaces/calendar-event.repository.ts`; implementation in `src/lib/repositories/sql/calendar-event.repository.ts`.
+- Repository: `ICalendarEventRepository` in `src/lib/repositories/interfaces/calendar-event.repository.ts`; implementation in `src/lib/repositories/sql/calendar-event.repository.ts`. Saving an event keeps reminder rows that still have the same offset and send time so `sent_reminders` is not wiped by `ON DELETE CASCADE`.
 - Categories: `ICalendarCategoryRepository` + `CalendarCategoryRepository`.
 - Service: `CalendarService` in `src/lib/services/calendar.service.ts` (expands spans and recurrence; pads the range start when loading so recurring anchors whose tail overlaps the month are included).
 - Client-safe date helpers: `occurrenceCoversDate` / `occurrenceSegmentEnd` in `src/lib/utils/calendar-occurrence.ts` (avoid importing the service module from client components).
