@@ -13,15 +13,20 @@ export async function register() {
     return;
   }
 
-  const { initDb, startPersistLoop } = await import(
-    /* webpackIgnore: true */
-    "./lib/db/index"
-  );
+  const dbModule =
+    process.env.NODE_ENV === "development"
+      ? await import("@/lib/db/index")
+      : await import(/* webpackIgnore: true */ "./lib/db/index");
+  const { initDb, startPersistLoop } = dbModule;
   await initDb();
   startPersistLoop(60_000);
-  const { startNotificationScheduler } = await import(
-    /* webpackIgnore: true */
-    "./lib/server/start-notification-scheduler"
-  );
-  startNotificationScheduler();
+  const schedulerModule =
+    process.env.NODE_ENV === "development"
+      ? await import("@/lib/server/start-notification-scheduler")
+      : await import(/* webpackIgnore: true */ "./lib/server/start-notification-scheduler");
+  try {
+    await schedulerModule.startNotificationScheduler();
+  } catch (err) {
+    console.warn("[instrumentation] Notification scheduler failed to start:", err);
+  }
 }

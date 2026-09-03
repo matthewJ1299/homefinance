@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { subMonths, format } from "date-fns";
 import { all, lastInsertId, run } from "../index";
 import { splitExpense } from "@/lib/services/finance/accounts";
@@ -212,7 +213,7 @@ async function seedSplitExpenses(ctx: SeedContext): Promise<void> {
     await run(
       `INSERT INTO expenses (user_id, household_id, category_id, amount, note, date, month, account_id,
         paid_by_user_id, split_group_id, split_expense_group_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'equal', ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         item.payerId,
         householdId,
@@ -223,6 +224,7 @@ async function seedSplitExpenses(ctx: SeedContext): Promise<void> {
         month,
         item.payerAccountId,
         item.payerId,
+        randomUUID(),
         splitGroupId,
       ]
     );

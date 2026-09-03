@@ -28,7 +28,8 @@
 
 ### Changed
 
-- **Hygiene (validation)**: Removed orphaned modal setup-wizard files (kept `setup-wizard-accounts-step.tsx` for `/welcome`), dead settings toggle components, legacy `/api/admin/*` routes, and `recon-enabled.ts`. Grouped into Profile, Preferences, Household data, and Data & export. List items load on first expand via `loadSettingsListItemsAction` instead of eager N+1 on page load.
+- **Hygiene (validation)**: Removed orphaned modal setup-wizard files (kept `setup-wizard-accounts-step.tsx` for `/welcome`), dead settings toggle components, legacy `/api/admin/*` routes, and `recon-enabled.ts`.
+- **Seed fix**: Corrected split expense INSERT column count in `seed/finance.ts` (was failing mid-`db:seed`). Grouped into Profile, Preferences, Household data, and Data & export. List items load on first expand via `loadSettingsListItemsAction` instead of eager N+1 on page load.
 - **Dashboard tiles (Stage 5)**: Removed dead toggles (`accounts`, `goalsSummary`, `creditSummary`, `goalAlerts`, `populateMonth`) that had no wired tiles; storage key bumped to `v2`.
 - **Recon (Stage 5)**: Extracted Outlook connect/disconnect and mailbox sync controls into `ReconGraphPanel`.
 - **Dashboard list tasks**: `countOpenItemsByListIds` replaces per-list queries on Home.
