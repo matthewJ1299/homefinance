@@ -1,20 +1,19 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { formatRand } from "@/lib/utils/currency";
 import { soleOtherMemberName, type HouseholdMember } from "@/lib/types/household-member";
-import { BudgetCategoryCard } from "./budget-category-card";
-import { UnallocatedBanner } from "./unallocated-banner";
+import { UnassignedHeadline } from "./unassigned-headline";
+import { BudgetCategoryRow } from "./budget-category-row";
+import { BudgetCategorySheet } from "./budget-category-sheet";
 import { TransferDialog } from "./transfer-dialog";
 import { autoAllocateBudget } from "@/lib/actions/budget.actions";
-import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { RecentExpensesCard } from "@/components/dashboard/recent-expenses-card";
 import type { BudgetOverviewResult } from "@/lib/services/budget.service";
 import type { Category, ExpenseWithDetails } from "@/lib/types";
-import { BudgetDonutChart } from "./budget-donut-chart";
-import { BudgetCategorySummaryTile } from "./budget-category-summary-tile";
-import { RecentExpensesCard } from "@/components/dashboard/recent-expenses-card";
-import { toast } from "sonner";
 
 interface BudgetOverviewProps {
   data: BudgetOverviewResult;
@@ -22,6 +21,10 @@ interface BudgetOverviewProps {
   expenseCategories?: Category[];
   /** Everyone else in the household. Replaces the old single `otherUserName`. */
   members?: HouseholdMember[];
+  /** Last month's assigned amount per category, for the sheet's Match chip. */
+  lastMonthAssigned?: Record<number, number>;
+  /** Categories to open on load, from `?cover=` on a Home overspend row. */
+  openCategoryId?: number;
 }
 
 export function BudgetOverview({
@@ -29,51 +32,86 @@ export function BudgetOverview({
   recentExpenses = [],
   expenseCategories = [],
   members = [],
+  lastMonthAssigned = {},
+  openCategoryId,
 }: BudgetOverviewProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [autoAllocateError, setAutoAllocateError] = useState<string | null>(null);
+  const [sheetCategoryId, setSheetCategoryId] = useState<number | null>(openCategoryId ?? null);
   const [transferTarget, setTransferTarget] = useState<{
     categoryId: number;
     categoryName: string;
     overspentAmount: number;
   } | null>(null);
 
-  const categoriesWithRemaining = data.categories.map((c) => ({
-    categoryId: c.categoryId,
-    categoryName: c.categoryName,
-    remaining: c.available,
-  }));
-  const unassigned = data.unassigned;
-  const allocationStatus =
-    unassigned > 0 ? "to_allocate" : unassigned < 0 ? "over_allocated" : "balanced";
+  // Grouped, so the eye finds the flexible categories without reading every
+  // row. The existing drag order is preserved inside each group.
+  const categories = data.categories;
+  const groups = useMemo(() => {
+    const out = new Map<string, typeof categories>();
+    for (const c of categories) {
+      const list = out.get(c.groupName) ?? [];
+      list.push(c);
+      out.set(c.groupName, list);
+    }
+    return [...out.entries()];
+  }, [categories]);
+
+  const sheetCategory = data.categories.find((c) => c.categoryId === sheetCategoryId) ?? null;
+  const mostOverspent = [...data.categories]
+    .filter((c) => c.available < 0)
+    .sort((a, b) => a.available - b.available)[0];
+
+  function spreadItForMe() {
+    startTransition(async () => {
+      const result = await autoAllocateBudget(data.month);
+      if (result.success) {
+        toast.success("Spread across your categories.");
+        router.refresh();
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
 
   return (
     <div className="space-y-6 pb-8">
-      <div className="rounded-2xl border border-border/60 bg-card/90 p-4 sm:p-5 shadow-sm space-y-5">
-        <BudgetDonutChart allocated={data.totalAssigned} spent={data.totalExpenses} />
-        <div className="grid gap-3 sm:grid-cols-2 border-t border-border/50 pt-4">
-          <div className="flex justify-between text-sm gap-2">
-            <span className="text-muted-foreground">Total income</span>
-            <span className="font-medium tabular-nums">{formatRand(data.totalIncome)}</span>
-          </div>
-          <div className="flex justify-between text-sm gap-2">
-            <span className="text-muted-foreground">Total expenses</span>
-            <span className="font-medium tabular-nums">{formatRand(data.totalExpenses)}</span>
-          </div>
-          <div className="flex justify-between text-sm gap-2">
-            <span className="text-muted-foreground">Balance</span>
-            <span className="font-medium tabular-nums">{formatRand(data.balance)}</span>
-          </div>
-          <div className="flex justify-between text-sm gap-2">
-            <span className="text-muted-foreground">Assigned</span>
-            <span className="font-medium tabular-nums">{formatRand(data.totalAssigned)}</span>
-          </div>
-        </div>
-        {!data.isBalanced && <UnallocatedBanner unassigned={unassigned} />}
+      <UnassignedHeadline
+        unassigned={data.unassigned}
+        carriedOverspend={data.carriedOverspend}
+        overspentTotal={data.overspentTotal}
+        pending={isPending}
+        onSpread={spreadItForMe}
+        onCover={() => {
+          if (!mostOverspent) return;
+          setTransferTarget({
+            categoryId: mostOverspent.categoryId,
+            categoryName: mostOverspent.categoryName,
+            overspentAmount: -mostOverspent.available,
+          });
+        }}
+      />
+
+      <div className="flex justify-between px-1 text-[13px] text-muted-foreground tabular-nums">
+        <span>{formatRand(data.totalIncome)} in</span>
+        <span>{formatRand(data.totalAssigned)} assigned</span>
+        <span>{formatRand(data.totalExpenses)} spent</span>
       </div>
 
-      <BudgetCategorySummaryTile categories={data.categories} />
+      <div className="space-y-4">
+        {groups.map(([groupName, rows]) => (
+          <section key={groupName} className="space-y-1">
+            <h2 className="px-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+              {groupName}
+            </h2>
+            <Card className="rounded-2xl px-3.5 py-0">
+              {rows.map((c) => (
+                <BudgetCategoryRow key={c.categoryId} c={c} onOpen={setSheetCategoryId} />
+              ))}
+            </Card>
+          </section>
+        ))}
+      </div>
 
       {recentExpenses.length > 0 && expenseCategories.length > 0 && (
         <RecentExpensesCard
@@ -85,89 +123,10 @@ export function BudgetOverview({
         />
       )}
 
-      <div
-        className="sticky top-14 z-10 -mx-4 px-4 py-3 sm:-mx-6 sm:px-6 bg-background/95 backdrop-blur-sm border-b border-border/60 shadow-sm rounded-t-xl"
-        aria-live="polite"
-      >
-        {autoAllocateError && (
-          <p className="text-sm text-destructive mb-2" role="alert">
-            {autoAllocateError}
-          </p>
-        )}
-        <div className="flex justify-between items-center gap-2 flex-wrap">
-          <span className="text-sm text-muted-foreground">Left to give a job</span>
-          <div className="flex items-center gap-2">
-            <span className="font-semibold tabular-nums">
-              {allocationStatus === "balanced" ? "Fully assigned" : formatRand(unassigned)}
-            </span>
-            {unassigned > 0 && (
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={isPending}
-                className="cursor-pointer"
-                onClick={() => {
-                  setAutoAllocateError(null);
-                  startTransition(async () => {
-                    const result = await autoAllocateBudget(data.month);
-                    if (result.success) {
-                      toast.success("Budget auto-allocated.");
-                      void router.refresh();
-                    } else {
-                      setAutoAllocateError(result.error);
-                      toast.error(result.error);
-                    }
-                  });
-                }}
-              >
-                {isPending ? "Allocating…" : "Auto-allocate"}
-              </Button>
-            )}
-          </div>
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {allocationStatus === "to_allocate"
-            ? "Assign the remaining amount to categories."
-            : allocationStatus === "over_allocated"
-              ? "You have allocated more than this month's available amount."
-              : "All available funds are assigned."}
-        </p>
-      </div>
-
-      <div className="space-y-4">
-        <h2 className="font-semibold text-base tracking-tight">Categories and allocations</h2>
-        <div className="space-y-4">
-          {data.categories.map((cat) => (
-            <div
-              key={cat.categoryId}
-              className="rounded-2xl border border-border/60 bg-card/80 overflow-hidden shadow-sm"
-            >
-              <BudgetCategoryCard
-                categoryId={cat.categoryId}
-                categoryName={cat.categoryName}
-                groupName={cat.groupName}
-                costType={cat.costType}
-                allocated={cat.allocated}
-                spent={cat.spent}
-                totalIncome={data.totalIncome}
-                month={data.month}
-                onTransfer={() =>
-                  setTransferTarget({
-                    categoryId: cat.categoryId,
-                    categoryName: cat.categoryName,
-                    overspentAmount: -cat.remaining,
-                  })
-                }
-              />
-            </div>
-          ))}
-        </div>
-      </div>
-
       {data.transfers.length > 0 && (
         <div className="space-y-2">
-          <h2 className="font-semibold">Transfers</h2>
-          <ul className="text-sm space-y-1">
+          <h2 className="font-semibold">Money moved</h2>
+          <ul className="space-y-1 text-sm">
             {data.transfers.map((t) => (
               <li key={t.id} className="text-muted-foreground">
                 {formatRand(t.amount)} from {t.fromCategoryName} to {t.toCategoryName}
@@ -178,6 +137,27 @@ export function BudgetOverview({
         </div>
       )}
 
+      <BudgetCategorySheet
+        open={sheetCategory != null}
+        onOpenChange={(open) => !open && setSheetCategoryId(null)}
+        category={sheetCategory}
+        month={data.month}
+        lastMonthAssigned={sheetCategory ? (lastMonthAssigned[sheetCategory.categoryId] ?? 0) : 0}
+        transactions={recentExpenses.filter(
+          (e) => e.categoryId === sheetCategory?.categoryId
+        )}
+        onMoveMoney={(categoryId) => {
+          const c = data.categories.find((x) => x.categoryId === categoryId);
+          if (!c) return;
+          setSheetCategoryId(null);
+          setTransferTarget({
+            categoryId: c.categoryId,
+            categoryName: c.categoryName,
+            overspentAmount: Math.max(0, -c.available),
+          });
+        }}
+      />
+
       {transferTarget && (
         <TransferDialog
           open={!!transferTarget}
@@ -185,7 +165,13 @@ export function BudgetOverview({
           fromCategoryId={transferTarget.categoryId}
           fromCategoryName={transferTarget.categoryName}
           overspentAmount={transferTarget.overspentAmount}
-          categories={categoriesWithRemaining.filter((c) => c.remaining > 0)}
+          categories={data.categories
+            .filter((c) => c.available > 0)
+            .map((c) => ({
+              categoryId: c.categoryId,
+              categoryName: c.categoryName,
+              remaining: c.available,
+            }))}
           month={data.month}
         />
       )}

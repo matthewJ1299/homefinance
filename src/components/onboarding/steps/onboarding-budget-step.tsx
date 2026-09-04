@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { autoAllocateBudget } from "@/lib/actions/budget.actions";
 import { BudgetCategoryCard } from "@/components/budget/budget-category-card";
-import { UnallocatedBanner } from "@/components/budget/unallocated-banner";
+import { UnassignedHeadline } from "@/components/budget/unassigned-headline";
 import type { BudgetOverviewResult } from "@/lib/services/budget.service";
 import { toast } from "sonner";
 
@@ -39,7 +39,28 @@ export function OnboardingBudgetStep(props: {
 
   return (
     <div className="space-y-4">
-      {unassigned !== 0 ? <UnallocatedBanner unassigned={unassigned} /> : null}
+      {unassigned !== 0 ? (
+        <UnassignedHeadline
+          unassigned={unassigned}
+          carriedOverspend={overview.carriedOverspend}
+          overspentTotal={overview.overspentTotal}
+          pending={isPending}
+          onSpread={() =>
+            startTransition(async () => {
+              const result = await autoAllocateBudget(month);
+              if (result.success) {
+                toast.success("Spread across your categories.");
+                router.refresh();
+              } else {
+                toast.error(result.error);
+              }
+            })
+          }
+          // Nothing has been spent during setup, so there is never an overspend
+          // to cover here.
+          onCover={() => {}}
+        />
+      ) : null}
       <div className="space-y-3">
         {overview.categories.map((cat) => (
           <BudgetCategoryCard

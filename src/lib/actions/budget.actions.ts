@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { BudgetService } from "@/lib/services/budget.service";
 import { allocateSchema, transferSchema } from "@/lib/validators/budget.schema";
+import { isValidMonth } from "@/lib/utils/date";
 
 export type BudgetActionResult =
   | { success: true }
@@ -64,5 +65,45 @@ export async function transferBudgetFunds(data: {
   });
   if (!result.success) return { success: false, error: result.error };
   revalidatePath("/budget");
+  return { success: true };
+}
+
+/**
+ * Opens `month`: writes carry-in from the prior month's availables and records
+ * the uncovered overspend. Idempotent, so Skip on /new-month calls it too --
+ * the defaults apply whether or not anyone reads the screen.
+ */
+export async function openBudgetMonth(month: string): Promise<
+  { success: true; opened: boolean; carriedOverspend: number } | { success: false; error: string }
+> {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+  setRequestContextFromSession(session);
+  if (!isValidMonth(month)) return { success: false, error: "Invalid month" };
+  const result = await new BudgetService().openMonth(month, Number(session.user.id));
+  revalidatePath("/budget");
+  revalidatePath("/dashboard");
+  return { success: true, ...result };
+}
+
+/** Moves money between categories to clear an overspend before the month closes. */
+export async function coverOverspend(data: {
+  fromCategoryId: number;
+  toCategoryId: number;
+  month: string;
+  amount: number;
+}): Promise<BudgetActionResult> {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+  setRequestContextFromSession(session);
+  const parsed = transferSchema.safeParse(data);
+  if (!parsed.success) return { success: false, error: parsed.error.message };
+  const result = await new BudgetService().coverOverspend({
+    ...parsed.data,
+    userId: Number(session.user.id),
+  });
+  if (!result.success) return { success: false, error: result.error };
+  revalidatePath("/budget");
+  revalidatePath("/dashboard");
   return { success: true };
 }

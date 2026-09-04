@@ -10,7 +10,6 @@ import {
 import { formatBudgetMonthLabel } from "@/lib/utils/date";
 import { getDefaultBudgetMonthForUser } from "@/lib/utils/budget-month-for-user";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
-import { PopulateMonthButton } from "@/components/dashboard/populate-month-button";
 import { CategoriesManage } from "@/components/categories/categories-manage";
 import { SplitGroupsManage } from "@/components/split-groups/split-groups-manage";
 import { RecurringIncomeManage } from "@/components/recurring-income/recurring-income-manage";
@@ -90,16 +89,16 @@ export default async function SettingsPage() {
 
         <CollapsibleSection title="Recurring income" defaultOpen={false}>
           <p className="text-sm text-muted-foreground mb-3">
-            Add templates for income that repeats every month. Use &quot;Populate month&quot; below or on
-            the dashboard to create actual income entries from these.
+            Add templates for income that repeats every month. They are created automatically when a new
+            month opens.
           </p>
           <RecurringIncomeManage items={recurringIncome} />
         </CollapsibleSection>
 
         <CollapsibleSection title="Recurring expenses" defaultOpen={false}>
           <p className="text-sm text-muted-foreground mb-3">
-            Add templates for expenses that repeat every month. Use &quot;Populate month&quot; below or on
-            the dashboard to create actual expense entries from these.
+            Add templates for expenses that repeat every month. They are created automatically when a new
+            month opens.
           </p>
           <RecurringExpenseManage items={recurringExpenses} categories={categoriesForRecurring} />
         </CollapsibleSection>
@@ -107,17 +106,8 @@ export default async function SettingsPage() {
         <SettingsListsSection lists={sharedLists} />
       </SettingsSection>
 
-      <SettingsSection title="Data and export" description="Populate recurring rows and download transactions.">
+      <SettingsSection title="Data and export" description="Download your transactions.">
         <ExportTransactionsSettings />
-        <section className="rounded-lg border bg-card p-4">
-          <h3 className="text-sm font-medium mb-1">Recurring this month</h3>
-          <p className="text-xs text-muted-foreground mb-3">
-            Create income and expense entries from your recurring templates for{" "}
-            {formatBudgetMonthLabel(currentMonth, budgetMonthStartDay)}. Only items that do not exist yet
-            for this month are added.
-          </p>
-          <PopulateMonthButton month={currentMonth} />
-        </section>
       </SettingsSection>
     </div>
   );

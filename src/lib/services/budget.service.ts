@@ -252,6 +252,14 @@ export class BudgetService {
       await this.budgetRepo.recordMonthOpen(month, userId, carriedOverspend);
     });
 
+    // Recurring templates used to be applied by a "Populate this month" button
+    // in Settings, which asked the user to do the thing rather than telling them
+    // it had happened. Opening the month is that moment. Idempotent in its own
+    // right, and outside the transaction above so a template failure cannot roll
+    // back a carry-in that is already correct.
+    const { PopulationService } = await import("@/lib/services/population.service");
+    await new PopulationService().populateMonth(month, userId);
+
     return { opened: true, carriedOverspend };
   }
 
