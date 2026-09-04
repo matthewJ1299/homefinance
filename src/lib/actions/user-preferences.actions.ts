@@ -35,7 +35,7 @@ export async function updateBudgetMonthStartDayAction(
   revalidatePath("/budget");
   revalidatePath("/expenses");
   revalidatePath("/income");
-  revalidatePath("/summary");
+  revalidatePath("/reports");
   revalidatePath("/settings");
   return { success: true };
 }

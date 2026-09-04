@@ -87,7 +87,7 @@ export async function addIncome(formData: {
   revalidatePath("/income");
   revalidatePath("/dashboard");
   revalidatePath("/budget");
-  revalidatePath("/summary");
+  revalidatePath("/reports");
   return { success: true, id };
 }
 
@@ -120,7 +120,7 @@ export async function updateIncome(
   revalidatePath("/income");
   revalidatePath("/dashboard");
   revalidatePath("/budget");
-  revalidatePath("/summary");
+  revalidatePath("/reports");
   return { success: true };
 }
 
@@ -140,6 +140,6 @@ export async function deleteIncome(id: number): Promise<IncomeActionResult> {
   revalidatePath("/income");
   revalidatePath("/dashboard");
   revalidatePath("/budget");
-  revalidatePath("/summary");
+  revalidatePath("/reports");
   return { success: true };
 }

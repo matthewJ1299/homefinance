@@ -48,7 +48,7 @@ export const fullNavItems: NavItem[] = [
   { href: "/accounts", label: "Accounts", icon: CreditCard },
   { href: "/mortgage", label: "Mortgage", icon: Wallet },
   { href: "/goals", label: "Goals", icon: Target },
-  { href: "/summary", label: "Summary", icon: BarChart3 },
+  { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -63,7 +63,7 @@ export const fullNavItems: NavItem[] = [
 export const sidebarGroups: Array<{ name: string; items: string[] }> = [
   { name: "Every day", items: ["/dashboard", "/calendar", "/lists"] },
   { name: "Money", items: ["/budget", "/expenses", "/accounts", "/splits", "/what-i-owe"] },
-  { name: "Bigger picture", items: ["/mortgage", "/goals", "/summary", "/budget-ai-report"] },
+  { name: "Bigger picture", items: ["/mortgage", "/goals", "/reports", "/budget-ai-report"] },
   { name: "Setup", items: ["/recon", "/settings"] },
 ];
 

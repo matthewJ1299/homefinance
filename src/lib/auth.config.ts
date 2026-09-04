@@ -26,6 +26,8 @@ const APP_PREFIXES = [
   "/mortgage",
   "/goals",
   "/summary",
+  "/reports",
+  "/new-month",
   "/settings",
   "/add",
   "/pending-approval",
