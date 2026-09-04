@@ -54,7 +54,7 @@ export class BudgetRepository implements IBudgetRepository {
     const hid = requireHouseholdId();
     await run(
       `INSERT INTO budgets (user_id, household_id, category_id, month, allocated_amount) VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT (household_id, category_id, month) DO UPDATE SET allocated_amount = excluded.allocated_amount, updated_at = NOW()`,
+       ON CONFLICT (household_id, category_id, month, user_id) DO UPDATE SET allocated_amount = excluded.allocated_amount, updated_at = NOW()`,
       [userId, hid, categoryId, month, amount]
     );
   }

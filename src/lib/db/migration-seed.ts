@@ -16,6 +16,13 @@ async function columnExists(query: QueryFn, table: string, column: string): Prom
   return r.rows.length > 0;
 }
 
+async function constraintExists(query: QueryFn, table: string, name: string): Promise<boolean> {
+  const r = await query(
+    `SELECT 1 FROM information_schema.table_constraints WHERE table_schema = 'public' AND table_name = '${table}' AND constraint_name = '${name}'`
+  );
+  return r.rows.length > 0;
+}
+
 /**
  * Returns true when the DB already reflects this migration (for ledger seeding on upgrade).
  */
@@ -102,6 +109,8 @@ export async function isMigrationAlreadyApplied(
       return columnExists(query, "users", "must_change_password");
     case "0032_household_approval_pg.sql":
       return columnExists(query, "households", "approval_status");
+    case "0033_budgets_per_user_pg.sql":
+      return constraintExists(query, "budgets", "budgets_household_category_month_user_key");
     default:
       return false;
   }
