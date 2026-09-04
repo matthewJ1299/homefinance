@@ -3,7 +3,7 @@
  *
  * The design review caught the same class of bug four times, so this runs over
  * three household sizes. The four-person fixture is the one that catches
- * `others[0]` — a pairwise assumption looks correct at two members.
+ * a first-of-list pairwise assumption -- it looks correct at two members.
  *
  * Requires DATABASE_URL and `npm run db:push`.
  */

@@ -1,3 +1,4 @@
+import { soleOtherMemberName, type HouseholdMember } from "@/lib/types/household-member";
 import { addDays, format } from "date-fns";
 import { auth } from "@/lib/auth";
 import {
@@ -131,7 +132,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const budgetByCategory = new Map(
     budgetOverview.categories.map((c) => [c.categoryId, { remaining: c.available, isOverspent: c.isOverspent }])
   );
-  const otherUserName = otherUsers[0]?.name;
+  const members: HouseholdMember[] = otherUsers.map((u) => ({ id: u.id, name: u.name }));
+  const otherUserName = soleOtherMemberName(members);
   const budgetMonthStartDay = await userRepo.getBudgetMonthStartDay(userId);
   const setup = await userRepo.getSetupWizardState(userId);
   const aiEnabled = resolveAiInteractiveEnabled();
@@ -144,7 +146,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         month={month}
         budgetMonthStartDay={budgetMonthStartDay}
         userName={String(session.user.name ?? session.user.email ?? "")}
-        otherUserName={otherUserName}
+        members={members}
         envelopeLeftCents={budgetOverview.envelopeLeft}
       />
 

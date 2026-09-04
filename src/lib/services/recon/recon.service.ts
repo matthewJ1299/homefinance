@@ -3,10 +3,12 @@ import {
   getReconGraphConnectionRepository,
   getReconImportItemRepository,
   getVendorCategoryMappingRepository,
+  getUserRepository,
 } from "@/lib/repositories";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { IncomeService } from "@/lib/services/income.service";
 import { SplitService } from "@/lib/services/split.service";
+import { divideEqually } from "@/lib/services/finance/participants";
 import type { IncomeType } from "@/lib/types";
 import { encryptString, decryptString } from "./token-crypto";
 import {
@@ -95,7 +97,8 @@ export class ReconService {
     private expenseRepo = getExpenseRepository(),
     private expenseService = new ExpenseService(),
     private incomeService = new IncomeService(),
-    private splitService = new SplitService()
+    private splitService = new SplitService(),
+    private userRepo = getUserRepository()
   ) {}
 
   async saveInitialGraphTokens(userId: number, code: string, pkceVerifier: string): Promise<void> {
@@ -356,24 +359,25 @@ export class ReconService {
       throw new Error("Category is required for expenses");
     }
 
-    const { id } = split
-      ? await this.splitService.createSplit(
-          userId,
-          amountMinor,
-          categoryId,
-          note,
-          item.txnDate,
-          { type: "equal" },
-          undefined,
-          accountId ?? undefined
-        )
-      : await this.expenseService.create(userId, {
-          categoryId,
-          amount: amountMinor,
-          note,
-          date: item.txnDate,
-          accountId: accountId ?? null,
-        });
+    // Accepted rows go through the same expense path as manual entry, so
+    // participants and rollover behave identically either way.
+    let participants: { userId: number; shareMinor: number }[] | undefined;
+    if (split) {
+      const picked = [userId, ...(await this.userRepo.findAllExcept(userId)).map((u) => u.id)];
+      if (picked.length < 2) {
+        throw new Error("No one else in this household to share with.");
+      }
+      const even = divideEqually(amountMinor, picked);
+      participants = picked.map((id) => ({ userId: id, shareMinor: even[id] ?? 0 }));
+    }
+    const { id } = await this.expenseService.create(userId, {
+      categoryId,
+      amount: amountMinor,
+      note,
+      date: item.txnDate,
+      accountId: accountId ?? null,
+      participants,
+    });
     await this.vendorMapRepo.upsertIncrement(userId, item.merchantKeyNormalized, categoryId);
     await this.importRepo.updateStatusById(itemId, userId, "accepted_add");
     return { expenseId: id };

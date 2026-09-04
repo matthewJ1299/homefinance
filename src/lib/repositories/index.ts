@@ -3,12 +3,14 @@ import { ExpenseRepository } from "./sql/expense.repository";
 import { IncomeRepository } from "./sql/income.repository";
 import { UserRepository } from "./sql/user.repository";
 import { SplitAllocationRepository } from "./sql/split-allocation.repository";
+import { ExpenseParticipantRepository } from "./sql/expense-participant.repository";
 import { SplitSettlementRepository } from "./sql/split-settlement.repository";
 import type { ICategoryRepository } from "./interfaces/category.repository";
 import type { IExpenseRepository } from "./interfaces/expense.repository";
 import type { IIncomeRepository } from "./interfaces/income.repository";
 import type { IUserRepository } from "./interfaces/user.repository";
 import type { ISplitAllocationRepository } from "./interfaces/split-allocation.repository";
+import type { IExpenseParticipantRepository } from "./interfaces/expense-participant.repository";
 import type { ISplitSettlementRepository } from "./interfaces/split-settlement.repository";
 import type { ISplitGroupRepository } from "./interfaces/split-group.repository";
 import type { IRecurringIncomeRepository } from "./interfaces/recurring-income.repository";
@@ -66,6 +68,7 @@ let expenseRepo: IExpenseRepository | null = null;
 let incomeRepo: IIncomeRepository | null = null;
 let userRepo: IUserRepository | null = null;
 let splitAllocationRepo: ISplitAllocationRepository | null = null;
+let expenseParticipantRepo: IExpenseParticipantRepository | null = null;
 let splitSettlementRepo: ISplitSettlementRepository | null = null;
 let splitGroupRepo: ISplitGroupRepository | null = null;
 let recurringIncomeRepo: IRecurringIncomeRepository | null = null;
@@ -111,6 +114,11 @@ export function getIncomeRepository(): IIncomeRepository {
 export function getUserRepository(): IUserRepository {
   if (!userRepo) userRepo = new UserRepository();
   return userRepo;
+}
+
+export function getExpenseParticipantRepository(): IExpenseParticipantRepository {
+  if (!expenseParticipantRepo) expenseParticipantRepo = new ExpenseParticipantRepository();
+  return expenseParticipantRepo;
 }
 
 export function getSplitAllocationRepository(): ISplitAllocationRepository {

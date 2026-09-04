@@ -16,6 +16,16 @@ vi.mock("@/lib/repositories", () => ({
   getCategoryRepository: vi.fn(),
   getIncomeRepository: vi.fn(),
   getExpenseRepository: vi.fn(),
+  getExpenseParticipantRepository: vi.fn().mockReturnValue({
+    createMany: vi.fn(),
+    replaceForExpense: vi.fn(),
+    findByExpenseId: vi.fn().mockResolvedValue([]),
+    getSharesForExpenses: vi.fn().mockResolvedValue(new Map()),
+    deleteByExpenseId: vi.fn(),
+  }),
+  getSplitAllocationRepository: vi.fn().mockReturnValue({
+    create: vi.fn(),
+  }),
   getUserRepository: vi.fn().mockReturnValue({
     getBudgetMonthStartDay: vi.fn().mockResolvedValue(1),
     updateBudgetMonthStartDay: vi.fn().mockResolvedValue(undefined),

@@ -1,5 +1,7 @@
 "use client";
 
+import { soleOtherMemberName } from "@/lib/types/household-member";
+
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -179,7 +181,7 @@ export function AddHubClient(props: QuickAddFabProps) {
           key={expenseFormKey}
           categories={props.categories}
           userId={props.userId}
-          otherUserName={props.otherUserName}
+          otherUserName={soleOtherMemberName(props.members ?? [])}
           splitGroups={props.splitGroups}
           quickSeed={expenseQuickSeed}
           onAfterSave={() => {

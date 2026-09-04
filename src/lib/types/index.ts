@@ -61,6 +61,8 @@ export interface ExpenseWithDetails {
   paidByUserId?: number | null;
   splitExpenseGroupId?: number | null;
   accountId?: number | null;
+  /** The viewer's own share. Equals `amount` when unsplit. */
+  myShare?: number;
 }
 
 export type SplitType = "equal" | "full" | "exact";

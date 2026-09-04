@@ -14,6 +14,11 @@ export const createSplitExpenseSchema = z
     otherShareCents: z.number().int().min(0).optional(),
     groupId: z.number().int().positive().optional().nullable(),
     accountId: optionalCoercedAccountId,
+    /**
+     * Who was in on it. Absent means everyone in the household, which is what
+     * `splitType` alone can express. The Add sheet (Phase 4) always sends this.
+     */
+    participantUserIds: z.array(z.number().int().positive()).min(1).max(20).optional(),
   })
   .refine(
     (data) => {
@@ -32,6 +37,8 @@ export const settleSplitSchema = z.object({
   amountCents: z.number().int().positive(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   groupId: z.number().int().positive(),
+  /** Category the repayment lands in for the recipient. Their choice, not ours. */
+  targetCategoryId: z.number().int().positive().optional(),
 });
 export type SettleSplitInput = z.infer<typeof settleSplitSchema>;
 

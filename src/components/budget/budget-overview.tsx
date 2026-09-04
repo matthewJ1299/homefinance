@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatRand } from "@/lib/utils/currency";
+import { soleOtherMemberName, type HouseholdMember } from "@/lib/types/household-member";
 import { BudgetCategoryCard } from "./budget-category-card";
 import { UnallocatedBanner } from "./unallocated-banner";
 import { TransferDialog } from "./transfer-dialog";
@@ -19,14 +20,15 @@ interface BudgetOverviewProps {
   data: BudgetOverviewResult;
   recentExpenses?: ExpenseWithDetails[];
   expenseCategories?: Category[];
-  otherUserName?: string;
+  /** Everyone else in the household. Replaces the old single `otherUserName`. */
+  members?: HouseholdMember[];
 }
 
 export function BudgetOverview({
   data,
   recentExpenses = [],
   expenseCategories = [],
-  otherUserName,
+  members = [],
 }: BudgetOverviewProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -77,7 +79,7 @@ export function BudgetOverview({
         <RecentExpensesCard
           expenses={recentExpenses}
           categories={expenseCategories}
-          otherUserName={otherUserName}
+          otherUserName={soleOtherMemberName(members)}
           title="Recent transactions"
           seeAllHref={`/expenses?month=${encodeURIComponent(data.month)}`}
         />

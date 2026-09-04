@@ -1,3 +1,4 @@
+import type { HouseholdMember } from "@/lib/types/household-member";
 import { auth } from "@/lib/auth";
 import { BudgetService } from "@/lib/services/budget.service";
 import { ExpenseService } from "@/lib/services/expense.service";
@@ -28,7 +29,7 @@ export default async function BudgetPage({ searchParams }: BudgetPageProps) {
     expenseService.getByMonthPaginated(month, 1, RECENT_TX_COUNT, userId),
     getUserRepository().findAllExcept(userId),
   ]);
-  const otherUserName = otherUsers[0]?.name;
+  const members: HouseholdMember[] = otherUsers.map((u) => ({ id: u.id, name: u.name }));
 
   return (
     <div className="p-4 space-y-6 pb-24 md:pb-6">
@@ -40,7 +41,7 @@ export default async function BudgetPage({ searchParams }: BudgetPageProps) {
         data={overview}
         recentExpenses={expensePage.expenses}
         expenseCategories={expenseCategories}
-        otherUserName={otherUserName}
+        members={members}
       />
     </div>
   );

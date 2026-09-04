@@ -2,7 +2,13 @@ import {
   getExpenseRepository,
   getAccountTransactionRepository,
   getUserRepository,
+  getExpenseParticipantRepository,
+  getSplitAllocationRepository,
 } from "@/lib/repositories";
+import {
+  validateParticipantShares,
+  type ParticipantShare,
+} from "@/lib/services/finance/participants";
 import { budgetMonthKeyForUser, getBudgetPeriodForUserMonth } from "@/lib/utils/budget-month-for-user";
 import type { ExpenseWithDetails } from "@/lib/types";
 import type { CreateExpenseInput, UpdateExpenseInput } from "@/lib/repositories/interfaces/expense.repository";
@@ -19,7 +25,9 @@ export interface ExpensesByMonthResult {
 export class ExpenseService {
   constructor(
     private repo = getExpenseRepository(),
-    private accountTxRepo = getAccountTransactionRepository()
+    private accountTxRepo = getAccountTransactionRepository(),
+    private participantRepo = getExpenseParticipantRepository(),
+    private allocationRepo = getSplitAllocationRepository()
   ) {}
 
   async getUsageCountsByCategory(userId?: number): Promise<Record<number, number>> {
@@ -72,24 +80,39 @@ export class ExpenseService {
   async getByMonth(month: string, userId?: number, accountId?: number): Promise<ExpensesByMonthResult> {
     const period = userId != null ? await getBudgetPeriodForUserMonth(month, userId) : undefined;
     const expenses = await this.repo.findByMonth(month, userId, accountId, period);
+    const shares = userId != null
+      ? await this.participantRepo.getSharesForExpenses(expenses.map((e) => e.id), userId)
+      : new Map<number, number>();
     const totals = {
       overall: 0,
       byUser: {} as Record<number, number>,
       byCategory: {} as Record<number, number>,
     };
     for (const e of expenses) {
-      totals.overall += e.amount;
-      totals.byUser[e.userId] = (totals.byUser[e.userId] ?? 0) + e.amount;
-      totals.byCategory[e.categoryId] = (totals.byCategory[e.categoryId] ?? 0) + e.amount;
+      // For a viewer, the number that matters is their own share. Totalling the
+      // full amount double-counts every split expense against the category.
+      // Falls back to the full amount for pre-backfill rows and for
+      // household-wide queries.
+      const mine = shares.get(e.id) ?? e.amount;
+      e.myShare = mine;
+      totals.overall += mine;
+      totals.byUser[e.userId] = (totals.byUser[e.userId] ?? 0) + mine;
+      totals.byCategory[e.categoryId] = (totals.byCategory[e.categoryId] ?? 0) + mine;
     }
     return { expenses, totals };
   }
 
   async create(
     userId: number,
-    data: Omit<CreateExpenseInput, "userId" | "month">
+    data: Omit<CreateExpenseInput, "userId" | "month"> & { participants?: ParticipantShare[] }
   ): Promise<{ id: number }> {
     const month = await budgetMonthKeyForUser(userId, data.date);
+    const participants = data.participants?.length
+      ? data.participants
+      : [{ userId, shareMinor: data.amount }];
+    const valid = validateParticipantShares(data.amount, participants, userId);
+    if (!valid.ok) throw new Error(valid.error);
+
     const { id } = await this.repo.create({
       userId,
       categoryId: data.categoryId,
@@ -98,10 +121,27 @@ export class ExpenseService {
       date: data.date,
       month,
       accountId: data.accountId ?? null,
+      paidByUserId: userId,
+      splitGroupId: participants.length > 1 ? crypto.randomUUID() : null,
+      splitExpenseGroupId: data.splitExpenseGroupId ?? null,
+      recurringExpenseId: data.recurringExpenseId ?? null,
     });
+
+    await this.participantRepo.createMany(id, participants);
+
+    // Every non-payer share is a debt. split_allocations stays the debt ledger:
+    // calculateSplitBalance and the settlement history both read it.
+    for (const p of participants) {
+      if (p.userId === userId || p.shareMinor <= 0) continue;
+      await this.allocationRepo.create(id, p.userId, p.shareMinor);
+    }
+
     if (data.accountId != null) {
       await this.accountTxRepo.create({
         accountId: data.accountId,
+        // The full amount left the account, even though only `mine` hit the
+        // envelope. That asymmetry is why Home needs a cash-behind-envelopes
+        // row, and why the two figures are allowed to disagree.
         amount: -data.amount,
         transactionType: "expense",
         referenceType: "expense",
@@ -109,6 +149,11 @@ export class ExpenseService {
       });
     }
     return { id };
+  }
+
+  /** Who was in on an expense, and for how much. */
+  async getParticipants(expenseId: number) {
+    return this.participantRepo.findByExpenseId(expenseId);
   }
 
   async update(id: number, userId: number, data: UpdateExpenseInput): Promise<void> {

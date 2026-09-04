@@ -1,3 +1,4 @@
+import type { HouseholdMember } from "@/lib/types/household-member";
 import { formatBudgetMonthLabel } from "@/lib/utils/date";
 import { AvatarCircle } from "@/components/ui/avatar-circle";
 import { formatRand } from "@/lib/utils/currency";
@@ -40,14 +41,15 @@ export function HomeGreetingBar({
   month,
   budgetMonthStartDay = 1,
   userName,
-  otherUserName,
+  members = [],
   envelopeLeftCents,
 }: {
   month: string;
   /** Matches Settings > Budget month range (default 1 = calendar month). */
   budgetMonthStartDay?: number;
   userName: string;
-  otherUserName?: string;
+  /** Everyone else in the household, shown as the avatar strip. */
+  members?: HouseholdMember[];
   /** Optional: month-to-date balance hint under the greeting. */
   /** Sum of every category's available -- what is actually left to spend. */
   envelopeLeftCents?: number;
@@ -81,7 +83,9 @@ export function HomeGreetingBar({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <AvatarCircle name={userName} size={40} />
-          {otherUserName ? <AvatarCircle name={otherUserName} size={40} /> : null}
+          {members.slice(0, 3).map((m) => (
+            <AvatarCircle key={m.id} name={m.name} size={40} />
+          ))}
         </div>
       </div>
     </section>

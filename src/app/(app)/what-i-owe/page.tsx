@@ -15,9 +15,10 @@ import { PrintButton } from "@/components/what-i-owe/print-button";
 import { StatementViewToggle } from "@/components/what-i-owe/view-toggle";
 import { StatementTotals } from "@/components/what-i-owe/statement-totals";
 import { parseOwedStatementView } from "@/components/what-i-owe/statement-view";
+import { StatementPersonTabs } from "@/components/what-i-owe/person-tabs";
 
 interface WhatIOwePageProps {
-  searchParams: Promise<{ month?: string; view?: string }>;
+  searchParams: Promise<{ month?: string; view?: string; with?: string }>;
 }
 
 export default async function WhatIOwePage({ searchParams }: WhatIOwePageProps) {
@@ -30,7 +31,7 @@ export default async function WhatIOwePage({ searchParams }: WhatIOwePageProps) 
     return <FeatureUnavailable feature="what_i_owe" />;
   }
 
-  const { month: monthParam, view: viewParam } = await searchParams;
+  const { month: monthParam, view: viewParam, with: withParam } = await searchParams;
   const view = parseOwedStatementView(viewParam);
   const month = monthParam ?? (await getDefaultBudgetMonthForUser(userId));
 
@@ -38,7 +39,12 @@ export default async function WhatIOwePage({ searchParams }: WhatIOwePageProps) 
     userRepo.findAllExcept(userId),
     userRepo.getBudgetMonthStartDay(userId),
   ]);
-  const them = others[0];
+  // Whose statement? Explicit when chosen, otherwise the first housemate. With
+  // three people there is no "the other person", so the tabs below do the
+  // choosing -- this page no longer decides silently on the reader's behalf.
+  const requestedId = Number(withParam);
+  const [firstMember] = others;
+  const them = others.find((u) => u.id === requestedId) ?? firstMember;
   const monthLabel = formatBudgetMonthLabel(month, startDay);
 
   if (!them) {
@@ -91,6 +97,9 @@ export default async function WhatIOwePage({ searchParams }: WhatIOwePageProps) 
   return (
     <div className="p-4 space-y-6 pb-24 md:pb-6">
       <MonthNavigator className="print:hidden" />
+      <Suspense fallback={null}>
+        <StatementPersonTabs people={others} selectedId={them.id} />
+      </Suspense>
       <Suspense fallback={null}>
         <StatementViewToggle current={view} />
       </Suspense>

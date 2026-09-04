@@ -32,97 +32,10 @@ export class SplitService {
     private accountTxRepo = getAccountTransactionRepository()
   ) {}
 
-  async createSplit(
-    paidByUserId: number,
-    totalAmountCents: number,
-    categoryId: number,
-    note: string | null,
-    date: string,
-    options: CreateSplitOptions,
-    groupId?: number,
-    accountId?: number
-  ): Promise<{ id: number }> {
-    const otherUsers = await this.userRepo.findAllExcept(paidByUserId);
-    if (otherUsers.length === 0) {
-      throw new Error("No other user to split with.");
-    }
-    const otherUser = otherUsers[0];
-    const resolvedGroupId =
-      groupId ?? (await this.splitGroupRepo.findDefault())?.id ?? null;
-    let amountOwed: number;
-    switch (options.type) {
-      case "equal": {
-        const shares = splitExpense({
-          amount: totalAmountCents,
-          users: ["payer", "other"],
-        });
-        amountOwed = shares.other ?? Math.floor(totalAmountCents / 2);
-        break;
-      }
-      case "full":
-        amountOwed = totalAmountCents;
-        break;
-      case "exact":
-        amountOwed = options.otherShareCents;
-        break;
-      default: {
-        const _exhaustive: never = options;
-        throw new Error(`Unhandled split type: ${String(_exhaustive)}`);
-      }
-    }
-    if (amountOwed <= 0) {
-      const month = await budgetMonthKeyForUser(paidByUserId, date);
-      const { id } = await this.expenseRepo.create({
-        userId: paidByUserId,
-        categoryId,
-        amount: totalAmountCents,
-        note,
-        date,
-        month,
-        accountId: accountId ?? null,
-      });
-      if (accountId != null) {
-        await this.accountTxRepo.create({
-          accountId,
-          amount: -totalAmountCents,
-          transactionType: "expense",
-          referenceType: "expense",
-          referenceId: id,
-        });
-      }
-      return { id };
-    }
-    const splitGroupId = crypto.randomUUID();
-    const month = await budgetMonthKeyForUser(paidByUserId, date);
-    const { id: expenseId } = await this.expenseRepo.create({
-      userId: paidByUserId,
-      categoryId,
-      amount: totalAmountCents,
-      note,
-      date,
-      month,
-      splitGroupId,
-      paidByUserId,
-      splitExpenseGroupId: resolvedGroupId,
-      accountId: accountId ?? null,
-    });
-    if (accountId != null) {
-      await this.accountTxRepo.create({
-        accountId,
-        amount: -totalAmountCents,
-        transactionType: "expense",
-        referenceType: "expense",
-        referenceId: expenseId,
-      });
-    }
-    try {
-      await this.allocationRepo.create(expenseId, otherUser.id, amountOwed);
-    } catch (e) {
-      await this.expenseRepo.delete(expenseId);
-      throw e;
-    }
-    return { id: expenseId };
-  }
+  // createSplit removed. Creating a shared expense is
+  // ExpenseService.create(userId, { ..., participants }) -- one path for solo
+  // and shared spends, and it works for any number of people. This file keeps
+  // balances, settlement and history.
 
   /**
    * Split allocations since the day after the last settlement between these two users
@@ -182,6 +95,39 @@ export class SplitService {
     return calculateSplitBalance({ currentUserId, allocations, settlements });
   }
 
+  /** One row per other household member, netted, for the Splits screen. */
+  async getBalances(currentUserId: number, groupId?: number): Promise<Array<{
+    userId: number;
+    userName: string;
+    owedToMe: number;
+    iOwe: number;
+    net: number;
+    itemCount: number;
+    lastSettledDate: string | null;
+  }>> {
+    const balance = await this.getBalance(currentUserId, groupId);
+    const members = await this.userRepo.findAllExcept(currentUserId);
+    const asOf = new Date().toISOString().slice(0, 10);
+    return Promise.all(
+      members.map(async (m) => {
+        const row = balance.perUser.find((u) => u.userId === m.id);
+        const last = await this.settlementRepo.findLatestBetween(currentUserId, m.id, groupId);
+        const statement = await this.getStatementSinceLastSettlement(
+          currentUserId, m.id, asOf, groupId
+        );
+        return {
+          userId: m.id,
+          userName: m.name,
+          owedToMe: row?.owedToMe ?? 0,
+          iOwe: row?.iOwe ?? 0,
+          net: (row?.owedToMe ?? 0) - (row?.iOwe ?? 0),
+          itemCount: statement.owedItems.length + statement.owingItems.length,
+          lastSettledDate: last?.date ?? null,
+        };
+      })
+    );
+  }
+
   async settle(
     payerUserId: number,
     recipientUserId: number,
@@ -189,7 +135,9 @@ export class SplitService {
     date: string,
     payerUserName: string,
     recipientUserName: string,
-    groupId: number
+    groupId: number,
+    /** Category the recipient's money lands in. Defaults to their most overspent. */
+    targetCategoryId?: number
   ): Promise<void> {
     const splitsCategory = await this.categoryRepo.findByName("Splits");
     if (!splitsCategory) {
@@ -217,6 +165,20 @@ export class SplitService {
         month: incomeMonth,
       });
       incomeId = income.id;
+      // The repayment reduces the recipient's spend in the chosen category
+      // rather than arriving as unassigned income, so it clears the overspend
+      // it repairs. A negative expense is the honest representation: their
+      // category spend genuinely goes down.
+      if (targetCategoryId != null) {
+        await this.expenseRepo.create({
+          userId: recipientUserId,
+          categoryId: targetCategoryId,
+          amount: -amountCents,
+          note: `Repaid by ${payerUserName}`,
+          date,
+          month: incomeMonth,
+        });
+      }
       await this.settlementRepo.create({
         payerUserId,
         recipientUserId,
@@ -306,13 +268,9 @@ export class SplitService {
     amountCents: number,
     date: string,
     payerUserName: string,
-    recipientUserName: string
+    recipientUserName: string,
+    recipientUserId: number
   ): Promise<void> {
-    const otherUsers = await this.userRepo.findAllExcept(payerUserId);
-    if (otherUsers.length === 0) {
-      throw new Error("No other user to settle with.");
-    }
-    const recipientUserId = otherUsers[0].id;
     const incomeMonth = await budgetMonthKeyForUser(recipientUserId, date);
 
     let incomeId: number | null = null;

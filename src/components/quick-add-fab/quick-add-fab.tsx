@@ -1,5 +1,7 @@
 "use client";
 
+import { soleOtherMemberName, type HouseholdMember } from "@/lib/types/household-member";
+
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -15,7 +17,8 @@ import { cn } from "@/lib/utils";
 export interface QuickAddFabProps {
   categories: Category[];
   userId: number;
-  otherUserName?: string;
+  /** Everyone else in the household. Replaces the old single `otherUserName`. */
+  members?: HouseholdMember[];
   splitGroups: SplitGroup[];
   lists: SharedList[];
 }
@@ -25,7 +28,7 @@ type ModalType = "expense" | "list-item" | "calendar" | null;
 export function QuickAddFab({
   categories,
   userId,
-  otherUserName,
+  members = [],
   splitGroups,
   lists,
 }: QuickAddFabProps) {
@@ -109,7 +112,7 @@ export function QuickAddFab({
         <QuickAddForm
           categories={categories}
           userId={userId}
-          otherUserName={otherUserName}
+          otherUserName={soleOtherMemberName(members)}
           splitGroups={splitGroups}
           onAfterSave={() => {
             setModal(null);
