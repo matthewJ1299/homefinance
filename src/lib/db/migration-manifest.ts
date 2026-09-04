@@ -43,4 +43,13 @@ export const MIGRATION_FILES: readonly string[] = [
   "0031_user_password_management_pg.sql",
   "0032_household_approval_pg.sql",
   "0033_budgets_per_user_pg.sql",
+  "0034_expense_participants_pg.sql",
+  "0035_category_rollover_pg.sql",
+  "0036_account_sharing_pg.sql",
+  "0037_income_types_pg.sql",
+  "0038_mortgage_plan_pg.sql",
+  "0039_recon_rules_pg.sql",
+  "0040_shared_list_category_pg.sql",
+  "0041_calendar_event_cost_pg.sql",
+  "0042_household_budget_month_pg.sql",
 ];

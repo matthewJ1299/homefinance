@@ -111,6 +111,28 @@ export async function isMigrationAlreadyApplied(
       return columnExists(query, "households", "approval_status");
     case "0033_budgets_per_user_pg.sql":
       return constraintExists(query, "budgets", "budgets_household_category_month_user_key");
+    case "0034_expense_participants_pg.sql":
+      return tableExists(query, "expense_participants");
+    case "0035_category_rollover_pg.sql":
+      // Late-stage marker: budget_month_opens is created after both column adds.
+      return tableExists(query, "budget_month_opens");
+    case "0036_account_sharing_pg.sql":
+      return columnExists(query, "accounts", "is_shared");
+    case "0037_income_types_pg.sql":
+      return columnExists(query, "income", "income_type");
+    case "0038_mortgage_plan_pg.sql":
+      // Late-stage marker: mortgage_targets is created after mortgage_deposits.
+      return tableExists(query, "mortgage_targets");
+    case "0039_recon_rules_pg.sql":
+      return tableExists(query, "recon_rules");
+    case "0040_shared_list_category_pg.sql":
+      return columnExists(query, "shared_lists", "category_id");
+    case "0041_calendar_event_cost_pg.sql":
+      // Late-stage marker: logged_expense_id is the last of the three adds.
+      return columnExists(query, "calendar_events", "logged_expense_id");
+    case "0042_household_budget_month_pg.sql":
+      // Late-stage marker: the notice flag is added after the backfill.
+      return columnExists(query, "households", "budget_month_notice_pending");
     default:
       return false;
   }
