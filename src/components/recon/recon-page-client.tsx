@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { createReconRule } from "@/lib/actions/recon-rule.actions";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter, DialogHeader } from "@/components/ui/dialog";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
@@ -165,6 +166,7 @@ export function ReconPageClient() {
   /** Editable ZAR text per row; parsed with `parseRandInputToMinor` for accept-add. */
   const [amountRandByItemId, setAmountRandByItemId] = useState<Record<number, string>>({});
   const [splitByItemId, setSplitByItemId] = useState<Record<number, boolean>>({});
+  const [ruleByItemId, setRuleByItemId] = useState<Record<number, boolean>>({});
   const [accountId, setAccountId] = useState<number | "">("");
   const [syncSince, setSyncSince] = useState<string>("");
   const [syncTop, setSyncTop] = useState<number>(50);
@@ -547,6 +549,15 @@ export function ReconPageClient() {
           }
         );
         added++;
+        if (ruleByItemId[item.id]) {
+          const ruleResult = await createReconRule({
+            matchKind: "merchant_exact",
+            matchValue: item.merchantKeyNormalized || item.vendor,
+            categoryId: cat,
+            splitWithHousehold: split,
+          });
+          if (!ruleResult.success) toast.error(ruleResult.error);
+        }
         if (split) {
           splitAdded++;
           splitAddMinor += amountMinor;
@@ -649,6 +660,7 @@ export function ReconPageClient() {
     items,
     bulkIntentByItemId,
     bulkProcessing,
+    ruleByItemId,
     accountId,
     splitByItemId,
     effectiveCategory,
@@ -1178,7 +1190,25 @@ export function ReconPageClient() {
                             onChange={(e) => setSplit(item.id, e.target.checked)}
                           />
                           <Label htmlFor={`recon-split-${item.id}`} className="text-sm">
-                            Split 50/50
+                            Who&rsquo;s in on this
+                          </Label>
+                        </div>
+                        {/* Written from the row you are already accepting -- the
+                            step that makes rules beat manual entry on effort
+                            rather than matching it. */}
+                        <div className="mt-2 flex items-center gap-2">
+                          <input
+                            id={`recon-rule-${item.id}`}
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-input disabled:opacity-50"
+                            disabled={postKind === "income" || typeof cat !== "number"}
+                            checked={ruleByItemId[item.id] ?? false}
+                            onChange={(ev) =>
+                              setRuleByItemId((prev) => ({ ...prev, [item.id]: ev.target.checked }))
+                            }
+                          />
+                          <Label htmlFor={`recon-rule-${item.id}`} className="text-xs text-muted-foreground">
+                            Do this every time
                           </Label>
                         </div>
                       </td>

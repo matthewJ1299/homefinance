@@ -40,7 +40,7 @@ export const fullNavItems: NavItem[] = [
   { href: "/add", label: "Add", icon: Plus },
   { href: "/lists", label: "Lists", icon: ListTodo },
   { href: "/expenses", label: "Transactions", icon: Receipt },
-  { href: "/recon", label: "Recon", icon: GitCompare },
+  { href: "/recon", label: "From your bank", icon: GitCompare },
   { href: "/splits", label: "Shared costs", icon: SplitSquareVertical },
   { href: "/what-i-owe", label: "What I owe", icon: ReceiptText },
   { href: "/budget", label: "Budget", icon: PiggyBank },
