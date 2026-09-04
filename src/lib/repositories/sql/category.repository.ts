@@ -13,6 +13,8 @@ interface CategoryRow {
   cost_type: string;
   default_amount: number | null;
   rollover?: boolean;
+  target_minor?: number | null;
+  target_date?: string | null;
 }
 
 function toCategory(r: CategoryRow, includeIsActive = false): Category | CategoryWithActive {
@@ -25,6 +27,8 @@ function toCategory(r: CategoryRow, includeIsActive = false): Category | Categor
     costType: r.cost_type as "fixed" | "variable",
     defaultAmount: r.default_amount,
     rollover: r.rollover ?? true,
+    targetMinor: r.target_minor ?? null,
+    targetDate: r.target_date ?? null,
   };
   if (includeIsActive && r.is_active !== undefined) {
     return { ...base, isActive: r.is_active === true || r.is_active === 1 };
@@ -36,7 +40,7 @@ export class CategoryRepository implements ICategoryRepository {
   async findAll(): Promise<Category[]> {
     const hid = requireHouseholdId();
     const rows = await all<CategoryRow>(
-      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount, rollover FROM categories WHERE household_id = ? AND is_active = true ORDER BY cost_type DESC, sort_order, name",
+      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount, rollover, target_minor, target_date FROM categories WHERE household_id = ? AND is_active = true ORDER BY cost_type DESC, sort_order, name",
       [hid]
     );
     return rows.map((r) => toCategory(r) as Category);
@@ -45,7 +49,7 @@ export class CategoryRepository implements ICategoryRepository {
   async findAllIncludingInactive(): Promise<CategoryWithActive[]> {
     const hid = requireHouseholdId();
     const rows = await all<CategoryRow>(
-      "SELECT id, name, group_name, icon, sort_order, is_active, cost_type, default_amount, rollover FROM categories WHERE household_id = ? ORDER BY is_active DESC NULLS LAST, cost_type DESC, sort_order, name",
+      "SELECT id, name, group_name, icon, sort_order, is_active, cost_type, default_amount, rollover, target_minor, target_date FROM categories WHERE household_id = ? ORDER BY is_active DESC NULLS LAST, cost_type DESC, sort_order, name",
       [hid]
     );
     return rows.map((r) => toCategory(r, true) as CategoryWithActive);
@@ -54,7 +58,7 @@ export class CategoryRepository implements ICategoryRepository {
   async findById(id: number): Promise<Category | null> {
     const hid = requireHouseholdId();
     const row = await get<CategoryRow>(
-      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount, rollover FROM categories WHERE id = ? AND household_id = ?",
+      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount, rollover, target_minor, target_date FROM categories WHERE id = ? AND household_id = ?",
       [id, hid]
     );
     return row ? (toCategory(row) as Category) : null;
@@ -63,7 +67,7 @@ export class CategoryRepository implements ICategoryRepository {
   async findByName(name: string): Promise<Category | null> {
     const hid = requireHouseholdId();
     const row = await get<CategoryRow>(
-      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount, rollover FROM categories WHERE name = ? AND household_id = ?",
+      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount, rollover, target_minor, target_date FROM categories WHERE name = ? AND household_id = ?",
       [name, hid]
     );
     return row ? (toCategory(row) as Category) : null;
@@ -92,7 +96,7 @@ export class CategoryRepository implements ICategoryRepository {
     );
     const id = await lastInsertId();
     const row = (await get<CategoryRow>(
-      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount, rollover FROM categories WHERE id = ? AND household_id = ?",
+      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount, rollover, target_minor, target_date FROM categories WHERE id = ? AND household_id = ?",
       [id, hid]
     ))!;
     return toCategory(row) as Category;
@@ -108,6 +112,8 @@ export class CategoryRepository implements ICategoryRepository {
       costType?: "fixed" | "variable";
       defaultAmount?: number | null;
       rollover?: boolean;
+      targetMinor?: number | null;
+      targetDate?: string | null;
     }
   ): Promise<void> {
     const updates: string[] = [];
@@ -139,6 +145,14 @@ export class CategoryRepository implements ICategoryRepository {
     if (data.rollover !== undefined) {
       updates.push("rollover = ?");
       params.push(data.rollover);
+    }
+    if (data.targetMinor !== undefined) {
+      updates.push("target_minor = ?");
+      params.push(data.targetMinor);
+    }
+    if (data.targetDate !== undefined) {
+      updates.push("target_date = ?");
+      params.push(data.targetDate);
     }
     if (updates.length === 0) return;
     const hid = requireHouseholdId();

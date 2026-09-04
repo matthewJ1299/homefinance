@@ -48,6 +48,9 @@ export async function updateCategory(
     sortOrder?: number;
     costType?: "fixed" | "variable";
     defaultAmount?: number | null;
+    rollover?: boolean;
+    targetMinor?: number | null;
+    targetDate?: string | null;
   }
 ): Promise<CategoryActionResult> {
   const session = await auth();

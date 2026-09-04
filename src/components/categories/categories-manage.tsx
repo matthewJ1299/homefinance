@@ -125,6 +125,8 @@ export function CategoriesManage({ categories }: CategoriesManageProps) {
         costType: newCostType,
         defaultAmount: newCostType === "fixed" ? defaultAmountCents : null,
         rollover: true,
+        targetMinor: null,
+        targetDate: null,
       },
     ]);
     startTransition(async () => {

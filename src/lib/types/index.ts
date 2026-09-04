@@ -34,6 +34,10 @@ export interface Category {
   defaultAmount: number | null;
   /** Whether an unspent balance carries into next month. See BudgetService.openMonth. */
   rollover: boolean;
+  /** Set makes this category a goal: money assigned to it is money saved. */
+  targetMinor: number | null;
+  /** yyyy-MM-dd the target should be reached by. */
+  targetDate: string | null;
 }
 
 export type CategoryWithActive = Category & { isActive: boolean };

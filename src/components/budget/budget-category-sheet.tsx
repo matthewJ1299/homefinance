@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { formatRand, toMinorUnits, fromMinorUnits } from "@/lib/utils/currency";
 import { setBudgetAllocation } from "@/lib/actions/budget.actions";
+import { updateCategory } from "@/lib/actions/category.actions";
 import { formatDisplayDate, nextMonth } from "@/lib/utils/date";
 import type { BudgetCategoryRow } from "@/lib/services/budget.service";
 import type { ExpenseWithDetails } from "@/lib/types";
@@ -33,6 +34,8 @@ export function BudgetCategorySheet({
   lastMonthAssigned,
   transactions,
   onMoveMoney,
+  targetMinor,
+  targetDate,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -42,14 +45,24 @@ export function BudgetCategorySheet({
   lastMonthAssigned: number;
   transactions: ExpenseWithDetails[];
   onMoveMoney: (categoryId: number) => void;
+  /** Current target, when this category is a goal. */
+  targetMinor?: number | null;
+  targetDate?: string | null;
 }) {
   const router = useRouter();
   const [amount, setAmount] = useState("");
+  const [targetInput, setTargetInput] = useState("");
+  const [targetDateInput, setTargetDateInput] = useState("");
+  const [targetOpen, setTargetOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
-    if (open && category) setAmount(String(fromMinorUnits(category.assigned)));
-  }, [open, category]);
+    if (!open || !category) return;
+    setAmount(String(fromMinorUnits(category.assigned)));
+    setTargetInput(targetMinor != null ? String(fromMinorUnits(targetMinor)) : "");
+    setTargetDateInput(targetDate ?? "");
+    setTargetOpen(targetMinor != null);
+  }, [open, category, targetMinor, targetDate]);
 
   const parsed = useMemo(() => {
     const n = Number(amount.replace(",", "."));
@@ -78,6 +91,41 @@ export function BudgetCategorySheet({
       toast.success(`${category!.categoryName} set to ${formatRand(next)}.`);
       router.refresh();
       onOpenChange(false);
+    });
+  }
+
+  function saveTarget() {
+    const n = Number(targetInput.replace(",", "."));
+    if (!Number.isFinite(n) || n < 0) {
+      toast.error("Enter a target amount.");
+      return;
+    }
+    startTransition(async () => {
+      const res = await updateCategory(category!.categoryId, {
+        targetMinor: toMinorUnits(n),
+        targetDate: targetDateInput || null,
+      });
+      if (!res.success) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success(`${category!.categoryName} is saving towards ${formatRand(toMinorUnits(n))}.`);
+      router.refresh();
+    });
+  }
+
+  function clearTarget() {
+    startTransition(async () => {
+      const res = await updateCategory(category!.categoryId, {
+        targetMinor: null,
+        targetDate: null,
+      });
+      if (!res.success) {
+        toast.error(res.error);
+        return;
+      }
+      setTargetOpen(false);
+      router.refresh();
     });
   }
 
@@ -159,7 +207,55 @@ export function BudgetCategorySheet({
           </div>
         ) : null}
 
+        {/* A goal is just a category with a target, so the target lives here
+            rather than behind a separate Goals feature. */}
         <div className="mt-4">
+          {targetOpen ? (
+            <div className="space-y-2 rounded-xl border border-border bg-muted/40 p-3">
+              <p className="text-xs font-medium text-muted-foreground">Saving towards</p>
+              <div className="flex gap-2">
+                <Input
+                  inputMode="decimal"
+                  placeholder="Target"
+                  value={targetInput}
+                  onChange={(ev) => setTargetInput(ev.target.value)}
+                  aria-label="Target amount"
+                  className="tabular-nums"
+                />
+                <Input
+                  type="date"
+                  value={targetDateInput}
+                  onChange={(ev) => setTargetDateInput(ev.target.value)}
+                  aria-label="Target date"
+                  className="w-40 shrink-0"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={saveTarget} disabled={pending} className="h-10 flex-1">
+                  Save target
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={clearTarget}
+                  disabled={pending}
+                  className="h-10"
+                >
+                  Remove
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setTargetOpen(true)}
+              className="min-h-11 w-full rounded-xl border border-border bg-muted px-3.5 text-sm font-medium cursor-pointer"
+            >
+              Save towards something
+            </button>
+          )}
+        </div>
+
+        <div className="mt-2">
           <button
             type="button"
             onClick={() => onMoveMoney(category.categoryId)}

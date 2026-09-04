@@ -133,6 +133,9 @@ export async function isMigrationAlreadyApplied(
     case "0042_household_budget_month_pg.sql":
       // Late-stage marker: the notice flag is added after the backfill.
       return columnExists(query, "households", "budget_month_notice_pending");
+    case "0043_goals_as_categories_pg.sql":
+      // Late-stage marker: target_date is added after target_minor.
+      return columnExists(query, "categories", "target_date");
     default:
       return false;
   }

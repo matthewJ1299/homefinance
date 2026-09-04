@@ -52,6 +52,12 @@ export default async function BudgetPage({ searchParams }: BudgetPageProps) {
         expenseCategories={expenseCategories}
         members={members}
         lastMonthAssigned={lastMonthAssigned}
+        targets={Object.fromEntries(
+          expenseCategories.map((c) => [
+            c.id,
+            { targetMinor: c.targetMinor, targetDate: c.targetDate },
+          ])
+        )}
         openCategoryId={cover ? Number(cover) : undefined}
       />
     </div>

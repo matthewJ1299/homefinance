@@ -52,4 +52,5 @@ export const MIGRATION_FILES: readonly string[] = [
   "0040_shared_list_category_pg.sql",
   "0041_calendar_event_cost_pg.sql",
   "0042_household_budget_month_pg.sql",
+  "0043_goals_as_categories_pg.sql",
 ];

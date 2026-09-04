@@ -23,6 +23,8 @@ export interface ICategoryRepository {
       costType?: "fixed" | "variable";
       defaultAmount?: number | null;
       rollover?: boolean;
+      targetMinor?: number | null;
+      targetDate?: string | null;
     }
   ): Promise<void>;
   delete(id: number): Promise<void>;

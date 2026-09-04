@@ -25,6 +25,8 @@ interface BudgetOverviewProps {
   lastMonthAssigned?: Record<number, number>;
   /** Categories to open on load, from `?cover=` on a Home overspend row. */
   openCategoryId?: number;
+  /** Targets per category, so the sheet can edit a goal in place. */
+  targets?: Record<number, { targetMinor: number | null; targetDate: string | null }>;
 }
 
 export function BudgetOverview({
@@ -34,6 +36,7 @@ export function BudgetOverview({
   members = [],
   lastMonthAssigned = {},
   openCategoryId,
+  targets = {},
 }: BudgetOverviewProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -143,6 +146,8 @@ export function BudgetOverview({
         category={sheetCategory}
         month={data.month}
         lastMonthAssigned={sheetCategory ? (lastMonthAssigned[sheetCategory.categoryId] ?? 0) : 0}
+        targetMinor={sheetCategory ? (targets[sheetCategory.categoryId]?.targetMinor ?? null) : null}
+        targetDate={sheetCategory ? (targets[sheetCategory.categoryId]?.targetDate ?? null) : null}
         transactions={recentExpenses.filter(
           (e) => e.categoryId === sheetCategory?.categoryId
         )}

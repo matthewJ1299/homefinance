@@ -14,7 +14,7 @@ import { occurrenceCoversDate } from "@/lib/utils/calendar-occurrence";
 import { AccountService } from "@/lib/services/account.service";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { SplitService } from "@/lib/services/split.service";
-import { GoalProjectionService } from "@/lib/services/goal-projection.service";
+import { buildGoalRows, goalsBehind } from "@/lib/services/finance/goal-categories";
 import { formatBudgetMonthLabel } from "@/lib/utils/date";
 import {
   getDefaultBudgetMonthForUser,
@@ -93,7 +93,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     budgetOverview,
     openTasks,
     accountsResult,
-    goalsSummary,
   ] = await Promise.all([
     getCategoryRepository().findAll(),
     userRepo.findAllExcept(userId),
@@ -110,7 +109,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     new BudgetService().getOverview(month, userId),
     loadOpenTasks(),
     accountService.listAccountsForUser(userId),
-    new GoalProjectionService().getDashboardSummary(userId, month),
   ]);
 
   const members: HouseholdMember[] = otherUsers.map((u) => ({ id: u.id, name: u.name }));
@@ -154,9 +152,24 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     // Balance checks land in Phase 8; until an account carries a checked-at
     // date there is nothing honest to say here.
     uncheckedAccounts: [],
-    goalsBehind: goalsSummary.savings
-      .filter((g) => g.monthlyDelta < 0)
-      .map((g) => ({ name: g.goal.name, shortfall: Math.abs(g.monthlyDelta) })),
+    // Derived from the same figures /goals shows, not from a separate table.
+    // Two sources for one number is how they end up disagreeing.
+    goalsBehind: goalsBehind(
+      buildGoalRows(
+        budgetOverview.categories.map((c) => {
+          const meta = categories.find((x) => x.id === c.categoryId);
+          return {
+            categoryId: c.categoryId,
+            categoryName: c.categoryName,
+            available: c.available,
+            assigned: c.assigned,
+            targetMinor: meta?.targetMinor ?? null,
+            targetDate: meta?.targetDate ?? null,
+          };
+        }),
+        month
+      )
+    ),
     cashShortfall,
   });
 
