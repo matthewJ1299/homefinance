@@ -30,6 +30,13 @@ vi.mock("@/lib/repositories", () => ({
     getBudgetMonthStartDay: vi.fn().mockResolvedValue(1),
     updateBudgetMonthStartDay: vi.fn().mockResolvedValue(undefined),
   }),
+  // The budget month start day is a household setting since migration 0042.
+  getHouseholdRepository: vi.fn().mockReturnValue({
+    getBudgetMonthStartDay: vi.fn().mockResolvedValue(1),
+    setBudgetMonthStartDay: vi.fn().mockResolvedValue(undefined),
+    clearBudgetMonthNotice: vi.fn().mockResolvedValue(undefined),
+    getCurrent: vi.fn().mockResolvedValue(null),
+  }),
   getAccountTransactionRepository: vi.fn().mockReturnValue({
     create: vi.fn(),
     getBalance: vi.fn().mockResolvedValue(0),
