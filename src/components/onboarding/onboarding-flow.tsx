@@ -9,6 +9,8 @@ import { OnboardingPaydayStep } from "@/components/onboarding/steps/onboarding-p
 import { OnboardingIncomeStep } from "@/components/onboarding/steps/onboarding-income-step";
 import { OnboardingCategoriesStep } from "@/components/onboarding/steps/onboarding-categories-step";
 import { OnboardingBudgetStep } from "@/components/onboarding/steps/onboarding-budget-step";
+import { OnboardingHouseholdStep } from "@/components/onboarding/steps/onboarding-household-step";
+import type { HouseholdMember } from "@/lib/types/household-member";
 import {
   ONBOARDING_STEPS,
   ONBOARDING_STEP_DESCRIPTIONS,
@@ -34,6 +36,9 @@ export function OnboardingFlow(props: {
   categories: CategoryWithActive[];
   budgetMonth: string;
   budgetOverview: BudgetOverviewResult;
+  householdName: string;
+  members: HouseholdMember[];
+  meUserId: number;
 }) {
   const {
     setupStatus,
@@ -43,17 +48,20 @@ export function OnboardingFlow(props: {
     categories,
     budgetMonth,
     budgetOverview,
+    householdName,
+    members,
+    meUserId,
   } = props;
 
   const router = useRouter();
   const initialStep = resolveOnboardingStep(storedStep);
   const initialStepIndex = onboardingStepIndex(initialStep);
   const [step, setStep] = useState<OnboardingStep>(initialStep);
-  const [accountsReady, setAccountsReady] = useState(initialStepIndex > 0);
+  const [accountsReady, setAccountsReady] = useState(initialStepIndex > 1);
   const [paydayDay, setPaydayDay] = useState(budgetMonthStartDay);
-  const [paydaySaved, setPaydaySaved] = useState(initialStepIndex > 1);
-  const [incomeAdded, setIncomeAdded] = useState(initialStepIndex > 2);
-  const [categoriesReady, setCategoriesReady] = useState(initialStepIndex > 3);
+  const [paydaySaved, setPaydaySaved] = useState(initialStepIndex > 2);
+  const [incomeAdded, setIncomeAdded] = useState(initialStepIndex > 3);
+  const [categoriesReady, setCategoriesReady] = useState(initialStepIndex > 4);
   const [isPending, startTransition] = useTransition();
   const categoriesPersistRef = useRef<(() => Promise<boolean>) | null>(null);
   const startedRef = useRef(false);
@@ -85,6 +93,10 @@ export function OnboardingFlow(props: {
 
   const canGoNext = useMemo(() => {
     switch (step) {
+      // Naming the house is optional and inviting is not yet possible from
+      // here, so this step never blocks the flow.
+      case "household":
+        return true;
       case "accounts":
         return accountsReady;
       case "payday":
@@ -169,6 +181,13 @@ export function OnboardingFlow(props: {
       </header>
 
       <div className="rounded-xl border bg-card p-4 sm:p-6">
+        {step === "household" ? (
+          <OnboardingHouseholdStep
+            householdName={householdName}
+            members={members}
+            meUserId={meUserId}
+          />
+        ) : null}
         {step === "accounts" ? (
           <SetupWizardAccountsStep onReadyChange={setAccountsReady} />
         ) : null}

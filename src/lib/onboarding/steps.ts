@@ -1,8 +1,21 @@
-export const ONBOARDING_STEPS = ["accounts", "payday", "income", "categories", "budget"] as const;
+/**
+ * Household comes first. Most of this app is better with someone else in it,
+ * and the invite is easiest to send before anyone has typed a budget -- not
+ * after, buried in Settings.
+ */
+export const ONBOARDING_STEPS = [
+  "household",
+  "accounts",
+  "payday",
+  "income",
+  "categories",
+  "budget",
+] as const;
 
 export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
 
 export const ONBOARDING_STEP_HEADINGS: Record<OnboardingStep, string> = {
+  household: "Who's in the house?",
   accounts: "Where does your money sit?",
   payday: "When do you get paid?",
   income: "What comes in each month?",
@@ -11,6 +24,8 @@ export const ONBOARDING_STEP_HEADINGS: Record<OnboardingStep, string> = {
 };
 
 export const ONBOARDING_STEP_DESCRIPTIONS: Record<OnboardingStep, string> = {
+  household:
+    "Most of this app is better with someone else in it — shared costs, the calendar, lists. You can add people later, but now is easier.",
   accounts:
     "Add the accounts you use day to day. If you only add one, it becomes your default for income and expenses.",
   payday:
@@ -48,8 +63,14 @@ export function onboardingStepIndex(step: OnboardingStep): number {
 
 export function resolveOnboardingStep(stored: string | null | undefined): OnboardingStep {
   if (isOnboardingStep(stored)) return stored;
-  return "accounts";
+  return "household";
 }
+
+/**
+ * Someone joining an existing house skips household setup: it is already named
+ * and they are already in it. Their first run starts at their own accounts.
+ */
+export const JOINER_FIRST_STEP: OnboardingStep = "accounts";
 
 export function stepsRemainingFrom(step: OnboardingStep): number {
   return ONBOARDING_STEPS.length - onboardingStepIndex(step);

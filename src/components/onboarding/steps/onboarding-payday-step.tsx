@@ -64,7 +64,8 @@ export function OnboardingPaydayStep(props: {
           ))}
         </select>
         <p className="text-xs text-muted-foreground">
-          Your budget month starts on this day each month.
+          This sets the budget month for the whole house, so you&apos;re both always looking at
+          the same one.
         </p>
       </div>
       <Button type="button" onClick={handleSave} disabled={isPending}>

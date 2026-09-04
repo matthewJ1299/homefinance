@@ -6,6 +6,7 @@ import {
   getSplitGroupRepository,
   getSharedListRepository,
   getSharedListItemRepository,
+  getHouseholdRepository,
 } from "@/lib/repositories";
 import { BudgetService } from "@/lib/services/budget.service";
 import { resolveAiInteractiveEnabled } from "@/lib/services/feature-access.service";
@@ -31,6 +32,7 @@ import { buildNeedsYou } from "@/components/dashboard/needs-you-list";
 import { CategoryRemaining } from "@/components/dashboard/category-remaining";
 import { DashboardExpensesClient } from "@/components/dashboard/dashboard-expenses-client";
 import { SetupProgressBanner } from "@/components/onboarding/setup-progress-banner";
+import { BudgetMonthNotice } from "@/components/dashboard/budget-month-notice";
 
 /** Fetched for merging with income on the transactions tile; display count is capped in the client. */
 const DASHBOARD_TRANSACTIONS_EXPENSE_FETCH = 28;
@@ -110,6 +112,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     loadOpenTasks(),
     accountService.listAccountsForUser(userId),
   ]);
+  const household = await getHouseholdRepository().getCurrent();
 
   const members: HouseholdMember[] = otherUsers.map((u) => ({ id: u.id, name: u.name }));
   const otherUserName = soleOtherMemberName(members);
@@ -181,6 +184,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   return (
     <div className="p-3 sm:p-4 space-y-5 sm:space-y-6 pb-24 md:pb-6">
       <SetupProgressBanner status={setup.status} storedStep={setup.step} />
+
+      {household?.budgetMonthNoticePending ? (
+        <BudgetMonthNotice startDay={household.budgetMonthStartDay} />
+      ) : null}
 
       <HomeGreetingBar
         month={month}

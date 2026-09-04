@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
-import { getUserRepository } from "@/lib/repositories";
+import { getHouseholdRepository, getUserRepository } from "@/lib/repositories";
 import { normalizeBudgetMonthStartDay } from "@/lib/utils/date";
 import type { SetupWizardStatus } from "@/lib/repositories/interfaces/user.repository";
 import { isOnboardingStep } from "@/lib/onboarding/steps";
@@ -30,6 +30,11 @@ export async function updateBudgetMonthStartDayAction(
   setRequestContextFromSession(session);
   const userId = Number(session.user.id);
   const normalized = normalizeBudgetMonthStartDay(day);
+  // Household-level since migration 0042: two people looking at different
+  // budget months is the bug this replaced. The users column is left written
+  // for one release so the migration stays reversible.
+  await getHouseholdRepository().setBudgetMonthStartDay(normalized);
+  await getHouseholdRepository().clearBudgetMonthNotice();
   await getUserRepository().updateBudgetMonthStartDay(userId, normalized);
   revalidatePath("/dashboard");
   revalidatePath("/budget");

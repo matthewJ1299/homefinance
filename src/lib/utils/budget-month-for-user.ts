@@ -1,4 +1,4 @@
-import { getUserRepository } from "@/lib/repositories";
+import { getHouseholdRepository, getUserRepository } from "@/lib/repositories";
 import type { BudgetMonthPeriod } from "@/lib/types/budget-month";
 import {
   budgetMonthKeyFromIsoDate,
@@ -6,17 +6,34 @@ import {
   getCurrentBudgetMonth,
 } from "@/lib/utils/date";
 
+/**
+ * The budget month start day, now a household setting (migration 0042).
+ *
+ * Two people looking at different budget months is the bug this fixes: every
+ * shared figure -- splits, the mortgage share, a shared account's rows -- was
+ * being framed by two different windows at once.
+ *
+ * `users.budget_month_start_day` is left in place and unread for one release,
+ * which is what makes the migration reversible. It is only consulted here if
+ * the household somehow has no day of its own.
+ */
+async function startDayForUser(userId: number): Promise<number> {
+  const fromHousehold = await getHouseholdRepository().getBudgetMonthStartDay();
+  if (fromHousehold > 0) return fromHousehold;
+  return getUserRepository().getBudgetMonthStartDay(userId);
+}
+
 export async function budgetMonthKeyForUser(userId: number, date: string): Promise<string> {
-  const start = await getUserRepository().getBudgetMonthStartDay(userId);
-  return budgetMonthKeyFromIsoDate(date, start);
+  return budgetMonthKeyFromIsoDate(date, await startDayForUser(userId));
 }
 
 export async function getDefaultBudgetMonthForUser(userId: number): Promise<string> {
-  const start = await getUserRepository().getBudgetMonthStartDay(userId);
-  return getCurrentBudgetMonth(start);
+  return getCurrentBudgetMonth(await startDayForUser(userId));
 }
 
-export async function getBudgetPeriodForUserMonth(month: string, userId: number): Promise<BudgetMonthPeriod> {
-  const start = await getUserRepository().getBudgetMonthStartDay(userId);
-  return getBudgetPeriodForMonthKey(month, start);
+export async function getBudgetPeriodForUserMonth(
+  month: string,
+  userId: number
+): Promise<BudgetMonthPeriod> {
+  return getBudgetPeriodForMonthKey(month, await startDayForUser(userId));
 }
