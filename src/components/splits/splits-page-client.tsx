@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { SplitBalance, SplitHistoryItem, SplitGroup } from "@/lib/types";
 import { deleteExpense } from "@/lib/actions/expense.actions";
-import { settleSplit, updateSettlement, deleteSettlement } from "@/lib/actions/split.actions";
+import { updateSettlement, deleteSettlement } from "@/lib/actions/split.actions";
+import { PersonBalanceCard, type PersonBalance } from "./person-balance-card";
+import { SettleSheet, type SettleTargetCategory } from "./settle-sheet";
+import { SectionHeader } from "@/components/ui/section-header";
+import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,28 +24,25 @@ import { formatDisplayDate } from "@/lib/utils/date";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
-export interface BalancePerGroupItem {
-  groupId: number;
-  groupName: string;
-  balance: SplitBalance;
-}
-
 interface SplitsPageClientProps {
   groups: SplitGroup[];
-  balancePerGroup: BalancePerGroupItem[];
   selectedGroupId: number | null;
   balance: SplitBalance;
+  balances: PersonBalance[];
   history: SplitHistoryItem[];
   currentUserId: number;
+  /** Where a repayment can land, for the settle sheet. */
+  settleCategories: SettleTargetCategory[];
 }
 
 export function SplitsPageClient({
   groups,
-  balancePerGroup,
   selectedGroupId,
   balance,
+  balances,
   history,
   currentUserId,
+  settleCategories,
 }: SplitsPageClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -50,10 +52,6 @@ export function SplitsPageClient({
     userName: string;
     iOwe: number;
   } | null>(null);
-  const [settleAmountRands, setSettleAmountRands] = useState("");
-  const [settleDate, setSettleDate] = useState(() =>
-    new Date().toISOString().slice(0, 10)
-  );
   const [settleError, setSettleError] = useState<string | null>(null);
   const [editSettlement, setEditSettlement] = useState<{
     settlementId: number;
@@ -68,42 +66,8 @@ export function SplitsPageClient({
 
   const openSettle = (u: { userId: number; userName: string; iOwe: number }) => {
     setSettleRecipient(u);
-    setSettleAmountRands((u.iOwe / 100).toFixed(2));
-    setSettleDate(new Date().toISOString().slice(0, 10));
     setSettleError(null);
     setSettleOpen(true);
-  };
-
-  const handleSettleSubmit = () => {
-    if (!settleRecipient || selectedGroupId == null) return;
-    const amountRands = parseFloat(settleAmountRands);
-    if (Number.isNaN(amountRands) || amountRands <= 0) {
-      setSettleError("Enter a valid amount.");
-      return;
-    }
-    const amountCents = toMinorUnits(amountRands);
-    if (amountCents > settleRecipient.iOwe) {
-      setSettleError(`You owe ${formatRand(settleRecipient.iOwe)} at most.`);
-      return;
-    }
-    setSettleError(null);
-    startTransition(async () => {
-      const result = await settleSplit({
-        recipientUserId: settleRecipient.userId,
-        amountCents,
-        date: settleDate,
-        groupId: selectedGroupId,
-      });
-      if (result.success) {
-        setSettleOpen(false);
-        setSettleRecipient(null);
-        toast.success("Settlement recorded.");
-        void router.refresh();
-      } else {
-        setSettleError(result.error);
-        toast.error(result.error);
-      }
-    });
   };
 
   const handleDelete = (expenseId: number) => {
@@ -182,102 +146,72 @@ export function SplitsPageClient({
 
   return (
     <>
-      {balancePerGroup.length > 0 && (
-        <section>
-          <h2 className="text-sm font-medium mb-2">Summary by group</h2>
-          <div className="flex flex-wrap gap-2">
-            {balancePerGroup.map(({ groupId, groupName, balance: b }) => (
-              <Link
-                key={groupId}
-                href={groupId === selectedGroupId ? "/splits" : `/splits?group=${groupId}`}
-                className={`rounded-lg border p-3 text-sm min-w-[120px] block ${
-                  groupId === selectedGroupId
-                    ? "border-primary bg-primary/5"
-                    : "bg-card hover:bg-accent/50"
-                }`}
-              >
-                <span className="font-medium">{groupName}</span>
-                <div className="text-muted-foreground mt-1">
-                  {b.net > 0 && `You are owed ${formatRand(b.net)}`}
-                  {b.net < 0 && `You owe ${formatRand(-b.net)}`}
-                  {b.net === 0 && "Settled up"}
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {groups.length > 1 && (
-        <section>
-          <h2 className="text-sm font-medium mb-2">Group</h2>
-          <div className="flex flex-wrap gap-1">
-            {groups.map((g) => (
-              <Link
-                key={g.id}
-                href={g.id === selectedGroupId ? "/splits" : `/splits?group=${g.id}`}
-                className={`rounded-md px-3 py-1.5 text-sm ${
-                  g.id === selectedGroupId
-                    ? "bg-primary text-primary-foreground"
-                    : "border bg-card hover:bg-accent/50"
-                }`}
-              >
-                {g.name}
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section>
-        <h2 className="text-sm font-medium mb-2">How much each person owes</h2>
-        <div className="rounded-lg border bg-card p-4 space-y-2 text-sm">
-          {balance.perUser.length === 0 ? (
-            <p className="text-muted-foreground">No split balances.</p>
-          ) : (
-            <>
-              {balance.perUser.map((u) => {
-                const netWithPerson = u.owedToMe - u.iOwe;
-                return (
-                  <div
-                    key={u.userId}
-                    className="flex justify-between items-center gap-2 flex-wrap"
-                  >
-                    <span>{u.userName}</span>
-                    <div className="flex items-center gap-2">
-                      <span>
-                        {netWithPerson > 0 &&
-                          `${u.userName} owes you ${formatRand(netWithPerson)}`}
-                        {netWithPerson < 0 &&
-                          `You owe ${u.userName} ${formatRand(-netWithPerson)}`}
-                        {netWithPerson === 0 && "Settled up"}
-                      </span>
-                      {u.iOwe > 0 && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openSettle(u)}
-                          disabled={isPending}
-                        >
-                          Settle
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-              <div className="pt-2 mt-2 border-t font-medium">
-                {balance.net > 0 && `You are owed ${formatRand(balance.net)}`}
-                {balance.net < 0 && `You owe ${formatRand(-balance.net)}`}
-                {balance.net === 0 && "Settled up"}
-              </div>
-            </>
-          )}
+      <section className="space-y-3">
+        <div className="rounded-2xl border bg-card p-4">
+          <p className="text-sm font-semibold text-muted-foreground">Overall</p>
+          <p
+            className={cn(
+              "mt-1.5 text-3xl font-semibold tracking-tight tabular-nums",
+              balance.net > 0
+                ? "text-success"
+                : balance.net < 0
+                  ? "text-destructive"
+                  : "text-foreground"
+            )}
+          >
+            {balance.net === 0 ? "Settled up" : formatRand(Math.abs(balance.net))}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {balance.net > 0
+              ? "owed to you"
+              : balance.net < 0
+                ? "you owe"
+                : "Nothing outstanding with anyone."}
+          </p>
         </div>
+
+        {/* Groups become a filter. Most households only ever use one, so a row
+            of summary chips gave the least-used feature the most space. */}
+        {groups.length > 1 ? (
+          <select
+            value={selectedGroupId ?? ""}
+            onChange={(e) => router.push(`/splits?group=${e.target.value}`)}
+            aria-label="Group"
+            className="min-h-11 w-full rounded-full border border-border bg-muted px-3.5 text-sm cursor-pointer"
+          >
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        ) : null}
+
+        {balances.length === 0 ? (
+          <EmptyState
+            title="Nobody to share with yet"
+            message="Invite someone to the house and shared spends will show up here."
+          />
+        ) : (
+          <div className="space-y-2">
+            {balances.map((b) => (
+              <PersonBalanceCard
+                key={b.userId}
+                balance={b}
+                onSettle={(x) => openSettle({ userId: x.userId, userName: x.userName, iOwe: x.iOwe })}
+                onHistory={() => {
+                  document
+                    .getElementById("shared-spends")
+                    ?.scrollIntoView({ behavior: "smooth" });
+                }}
+              />
+            ))}
+          </div>
+        )}
       </section>
 
-      <section>
-        <h2 className="text-sm font-medium mb-2">Split history</h2>
+      <section id="shared-spends" className="space-y-2">
+        <SectionHeader title="Recent shared spends" />
         {history.length === 0 ? (
           <p className="text-sm text-muted-foreground">No split expenses or settlements yet.</p>
         ) : (
@@ -289,15 +223,22 @@ export function SplitsPageClient({
                   className="rounded-lg border bg-card p-3 text-sm flex flex-col gap-1"
                 >
                   <div className="flex justify-between items-start">
-                    <div>
+                    <div className="min-w-0">
                       <span className="font-medium">{item.categoryName}</span>
-                      <span className="text-muted-foreground">
-                        {" "}
+                      {/* The share, not the total: what you owe or are owed is
+                          the number you came here for. */}
+                      <span className="block text-xs text-muted-foreground tabular-nums">
+                        {item.paidByUserId === currentUserId ? "You paid" : `${item.paidByUserName} paid`}
+                        {" · "}
+                        {[item.paidByUserName, ...item.allocations.map((a) => a.userName)].join(", ")}
+                        {" · "}
                         {formatRand(item.totalAmount)}
-                      </span>
-                      <span className="text-muted-foreground">
-                        {" "}
-                        paid by {item.paidByUserName}
+                        {" / your "}
+                        {formatRand(
+                          item.paidByUserId === currentUserId
+                            ? item.totalAmount - item.allocations.reduce((sum, a) => sum + a.amount, 0)
+                            : (item.allocations.find((a) => a.userId === currentUserId)?.amount ?? 0)
+                        )}
                       </span>
                     </div>
                     <Button
@@ -314,13 +255,7 @@ export function SplitsPageClient({
                     {formatDisplayDate(item.date)}
                     {item.note && ` – ${item.note}`}
                   </div>
-                  <ul className="text-muted-foreground">
-                    {item.allocations.map((a) => (
-                      <li key={a.userId}>
-                        {a.userName} owes {formatRand(a.amount)}
-                      </li>
-                    ))}
-                  </ul>
+
                 </li>
               ) : (
                 <li
@@ -365,50 +300,16 @@ export function SplitsPageClient({
         )}
       </section>
 
-      <Dialog open={settleOpen} onOpenChange={setSettleOpen}>
-        <DialogHeader>
-          Settle with {settleRecipient?.userName ?? ""}
-        </DialogHeader>
-        <div className="space-y-3">
-          <div>
-            <Label htmlFor="settle-amount">Amount (R)</Label>
-            <Input
-              id="settle-amount"
-              type="number"
-              step="0.01"
-              min="0"
-              value={settleAmountRands}
-              onChange={(e) => setSettleAmountRands(e.target.value)}
-              disabled={isPending}
-            />
-          </div>
-          <div>
-            <Label htmlFor="settle-date">Date</Label>
-            <Input
-              id="settle-date"
-              type="date"
-              value={settleDate}
-              onChange={(e) => setSettleDate(e.target.value)}
-              disabled={isPending}
-            />
-          </div>
-          {settleError && (
-            <p className="text-sm text-destructive">{settleError}</p>
-          )}
-        </div>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => setSettleOpen(false)}
-            disabled={isPending}
-          >
-            Cancel
-          </Button>
-          <Button onClick={handleSettleSubmit} disabled={isPending}>
-            {isPending ? "Settling..." : "Settle"}
-          </Button>
-        </DialogFooter>
-      </Dialog>
+      <SettleSheet
+        open={settleOpen}
+        onOpenChange={(open) => {
+          setSettleOpen(open);
+          if (!open) setSettleRecipient(null);
+        }}
+        recipient={settleRecipient}
+        groupId={selectedGroupId}
+        categories={settleCategories}
+      />
 
       <Dialog open={editSettlement != null} onOpenChange={(open) => !open && setEditSettlement(null)}>
         <DialogHeader>

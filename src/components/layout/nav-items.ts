@@ -43,7 +43,7 @@ export const fullNavItems: NavItem[] = [
   { href: "/expenses", label: "Transactions", icon: Receipt },
   { href: "/income", label: "Income", icon: CircleDollarSign },
   { href: "/recon", label: "Recon", icon: GitCompare },
-  { href: "/splits", label: "Splits", icon: SplitSquareVertical },
+  { href: "/splits", label: "Shared costs", icon: SplitSquareVertical },
   { href: "/what-i-owe", label: "What I owe", icon: ReceiptText },
   { href: "/budget", label: "Budget", icon: PiggyBank },
   { href: "/budget-ai-report", label: "Budget AI report", icon: Sparkles },
