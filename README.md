@@ -46,10 +46,13 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 
 ### Budget
 
-- **Per-user budgets** — Each person has their own income, category allocations, and in-month transfers. Drag categories on the Budget page to reorder them everywhere (including pickers).
-- **Allocations** — If a month has no amount for a category, the last saved allocation is reused. New months pre-fill carry-over and fixed-category defaults.
-- **Unallocated income** — The header explains whether you still have cash to assign, are fully allocated, or are over-allocated, including rollover from prior overspending. **Auto-allocate** spreads leftovers using your current category amounts, recent spending if available, or an even split.
-- **Budget and spending** — After you save an expense, a toast shows remaining budget for that category or an over-budget warning with a link. Pickers can show per-category remaining when data exists; the dashboard flags any overspent category.
+- **Per-user budgets** — Each person has their own income, category assignments, and in-month transfers. Budgets are genuinely private: the uniqueness on `budgets` includes `user_id`, so two members' amounts for the same category never collide. Drag categories on the Budget page to reorder them everywhere (including pickers).
+- **Assigned amounts** — If a month has no amount for a category, the last saved amount is reused as a template. New months also pre-fill fixed-category defaults.
+- **What's left in a category** — `available = assigned + carried in − spent`. This is the figure the app means by "left".
+- **Leftovers stay put** — When a month is opened, whatever was left in a category carries into the *same* category as `carried_in_minor`. It is written once, at open, and never recomputed on read, so a closed month cannot change retroactively. A category with **rollover** off starts each month clean.
+- **Overspends come off next month** — A category that ends negative does *not* carry the shortfall. It starts the new month clean at its assigned amount, and the total overspend is deducted once from the new month's unassigned money, where it is visible and can be assigned against. Covering the overspend at month end instead means there is nothing left to deduct.
+- **Not given a job yet** — `income − assigned − carried overspend`. **Spread it for me** distributes it using your current category amounts, recent spending if available, or an even split.
+- **Budget and spending** — After you save an expense, a toast shows what is left in that category or an over-budget warning with a link. Pickers can show per-category available when data exists; the dashboard flags any overspent category.
 - **Budget transfers** — Move allocated amounts between categories in the same month.
 - **Budget month** — Under **Settings**, pick which calendar day (1–28) each budget period starts (e.g. align with payday). Totals use transaction dates inside that window.
 
@@ -251,6 +254,10 @@ erDiagram
   households {
     serial id PK
     text name
+    text approval_status
+    text ai_tier
+    int budget_month_start_day
+    boolean budget_month_notice_pending
     timestamptz created_at
   }
 
@@ -281,6 +288,7 @@ erDiagram
     boolean is_active
     text cost_type
     int default_amount
+    boolean rollover
     timestamptz created_at
   }
 
@@ -299,8 +307,18 @@ erDiagram
     int category_id FK
     text month
     int allocated_amount
+    int carried_in_minor
     timestamptz created_at
     timestamptz updated_at
+  }
+
+  budget_month_opens {
+    serial id PK
+    bigint household_id FK
+    int user_id FK
+    text month
+    int overspend_carried_minor
+    timestamptz opened_at
   }
 
   budget_transfers {
@@ -336,6 +354,7 @@ erDiagram
     int user_id FK
     int amount
     text type
+    text income_type
     text description
     text date
     text month
@@ -371,6 +390,27 @@ erDiagram
     int amount
   }
 
+  expense_participants {
+    serial id PK
+    bigint household_id FK
+    int expense_id FK
+    int user_id FK
+    int share_minor
+    timestamptz created_at
+  }
+
+  recon_rules {
+    serial id PK
+    bigint household_id FK
+    int owner_user_id FK
+    text match_kind
+    text match_value
+    int category_id FK
+    int_array participant_user_ids
+    int times_used
+    timestamptz created_at
+  }
+
   split_settlements {
     serial id PK
     int payer_user_id FK
@@ -402,6 +442,22 @@ erDiagram
     int initial_deposit
     double base_split_pct
     int monthly_cap
+  }
+
+  mortgage_deposits {
+    serial id PK
+    bigint household_id FK
+    int mortgage_id FK
+    int user_id FK
+    bigint amount_minor
+  }
+
+  mortgage_targets {
+    serial id PK
+    bigint household_id FK
+    int mortgage_id FK
+    int user_id FK
+    int target_share_bp
   }
 
   mortgage_payments {
@@ -449,6 +505,9 @@ erDiagram
     text time
     text end_time
     text notes
+    int expected_cost_minor
+    int expense_category_id FK
+    int logged_expense_id FK
     text recurrence_type
     int recurrence_day_of_month
     timestamptz created_at
@@ -478,6 +537,7 @@ erDiagram
     serial id PK
     text name
     int sort_order
+    int category_id FK
     timestamptz created_at
   }
 
@@ -506,6 +566,7 @@ erDiagram
     text type
     bigint owner_user_id FK
     bigint credit_limit
+    boolean is_shared
     timestamptz created_at
   }
 
@@ -621,6 +682,10 @@ erDiagram
   households ||--o{ split_groups : tenant_split_groups
 
   users ||--o{ budgets : owns
+  users ||--o{ budget_month_opens : opens
+  users ||--o{ expense_participants : "is in on"
+  expenses ||--o{ expense_participants : "divided among"
+  users ||--o{ recon_rules : owns
   users ||--o{ expenses : records
   users ||--o{ income : records
   users ||--o{ budget_transfers : owns
@@ -643,6 +708,7 @@ erDiagram
   users ||--o{ notes : owns_notes
 
   categories ||--o{ budgets : line
+  categories ||--o{ shared_lists : tags
   categories ||--o{ expenses : classifies
   categories ||--o{ budget_transfers : from_cat
   categories ||--o{ budget_transfers : to_cat
@@ -725,6 +791,7 @@ See [DEPLOY.md](./DEPLOY.md) for deploying to a VPS with Coolify (Docker + Traef
 
 - **Unit tests (offline)**: `npm run test:unit` — no database required. The production **Docker build** runs this before `next build`, so Coolify deploys fail if unit tests fail.
 - **Integration tests**: `npm run test:integration` — requires `DATABASE_URL` and a seeded DB (`npm run db:fresh`). See `src/__tests__/integration/` (API/DB smoke tests and **mortgage interest recalc** through `MortgageService` + Postgres).
+- **Playwright E2E (headed by default)**: `npm run test:e2e` — opens Chromium so you can watch auth, admin, onboarding, feature gates, isolation, and core screens. Needs a seeded DB. Details: [docs/e2e-playwright.md](./docs/e2e-playwright.md). Manual checklist: [docs/test-plan-multi-tenant-admin.md](./docs/test-plan-multi-tenant-admin.md).
 - **Watch mode**: `npm run test:watch`
 - Coverage includes currency, date utils, mortgage engine, split/settlement balance math, credit edge cases, finance service parity checks in `src/tests/`, and high-volume **drift** tests in `src/tests/transaction-drift.test.ts` (long mortgage schedules, hundreds of split/settlement cycles, 10k ledger postings).
 - **Design**: Pure logic in `src/lib/services/finance/*`; services use repository interfaces for testability. See [docs/design-system.md](./docs/design-system.md) and [docs/push-notifications.md](./docs/push-notifications.md).
@@ -743,6 +810,8 @@ See [DEPLOY.md](./DEPLOY.md) for deploying to a VPS with Coolify (Docker + Traef
 - `npm run generate-vapid-keys` – Print VAPID key pair for Web Push. Add the two lines to your env (e.g. `.env.local`) so push notifications work.
 - `npm run test` / `npm run test:unit` – Run offline unit tests (Vitest)
 - `npm run test:integration` – Run DB integration tests (requires `DATABASE_URL`)
+- `npm run test:e2e` – Playwright E2E (headed Chromium; see [docs/e2e-playwright.md](./docs/e2e-playwright.md))
+- `npm run test:e2e:ui` / `npm run test:e2e:debug` – Playwright UI / inspector
 - `npm run test:watch` – Run unit tests in watch mode
 - `npm run start:server` – Start the custom Node server (initDb + persist loop); use for cPanel. See DEPLOY.md.
 

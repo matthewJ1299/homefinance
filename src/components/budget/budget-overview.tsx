@@ -40,16 +40,16 @@ export function BudgetOverview({
   const categoriesWithRemaining = data.categories.map((c) => ({
     categoryId: c.categoryId,
     categoryName: c.categoryName,
-    remaining: c.remaining,
+    remaining: c.available,
   }));
-  const toBeAllocated = data.toBeAllocated ?? data.unallocated;
+  const unassigned = data.unassigned;
   const allocationStatus =
-    toBeAllocated > 0 ? "to_allocate" : toBeAllocated < 0 ? "over_allocated" : "balanced";
+    unassigned > 0 ? "to_allocate" : unassigned < 0 ? "over_allocated" : "balanced";
 
   return (
     <div className="space-y-6 pb-8">
       <div className="rounded-2xl border border-border/60 bg-card/90 p-4 sm:p-5 shadow-sm space-y-5">
-        <BudgetDonutChart allocated={data.totalAllocated} spent={data.totalExpenses} />
+        <BudgetDonutChart allocated={data.totalAssigned} spent={data.totalExpenses} />
         <div className="grid gap-3 sm:grid-cols-2 border-t border-border/50 pt-4">
           <div className="flex justify-between text-sm gap-2">
             <span className="text-muted-foreground">Total income</span>
@@ -64,11 +64,11 @@ export function BudgetOverview({
             <span className="font-medium tabular-nums">{formatRand(data.balance)}</span>
           </div>
           <div className="flex justify-between text-sm gap-2">
-            <span className="text-muted-foreground">Allocated</span>
-            <span className="font-medium tabular-nums">{formatRand(data.totalAllocated)}</span>
+            <span className="text-muted-foreground">Assigned</span>
+            <span className="font-medium tabular-nums">{formatRand(data.totalAssigned)}</span>
           </div>
         </div>
-        {!data.isBalanced && <UnallocatedBanner toBeAllocated={toBeAllocated} />}
+        {!data.isBalanced && <UnallocatedBanner unassigned={unassigned} />}
       </div>
 
       <BudgetCategorySummaryTile categories={data.categories} />
@@ -93,12 +93,12 @@ export function BudgetOverview({
           </p>
         )}
         <div className="flex justify-between items-center gap-2 flex-wrap">
-          <span className="text-sm text-muted-foreground">To be allocated</span>
+          <span className="text-sm text-muted-foreground">Left to give a job</span>
           <div className="flex items-center gap-2">
             <span className="font-semibold tabular-nums">
-              {allocationStatus === "balanced" ? "Fully allocated" : formatRand(toBeAllocated)}
+              {allocationStatus === "balanced" ? "Fully assigned" : formatRand(unassigned)}
             </span>
-            {toBeAllocated > 0 && (
+            {unassigned > 0 && (
               <Button
                 variant="secondary"
                 size="sm"

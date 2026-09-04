@@ -35,11 +35,11 @@ export function OnboardingBudgetStep(props: {
     setOverview(initialOverview);
   }, [initialOverview]);
 
-  const toBeAllocated = overview.toBeAllocated ?? overview.unallocated;
+  const unassigned = overview.unassigned;
 
   return (
     <div className="space-y-4">
-      {toBeAllocated !== 0 ? <UnallocatedBanner toBeAllocated={toBeAllocated} /> : null}
+      {unassigned !== 0 ? <UnallocatedBanner unassigned={unassigned} /> : null}
       <div className="space-y-3">
         {overview.categories.map((cat) => (
           <BudgetCategoryCard

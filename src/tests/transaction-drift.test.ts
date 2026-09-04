@@ -481,6 +481,7 @@ describe("transaction drift — budget arithmetic (many categories)", () => {
       totalExpenses,
       categories,
       allocationMap,
+      carriedInMap: new Map(),
       expenses: [],
       spentByCategory,
     });

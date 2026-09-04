@@ -41,7 +41,7 @@ export function HomeGreetingBar({
   budgetMonthStartDay = 1,
   userName,
   otherUserName,
-  monthBalanceCents,
+  envelopeLeftCents,
 }: {
   month: string;
   /** Matches Settings > Budget month range (default 1 = calendar month). */
@@ -49,7 +49,8 @@ export function HomeGreetingBar({
   userName: string;
   otherUserName?: string;
   /** Optional: month-to-date balance hint under the greeting. */
-  monthBalanceCents?: number;
+  /** Sum of every category's available -- what is actually left to spend. */
+  envelopeLeftCents?: number;
 }) {
   const now = new Date();
   const monthLabel = formatBudgetMonthLabel(month, budgetMonthStartDay).toUpperCase();
@@ -69,11 +70,11 @@ export function HomeGreetingBar({
           <div className="pt-1 text-2xl sm:text-3xl font-semibold tracking-tight">
             {greeting}, {firstName}
           </div>
-          {monthBalanceCents != null ? (
+          {envelopeLeftCents != null ? (
             <p className="text-sm text-muted-foreground pt-1">
-              Month balance{" "}
+              Left in your categories{" "}
               <span className="font-medium text-foreground tabular-nums">
-                {formatRand(monthBalanceCents)}
+                {formatRand(envelopeLeftCents)}
               </span>
             </p>
           ) : null}

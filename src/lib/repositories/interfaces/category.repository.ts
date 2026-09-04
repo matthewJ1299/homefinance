@@ -22,6 +22,7 @@ export interface ICategoryRepository {
       sortOrder?: number;
       costType?: "fixed" | "variable";
       defaultAmount?: number | null;
+      rollover?: boolean;
     }
   ): Promise<void>;
   delete(id: number): Promise<void>;

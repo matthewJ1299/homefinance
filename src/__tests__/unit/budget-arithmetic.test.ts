@@ -29,7 +29,7 @@ function build(over: Partial<Parameters<typeof calculateBudgetOverviewArithmetic
 }
 
 describe("budget arithmetic", () => {
-  it.fails("available = assigned + carriedIn - spent, per category", () => {
+  it("available = assigned + carriedIn - spent, per category", () => {
     const r = build();
     const by = new Map(r.categoryRows.map((c) => [c.categoryId, c]));
     expect(by.get(1)!.available).toBe(-42_000);        // 500000 + 0 - 542000
@@ -37,14 +37,14 @@ describe("budget arithmetic", () => {
     expect(by.get(3)!.available).toBe(360_000);        // 40000 + 320000 - 0
   });
 
-  it.fails("envelopeLeft is the sum of every category's available", () => {
+  it("envelopeLeft is the sum of every category's available", () => {
     const r = build();
     const summed = r.categoryRows.reduce((s, c) => s + c.available, 0);
     expect(r.envelopeLeft).toBe(summed);
     expect(r.envelopeLeft).toBe(318_000);
   });
 
-  it.fails("envelopeTotal is assigned plus carried in", () => {
+  it("envelopeTotal is assigned plus carried in", () => {
     const r = build();
     expect(r.envelopeTotal).toBe(500_000 + 1_200_000 + 40_000 + 320_000);
   });
@@ -55,12 +55,12 @@ describe("budget arithmetic", () => {
     expect(r.unallocated).toBe(1_460_000);
   });
 
-  it.fails("overspentTotal is the positive sum of negative availables", () => {
+  it("overspentTotal is the positive sum of negative availables", () => {
     const r = build();
     expect(r.overspentTotal).toBe(42_000);
   });
 
-  it.fails("a category with no allocation and no spend is inert", () => {
+  it("a category with no allocation and no spend is inert", () => {
     const r = build({ allocationMap: new Map(), carriedInMap: new Map(), spentByCategory: {}, expenses: [] });
     expect(r.envelopeLeft).toBe(0);
     expect(r.overspentTotal).toBe(0);

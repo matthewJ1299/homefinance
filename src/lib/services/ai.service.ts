@@ -128,11 +128,13 @@ function buildBudgetAnalysisModelPayload(params: {
   includeTransactions: boolean;
 }): BudgetAnalysisModelPayload {
   const categories = params.overview.categories
-    .filter((c) => c.allocated > 0 || c.spent > 0)
+    .filter((c) => c.assigned > 0 || c.carriedIn !== 0 || c.spent > 0)
     .map((c) => ({
       name: c.categoryName,
-      allocated_cents: c.allocated,
+      assigned_cents: c.assigned,
+      carried_in_cents: c.carriedIn,
       spent_cents: c.spent,
+      available_cents: c.available,
       prev_month_spent_cents: params.prevMonthSpentByCategory[c.categoryId] ?? 0,
       is_overspent: c.isOverspent,
     }));
@@ -152,8 +154,13 @@ function buildBudgetAnalysisModelPayload(params: {
     currency: "ZAR",
     income_cents: params.incomeCents,
     expenses_cents: params.overview.totalExpenses,
-    allocated_cents: params.overview.totalAllocated,
-    unallocated_cents: params.overview.unallocated,
+    assigned_cents: params.overview.totalAssigned,
+    unassigned_cents: params.overview.unassigned,
+    // Leftovers stay in the category and overspends come off next month's
+    // unassigned, so state both or the model reasons about the old model.
+    envelope_left_cents: params.overview.envelopeLeft,
+    overspent_cents: params.overview.overspentTotal,
+    carried_overspend_cents: params.overview.carriedOverspend,
     categories,
     transactions_included: params.includeTransactions,
     transactions,
@@ -477,7 +484,8 @@ export class AIService {
         totalIncome: formatRand(incomeResult.totals.overall),
         totalExpenses: formatRand(overview.totalExpenses),
         balance: formatRand(overview.balance),
-        unallocated: formatRand(overview.unallocated),
+        unassigned: formatRand(overview.unassigned),
+        leftInCategories: formatRand(overview.envelopeLeft),
       },
       savingsGoals: goalsSummary.savings.map((s) => ({
         name: s.goal.name,
@@ -498,12 +506,13 @@ export class AIService {
         recommendedStrategy: c.recommendedStrategy.best,
       })),
       budgetCategories: overview.categories
-        .filter((c) => c.allocated > 0 || c.spent > 0)
+        .filter((c) => c.assigned > 0 || c.carriedIn !== 0 || c.spent > 0)
         .map((c) => ({
           name: c.categoryName,
-          allocated: formatRand(c.allocated),
+          assigned: formatRand(c.assigned),
+          carriedIn: formatRand(c.carriedIn),
           spent: formatRand(c.spent),
-          remaining: formatRand(c.remaining),
+          available: formatRand(c.available),
           isOverspent: c.isOverspent,
         })),
     };

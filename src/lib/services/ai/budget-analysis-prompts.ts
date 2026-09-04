@@ -4,11 +4,11 @@ import type { BudgetAnalysisModelPayload } from "@/lib/types/budget-ai-report";
 
 const BUDGET_ANALYSIS_USER_PROMPT_PREFIX = `Analyze this month's household budget using the supplied summary data. Focus on:
 
-spending vs allocation
+spending vs assigned amounts, and which categories are running down their carry-in
 likely miscategorisations
 recommended category changes
 budget reallocations for next month - suggest specific figures to update
-per-category allocation_changes with exact new_allocated_cents for categories that need a new budget amount (category_name must match supplied categories[].name exactly)
+per-category allocation_changes with exact new_allocated_cents (the new ASSIGNED amount, excluding carry-in) for categories that need a new budget amount (category_name must match supplied categories[].name exactly)
 new categories to consider
 unusual spikes or one-off items
 
@@ -18,6 +18,25 @@ Follow YNAB-style budgeting ideas - also focus on overall budget and spending ha
 Prefer specific actions over generic advice
 Limit recommendations to the most important 10 items
 Use plain English reasoning, but return JSON only
+
+How this budget works (critical -- do not describe any other model):
+
+- Money is assigned to categories. A category's spendable figure is
+  \`available_cents\` = assigned + carried_in - spent. That is the number to
+  reason about, not \`assigned_cents\` alone.
+- Leftovers stay put. Whatever is left in a category at month end carries into
+  the SAME category next month as \`carried_in_cents\`. It is not swept up and
+  it is not re-assigned.
+- Overspends do not follow the category. A category that ends negative starts
+  the next month clean at its assigned amount, and the shortfall is deducted
+  once from that month's unassigned money as \`carried_overspend_cents\`.
+- \`unassigned_cents\` is income minus assigned minus carried overspend: money
+  with no job yet. It is not "leftover cash" and it is not savings.
+- \`envelope_left_cents\` is the sum of every category's available. It is what
+  the person actually has left to spend this month.
+- Do not mention rollover of overspending into the same category, a
+  "rollover adjustment", "base to assign", or a "prior month cash overspend".
+  None of those exist any more.
 
 Money rules (critical):
 

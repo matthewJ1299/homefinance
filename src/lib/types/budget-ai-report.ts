@@ -44,12 +44,22 @@ export interface BudgetAnalysisModelPayload {
   currency: "ZAR";
   income_cents: number;
   expenses_cents: number;
-  allocated_cents: number;
-  unallocated_cents: number;
+  assigned_cents: number;
+  unassigned_cents: number;
+  /** Sum of every category's available. What is actually left to spend. */
+  envelope_left_cents: number;
+  /** Positive sum of this month's negative availables. */
+  overspent_cents: number;
+  /** Last month's uncovered overspend, already deducted from `unassigned_cents`. */
+  carried_overspend_cents: number;
   categories: Array<{
     name: string;
-    allocated_cents: number;
+    assigned_cents: number;
+    /** Leftover carried in from last month. Spendable exactly like assigned money. */
+    carried_in_cents: number;
     spent_cents: number;
+    /** assigned + carried_in - spent. */
+    available_cents: number;
     prev_month_spent_cents: number;
     is_overspent: boolean;
   }>;

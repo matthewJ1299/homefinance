@@ -1,6 +1,13 @@
 export interface BudgetAllocation {
   categoryId: number;
   allocatedAmount: number;
+  carriedInMinor?: number;
+}
+
+export interface BudgetMonthOpenState {
+  month: string;
+  overspendCarriedMinor: number;
+  openedAt: string;
 }
 
 export interface BudgetTransferRecord {
@@ -23,6 +30,11 @@ export interface IBudgetRepository {
   /** Allocations for any of the given months (for carry-over resolution). */
   getAllocationsForMonths(months: string[], userId: number): Promise<BudgetAllocationWithMonth[]>;
   upsertAllocation(categoryId: number, month: string, amount: number, userId: number): Promise<void>;
+  /** Carry-in per category for a month. Empty map when the month is not opened. */
+  getCarriedInForMonth(month: string, userId: number): Promise<Map<number, number>>;
+  setCarriedIn(categoryId: number, month: string, amount: number, userId: number): Promise<void>;
+  getMonthOpenState(month: string, userId: number): Promise<BudgetMonthOpenState | null>;
+  recordMonthOpen(month: string, userId: number, overspendCarriedMinor: number): Promise<void>;
   getTransfersForMonth(month: string, userId: number): Promise<BudgetTransferRecord[]>;
   createTransfer(data: {
     fromCategoryId: number;

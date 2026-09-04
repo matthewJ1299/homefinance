@@ -3,6 +3,8 @@ import { IncomeService } from "@/lib/services/income.service";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { getCategoryRepository } from "@/lib/repositories";
 import { prevMonth } from "@/lib/utils/date";
+import { getDefaultBudgetMonthForUser } from "@/lib/utils/budget-month-for-user";
+import { withTransaction } from "@/lib/db/postgres-client";
 import type { Category } from "@/lib/types";
 import type { BudgetAllocationWithMonth } from "@/lib/repositories/interfaces/budget.repository";
 import { calculateBudgetOverviewArithmetic } from "@/lib/services/finance/accounts";
@@ -10,17 +12,8 @@ import { calculateBudgetOverviewArithmetic } from "@/lib/services/finance/accoun
 /** Max months to look back when resolving carried-over allocations. */
 const CARRY_OVER_MONTHS = 12;
 
-export interface BudgetCategoryRow {
-  categoryId: number;
-  categoryName: string;
-  groupName: string;
-  costType: "fixed" | "variable";
-  allocated: number;
-  spent: number;
-  remaining: number;
-  isOverspent: boolean;
-  spentByUser: Record<number, number>;
-}
+export type { BudgetCategoryRow } from "@/lib/services/finance/accounts";
+import type { BudgetCategoryRow } from "@/lib/services/finance/accounts";
 
 export interface BudgetTransferDisplay {
   id: number;
@@ -37,17 +30,25 @@ export interface BudgetOverviewResult {
   totalIncome: number;
   totalExpenses: number;
   balance: number;
-  totalAllocated: number;
-  /** Current-month only income minus allocations (before rollover adjustment). */
-  baseToAssign: number;
-  /** Positive prior-month cash overspending amount used by rollover logic. */
-  priorMonthCashOverspend: number;
-  /** Adjustment applied to base-to-assign (negative when prior month was overspent). */
-  rolloverAdjustment: number;
-  /** Final amount to allocate for this month after rollover adjustment. */
+  totalAssigned: number;
+  /** Sum of (assigned + carriedIn). */
+  envelopeTotal: number;
+  /** Sum of available -- Home's hero figure. */
+  envelopeLeft: number;
+  /** Positive sum of negative availables this month. */
+  overspentTotal: number;
+  /** Uncovered overspend inherited from last month, deducted from unassigned. */
+  carriedOverspend: number;
+  /** income - assigned - carriedOverspend. Money with no job. */
+  unassigned: number;
+  /** Whether this month has been opened (carry-in written). */
+  isOpened: boolean;
+  /** @deprecated alias for `unassigned`. */
   toBeAllocated: number;
-  /** Backward-compatible alias for toBeAllocated. */
+  /** @deprecated alias for `unassigned`. */
   unallocated: number;
+  /** @deprecated alias for `totalAssigned`. */
+  totalAllocated: number;
   isBalanced: boolean;
   categories: BudgetCategoryRow[];
   transfers: BudgetTransferDisplay[];
@@ -89,6 +90,8 @@ export class BudgetService {
     );
 
     await this.persistMissingAllocationsForMonth(month, allocationMap, categories, userId);
+    const monthState = await this.budgetRepo.getMonthOpenState(month, userId);
+    const carriedInMap = await this.budgetRepo.getCarriedInForMonth(month, userId);
     const spentByCategory = expenseResult.totals.byCategory;
     const categoryMeta = new Map(categories.map((c) => [c.id, c]));
     const budgetArithmetic = calculateBudgetOverviewArithmetic({
@@ -96,20 +99,16 @@ export class BudgetService {
       totalExpenses,
       categories,
       allocationMap,
+      carriedInMap,
       expenses: expenseResult.expenses,
       spentByCategory,
     });
-    const { balance, totalAllocated, categoryRows, unallocated: baseToAssign } = budgetArithmetic;
-    const priorMonthCashOverspend = await this.computePriorMonthCashOverspend({
-      month,
-      userId,
-      categories,
-      monthsToLoad,
-      allocationsForMonths,
-    });
-    const rolloverAdjustment = -priorMonthCashOverspend;
-    const toBeAllocated = baseToAssign + rolloverAdjustment;
-    const isBalanced = toBeAllocated === 0;
+    const {
+      balance, totalAssigned, envelopeTotal, envelopeLeft, overspentTotal, categoryRows,
+    } = budgetArithmetic;
+    const carriedOverspend = monthState?.overspendCarriedMinor ?? 0;
+    const unassigned = totalIncome - totalAssigned - carriedOverspend;
+    const isBalanced = unassigned === 0;
 
     const transferDisplays: BudgetTransferDisplay[] = await Promise.all(
       transfers.map(async (t) => {
@@ -137,12 +136,16 @@ export class BudgetService {
       totalIncome,
       totalExpenses,
       balance,
-      totalAllocated,
-      baseToAssign,
-      priorMonthCashOverspend,
-      rolloverAdjustment,
-      toBeAllocated,
-      unallocated: toBeAllocated,
+      totalAssigned,
+      envelopeTotal,
+      envelopeLeft,
+      overspentTotal,
+      carriedOverspend,
+      unassigned,
+      isOpened: monthState != null,
+      toBeAllocated: unassigned,
+      unallocated: unassigned,
+      totalAllocated: totalAssigned,
       isBalanced,
       categories: categoryRows,
       transfers: transferDisplays,
@@ -214,54 +217,63 @@ export class BudgetService {
   }
 
   /**
-   * Option 2 rollover (combined-safe):
-   * - Prefer prior-month sum of category negatives: max(0, spent - allocated) across categories.
-   * - If that is zero, fallback to top-level gap: max(0, totalAllocated - totalIncome).
+   * Writes carry-in for `month` from the prior month's availables, once.
+   * Idempotent: a `budget_month_opens` row is the guard.
+   *
+   * Positive available carries into the same category (when `rollover`).
+   * Negative available does NOT carry into the category -- it is summed and
+   * recorded as `overspend_carried_minor`, which `getOverview` deducts from
+   * unassigned. A category that reads "over budget" before a rand is spent in
+   * the new month would make the one-sentence rule unexplainable.
    */
-  private async computePriorMonthCashOverspend(input: {
-    month: string;
-    userId: number;
-    categories: Category[];
-    monthsToLoad: string[];
-    allocationsForMonths: BudgetAllocationWithMonth[];
-  }): Promise<number> {
-    const previousMonth = prevMonth(input.month);
-    const [incomeResult, expenseResult] = await Promise.all([
-      this.incomeService.getByMonth(previousMonth, input.userId),
-      this.expenseService.getByMonth(previousMonth, input.userId),
-    ]);
-    const hasPriorAllocation = input.allocationsForMonths.some((a) => a.month === previousMonth);
-    const hasPriorExpense = expenseResult.expenses.some((e) => e.date.startsWith(previousMonth));
-    if (!hasPriorAllocation && !hasPriorExpense) {
-      return 0;
+  async openMonth(month: string, userId: number): Promise<{ opened: boolean; carriedOverspend: number }> {
+    const existing = await this.budgetRepo.getMonthOpenState(month, userId);
+    if (existing) {
+      return { opened: false, carriedOverspend: existing.overspendCarriedMinor };
     }
 
-    const monthsForPrevious = input.monthsToLoad.slice(1);
-    const previousAllocationMap = this.resolveEffectiveAllocations(
-      previousMonth,
-      monthsForPrevious,
-      input.allocationsForMonths,
-      input.categories
-    );
+    const previous = prevMonth(month);
+    const prior = await this.getOverview(previous, userId);
 
-    let categoryNegatives = 0;
-    for (const category of input.categories) {
-      const allocated = previousAllocationMap.get(category.id) ?? 0;
-      const spent = expenseResult.totals.byCategory[category.id] ?? 0;
-      if (spent > allocated) {
-        categoryNegatives += spent - allocated;
+    let carriedOverspend = 0;
+    const carryIn: Array<{ categoryId: number; amount: number }> = [];
+    for (const row of prior.categories) {
+      if (row.available > 0 && row.rollover) {
+        carryIn.push({ categoryId: row.categoryId, amount: row.available });
+      } else if (row.available < 0) {
+        carriedOverspend += -row.available;
       }
     }
-    if (categoryNegatives > 0) {
-      return categoryNegatives;
-    }
 
-    let totalAllocated = 0;
-    for (const amount of previousAllocationMap.values()) {
-      totalAllocated += amount;
-    }
-    const topLevelGap = totalAllocated - incomeResult.totals.overall;
-    return topLevelGap > 0 ? topLevelGap : 0;
+    await withTransaction(async () => {
+      for (const { categoryId, amount } of carryIn) {
+        await this.budgetRepo.setCarriedIn(categoryId, month, amount, userId);
+      }
+      await this.budgetRepo.recordMonthOpen(month, userId, carriedOverspend);
+    });
+
+    return { opened: true, carriedOverspend };
+  }
+
+  /** True when the user's budget month has rolled over and they have not seen the summary. */
+  async needsMonthOpen(userId: number): Promise<{ month: string; previous: string } | null> {
+    const month = await getDefaultBudgetMonthForUser(userId);
+    if (await this.budgetRepo.getMonthOpenState(month, userId)) return null;
+    const previous = prevMonth(month);
+    const priorAllocations = await this.budgetRepo.getAllocationsForMonth(previous, userId);
+    if (priorAllocations.length === 0) return null; // first-ever month, nothing to summarise
+    return { month, previous };
+  }
+
+  /** Moves money between categories to clear an overspend. Thin wrapper over transfer. */
+  async coverOverspend(data: {
+    fromCategoryId: number;
+    toCategoryId: number;
+    month: string;
+    amount: number;
+    userId: number;
+  }) {
+    return this.transfer({ ...data, reason: "Covering overspend" });
   }
 
   async setAllocation(categoryId: number, month: string, amount: number, userId: number): Promise<void> {
@@ -280,12 +292,12 @@ export class BudgetService {
     | { success: false; error: string }
   > {
     const overview = await this.getOverview(month, userId);
-    const remainder = overview.unallocated;
+    const remainder = overview.unassigned;
     if (remainder <= 0) {
       return { success: true, updated: 0 };
     }
 
-    const categoriesWithAllocation = overview.categories.filter((c) => c.allocated > 0);
+    const categoriesWithAllocation = overview.categories.filter((c) => c.assigned > 0);
     const recipients =
       categoriesWithAllocation.length > 0
         ? categoriesWithAllocation
@@ -337,7 +349,7 @@ export class BudgetService {
     for (const cat of overview.categories) {
       const inc = increments.get(cat.categoryId) ?? 0;
       if (inc > 0) {
-        const newAmount = cat.allocated + inc;
+        const newAmount = cat.assigned + inc;
         await this.budgetRepo.upsertAllocation(cat.categoryId, month, newAmount, userId);
       }
     }
@@ -357,11 +369,13 @@ export class BudgetService {
     const fromRow = overview.categories.find((c) => c.categoryId === data.fromCategoryId);
     const toRow = overview.categories.find((c) => c.categoryId === data.toCategoryId);
     if (!fromRow || !toRow) return { success: false, error: "Category not found" };
-    if (fromRow.remaining < data.amount) {
+    // `available` includes carry-in, which is correct: money carried into Fuel
+    // is as spendable as money assigned to it this month.
+    if (fromRow.available < data.amount) {
       return { success: false, error: "Insufficient funds in source category" };
     }
-    const newFromAllocated = fromRow.allocated - data.amount;
-    const newToAllocated = toRow.allocated + data.amount;
+    const newFromAllocated = fromRow.assigned - data.amount;
+    const newToAllocated = toRow.assigned + data.amount;
     await this.budgetRepo.upsertAllocation(data.fromCategoryId, data.month, newFromAllocated, data.userId);
     await this.budgetRepo.upsertAllocation(data.toCategoryId, data.month, newToAllocated, data.userId);
     await this.budgetRepo.createTransfer(data);

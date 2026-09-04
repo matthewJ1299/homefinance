@@ -129,7 +129,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const overspentCategories = budgetOverview.categories.filter((c) => c.isOverspent);
   const budgetByCategory = new Map(
-    budgetOverview.categories.map((c) => [c.categoryId, { remaining: c.remaining, isOverspent: c.isOverspent }])
+    budgetOverview.categories.map((c) => [c.categoryId, { remaining: c.available, isOverspent: c.isOverspent }])
   );
   const otherUserName = otherUsers[0]?.name;
   const budgetMonthStartDay = await userRepo.getBudgetMonthStartDay(userId);
@@ -145,13 +145,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         budgetMonthStartDay={budgetMonthStartDay}
         userName={String(session.user.name ?? session.user.email ?? "")}
         otherUserName={otherUserName}
-        monthBalanceCents={budgetOverview.balance}
+        envelopeLeftCents={budgetOverview.envelopeLeft}
       />
 
       <HomeStatsStrip
         tasksOpen={openTaskCount}
         eventsToday={todayOccurrences.length}
-        budgetBalanceLabel={formatRand(budgetOverview.balance)}
+        budgetBalanceLabel={formatRand(budgetOverview.envelopeLeft)}
       />
 
       <WhenDashboardTileEnabled tile="splitBalance">

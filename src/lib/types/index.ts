@@ -32,6 +32,8 @@ export interface Category {
   isActive?: boolean;
   costType: CostType;
   defaultAmount: number | null;
+  /** Whether an unspent balance carries into next month. See BudgetService.openMonth. */
+  rollover: boolean;
 }
 
 export type CategoryWithActive = Category & { isActive: boolean };

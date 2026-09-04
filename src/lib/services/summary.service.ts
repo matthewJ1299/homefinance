@@ -10,7 +10,7 @@ export interface MonthlySnapshotResult {
   netPosition: number;
   budgetAdherence: Array<{
     categoryName: string;
-    allocated: number;
+    assigned: number;
     spent: number;
     adherencePct: number;
   }>;
