@@ -5,7 +5,7 @@ import type { ExpenseWithDetails, AccountType } from "@/lib/types";
 import type { IncomeEntry } from "@/lib/repositories/interfaces/income.repository";
 import type { Category, SplitGroup } from "@/lib/types";
 import type { UserSummary } from "@/lib/repositories/interfaces/user.repository";
-import { ExpensesViewToggle, viewToUserId, type ExpensesView } from "./expenses-view-toggle";
+import { INCOME_KINDS, type IncomeKind } from "@/lib/types/income-type";
 import { ExpenseList } from "./expense-list";
 import { QuickAddForm } from "./quick-add-form";
 import { formatRand, fromMinorUnits } from "@/lib/utils/currency";
@@ -20,17 +20,8 @@ interface ExpensesPageClientProps {
   splitGroups?: SplitGroup[];
   expenses: ExpenseWithDetails[];
   incomeEntries: IncomeEntry[];
-  initialView: ExpensesView;
-}
-
-function filterByView<T extends { userId: number }>(
-  items: T[],
-  view: ExpensesView,
-  currentUserId: number
-): T[] {
-  const userId = viewToUserId(view, currentUserId);
-  if (userId == null) return items;
-  return items.filter((e) => e.userId === userId);
+  /** Preselects the income filter, so /income can redirect here. */
+  initialType?: "all" | "expense" | "income";
 }
 
 function sumAmount(items: { amount: number }[]): number {
@@ -45,10 +36,13 @@ export function ExpensesPageClient({
   splitGroups = [],
   expenses,
   incomeEntries,
-  initialView,
+  initialType = "all",
 }: ExpensesPageClientProps) {
   const searchFieldId = useId();
-  const [view, setView] = useState<ExpensesView>(initialView);
+  // The my/theirs/combined toggle is gone: you see your own rows plus rows on
+  // shared accounts, which is the honest answer to "whose money is this?".
+  const [typeFilter, setTypeFilter] = useState(initialType);
+  const [incomeKind, setIncomeKind] = useState<IncomeKind | "all">("all");
   const [accountId, setAccountId] = useState<number | null>(null);
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -86,10 +80,10 @@ export function ExpensesPageClient({
   }
 
   const filteredExpenses = useMemo(() => {
-    const byView = filterByView(expensesState, view, currentUserId);
-    const byAccount = filterByAccount(byView, accountId);
+    if (typeFilter === "income") return [];
+    const byAccount = filterByAccount(expensesState, accountId);
     return filterByCategory(byAccount, categoryId);
-  }, [expensesState, view, currentUserId, accountId, categoryId]);
+  }, [expensesState, typeFilter, accountId, categoryId]);
 
   const searchFilteredExpenses = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -108,10 +102,11 @@ export function ExpensesPageClient({
       return hay.includes(q);
     });
   }, [filteredExpenses, searchQuery]);
-  const filteredIncome = useMemo(
-    () => filterByView(incomeEntries, view, currentUserId),
-    [incomeEntries, view, currentUserId]
-  );
+  const filteredIncome = useMemo(() => {
+    if (typeFilter === "expense") return [];
+    if (incomeKind === "all") return incomeEntries;
+    return incomeEntries.filter((i) => i.incomeKind === incomeKind);
+  }, [incomeEntries, typeFilter, incomeKind]);
   const expenseTotal = useMemo(() => sumAmount(filteredExpenses), [filteredExpenses]);
   const incomeTotal = useMemo(() => sumAmount(filteredIncome), [filteredIncome]);
   const balance = incomeTotal - expenseTotal;
@@ -170,12 +165,38 @@ export function ExpensesPageClient({
             autoComplete="off"
           />
         </div>
-        <ExpensesViewToggle
-          currentView={view}
-          currentUserId={currentUserId}
-          users={users}
-          onViewChange={setView}
-        />
+        <div className="flex flex-wrap gap-2">
+          {(["all", "expense", "income"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTypeFilter(t)}
+              aria-pressed={typeFilter === t}
+              className={`min-h-11 rounded-full border px-3.5 text-sm font-medium cursor-pointer ${
+                typeFilter === t
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-muted text-foreground"
+              }`}
+            >
+              {t === "all" ? "Everything" : t === "expense" ? "Money out" : "Money in"}
+            </button>
+          ))}
+          {typeFilter === "income" ? (
+            <select
+              value={incomeKind}
+              onChange={(ev) => setIncomeKind(ev.target.value as IncomeKind | "all")}
+              aria-label="Income type"
+              className="min-h-11 rounded-full border border-border bg-muted px-3 text-sm cursor-pointer"
+            >
+              <option value="all">All types</option>
+              {INCOME_KINDS.map((k) => (
+                <option key={k.value} value={k.value}>
+                  {k.label}
+                </option>
+              ))}
+            </select>
+          ) : null}
+        </div>
         <div className="flex flex-wrap gap-4 text-sm items-center">
           <span>
             <span className="text-muted-foreground">Income: </span>
@@ -243,7 +264,7 @@ export function ExpensesPageClient({
       </section>
       <ExpenseList
         expenses={searchFilteredExpenses}
-        showOwner={view === "combined"}
+        showOwner
         categories={categories}
         otherUserName={users.find((u) => u.id !== currentUserId)?.name}
         onOptimisticRemoveExpense={optimisticRemoveExpense}

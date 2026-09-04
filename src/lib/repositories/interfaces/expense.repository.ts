@@ -29,7 +29,9 @@ export interface IExpenseRepository {
     month: string,
     userId?: number,
     accountId?: number,
-    period?: BudgetMonthPeriod
+    period?: BudgetMonthPeriod,
+    /** Own rows plus rows on a shared account. Transactions list only. */
+    includeSharedAccounts?: boolean
   ): Promise<ExpenseWithDetails[]>;
   findByMonthPaginated(
     month: string,
@@ -37,7 +39,9 @@ export interface IExpenseRepository {
     offset: number,
     userId?: number,
     accountId?: number,
-    period?: BudgetMonthPeriod
+    period?: BudgetMonthPeriod,
+    /** Own rows plus rows on a shared account. Transactions list only. */
+    includeSharedAccounts?: boolean
   ): Promise<ExpenseWithDetails[]>;
   countByMonth(month: string, userId?: number, accountId?: number, period?: BudgetMonthPeriod): Promise<number>;
   findById(id: number): Promise<ExpenseWithDetails | null>;

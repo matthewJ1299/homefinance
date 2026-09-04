@@ -9,9 +9,12 @@ import { TransferMoneyModal } from "./transfer-money-modal";
 import { toast } from "sonner";
 import { normalizeNumericId } from "@/lib/utils/accounts-api";
 import { AccountCreateFields } from "@/components/accounts/account-create-fields";
+import { AccountSharingSwitch } from "@/components/accounts/account-sharing-switch";
+import { BalanceCheckSheet } from "@/components/accounts/balance-check-sheet";
+import type { HouseholdMember } from "@/lib/types/household-member";
 import { validateAccountCreateDraft } from "@/lib/utils/account-create";
 
-export function AccountsManage() {
+export function AccountsManage({ otherMembers = [] }: { otherMembers?: HouseholdMember[] }) {
   const router = useRouter();
   const [accounts, setAccounts] = useState<AccountWithBalance[]>([]);
   const [primaryAccountId, setPrimaryAccountId] = useState<number | null>(null);
@@ -21,6 +24,8 @@ export function AccountsManage() {
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState<AccountType>("bank");
   const [newCreditLimit, setNewCreditLimit] = useState("");
+  const [newIsShared, setNewIsShared] = useState(false);
+  const [checkAccount, setCheckAccount] = useState<AccountWithBalance | null>(null);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
 
   const fetchAccounts = async () => {
@@ -77,6 +82,7 @@ export function AccountsManage() {
           type: validated.value.type,
           ownerUserId: 0,
           creditLimit: validated.value.creditLimitMinorUnits,
+          isShared: newIsShared,
           createdAt: new Date().toISOString(),
           balance: 0,
         },
@@ -88,6 +94,7 @@ export function AccountsManage() {
           name: validated.value.name,
           type: validated.value.type,
           creditLimit: validated.value.type === "credit" ? validated.value.creditLimitMinorUnits : null,
+          isShared: newIsShared,
         }),
       });
       if (res.ok) {
@@ -174,6 +181,11 @@ export function AccountsManage() {
                     Primary
                   </span>
                 )}
+                {acc.isShared ? (
+                  <span className="ml-2 rounded-md bg-success-surface px-1.5 py-0.5 text-xs font-medium text-success">
+                    Shared
+                  </span>
+                ) : null}
                 <div className="text-xs text-muted-foreground mt-1">
                   Balance: {formatRand(acc.balance)}
                   {acc.type === "credit" && acc.creditLimit != null && (
@@ -191,6 +203,15 @@ export function AccountsManage() {
                 )}
               </div>
               <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCheckAccount(acc)}
+                  disabled={isPending}
+                >
+                  Check
+                </Button>
                 {showPrimaryControl && !isPrimary && (
                   <Button
                     type="button"
@@ -218,6 +239,11 @@ export function AccountsManage() {
         })}
       </ul>
 
+      <BalanceCheckSheet
+        account={checkAccount}
+        onOpenChange={(open) => !open && setCheckAccount(null)}
+      />
+
       {showAdd ? (
         <div className="rounded-lg border p-4 space-y-3">
           <AccountCreateFields
@@ -227,6 +253,12 @@ export function AccountsManage() {
             onTypeChange={setNewType}
             creditLimitInput={newCreditLimit}
             onCreditLimitInputChange={setNewCreditLimit}
+          />
+          <AccountSharingSwitch
+            isShared={newIsShared}
+            onChange={setNewIsShared}
+            otherMembers={otherMembers}
+            disabled={isPending}
           />
           <div className="flex gap-2">
             <Button onClick={handleCreate} disabled={isPending || !newName.trim()}>

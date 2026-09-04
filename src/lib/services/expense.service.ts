@@ -77,9 +77,18 @@ export class ExpenseService {
     };
   }
 
-  async getByMonth(month: string, userId?: number, accountId?: number): Promise<ExpensesByMonthResult> {
+  async getByMonth(
+    month: string,
+    userId?: number,
+    accountId?: number,
+    /**
+     * Adds rows on shared accounts. For the transactions list only -- budget
+     * totals must stay strictly the viewer's own share.
+     */
+    includeSharedAccounts = false
+  ): Promise<ExpensesByMonthResult> {
     const period = userId != null ? await getBudgetPeriodForUserMonth(month, userId) : undefined;
-    const expenses = await this.repo.findByMonth(month, userId, accountId, period);
+    const expenses = await this.repo.findByMonth(month, userId, accountId, period, includeSharedAccounts);
     const shares = userId != null
       ? await this.participantRepo.getSharesForExpenses(expenses.map((e) => e.id), userId)
       : new Map<number, number>();
@@ -110,8 +119,13 @@ export class ExpenseService {
     const participants = data.participants?.length
       ? data.participants
       : [{ userId, shareMinor: data.amount }];
-    const valid = validateParticipantShares(data.amount, participants, userId);
-    if (!valid.ok) throw new Error(valid.error);
+    // Only an explicit list can be wrong. The one-person default is derived
+    // from the amount, and validating it would reject the negative amounts
+    // that adjustments and repayments legitimately write.
+    if (data.participants?.length) {
+      const valid = validateParticipantShares(data.amount, participants, userId);
+      if (!valid.ok) throw new Error(valid.error);
+    }
 
     const { id } = await this.repo.create({
       userId,

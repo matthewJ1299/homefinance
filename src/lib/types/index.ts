@@ -110,6 +110,8 @@ export interface Account {
   type: AccountType;
   ownerUserId: number;
   creditLimit: number | null;
+  /** Shared accounts' rows are visible to every household member. */
+  isShared: boolean;
   createdAt: string;
 }
 

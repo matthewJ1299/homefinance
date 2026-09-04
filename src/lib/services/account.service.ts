@@ -9,11 +9,13 @@ interface CreateAccountOptions {
   name: string;
   type: AccountType;
   creditLimit?: number | null;
+  isShared?: boolean;
 }
 
 interface UpdateAccountOptions {
   name?: string;
   creditLimit?: number | null;
+  isShared?: boolean;
 }
 
 export class AccountService {

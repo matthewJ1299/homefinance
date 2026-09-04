@@ -14,6 +14,7 @@ interface AccountRow {
   type: AccountType;
   owner_user_id: number;
   credit_limit: number | null;
+  is_shared: boolean;
   created_at: string;
 }
 
@@ -24,6 +25,7 @@ function toAccount(row: AccountRow): Account {
     type: row.type,
     ownerUserId: coerceBigInt(row.owner_user_id),
     creditLimit: coerceBigIntOrNull(row.credit_limit),
+    isShared: row.is_shared === true,
     createdAt: row.created_at,
   };
 }
@@ -32,7 +34,7 @@ export class AccountRepository implements IAccountRepository {
   async findById(id: number, ownerUserId: number): Promise<Account | null> {
     const hid = requireHouseholdId();
     const row = await get<AccountRow>(
-      "SELECT id, name, type, owner_user_id, credit_limit, created_at FROM accounts WHERE id = ? AND owner_user_id = ? AND household_id = ?",
+      "SELECT id, name, type, owner_user_id, credit_limit, is_shared, created_at FROM accounts WHERE id = ? AND owner_user_id = ? AND household_id = ?",
       [id, ownerUserId, hid]
     );
     return row ? toAccount(row) : null;
@@ -41,7 +43,7 @@ export class AccountRepository implements IAccountRepository {
   async findAllForUser(ownerUserId: number): Promise<Account[]> {
     const hid = requireHouseholdId();
     const rows = await all<AccountRow>(
-      "SELECT id, name, type, owner_user_id, credit_limit, created_at FROM accounts WHERE owner_user_id = ? AND household_id = ? ORDER BY name",
+      "SELECT id, name, type, owner_user_id, credit_limit, is_shared, created_at FROM accounts WHERE owner_user_id = ? AND household_id = ? ORDER BY name",
       [ownerUserId, hid]
     );
     return rows.map(toAccount);
@@ -67,8 +69,8 @@ export class AccountRepository implements IAccountRepository {
   ): Promise<{ id: number }> {
     const hid = requireHouseholdId();
     await run(
-      "INSERT INTO accounts (name, type, owner_user_id, credit_limit, household_id) VALUES (?, ?, ?, ?, ?)",
-      [data.name, data.type, ownerUserId, data.creditLimit ?? null, hid]
+      "INSERT INTO accounts (name, type, owner_user_id, credit_limit, is_shared, household_id) VALUES (?, ?, ?, ?, ?, ?)",
+      [data.name, data.type, ownerUserId, data.creditLimit ?? null, data.isShared ?? false, hid]
     );
     const id = await lastInsertId();
     return { id };
@@ -89,6 +91,10 @@ export class AccountRepository implements IAccountRepository {
     if (data.creditLimit !== undefined) {
       updates.push("credit_limit = ?");
       params.push(data.creditLimit);
+    }
+    if (data.isShared !== undefined) {
+      updates.push("is_shared = ?");
+      params.push(data.isShared);
     }
 
     if (updates.length === 0) return;

@@ -15,7 +15,6 @@ import {
   GitCompare,
   Sparkles,
   ReceiptText,
-  CircleDollarSign,
   Shield,
 } from "lucide-react";
 import { NAV_HREF_FEATURE, type FeatureKey } from "@/lib/features/registry";
@@ -41,7 +40,6 @@ export const fullNavItems: NavItem[] = [
   { href: "/add", label: "Add", icon: Plus },
   { href: "/lists", label: "Lists", icon: ListTodo },
   { href: "/expenses", label: "Transactions", icon: Receipt },
-  { href: "/income", label: "Income", icon: CircleDollarSign },
   { href: "/recon", label: "Recon", icon: GitCompare },
   { href: "/splits", label: "Shared costs", icon: SplitSquareVertical },
   { href: "/what-i-owe", label: "What I owe", icon: ReceiptText },

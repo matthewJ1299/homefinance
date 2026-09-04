@@ -67,6 +67,7 @@ export function SetupWizardAccountsStep(props: {
           type: validated.value.type,
           ownerUserId: 0,
           creditLimit: validated.value.creditLimitMinorUnits,
+          isShared: false,
           createdAt: new Date().toISOString(),
           balance: 0,
         },

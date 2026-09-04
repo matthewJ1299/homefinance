@@ -4,11 +4,13 @@ export interface CreateAccountInput {
   name: string;
   type: AccountType;
   creditLimit?: number | null;
+  isShared?: boolean;
 }
 
 export interface UpdateAccountInput {
   name?: string;
   creditLimit?: number | null;
+  isShared?: boolean;
 }
 
 export interface IAccountRepository {

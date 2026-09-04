@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
   setRequestContextFromSession(session);
   const userId = Number(session.user.id);
   const body = await request.json();
-  const { name, type, creditLimit } = body ?? {};
+  const { name, type, creditLimit, isShared } = body ?? {};
   if (!name || !type) {
     return NextResponse.json(
       { error: "Invalid input", issues: ["name and type are required"] },
@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
     name,
     type,
     creditLimit: creditLimit ?? null,
+    isShared: isShared === true,
   });
   return NextResponse.json(account, { status: 201 });
 }

@@ -15,7 +15,20 @@ const SELECT_EXPENSE_DETAILS = `
   FROM expenses e
   INNER JOIN users u ON e.user_id = u.id AND u.household_id = e.household_id
   INNER JOIN categories c ON e.category_id = c.id AND c.household_id = e.household_id
+  LEFT JOIN accounts a ON e.account_id = a.id AND a.household_id = e.household_id
 `;
+
+/**
+ * Own rows, plus rows on a shared account.
+ *
+ * Deliberately opt-in rather than folded into every `userId` filter: budget
+ * totals must stay strictly the viewer's own share, and a household-mate's
+ * spend on a shared account is not that. The transactions list wants it; the
+ * envelope arithmetic does not.
+ */
+function ownerClause(includeSharedAccounts: boolean): string {
+  return includeSharedAccounts ? "(e.user_id = ? OR a.is_shared)" : "e.user_id = ?";
+}
 
 interface ExpenseDetailsRow {
   id: number;
@@ -64,7 +77,8 @@ export class ExpenseRepository implements IExpenseRepository {
     month: string,
     userId?: number,
     accountId?: number,
-    period?: BudgetMonthPeriod
+    period?: BudgetMonthPeriod,
+    includeSharedAccounts = false
   ): Promise<ExpenseWithDetails[]> {
     const hid = requireHouseholdId();
     let sql = `${SELECT_EXPENSE_DETAILS} WHERE e.household_id = ? AND `;
@@ -77,7 +91,7 @@ export class ExpenseRepository implements IExpenseRepository {
       params.push(month);
     }
     if (userId != null) {
-      sql += " AND e.user_id = ?";
+      sql += ` AND ${ownerClause(includeSharedAccounts)}`;
       params.push(userId);
     }
     if (accountId != null) {
@@ -95,7 +109,8 @@ export class ExpenseRepository implements IExpenseRepository {
     offset: number,
     userId?: number,
     accountId?: number,
-    period?: BudgetMonthPeriod
+    period?: BudgetMonthPeriod,
+    includeSharedAccounts = false
   ): Promise<ExpenseWithDetails[]> {
     const hid = requireHouseholdId();
     let base = `${SELECT_EXPENSE_DETAILS} WHERE e.household_id = ? AND `;
@@ -108,7 +123,7 @@ export class ExpenseRepository implements IExpenseRepository {
       params.push(month);
     }
     if (userId != null) {
-      base += " AND e.user_id = ?";
+      base += ` AND ${ownerClause(includeSharedAccounts)}`;
       params.push(userId);
     }
     if (accountId != null) {
@@ -125,24 +140,28 @@ export class ExpenseRepository implements IExpenseRepository {
     month: string,
     userId?: number,
     accountId?: number,
-    period?: BudgetMonthPeriod
+    period?: BudgetMonthPeriod,
+    includeSharedAccounts = false
   ): Promise<number> {
     const hid = requireHouseholdId();
-    let sql = "SELECT COUNT(id) AS c FROM expenses WHERE household_id = ? AND ";
+    // Always aliased and joined so the owner clause can reach accounts.is_shared;
+    // the planner drops an unused LEFT JOIN, so the narrow case costs nothing.
+    let sql =
+      "SELECT COUNT(e.id) AS c FROM expenses e LEFT JOIN accounts a ON e.account_id = a.id AND a.household_id = e.household_id WHERE e.household_id = ? AND ";
     const params: (string | number)[] = [hid];
     if (period) {
-      sql += "date >= ? AND date <= ?";
+      sql += "e.date >= ? AND e.date <= ?";
       params.push(period.start, period.end);
     } else {
-      sql += "month = ?";
+      sql += "e.month = ?";
       params.push(month);
     }
     if (userId != null) {
-      sql += " AND user_id = ?";
+      sql += ` AND ${ownerClause(includeSharedAccounts)}`;
       params.push(userId);
     }
     if (accountId != null) {
-      sql += " AND account_id = ?";
+      sql += " AND e.account_id = ?";
       params.push(accountId);
     }
     const row = await get<{ c: number }>(sql, params);
