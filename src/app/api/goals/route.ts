@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
+import { featureDeniedResponse } from "@/lib/api/feature-gate";
 import { GoalService } from "@/lib/services/goal.service";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
   setRequestContextFromSession(session);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const blocked = featureDeniedResponse("goals");
+  if (blocked) return blocked;
   const userId = Number(session.user.id);
 
   const includeArchived = request.nextUrl.searchParams.get("includeArchived") === "true";
@@ -19,6 +22,8 @@ export async function POST(request: NextRequest) {
   const session = await auth();
   setRequestContextFromSession(session);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const blocked = featureDeniedResponse("goals");
+  if (blocked) return blocked;
   const userId = Number(session.user.id);
 
   const body = await request.json();

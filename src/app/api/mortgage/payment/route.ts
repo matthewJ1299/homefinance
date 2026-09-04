@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
+import { featureDeniedResponse } from "@/lib/api/feature-gate";
 import { MortgageService } from "@/lib/services/mortgage.service";
 import { extraPaymentSchema } from "@/lib/validators/mortgage.schema";
 
@@ -10,6 +11,8 @@ export async function POST(request: NextRequest) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const blocked = featureDeniedResponse("mortgage");
+  if (blocked) return blocked;
   const body = await request.json();
   const parsed = extraPaymentSchema.safeParse(body);
   if (!parsed.success) {

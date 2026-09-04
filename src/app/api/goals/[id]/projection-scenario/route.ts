@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
+import { featureDeniedResponse } from "@/lib/api/feature-gate";
 import { buildCreditStrategyScenarios, buildHorizonSliderScenario } from "@/lib/services/credit-strategy.service";
 import { GoalProjectionService } from "@/lib/services/goal-projection.service";
 import { GoalService } from "@/lib/services/goal.service";
@@ -15,6 +16,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const session = await auth();
   setRequestContextFromSession(session);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const blocked = featureDeniedResponse("goals");
+  if (blocked) return blocked;
   const userId = Number(session.user.id);
 
   const { id } = await context.params;

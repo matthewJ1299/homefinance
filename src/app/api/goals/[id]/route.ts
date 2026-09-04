@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
+import { featureDeniedResponse } from "@/lib/api/feature-gate";
 import { GoalService } from "@/lib/services/goal.service";
 
 interface RouteContext {
@@ -11,6 +12,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   const session = await auth();
   setRequestContextFromSession(session);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const blocked = featureDeniedResponse("goals");
+  if (blocked) return blocked;
   const userId = Number(session.user.id);
 
   const { id } = await context.params;
@@ -27,6 +30,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const session = await auth();
   setRequestContextFromSession(session);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const blocked = featureDeniedResponse("goals");
+  if (blocked) return blocked;
   const userId = Number(session.user.id);
 
   const { id } = await context.params;
@@ -58,6 +63,8 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   const session = await auth();
   setRequestContextFromSession(session);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const blocked = featureDeniedResponse("goals");
+  if (blocked) return blocked;
   const userId = Number(session.user.id);
 
   const { id } = await context.params;

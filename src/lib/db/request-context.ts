@@ -12,9 +12,17 @@ export interface RequestContext {
   householdId?: number;
   /** True if the authenticated user is a global super-admin. */
   isSuperAdmin?: boolean;
-  /** Enabled household feature keys for this request (from household_features). */
+  /**
+   * Household feature entitlements for this request, resolved once by `getAuthState`
+   * (see src/lib/auth.ts) and read via `hasFeature`/`requireFeature` in
+   * `src/lib/features/access.ts`.
+   *
+   * Never sourced from the JWT: the token lives 30 days and is never refreshed, so a
+   * feature an admin revoked would keep working until the user signed out. Same
+   * reasoning the file already applies to `isSuperAdmin`.
+   */
   featureKeys?: readonly FeatureKey[];
-  /** Admin-set AI tier for the household. */
+  /** Admin-set AI provider tier for the household (`households.ai_tier`). */
   aiTier?: "free" | "paid";
   /** Self-registration approval gate; defaults to active when column is absent. */
   householdApprovalStatus?: HouseholdApprovalStatus;
