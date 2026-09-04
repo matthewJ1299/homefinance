@@ -20,7 +20,10 @@ const SELECT_FIELDS = `
     c.reminder_minutes AS "reminderMinutes",
     c.category_id AS "categoryId",
     cat.name AS "categoryName", cat.color AS "categoryColor",
-    c.is_shared AS "isShared", c.priority
+    c.is_shared AS "isShared", c.priority,
+    c.expected_cost_minor AS "expectedCostMinor",
+    c.expense_category_id AS "expenseCategoryId",
+    c.logged_expense_id AS "loggedExpenseId"
   FROM calendar_events c
   INNER JOIN users u ON c.created_by_user_id = u.id AND u.household_id = c.household_id
   LEFT JOIN calendar_categories cat ON c.category_id = cat.id AND cat.household_id = c.household_id
@@ -46,6 +49,9 @@ interface CalendarEventRow {
   categoryColor: string | null;
   isShared: boolean;
   priority: number;
+  expectedCostMinor: number | null;
+  expenseCategoryId: number | null;
+  loggedExpenseId: number | null;
 }
 
 interface ReminderRow {
@@ -77,6 +83,9 @@ function toCalendarEvent(r: CalendarEventRow): CalendarEvent {
     categoryColor: r.categoryColor ?? null,
     isShared: r.isShared !== false,
     priority: typeof r.priority === "number" ? r.priority : 2,
+    expectedCostMinor: r.expectedCostMinor ?? null,
+    expenseCategoryId: r.expenseCategoryId ?? null,
+    loggedExpenseId: r.loggedExpenseId ?? null,
   };
 }
 

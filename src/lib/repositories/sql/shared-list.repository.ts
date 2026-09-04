@@ -20,6 +20,7 @@ const SELECT_FIELDS = `
     visibility,
     owner_user_id AS "ownerUserId",
     sort_order AS "sortOrder",
+    category_id AS "categoryId",
     created_at AS "createdAt"
   FROM shared_lists
 `;
@@ -30,6 +31,7 @@ interface SharedListRow {
   visibility: ListVisibility;
   ownerUserId: number | null;
   sortOrder: number;
+  categoryId: number | null;
   createdAt: string;
 }
 
@@ -40,6 +42,7 @@ function toSharedList(r: SharedListRow): SharedList {
     visibility: r.visibility,
     ownerUserId: r.ownerUserId,
     sortOrder: r.sortOrder,
+    categoryId: r.categoryId ?? null,
     createdAt: r.createdAt,
   };
 }
@@ -120,7 +123,7 @@ export class SharedListRepository implements ISharedListRepository {
   async update(id: number, data: UpdateSharedListInput): Promise<void> {
     const hid = requireHouseholdId();
     const updates: string[] = [];
-    const params: (string | number)[] = [];
+    const params: (string | number | null)[] = [];
     if (data.name != null) {
       updates.push("name = ?");
       params.push(data.name);
@@ -128,6 +131,10 @@ export class SharedListRepository implements ISharedListRepository {
     if (data.sortOrder !== undefined) {
       updates.push("sort_order = ?");
       params.push(data.sortOrder);
+    }
+    if (data.categoryId !== undefined) {
+      updates.push("category_id = ?");
+      params.push(data.categoryId);
     }
     if (updates.length === 0) return;
     params.push(id, hid);

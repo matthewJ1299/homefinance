@@ -53,6 +53,7 @@ export function SharedListsManage({ lists }: SharedListsManageProps) {
           createdAt: new Date().toISOString(),
           visibility,
           ownerUserId: null,
+        categoryId: null,
         },
       ]);
       return () => setListsState(snapshot);

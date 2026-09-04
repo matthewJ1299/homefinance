@@ -16,6 +16,9 @@ import { occurrenceCoversDate } from "@/lib/utils/calendar-occurrence";
 import { useMonthGridSwipeNavigation } from "@/hooks/use-month-grid-swipe-navigation";
 import { MonthGrid } from "./month-grid";
 import { DaySchedule } from "./day-schedule";
+import { useAddSheet } from "@/components/add/add-sheet-context";
+import { AvatarCircle } from "@/components/ui/avatar-circle";
+import { cn } from "@/lib/utils";
 
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -41,6 +44,8 @@ export function CalendarClientCustom() {
   const todayDate = useMemo(() => getTodayDateStr(), []);
 
   const [selectedDate, setSelectedDate] = useState<string>(() => todayDate);
+  const [personFilter, setPersonFilter] = useState<number | null>(null);
+  const addSheet = useAddSheet();
   const [formOpen, setFormOpen] = useState(false);
   const [formDate, setFormDate] = useState<string | undefined>();
   const [formTime, setFormTime] = useState<string | null>(null);
@@ -64,9 +69,22 @@ export function CalendarClientCustom() {
     },
   });
 
+  // Whose calendar, as the primary filter. Category colour stays secondary --
+  // "is this mine or theirs" is what a shared calendar gets asked first.
+  const people = useMemo(() => {
+    const seen = new Map<number, string>();
+    for (const o of occurrences) seen.set(o.createdByUserId, o.createdByName);
+    return [...seen.entries()].map(([id, name]) => ({ id, name }));
+  }, [occurrences]);
+
+  const visibleOccurrences = useMemo(
+    () => (personFilter == null ? occurrences : occurrences.filter((o) => o.createdByUserId === personFilter)),
+    [occurrences, personFilter]
+  );
+
   const selectedOccurrences = useMemo(() => {
-    return occurrences.filter((o) => occurrenceCoversDate(o, selectedDate));
-  }, [occurrences, selectedDate]);
+    return visibleOccurrences.filter((o) => occurrenceCoversDate(o, selectedDate));
+  }, [visibleOccurrences, selectedDate]);
 
   const selectDay = useCallback((dateStr: string) => {
     setSelectedDate(dateStr);
@@ -110,7 +128,10 @@ export function CalendarClientCustom() {
             recurrenceType: "none" | "weekly" | "monthly" | "yearly";
             recurrenceDayOfMonth: number | null;
             reminders: { offsetMinutes: number; sendTime: string | null }[] | null;
-            categoryId: number | null;
+            expectedCostMinor: null,
+        expenseCategoryId: null,
+        loggedExpenseId: null,
+        categoryId: number | null;
             isShared: boolean;
             priority: number;
           }) => {
@@ -185,6 +206,9 @@ export function CalendarClientCustom() {
         recurrenceType: String(body.recurrenceType ?? "none"),
         reminderMinutes: null,
         reminders: [],
+        expectedCostMinor: null,
+        expenseCategoryId: null,
+        loggedExpenseId: null,
         categoryId: (body.categoryId as number | null | undefined) ?? null,
         categoryName: null,
         categoryColor: null,
@@ -330,6 +354,41 @@ export function CalendarClientCustom() {
         </Button>
       </div>
 
+      {people.length > 1 ? (
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Whose events">
+          <button
+            type="button"
+            onClick={() => setPersonFilter(null)}
+            aria-pressed={personFilter == null}
+            className={cn(
+              "min-h-11 rounded-full border px-3.5 text-sm font-medium cursor-pointer",
+              personFilter == null
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-muted text-foreground"
+            )}
+          >
+            Everyone
+          </button>
+          {people.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setPersonFilter(p.id)}
+              aria-pressed={personFilter === p.id}
+              className={cn(
+                "flex min-h-11 items-center gap-1.5 rounded-full border px-3 text-sm font-medium cursor-pointer",
+                personFilter === p.id
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-muted text-foreground"
+              )}
+            >
+              <AvatarCircle name={p.name} size={20} />
+              {p.name.split(" ")[0]}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       <Card className="border-border/60 bg-card/90 shadow-md rounded-2xl overflow-hidden">
         <CardContent className="pt-5 pb-6 space-y-6">
           <div
@@ -340,7 +399,7 @@ export function CalendarClientCustom() {
               currentDate={currentDate}
               selectedDate={selectedDate}
               todayDate={todayDate}
-              occurrences={occurrences}
+              occurrences={visibleOccurrences}
               onSelectDate={selectDay}
               onSelectSpanningOccurrence={openEditForOccurrence}
             />
@@ -366,7 +425,20 @@ export function CalendarClientCustom() {
             {isLoading ? (
               <p className="text-center text-muted-foreground py-6">Loading events...</p>
             ) : (
-              <DaySchedule occurrences={selectedOccurrences} onSelectOccurrence={openEditForOccurrence} />
+              <DaySchedule
+                occurrences={selectedOccurrences}
+                onSelectOccurrence={openEditForOccurrence}
+                onLogCost={
+                  addSheet
+                    ? (o) =>
+                        addSheet.open({
+                          categoryId: o.expenseCategoryId ?? undefined,
+                          amountMinor: o.expectedCostMinor ?? undefined,
+                          note: o.name,
+                        })
+                    : undefined
+                }
+              />
             )}
           </div>
         </CardContent>

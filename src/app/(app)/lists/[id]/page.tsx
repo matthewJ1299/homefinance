@@ -8,6 +8,8 @@ import Link from "next/link";
 import { ListDetail } from "@/components/shared-lists/list-detail";
 import { ListSwitcher } from "@/components/shared-lists/list-switcher";
 import { notesByItemIdForUser } from "@/lib/shared-lists/load-item-notes";
+import { BudgetService } from "@/lib/services/budget.service";
+import { getDefaultBudgetMonthForUser } from "@/lib/utils/budget-month-for-user";
 
 interface ListPageProps {
   params: Promise<{ id: string }>;
@@ -28,6 +30,19 @@ export default async function ListDetailPage({ params }: ListPageProps) {
   if (!list) notFound();
   const notesByItemId = await notesByItemIdForUser(userId, items);
   const lists = await listRepo.findAll({ visibility: list.visibility });
+
+  // What's left in the list's category, so "Done shopping?" can say it.
+  let categoryName: string | null = null;
+  let categoryAvailable: number | null = null;
+  if (list.categoryId != null) {
+    const month = await getDefaultBudgetMonthForUser(userId);
+    const overview = await new BudgetService().getOverview(month, userId);
+    const row = overview.categories.find((c) => c.categoryId === list.categoryId);
+    if (row) {
+      categoryName = row.categoryName;
+      categoryAvailable = row.available;
+    }
+  }
   return (
     <div className="p-4 space-y-6">
       <div className="flex flex-col gap-2">
@@ -67,7 +82,13 @@ export default async function ListDetailPage({ params }: ListPageProps) {
         </div>
         <ListSwitcher lists={lists} currentList={list} />
       </div>
-      <ListDetail list={list} items={items} notesByItemId={notesByItemId} />
+      <ListDetail
+        list={list}
+        items={items}
+        notesByItemId={notesByItemId}
+        categoryName={categoryName}
+        categoryAvailable={categoryAvailable}
+      />
     </div>
   );
 }

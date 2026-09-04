@@ -17,14 +17,27 @@ import type { SharedListItem } from "@/lib/repositories/interfaces/shared-list-i
 import type { Note } from "@/lib/types/note";
 import { usePropSyncedState } from "@/hooks/use-prop-synced-state";
 import { toast } from "sonner";
+import { Card } from "@/components/ui/card";
+import { formatRand } from "@/lib/utils/currency";
+import { useAddSheet } from "@/components/add/add-sheet-context";
 
 interface ListDetailProps {
   list: SharedList;
   items: SharedListItem[];
   notesByItemId: Record<number, Note[]>;
+  /** What's left in the list's category, for the "Done shopping?" card. */
+  categoryName?: string | null;
+  categoryAvailable?: number | null;
 }
 
-export function ListDetail({ list, items, notesByItemId }: ListDetailProps) {
+export function ListDetail({
+  list,
+  items,
+  notesByItemId,
+  categoryName,
+  categoryAvailable,
+}: ListDetailProps) {
+  const addSheet = useAddSheet();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [newLabel, setNewLabel] = useState("");
@@ -273,6 +286,37 @@ export function ListDetail({ list, items, notesByItemId }: ListDetailProps) {
           </>
         )}
       </section>
+
+      {/* Fires once per shop, not once per item. That is the only version of
+          this that survives the admin-weight objection. */}
+      {completedCount > 0 && addSheet ? (
+        <Card className="rounded-2xl border-primary/35 bg-primary/[0.06] p-3.5">
+          <p className="text-sm font-semibold">Done shopping?</p>
+          <p className="mt-2 text-[13px] leading-snug text-muted-foreground">
+            Log what you spent and we&apos;ll clear the {completedCount} ticked item
+            {completedCount === 1 ? "" : "s"}.
+            {categoryName != null && categoryAvailable != null
+              ? ` ${categoryName} has ${formatRand(categoryAvailable)} left.`
+              : ""}
+          </p>
+          <Button
+            onClick={() =>
+              addSheet.open({
+                categoryId: list.categoryId ?? undefined,
+                note: `${list.name} shop`,
+                onSaved: async () => {
+                  await deleteCompletedListItems(list.id);
+                  setItemsState((prev) => prev.filter((i) => !i.completed));
+                  router.refresh();
+                },
+              })
+            }
+            className="mt-2.5 h-11 w-full rounded-xl"
+          >
+            Log the shop
+          </Button>
+        </Card>
+      ) : null}
 
       {completedCount > 0 && (
         <section>

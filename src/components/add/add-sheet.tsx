@@ -29,6 +29,8 @@ export interface AddSheetPrefill {
   amountMinor?: number;
   note?: string;
   tab?: "spend" | "income";
+  /** Runs after a successful save. Used to clear a list's ticked items. */
+  onSaved?: () => void | Promise<void>;
 }
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "back"] as const;
@@ -210,6 +212,7 @@ export function AddSheet({
           return;
         }
         toast.success(`Added ${formatRand(amountMinor)} in.`);
+        await prefill.onSaved?.();
         onOpenChange(false);
         return;
       }
@@ -243,6 +246,7 @@ export function AddSheet({
           },
         }
       );
+      await prefill.onSaved?.();
       onOpenChange(false);
     });
   }

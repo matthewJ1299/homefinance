@@ -7,6 +7,8 @@ export interface SharedList {
   createdAt: string;
   visibility: ListVisibility;
   ownerUserId: number | null;
+  /** Where a shop on this list is logged. Migration 0040. */
+  categoryId: number | null;
 }
 
 export interface CreateSharedListInput {
@@ -22,6 +24,7 @@ export interface CreateSharedListInput {
 export interface UpdateSharedListInput {
   name?: string;
   sortOrder?: number;
+  categoryId?: number | null;
 }
 
 export interface ISharedListRepository {
