@@ -31,7 +31,7 @@ export function HomeStatsStrip({
       label: "Budget",
       value: budgetBalanceLabel,
       icon: Wallet,
-      iconClass: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+      iconClass: "bg-success-surface text-success",
     },
   ] as const;
 

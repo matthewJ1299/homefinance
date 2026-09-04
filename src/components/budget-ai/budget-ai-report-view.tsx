@@ -21,7 +21,7 @@ function ListSection({ title, items }: { title: string; items: string[] }) {
 }
 
 function confidenceClass(c: string): string {
-  if (c === "high") return "text-emerald-600 dark:text-emerald-400";
+  if (c === "high") return "text-success";
   if (c === "medium") return "text-amber-600 dark:text-amber-400";
   return "text-muted-foreground";
 }

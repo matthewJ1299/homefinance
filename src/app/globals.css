@@ -22,6 +22,20 @@
   --input: #dde3ee;
   --ring: #2563eb;
   --radius: 0.5rem;
+
+  /* Outcome tokens. Not a colour swap in dark -- see the notes on .dark. */
+  --success: #047857;
+  --success-foreground: #f8fbff;
+  --success-surface: #e7f7f0;
+  --warning: #92400e;
+  --warning-surface: #fffaf0;
+  /* The near-black used by "Cover it" and the pace bar's today marker. It is a
+     token precisely because it inverts in dark; hard-coded, it went invisible. */
+  --emphasis: #0f1520;
+  --emphasis-foreground: #f8fbff;
+
+  /* Tint strength for outcome-tinted cards. Dark needs more to read at all. */
+  --tint-alpha: 6%;
 }
 
 .dark {
@@ -45,6 +59,26 @@
   --border: #1e2738;
   --input: #1e2738;
   --ring: #5b8def;
+
+  --success: #34d399;
+  --success-foreground: #0f1520;
+  --success-surface: #12251f;
+  --warning: #fbbf24;
+  --warning-surface: #241f14;
+  /* Inverted: near-white with dark text. */
+  --emphasis: #e8edf5;
+  --emphasis-foreground: #0f1520;
+
+  /* #ef4444 on #161b27 reads brown and fails contrast. */
+  --destructive: #f87171;
+  --destructive-foreground: #0f1520;
+
+  --tint-alpha: 9%;
+
+  /* Shadows do nothing on #0f1117, so a sheet separates by surface and edge. */
+  --sheet: #161b27;
+  --sheet-edge: #262f42;
+  --scrim: rgb(0 0 0 / 55%);
 }
 
 @theme inline {
@@ -67,10 +101,28 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-surface: var(--success-surface);
+  --color-warning: var(--warning);
+  --color-warning-surface: var(--warning-surface);
+  --color-emphasis: var(--emphasis);
+  --color-emphasis-foreground: var(--emphasis-foreground);
+  --color-sheet: var(--sheet);
+  --color-sheet-edge: var(--sheet-edge);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* Light has no sheet surface of its own: the card colour and border already
+   separate it, and the shadow does the lifting. Declared here so `bg-sheet`
+   resolves in both themes. */
+:root {
+  --sheet: var(--card);
+  --sheet-edge: var(--border);
+  --scrim: rgb(0 0 0 / 40%);
 }
 
 * {

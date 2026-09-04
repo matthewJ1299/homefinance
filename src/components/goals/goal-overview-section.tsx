@@ -18,7 +18,7 @@ export function GoalOverviewSection({ detail }: { detail: GoalDetailResponse }) 
         <p className="mt-1 text-xs text-muted-foreground">{pct}% of target</p>
         <div className="mt-3 flex flex-wrap gap-2 text-sm">
           {actual.onTrack ? (
-            <span className="rounded-md bg-emerald-500/15 px-2 py-1 text-emerald-700 dark:text-emerald-400">
+            <span className="rounded-md bg-success-surface px-2 py-1 text-success">
               On track this month
             </span>
           ) : (

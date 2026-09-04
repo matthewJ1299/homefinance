@@ -881,7 +881,7 @@ export function ReconPageClient() {
                           m.outcome === "imported_pending_duplicate"
                             ? "bg-amber-500/10"
                             : m.outcome === "imported_pending_add"
-                              ? "bg-emerald-500/10"
+                              ? "bg-success-surface"
                               : m.outcome === "parse_failed"
                                 ? "bg-red-500/10"
                                 : "";

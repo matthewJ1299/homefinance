@@ -62,7 +62,7 @@ export function AddHubClient(props: QuickAddFabProps) {
       title: "New task",
       description: "Add a to-do item to your lists",
       icon: ClipboardList,
-      iconClass: "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400",
+      iconClass: "bg-success-surface text-success",
       onClick: () => {
         setListItemSeed("");
         openModal("list-item");

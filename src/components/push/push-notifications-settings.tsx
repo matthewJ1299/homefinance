@@ -179,7 +179,7 @@ export function PushNotificationsSettings() {
       {message && (
         <div className="mb-3 space-y-1">
           <p
-            className={`text-sm ${message.type === "success" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+            className={`text-sm ${message.type === "success" ? "text-success" : "text-destructive"}`}
           >
             {message.text}
           </p>

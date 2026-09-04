@@ -189,7 +189,7 @@ export function BudgetAiApplyPanel({ runId, report, categories, enabled }: Budge
                   <span className="mt-1 block text-xs text-amber-600 dark:text-amber-400">{r.disabledReason}</span>
                 ) : null}
                 {isApplied ? (
-                  <span className="mt-1 block text-xs text-emerald-600 dark:text-emerald-400">Applied this session</span>
+                  <span className="mt-1 block text-xs text-success">Applied this session</span>
                 ) : null}
               </span>
             </label>
