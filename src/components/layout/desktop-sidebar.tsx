@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
-import { fullNavItems, navItemsForFeatures } from "./nav-items";
+import { fullNavItems, groupNavItems, navItemsForFeatures } from "./nav-items";
 import { cn } from "@/lib/utils";
 import type { FeatureKey } from "@/lib/features/registry";
 
@@ -21,6 +21,7 @@ export function DesktopSidebar({
   const pathname = usePathname();
   const featureSet = useMemo(() => new Set(featureKeys), [featureKeys]);
   const items = navItemsForFeatures(fullNavItems, featureSet, { includeAdmin: isSuperAdmin });
+  const groups = useMemo(() => groupNavItems(items), [items]);
 
   const [collapsed, setCollapsed] = useState(false);
 
@@ -69,26 +70,36 @@ export function DesktopSidebar({
       </div>
 
       <nav className="flex flex-col gap-1 p-2 flex-1">
-        {items.map(({ href, label, icon: Icon }) => {
-          const isActive = pathname === href || pathname.startsWith(href + "/");
-          return (
-            <Link
-              key={href}
-              href={href}
-              title={label}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors cursor-pointer",
-                collapsed && "justify-center px-2",
-                isActive
-                  ? "text-primary bg-primary/10"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
-              )}
-            >
-              <Icon className="h-5 w-5 shrink-0" />
-              <span className={cn(collapsed && "hidden")}>{label}</span>
-            </Link>
-          );
-        })}
+        {groups.map((group) => (
+          <div key={group.name} className="pb-2">
+            {/* Headings would be noise at 64px wide, where only icons show. */}
+            {!collapsed ? (
+              <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {group.name}
+              </p>
+            ) : null}
+            {group.items.map(({ href, label, icon: Icon }) => {
+              const isActive = pathname === href || pathname.startsWith(href + "/");
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  title={label}
+                  className={cn(
+                    "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors cursor-pointer",
+                    collapsed && "justify-center px-2",
+                    isActive
+                      ? "text-primary bg-primary/10"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  )}
+                >
+                  <Icon className="h-5 w-5 shrink-0" />
+                  <span className={cn(collapsed && "hidden")}>{label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       <div className="mt-auto p-2 border-t">

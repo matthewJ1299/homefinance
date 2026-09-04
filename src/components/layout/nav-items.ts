@@ -54,6 +54,37 @@ export const fullNavItems: NavItem[] = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
+/**
+ * Desktop grouping. The flat list of sixteen was a wall; these four headings
+ * are how people actually think about the app -- what they touch daily, the
+ * money, the long view, and the bits you set up once.
+ *
+ * Hrefs not listed here still render, under "Bigger picture", so adding a page
+ * cannot silently drop it from the sidebar.
+ */
+export const sidebarGroups: Array<{ name: string; items: string[] }> = [
+  { name: "Every day", items: ["/dashboard", "/calendar", "/lists"] },
+  { name: "Money", items: ["/budget", "/expenses", "/accounts", "/splits", "/what-i-owe"] },
+  { name: "Bigger picture", items: ["/mortgage", "/goals", "/summary", "/budget-ai-report"] },
+  { name: "Setup", items: ["/recon", "/settings"] },
+];
+
+/** Groups `items` by `sidebarGroups`, dropping empty groups. */
+export function groupNavItems(items: NavItem[]): Array<{ name: string; items: NavItem[] }> {
+  const byHref = new Map(items.map((i) => [i.href, i]));
+  const claimed = new Set(sidebarGroups.flatMap((g) => g.items));
+  const groups = sidebarGroups.map((g) => ({
+    name: g.name,
+    items: g.items.map((h) => byHref.get(h)).filter((i): i is NavItem => i != null),
+  }));
+  const leftovers = items.filter((i) => !claimed.has(i.href));
+  if (leftovers.length > 0) {
+    const bigger = groups.find((g) => g.name === "Bigger picture");
+    if (bigger) bigger.items.push(...leftovers);
+  }
+  return groups.filter((g) => g.items.length > 0);
+}
+
 /** Admin portal link — shown only to super-admins. */
 export const adminNavItem: NavItem = { href: "/admin", label: "Admin", icon: Shield };
 
