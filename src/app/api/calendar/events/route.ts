@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
         title: "HomeFinance",
         body: `${userName} added event '${parsed.data.name}' on ${parsed.data.date}${parsed.data.time ? " at " + parsed.data.time : ""}`,
         url: "/calendar",
+        kind: "calendar",
       });
     }
   } catch {

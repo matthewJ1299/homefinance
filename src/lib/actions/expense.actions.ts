@@ -520,6 +520,7 @@ export async function addSplitExpense(formData: {
           title: "HomeFinance",
           body: `${userName} added a split expense${note} (R${amountRands})`,
           url: "/splits",
+          kind: "split",
         });
       }
     } catch {

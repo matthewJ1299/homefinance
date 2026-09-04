@@ -56,7 +56,7 @@ async function sendDailySummaryForHousehold(today: string): Promise<void> {
       occurrences.length === 1
         ? `You have an upcoming event: ${formatEventLine(occurrences[0].name, occurrences[0].time)}.`
         : `You have upcoming events: ${occurrences.map((o) => formatEventLine(o.name, o.time)).join("; ")}.`;
-    await notificationService.sendToUser(user.id, { title, body, url: "/calendar" }, { ttl: 86400 });
+    await notificationService.sendToUser(user.id, { title, body, url: "/calendar", kind: "reminder" }, { ttl: 86400 });
   }
 }
 
@@ -118,11 +118,11 @@ async function sendPerEventRemindersForHousehold(
       const title = "HomeFinance";
       const body = `Reminder: ${formatEventLine(occ.name, occ.time)}`;
       if (occ.isShared) {
-        await notificationService.sendToAll({ title, body, url: "/calendar" }, { ttl: 3600 });
+        await notificationService.sendToAll({ title, body, url: "/calendar", kind: "reminder" }, { ttl: 3600 });
       } else {
         await notificationService.sendToUser(
           occ.createdByUserId,
-          { title, body, url: "/calendar" },
+          { title, body, url: "/calendar", kind: "reminder" },
           { ttl: 3600 }
         );
       }

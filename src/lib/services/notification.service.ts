@@ -5,10 +5,32 @@ import { getPushSubscriptionRepository, getUserRepository } from "@/lib/reposito
 /** Force IPv4 for push requests; avoids ETIMEDOUT/ENETUNREACH when container IPv6 is broken (e.g. Docker on some hosts). */
 const pushAgent = new https.Agent({ family: 4 });
 
+/**
+ * What a push is allowed to be about, for beta.
+ *
+ * Confirmed scope: a split added or changed that involves you, calendar events,
+ * and reminders. Overspend, settle requests and "money landed" stay in-app --
+ * they are rows on Home's needs-you stream, not lock-screen interruptions.
+ *
+ * A gate in the service rather than a convention at each call site: the second
+ * kind is the one someone forgets.
+ */
+export const PUSHABLE_KINDS = ["split", "calendar", "reminder"] as const;
+export type NotificationKind = (typeof PUSHABLE_KINDS)[number] | "in_app_only";
+
 export interface NotificationPayload {
   title: string;
   body: string;
   url?: string;
+  /** Omitted means in-app only, so a new caller has to opt in deliberately. */
+  kind?: NotificationKind;
+}
+
+function isPushable(payload: NotificationPayload): boolean {
+  return (
+    payload.kind != null &&
+    (PUSHABLE_KINDS as readonly string[]).includes(payload.kind)
+  );
 }
 
 const VAPID_CONTACT = (process.env.VAPID_SUBJECT ?? "mailto:push@homefinance.app").trim();
@@ -104,6 +126,12 @@ export class NotificationService {
     payload: NotificationPayload,
     options?: { ttl?: number }
   ): Promise<{ sent: number; failed: number; badJwtToken?: boolean }> {
+    if (!isPushable(payload)) {
+      console.log(
+        `[Push] suppressed | userId=${userId} | kind=${payload.kind ?? "none"} | outside beta push scope`
+      );
+      return { sent: 0, failed: 0 };
+    }
     const pushRepo = getPushSubscriptionRepository();
     const subscriptions = await pushRepo.findByUserId(userId);
     const subscribed = subscriptions.length > 0;

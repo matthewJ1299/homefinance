@@ -4,6 +4,7 @@ import { format, parseISO } from "date-fns";
 import { MapPin, User, Users } from "lucide-react";
 import { formatTime24 } from "@/lib/utils/format-time";
 import { formatRand } from "@/lib/utils/currency";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { CalendarEventOccurrence } from "@/lib/services/calendar.service";
 import { occurrenceSegmentEnd } from "@/lib/utils/calendar-occurrence";
 
@@ -32,9 +33,10 @@ export function DaySchedule({
 }) {
   if (occurrences.length === 0) {
     return (
-      <div className="rounded-2xl border border-border/60 bg-muted/15 p-5 text-sm text-muted-foreground text-center">
-        No events for this day.
-      </div>
+      <EmptyState
+        title="Nothing on"
+        message="No events for this day. Tap a date to add one."
+      />
     );
   }
 

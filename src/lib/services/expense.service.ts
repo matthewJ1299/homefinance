@@ -141,13 +141,27 @@ export class ExpenseService {
       recurringExpenseId: data.recurringExpenseId ?? null,
     });
 
-    await this.participantRepo.createMany(id, participants);
+    // A shared spend touches two people's balances, so it lands whole or not at
+    // all. Half a split is worse than no split: the payer's envelope moves and
+    // the debt never appears, and nothing on either screen says so.
+    try {
+      await this.participantRepo.createMany(id, participants);
 
-    // Every non-payer share is a debt. split_allocations stays the debt ledger:
-    // calculateSplitBalance and the settlement history both read it.
-    for (const p of participants) {
-      if (p.userId === userId || p.shareMinor <= 0) continue;
-      await this.allocationRepo.create(id, p.userId, p.shareMinor);
+      // Every non-payer share is a debt. split_allocations stays the debt
+      // ledger: calculateSplitBalance and the settlement history both read it.
+      for (const p of participants) {
+        if (p.userId === userId || p.shareMinor <= 0) continue;
+        await this.allocationRepo.create(id, p.userId, p.shareMinor);
+      }
+    } catch (err) {
+      await this.allocationRepo.deleteByExpenseId(id).catch(() => {});
+      await this.participantRepo.deleteByExpenseId(id).catch(() => {});
+      await this.repo.delete(id).catch(() => {});
+      const who = participants.length > 1 ? "shared spend" : "spend";
+      throw new Error(
+        `That ${who} didn't save, so nothing was recorded on anyone's side. ` +
+          (err instanceof Error ? err.message : "Try again.")
+      );
     }
 
     if (data.accountId != null) {

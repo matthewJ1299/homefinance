@@ -118,6 +118,9 @@ export async function createListItem(
           title: "HomeFinance",
           body: `${userName} added "${label}" to ${listName}`,
           url: "/lists",
+          // In-app only for beta: a list item is a row on Home's needs-you
+          // stream, not a lock-screen interruption.
+          kind: "in_app_only",
         });
       }
     } catch {

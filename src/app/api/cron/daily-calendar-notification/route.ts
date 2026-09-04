@@ -57,7 +57,11 @@ export async function GET(request: NextRequest) {
           ? `You have an upcoming event: ${formatEventLine(occurrences[0].name, occurrences[0].time)}.`
           : `You have upcoming events: ${occurrences.map((o) => formatEventLine(o.name, o.time)).join("; ")}.`;
       const url = "/calendar";
-      const r = await notificationService.sendToUser(user.id, { title, body, url }, { ttl: 86400 });
+      const r = await notificationService.sendToUser(
+        user.id,
+        { title, body, url, kind: "reminder" },
+        { ttl: 86400 }
+      );
       sent += r.sent;
       failed += r.failed;
     }

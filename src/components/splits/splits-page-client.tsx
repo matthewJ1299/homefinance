@@ -213,7 +213,10 @@ export function SplitsPageClient({
       <section id="shared-spends" className="space-y-2">
         <SectionHeader title="Recent shared spends" />
         {history.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No split expenses or settlements yet.</p>
+          <EmptyState
+            title="Nothing shared yet"
+            message="Pick someone in the Add sheet when you spend and it turns up here."
+          />
         ) : (
           <ul className="space-y-3">
             {history.map((item) =>

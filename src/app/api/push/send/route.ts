@@ -47,7 +47,14 @@ export async function POST(request: NextRequest) {
   }
 
   const notificationService = new NotificationService();
-  const result = await notificationService.sendToUser(userId, { title, body, url });
+  // The manual test endpoint: it exists to prove a device can be reached, so
+  // it sends as a reminder rather than being suppressed by the beta gate.
+  const result = await notificationService.sendToUser(userId, {
+    title,
+    body,
+    url,
+    kind: "reminder",
+  });
 
   if (result.badJwtToken) {
     const pub = (process.env.VAPID_PUBLIC_KEY ?? "").trim();

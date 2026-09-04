@@ -20,19 +20,30 @@ export default async function PendingApprovalPage() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
-        <CardTitle>{rejected ? "Registration not approved" : "Waiting for approval"}</CardTitle>
+        <CardTitle>
+          {rejected ? "Your house wasn't approved" : "Someone will approve your house shortly"}
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 text-sm text-muted-foreground">
         {rejected ? (
           <p>
-            Your household registration was not approved. Contact the administrator if you believe
-            this is a mistake.
+            An administrator turned down this house. If that looks like a mistake, get in touch
+            with them — nothing you entered has been deleted.
           </p>
         ) : (
-          <p>
-            Your household has been created and is waiting for an administrator to approve it.
-            Sign out and try again once approval is granted.
-          </p>
+          <>
+            {/* Copy-only for beta. The designed waiting experience stays on the
+                shelf; what a person needs here is what is happening and roughly
+                how long, not a progress animation for a manual step. */}
+            <p>
+              Your house is made and an administrator is checking it over. This is a person, not an
+              automatic step, so it usually happens within a day.
+            </p>
+            <p>
+              Nothing is lost while you wait. Sign in again once you hear back and everything will
+              be where you left it.
+            </p>
+          </>
         )}
         <form
           action={async () => {
