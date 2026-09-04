@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { format } from "date-fns";
 import { auth } from "@/lib/auth";
 import { getUserRepository } from "@/lib/repositories";
@@ -118,6 +119,12 @@ export default async function WhatIOwePage({ searchParams }: WhatIOwePageProps) 
         mortgageAmount={mortgageAmount}
         mortgageLabel={mortgageLabel}
       />
+      <p className="text-xs text-muted-foreground print:hidden">
+        The mortgage line is this budget month&rsquo;s share.{" "}
+        <Link href="/how-this-works/equity" className="font-semibold text-primary">
+          How your share of the house works
+        </Link>
+      </p>
     </div>
   );
 }

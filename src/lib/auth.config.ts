@@ -27,6 +27,7 @@ const APP_PREFIXES = [
   "/goals",
   "/summary",
   "/reports",
+  "/how-this-works",
   "/new-month",
   "/settings",
   "/add",

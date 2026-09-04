@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Sheet } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -151,7 +152,10 @@ export function BudgetCategorySheet({
                 At {formatRand(category.assigned)} a month you&apos;ll have{" "}
                 {formatRand(projected)} by {monthNameAfter(month, projectionMonths)}.
               </>
-            ) : null}
+            ) : null}{" "}
+            <Link href="/how-this-works/rollover" className="font-semibold underline">
+              How this works
+            </Link>
           </div>
         ) : null}
 

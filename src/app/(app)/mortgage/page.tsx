@@ -6,6 +6,10 @@ import { MortgageService } from "@/lib/services/mortgage.service";
 import { fromMinorUnits } from "@/lib/utils/currency";
 import { MortgageSetupForm } from "@/components/mortgage/mortgage-setup-form";
 import { MortgageSummaryCard } from "@/components/mortgage/mortgage-summary-card";
+import { WhatIOwnCard } from "@/components/mortgage/what-i-own-card";
+import { CollapsibleSection } from "@/components/ui/collapsible-section";
+import { calculateOwnership } from "@/lib/services/finance/mortgage-ownership";
+import { buildStory } from "@/lib/services/finance/mortgage-story";
 import { EquitySplitChart } from "@/components/mortgage/equity-split-chart";
 import { ExtraPaymentForm } from "@/components/mortgage/extra-payment-form";
 import { MortgageDetailsSection } from "@/components/mortgage/mortgage-details-section";
@@ -13,7 +17,7 @@ import { MortgagePaymentsList } from "@/components/mortgage/mortgage-payments-li
 import { MortgageRatePeriodsSection } from "@/components/mortgage/mortgage-rate-periods-section";
 
 export default async function MortgagePage() {
-  await auth();
+  const session = await auth();
   if (!hasFeature("mortgage")) {
     return <FeatureUnavailable feature="mortgage" />;
   }
@@ -87,9 +91,69 @@ export default async function MortgagePage() {
         : String(period.annualInterestRate),
   }));
 
+  // Share of what's paid for so far, which is the figure that moves. A share
+  // of the whole house barely changes month to month and reads as stalled.
+  const meUserId = Number(session?.user?.id ?? usersForForm[0]?.id ?? 0);
+  const monthRow =
+    schedule.schedule.find((r) => r.closingBalance <= currentBalance) ?? schedule.schedule[0];
+  const principalRepaid = config.loanAmount - currentBalance;
+  const ownership = calculateOwnership({
+    people: usersForForm.map((u, i) => ({
+      userId: u.id,
+      userName: u.name,
+      depositMinor: userConfigs.find((c) => c.userId === u.id)?.initialDeposit ?? 0,
+      paymentShare: i === 0 ? schedule.monthlyPaymentUserA : schedule.monthlyPaymentUserB,
+    })),
+    principalRepaidMinor: principalRepaid,
+    currentBalanceMinor: currentBalance,
+  });
+  const meIsUserA = usersForForm[0]?.id === meUserId;
+  const myMonthly = meIsUserA ? schedule.monthlyPaymentUserA : schedule.monthlyPaymentUserB;
+  const totalMonthly = schedule.monthlyPaymentUserA + schedule.monthlyPaymentUserB || 1;
+  const myFraction = myMonthly / totalMonthly;
+  const story = buildStory({
+    people: ownership.slices.map((sl) => ({
+      userId: sl.userId,
+      name: sl.userName,
+      depositMinor: sl.depositMinor,
+      monthlyMinor:
+        usersForForm[0]?.id === sl.userId
+          ? schedule.monthlyPaymentUserA
+          : schedule.monthlyPaymentUserB,
+      projectedShareBp: Math.round(
+        (usersForForm[0]?.id === sl.userId
+          ? schedule.equitySummary.userA.equityPct
+          : schedule.equitySummary.userB.equityPct) * 10_000
+      ),
+    })),
+    levelOutLabel: schedule.projectedPayoffDate,
+  });
+
   return (
-    <div className="p-4 space-y-6">
+    <div className="p-4 space-y-6 pb-24 md:pb-6">
       <h1 className="text-xl font-semibold">Mortgage</h1>
+
+      <WhatIOwnCard
+        ownership={ownership}
+        meUserId={meUserId}
+        monthSplit={{
+          yourShareMinor: myMonthly,
+          others: usersForForm
+            .filter((u) => u.id !== meUserId)
+            .map((u) => ({
+              name: u.name,
+              monthlyMinor:
+                usersForForm[0]?.id === u.id
+                  ? schedule.monthlyPaymentUserA
+                  : schedule.monthlyPaymentUserB,
+            })),
+          interestMinor: Math.round((monthRow?.interest ?? 0) * myFraction),
+          equityMinor: Math.round((monthRow?.principal ?? 0) * myFraction),
+        }}
+        story={story}
+      />
+
+      <CollapsibleSection title="More details" defaultOpen={false}>
       <MortgageSummaryCard
         monthlyBasePayment={schedule.monthlyBasePayment}
         monthlyTopUp={schedule.monthlyTopUp}
@@ -128,6 +192,7 @@ export default async function MortgagePage() {
         users={usersForForm}
         initialValues={mortgageInitialValues}
       />
+      </CollapsibleSection>
     </div>
   );
 }
