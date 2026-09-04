@@ -1,6 +1,7 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
 import { requireHouseholdId } from "@/lib/db/request-context";
 import { coerceBigIntOrNull } from "@/lib/db/coerce-bigint";
+import { isIncomeKind, type IncomeKind } from "@/lib/types/income-type";
 import type { BudgetMonthPeriod } from "@/lib/types/budget-month";
 import type { IncomeEntry } from "../interfaces/income.repository";
 import type {
@@ -10,7 +11,8 @@ import type {
 } from "../interfaces/income.repository";
 
 const SELECT_INCOME_ENTRY = `
-  SELECT i.id, i.user_id AS "userId", u.name AS "userName", i.amount, i.type, i.description, i.date,
+  SELECT i.id, i.user_id AS "userId", u.name AS "userName", i.amount, i.type,
+         i.income_type AS "incomeKind", i.description, i.date,
          i.month AS "month", i.account_id AS "accountId", i.created_at AS "createdAt"
   FROM income i
   INNER JOIN users u ON i.user_id = u.id AND u.household_id = i.household_id
@@ -22,6 +24,7 @@ interface IncomeEntryRow {
   userName: string;
   amount: number;
   type: string;
+  incomeKind: string | null;
   description: string | null;
   date: string;
   month: string;
@@ -36,6 +39,11 @@ function toIncomeEntry(r: IncomeEntryRow): IncomeEntry {
     userName: r.userName,
     amount: r.amount,
     type: r.type as "salary" | "ad_hoc",
+    // Pre-0037 rows can still be null in flight; fall back the same way the
+    // migration's backfill did.
+    incomeKind: isIncomeKind(r.incomeKind ?? "")
+      ? (r.incomeKind as IncomeKind)
+      : r.type === "salary" ? "salary" : "other",
     description: r.description,
     date: r.date,
     month: r.month,
@@ -93,12 +101,13 @@ export class IncomeRepository implements IIncomeRepository {
   async create(data: CreateIncomeInput): Promise<{ id: number }> {
     const hid = requireHouseholdId();
     await run(
-      "INSERT INTO income (user_id, household_id, amount, type, description, date, month, recurring_income_id, account_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO income (user_id, household_id, amount, type, income_type, description, date, month, recurring_income_id, account_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [
         data.userId,
         hid,
         data.amount,
         data.type,
+        data.incomeKind ?? (data.type === "salary" ? "salary" : "other"),
         data.description ?? null,
         data.date,
         data.month,
@@ -128,6 +137,10 @@ export class IncomeRepository implements IIncomeRepository {
     if (data.type != null) {
       updates.push("type = ?");
       params.push(data.type);
+    }
+    if (data.incomeKind != null) {
+      updates.push("income_type = ?");
+      params.push(data.incomeKind);
     }
     if (data.description !== undefined) {
       updates.push("description = ?");

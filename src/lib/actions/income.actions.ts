@@ -7,6 +7,7 @@ import { IncomeService } from "@/lib/services/income.service";
 import { getIncomeRepository, getSplitSettlementRepository } from "@/lib/repositories";
 import { createIncomeSchema, updateIncomeSchema } from "@/lib/validators/income.schema";
 import type { IncomeType } from "@/lib/types";
+import { legacyTypeForKind, type IncomeKind } from "@/lib/types/income-type";
 import type { IncomeEntry } from "@/lib/repositories/interfaces/income.repository";
 
 export type IncomeActionResult = { success: true; id?: number } | { success: false; error: string };
@@ -59,7 +60,10 @@ export async function getIncomeForEdit(id: number): Promise<GetIncomeForEditResu
 
 export async function addIncome(formData: {
   amount: number;
-  type: IncomeType;
+  /** Legacy settlement flag. Derived from `incomeKind` when only that is given. */
+  type?: IncomeType;
+  /** The user-facing kind: salary, bonus, interest, gift, other. */
+  incomeKind?: IncomeKind;
   description?: string | null;
   date: string;
   accountId?: number;
@@ -69,7 +73,12 @@ export async function addIncome(formData: {
     return { success: false, error: "Unauthorized" };
   }
   setRequestContextFromSession(session);
-  const parsed = createIncomeSchema.safeParse(formData);
+  const kind = formData.incomeKind ?? (formData.type === "salary" ? "salary" : "other");
+  const parsed = createIncomeSchema.safeParse({
+    ...formData,
+    incomeKind: kind,
+    type: formData.type ?? legacyTypeForKind(kind),
+  });
   if (!parsed.success) {
     return { success: false, error: parsed.error.message };
   }

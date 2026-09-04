@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { BudgetMonthStartDayProvider } from "@/components/settings/budget-month-start-context";
 import { getUserRepository } from "@/lib/repositories";
+import { loadAddSheetData } from "@/components/add/load-add-sheet-data";
 
 const BYPASS_PATHS = ["/pending-approval", "/welcome", "/change-password"];
 
@@ -45,9 +46,15 @@ export default async function AppLayout({
     redirect("/welcome");
   }
 
+  // The sheet is only reachable once setup is done; before that the shell
+  // renders on paths where a budget does not exist yet.
+  const addSheetData = onBypassPath
+    ? null
+    : await loadAddSheetData(userId, String(session.user.name ?? session.user.email ?? ""));
+
   return (
     <BudgetMonthStartDayProvider value={budgetMonthStartDay}>
-      <AppShell featureKeys={featureKeys} isSuperAdmin={isSuperAdmin}>
+      <AppShell featureKeys={featureKeys} isSuperAdmin={isSuperAdmin} addSheetData={addSheetData}>
         {children}
       </AppShell>
     </BudgetMonthStartDayProvider>

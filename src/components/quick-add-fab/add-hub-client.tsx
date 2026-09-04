@@ -1,14 +1,11 @@
 "use client";
 
-import { soleOtherMemberName } from "@/lib/types/household-member";
-
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Calendar, ChevronRight, ClipboardList, Receipt, Zap } from "lucide-react";
 import type { QuickAddFabProps } from "@/components/quick-add-fab/quick-add-fab";
-import { QuickAddForm } from "@/components/expenses/quick-add-form";
 import { EventFormDialog, buildCalendarEventApiBody } from "@/components/calendar/event-form-dialog";
 import { AddListItemDialog } from "@/components/shared-lists/add-list-item-dialog";
 import { Button } from "@/components/ui/button";
@@ -17,8 +14,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogHeader } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-type ModalType = "expense" | "list-item" | "calendar" | null;
-type QuickKind = "task" | "event" | "expense";
+type ModalType = "list-item" | "calendar" | null;
+type QuickKind = "task" | "event";
 
 export function AddHubClient(props: QuickAddFabProps) {
   const router = useRouter();
@@ -27,22 +24,11 @@ export function AddHubClient(props: QuickAddFabProps) {
   const [quickText, setQuickText] = useState("");
   const [quickKind, setQuickKind] = useState<QuickKind>("task");
   const [listItemSeed, setListItemSeed] = useState("");
-  const [expenseQuickSeed, setExpenseQuickSeed] = useState<string | null>(null);
-  const [expenseFormKey, setExpenseFormKey] = useState(0);
 
   const openModal = (type: ModalType) => setModal(type);
 
-  const openExpenseModal = (seedLine: string | null) => {
-    setExpenseQuickSeed(seedLine?.trim() ? seedLine.trim() : null);
-    setExpenseFormKey((k) => k + 1);
-    openModal("expense");
-  };
 
   const runQuickAdd = () => {
-    if (quickKind === "expense") {
-      openExpenseModal(quickText);
-      return;
-    }
     if (quickKind === "event") {
       openModal("calendar");
       return;
@@ -74,13 +60,6 @@ export function AddHubClient(props: QuickAddFabProps) {
       icon: Calendar,
       iconClass: "bg-sky-500/20 text-sky-600 dark:text-sky-400",
       onClick: () => openModal("calendar"),
-    },
-    {
-      title: "New expense",
-      description: "Log a purchase or bill",
-      icon: Receipt,
-      iconClass: "bg-orange-500/20 text-orange-600 dark:text-orange-400",
-      onClick: () => openExpenseModal(null),
     },
   ];
 
@@ -153,7 +132,6 @@ export function AddHubClient(props: QuickAddFabProps) {
               >
                 <option value="task">Task</option>
                 <option value="event">Event</option>
-                <option value="expense">Expense</option>
               </select>
             </div>
             <Button
@@ -166,32 +144,6 @@ export function AddHubClient(props: QuickAddFabProps) {
           </div>
         </div>
       </section>
-
-      <Dialog
-        open={modal === "expense"}
-        onOpenChange={(open) => {
-          if (!open) {
-            setModal(null);
-            setExpenseQuickSeed(null);
-          }
-        }}
-      >
-        <DialogHeader>Add expense</DialogHeader>
-        <QuickAddForm
-          key={expenseFormKey}
-          categories={props.categories}
-          userId={props.userId}
-          otherUserName={soleOtherMemberName(props.members ?? [])}
-          splitGroups={props.splitGroups}
-          quickSeed={expenseQuickSeed}
-          onAfterSave={() => {
-            setModal(null);
-            setExpenseQuickSeed(null);
-            setQuickText("");
-            router.push("/dashboard");
-          }}
-        />
-      </Dialog>
 
       {modal === "list-item" && (
         <AddListItemDialog

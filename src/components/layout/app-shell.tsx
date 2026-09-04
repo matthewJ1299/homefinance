@@ -2,16 +2,21 @@ import { Header } from "./header";
 import { BottomNav } from "./bottom-nav";
 import { DesktopSidebar } from "./desktop-sidebar";
 import { PushSubscriptionRepair } from "@/components/push/push-subscription-repair";
+import { AddSheetProvider } from "@/components/add/add-sheet-context";
+import type { AddSheetData } from "@/components/add/load-add-sheet-data";
 import type { FeatureKey } from "@/lib/features/registry";
 
 interface AppShellProps {
   children: React.ReactNode;
   featureKeys: FeatureKey[];
   isSuperAdmin: boolean;
+  /** Null while the household has no budget yet; the centre button then routes. */
+  addSheetData: AddSheetData | null;
 }
 
-export function AppShell({ children, featureKeys, isSuperAdmin }: AppShellProps) {
+export function AppShell({ children, featureKeys, isSuperAdmin, addSheetData }: AppShellProps) {
   return (
+    <AddSheetProvider data={addSheetData}>
     <div className="min-h-screen flex flex-col">
       <PushSubscriptionRepair />
       <Header featureKeys={featureKeys} isSuperAdmin={isSuperAdmin} />
@@ -23,7 +28,8 @@ export function AppShell({ children, featureKeys, isSuperAdmin }: AppShellProps)
           </div>
         </main>
       </div>
-      <BottomNav />
+      <BottomNav hasAddSheet={addSheetData != null} />
     </div>
+    </AddSheetProvider>
   );
 }
