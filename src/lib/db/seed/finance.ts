@@ -158,6 +158,14 @@ async function seedTransactionsAndIncome(ctx: SeedContext): Promise<void> {
             userAccounts.bankAccountId,
           ]
         );
+        // Seeded rows go in raw, so they need the participant row the service
+        // would have written. Without it every seeded expense reads as
+        // "pre-backfill" forever and the envelope arithmetic falls back to the
+        // full amount instead of the viewer's share.
+        await run(
+          "INSERT INTO expense_participants (household_id, expense_id, user_id, share_minor) VALUES (?, ?, ?, ?) ON CONFLICT (expense_id, user_id) DO NOTHING",
+          [householdId, await lastInsertId(), userId, amount]
+        );
         const expenseId = await lastInsertId();
         await run(
           "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note) VALUES (?, ?, 'expense', 'expense', ?, ?)",
@@ -239,9 +247,18 @@ async function seedSplitExpenses(ctx: SeedContext): Promise<void> {
       users: [String(mattId), String(sydneyId)],
     });
     for (const [userKey, shareAmount] of Object.entries(shares)) {
+      const shareUserId = Number(userKey);
+      // Everyone who was in on it gets a participant row...
+      await run(
+        "INSERT INTO expense_participants (household_id, expense_id, user_id, share_minor) VALUES (?, ?, ?, ?) ON CONFLICT (expense_id, user_id) DO NOTHING",
+        [householdId, expenseId, shareUserId, shareAmount]
+      );
+      // ...but only the people who owe the payer get a debt row. The payer
+      // does not owe themselves, and the service has never written one.
+      if (shareUserId === item.payerId) continue;
       await run("INSERT INTO split_allocations (expense_id, user_id, amount) VALUES (?, ?, ?)", [
         expenseId,
-        Number(userKey),
+        shareUserId,
         shareAmount,
       ]);
     }
