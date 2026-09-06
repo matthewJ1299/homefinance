@@ -6,7 +6,12 @@ import { Delete } from "lucide-react";
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { formatRand } from "@/lib/utils/currency";
-import { divideEqually, rebalanceAround } from "@/lib/services/finance/participants";
+import {
+  sharesFromRatios,
+  solveShares,
+  validateParticipantShares,
+  type SplitMode,
+} from "@/lib/services/finance/participants";
 import { addExpenseWithParticipants, deleteExpense } from "@/lib/actions/expense.actions";
 import { addIncome } from "@/lib/actions/income.actions";
 import type { HouseholdMember } from "@/lib/types/household-member";
@@ -83,7 +88,16 @@ export function AddSheet({
   const [entry, setEntry] = useState("");
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [pickedIds, setPickedIds] = useState<number[]>([me.id]); // "just me" default
-  const [pinned, setPinned] = useState<{ userId: number; shareMinor: number } | null>(null);
+  // Even by default: most shared spends are. The other two modes exist because
+  // "we split it 80/20" and "I owe 560, they owe 140" are both things people
+  // say, and neither survives being rounded into an even split.
+  const [splitMode, setSplitMode] = useState<SplitMode>("even");
+  /** Exact mode: shares the user has typed or dragged. */
+  const [pinned, setPinned] = useState<Record<number, number>>({});
+  /** Raw text per person, so a half-typed "5" does not snap to R5. */
+  const [shareText, setShareText] = useState<Record<number, string>>({});
+  /** Ratio mode: relative weights, defaulting to equal. */
+  const [ratios, setRatios] = useState<Record<number, string>>({});
   const [accountId, setAccountId] = useState<number | undefined>(defaultAccountId);
   const [date, setDate] = useState(defaultDate);
   const [note, setNote] = useState("");
@@ -99,7 +113,10 @@ export function AddSheet({
     setEntry(prefill.amountMinor ? (prefill.amountMinor / 100).toFixed(2) : "");
     setCategoryId(prefill.categoryId ?? null);
     setPickedIds([me.id, ...(prefill.participantIds ?? []).filter((id) => id !== me.id)]);
-    setPinned(null);
+    setSplitMode("even");
+    setPinned({});
+    setShareText({});
+    setRatios({});
     setAccountId(defaultAccountId);
     setDate(defaultDate);
     setNote(prefill.note ?? "");
@@ -114,12 +131,29 @@ export function AddSheet({
   }, [entry]);
 
   const participants = useMemo(() => {
-    const even = divideEqually(amountMinor, pickedIds);
-    const base = pickedIds.map((id) => ({ userId: id, shareMinor: even[id] ?? 0 }));
-    return pinned && pickedIds.includes(pinned.userId)
-      ? rebalanceAround(amountMinor, base, pinned.userId, pinned.shareMinor)
-      : base;
-  }, [amountMinor, pickedIds, pinned]);
+    if (splitMode === "ratio") {
+      const weights: Record<number, number> = {};
+      for (const id of pickedIds) {
+        const n = Number((ratios[id] ?? "").replace(",", "."));
+        weights[id] = Number.isFinite(n) && n >= 0 ? n : 0;
+      }
+      // Nothing typed yet reads as equal, which is where the mode starts.
+      const anySet = pickedIds.some((id) => (ratios[id] ?? "").trim() !== "");
+      if (!anySet) return solveShares(amountMinor, pickedIds, {});
+      return sharesFromRatios(amountMinor, weights);
+    }
+    // Only pins for people still picked; dropping someone must not keep their
+    // share reserved.
+    const active: Record<number, number> = {};
+    if (splitMode === "exact") {
+      for (const id of pickedIds) if (pinned[id] != null) active[id] = pinned[id];
+    }
+    return solveShares(amountMinor, pickedIds, active);
+  }, [amountMinor, pickedIds, pinned, ratios, splitMode]);
+
+  const sharesTotal = participants.reduce((sum, p) => sum + p.shareMinor, 0);
+  /** Non-zero only when every share is typed and they do not add up. */
+  const shareGap = amountMinor > 0 ? amountMinor - sharesTotal : 0;
 
   const myShare = participants.find((p) => p.userId === me.id)?.shareMinor ?? 0;
   const category = categories.find((c) => c.id === categoryId) ?? null;
@@ -177,7 +211,11 @@ export function AddSheet({
         };
   }, [category, amountMinor, myShare, participants, pickedIds.length, me.id, members]);
 
-  const canSave = amountMinor > 0 && (tab === "income" || categoryId != null) && !pending;
+  const canSave =
+    amountMinor > 0 &&
+    (tab === "income" || categoryId != null) &&
+    shareGap === 0 &&
+    !pending;
 
   function press(key: string) {
     setEntry((prev) => {
@@ -192,8 +230,42 @@ export function AddSheet({
 
   function togglePerson(id: number) {
     if (id === me.id) return; // you are always in on your own spend
-    setPinned(null); // re-even the split when the set changes
+    // Changing who is in re-evens the split. Keeping the old shares would
+    // produce a division nobody chose.
+    setSplitMode("even");
+    setPinned({});
+    setShareText({});
+    setRatios({});
     setPickedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  function setShare(userId: number, text: string) {
+    setShareText((prev) => ({ ...prev, [userId]: text }));
+    const trimmed = text.trim();
+    if (trimmed === "") {
+      // Clearing a field hands that person back to the even split.
+      setPinned((prev) => {
+        const next = { ...prev };
+        delete next[userId];
+        return next;
+      });
+      return;
+    }
+    const n = Number(trimmed.replace(",", "."));
+    if (!Number.isFinite(n) || n < 0) return;
+    setPinned((prev) => ({ ...prev, [userId]: Math.round(n * 100) }));
+  }
+
+  function dragShare(userId: number, shareMinor: number) {
+    setPinned((prev) => ({ ...prev, [userId]: shareMinor }));
+    setShareText((prev) => ({ ...prev, [userId]: (shareMinor / 100).toFixed(2) }));
+  }
+
+  function changeMode(next: SplitMode) {
+    setSplitMode(next);
+    setPinned({});
+    setShareText({});
+    setRatios({});
   }
 
   function save() {
@@ -214,6 +286,12 @@ export function AddSheet({
         toast.success(`Added ${formatRand(amountMinor)} in.`);
         await prefill.onSaved?.();
         onOpenChange(false);
+        return;
+      }
+
+      const valid = validateParticipantShares(amountMinor, participants, me.id);
+      if (!valid.ok) {
+        toast.error(valid.error);
         return;
       }
 
@@ -370,41 +448,117 @@ export function AddSheet({
             ) : null}
 
             {showShares ? (
-              <div className="space-y-2 pb-3">
+              <div className="space-y-2 pb-3" data-testid="share-editor">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-muted-foreground">Who owes what</span>
+                  <div
+                    className="flex rounded-full border border-border bg-muted p-0.5"
+                    role="group"
+                    aria-label="How to split it"
+                  >
+                    {(
+                      [
+                        ["even", "Evenly"],
+                        ["ratio", "By share"],
+                        ["exact", "Exact amounts"],
+                      ] as const
+                    ).map(([mode, label]) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => changeMode(mode)}
+                        aria-pressed={splitMode === mode}
+                        className={cn(
+                          "min-h-9 rounded-full px-3 text-xs font-medium transition-colors cursor-pointer",
+                          splitMode === mode
+                            ? "bg-card text-foreground shadow-sm"
+                            : "text-muted-foreground"
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 {participants.map((p) => {
                   const name =
                     p.userId === me.id
                       ? "You"
                       : (members.find((m) => m.id === p.userId)?.name ?? "?");
                   const pct = amountMinor > 0 ? (p.shareMinor / amountMinor) * 100 : 0;
+                  const isSet = pinned[p.userId] != null;
                   return (
                     <div key={p.userId} className="flex items-center gap-2">
                       <span className="w-14 shrink-0 truncate text-xs text-muted-foreground">
                         {name}
                       </span>
-                      <input
-                        type="range"
-                        min={0}
-                        max={amountMinor}
-                        step={1}
-                        value={p.shareMinor}
-                        aria-label={`${name} share`}
-                        onChange={(e) =>
-                          setPinned({ userId: p.userId, shareMinor: Number(e.target.value) })
-                        }
-                        className="h-11 min-w-0 flex-1 cursor-pointer"
-                      />
-                      {/* The remainder cent stays visible: three people on R100
-                          means someone pays 34c, and "R33,33 each" is a lie. */}
-                      <span className="w-20 shrink-0 text-right text-xs tabular-nums">
-                        {formatRand(p.shareMinor)}
-                      </span>
+                      {splitMode === "ratio" ? (
+                        <>
+                          {/* Weights, not percentages that must total 100:
+                              "2 to 1" is easier to say than "67 and 33", and
+                              the ratio splitter makes both add up exactly. */}
+                          <input
+                            inputMode="decimal"
+                            placeholder="1"
+                            value={ratios[p.userId] ?? ""}
+                            onChange={(ev) =>
+                              setRatios((prev) => ({ ...prev, [p.userId]: ev.target.value }))
+                            }
+                            aria-label={`${name} share of the split`}
+                            className="h-11 w-16 shrink-0 rounded-lg border border-border bg-card px-2 text-right text-sm tabular-nums"
+                          />
+                          <span className="min-w-0 flex-1 text-right text-sm tabular-nums">
+                            {formatRand(p.shareMinor)}
+                          </span>
+                        </>
+                      ) : splitMode === "exact" ? (
+                        <>
+                          <input
+                            type="range"
+                            min={0}
+                            max={amountMinor}
+                            step={1}
+                            value={p.shareMinor}
+                            aria-label={`${name} share slider`}
+                            onChange={(ev) => dragShare(p.userId, Number(ev.target.value))}
+                            className="h-11 min-w-0 flex-1 cursor-pointer"
+                          />
+                          {/* Typed, not only dragged: a slider cannot land on
+                              R560 without a fight, and R560 is a number people
+                              mean exactly. Whoever you have not typed absorbs
+                              the rest. */}
+                          <input
+                            inputMode="decimal"
+                            value={shareText[p.userId] ?? (p.shareMinor / 100).toFixed(2)}
+                            onChange={(ev) => setShare(p.userId, ev.target.value)}
+                            aria-label={`${name} share`}
+                            className={cn(
+                              "h-11 w-24 shrink-0 rounded-lg border bg-card px-2 text-right text-sm tabular-nums",
+                              isSet ? "border-primary font-semibold" : "border-border"
+                            )}
+                          />
+                        </>
+                      ) : (
+                        <span className="min-w-0 flex-1 text-right text-sm tabular-nums">
+                          {formatRand(p.shareMinor)}
+                        </span>
+                      )}
                       <span className="w-9 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">
                         {Math.round(pct)}%
                       </span>
                     </div>
                   );
                 })}
+                {/* The remainder cent stays visible in the per-person figures:
+                    three people on R100 means someone pays 34c, and "R33,33
+                    each" is a lie. */}
+                {shareGap !== 0 ? (
+                  <p className="text-xs font-medium text-destructive" role="alert">
+                    {shareGap > 0
+                      ? `${formatRand(shareGap)} still to account for.`
+                      : `${formatRand(-shareGap)} more than the total.`}
+                  </p>
+                ) : null}
               </div>
             ) : null}
 
@@ -508,15 +662,17 @@ export function AddSheet({
           disabled={!canSave}
           className="mt-3 w-full rounded-xl bg-primary py-3.5 text-base font-semibold text-primary-foreground cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {!canSave
-            ? tab === "income"
-              ? "Save money in"
-              : "Save spend"
-            : tab === "income"
-              ? `Save ${formatRand(amountMinor)} in`
-              : pickedIds.length > 1
-                ? `Save · your share ${formatRand(myShare)}`
-                : `Save ${formatRand(amountMinor)}`}
+          {shareGap !== 0
+            ? "Shares don't add up"
+            : !canSave
+              ? tab === "income"
+                ? "Save money in"
+                : "Save spend"
+              : tab === "income"
+                ? `Save ${formatRand(amountMinor)} in`
+                : pickedIds.length > 1
+                  ? `Save · your share ${formatRand(myShare)}`
+                  : `Save ${formatRand(amountMinor)}`}
         </button>
       </div>
     </Sheet>

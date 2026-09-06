@@ -30,6 +30,11 @@ export const updateExpenseSchema = z
     splitType: splitTypeSchema.optional(),
     myShareCents: z.number().int().min(0).optional(),
     otherShareCents: z.number().int().min(0).optional(),
+    /**
+     * Explicit shares. Supersedes splitType/otherShareCents, and is the only
+     * form that can express an uneven split across more than two people.
+     */
+    participants: z.array(participantShareSchema).min(1).max(20).optional(),
   })
   .refine(
     (data) => {

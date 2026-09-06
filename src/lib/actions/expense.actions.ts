@@ -335,7 +335,14 @@ export async function updateExpense(
     }
 
     let shares: Record<number, number>;
-    if (parsed.data.splitType === "full") {
+    if (parsed.data.participants?.length) {
+      // An explicit list is the user's own arithmetic; honour it and let
+      // validation below say so if it does not add up.
+      roster = parsed.data.participants.map((p) => p.userId);
+      shares = Object.fromEntries(
+        parsed.data.participants.map((p) => [p.userId, p.shareMinor])
+      );
+    } else if (parsed.data.splitType === "full") {
       const theirs = divideEqually(totalCents, coParticipants);
       shares = { [payerId]: 0, ...theirs };
     } else if (parsed.data.splitType === "exact") {

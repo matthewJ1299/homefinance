@@ -1,5 +1,5 @@
 import { formatRand } from "@/lib/utils/currency";
-import { splitExpense } from "./accounts";
+import { splitExpense, splitExpenseWithRatios } from "./accounts";
 
 export interface ParticipantShare {
   userId: number;
@@ -46,8 +46,83 @@ export function validateParticipantShares(
 }
 
 /**
- * Rebalances after the user nudges one share: the nudged share is honoured and
- * the rest absorb the difference equally, so the total stays pinned.
+ * How a bill is divided.
+ *
+ * Even is the default because it is what most shared spends are. The other two
+ * exist because "we split it 80/20" and "I owe 560, they owe 140" are both
+ * things people say, and neither survives being rounded into an even split.
+ */
+export type SplitMode = "even" | "ratio" | "exact";
+
+/**
+ * Shares from proportions -- 80/20, or three ways at 2:1:1.
+ *
+ * Goes through the ratio splitter rather than multiplying and rounding, so the
+ * shares always add to the bill exactly. 80/20 of R700 is R560 and R140; 1/3
+ * each of R100 is 34/33/33, not three lots of R33,33 and a lost cent.
+ */
+export function sharesFromRatios(
+  amountMinor: number,
+  ratios: Record<number, number>
+): ParticipantShare[] {
+  const ids = Object.keys(ratios).map(Number);
+  if (ids.length === 0) return [];
+  const total = ids.reduce((sum, id) => sum + Math.max(0, ratios[id] ?? 0), 0);
+  // All zeroes would divide by nothing; fall back to an even split.
+  if (total <= 0) return solveShares(amountMinor, ids, {});
+  const keyed = splitExpenseWithRatios({
+    amount: amountMinor,
+    splits: Object.fromEntries(ids.map((id) => [String(id), Math.max(0, ratios[id] ?? 0)])),
+  });
+  return ids.map((id) => ({ userId: id, shareMinor: keyed[String(id)] ?? 0 }));
+}
+
+/**
+ * Solves the shares given whatever the user has typed so far.
+ *
+ * A share the user has set is honoured exactly -- "I owe 560 and they owe 140"
+ * has to come out as 560 and 140, not as the nearest the arithmetic felt like.
+ * Everyone they have not touched splits what is left, equally and to the cent.
+ *
+ * When every share is set, the figures are returned untouched even if they do
+ * not add up: the sheet shows the gap and refuses to save. Silently absorbing
+ * the difference into whichever person was edited last would change a number
+ * the user had already decided.
+ */
+export function solveShares(
+  amountMinor: number,
+  userIds: number[],
+  pinned: Record<number, number> = {}
+): ParticipantShare[] {
+  if (userIds.length === 0) return [];
+
+  const pinnedIds = userIds.filter((id) => pinned[id] != null);
+  const freeIds = userIds.filter((id) => pinned[id] == null);
+
+  if (freeIds.length === 0) {
+    return userIds.map((id) => ({ userId: id, shareMinor: Math.max(0, pinned[id] ?? 0) }));
+  }
+
+  // Clamp the pinned total: a set of typed shares that already exceeds the
+  // amount cannot leave the others owing a negative.
+  let pinnedTotal = 0;
+  const clampedPins: Record<number, number> = {};
+  for (const id of pinnedIds) {
+    const value = Math.max(0, Math.min(amountMinor - pinnedTotal, pinned[id] ?? 0));
+    clampedPins[id] = value;
+    pinnedTotal += value;
+  }
+
+  const rest = divideEqually(Math.max(0, amountMinor - pinnedTotal), freeIds);
+  return userIds.map((id) => ({
+    userId: id,
+    shareMinor: pinned[id] != null ? (clampedPins[id] ?? 0) : (rest[id] ?? 0),
+  }));
+}
+
+/**
+ * Single-pin form of {@link solveShares}: the nudged share is honoured and the
+ * rest absorb the difference equally, so the total stays pinned.
  */
 export function rebalanceAround(
   amountMinor: number,
@@ -55,12 +130,12 @@ export function rebalanceAround(
   pinnedUserId: number,
   pinnedShareMinor: number
 ): ParticipantShare[] {
-  const others = participants.filter((p) => p.userId !== pinnedUserId);
-  if (others.length === 0) return [{ userId: pinnedUserId, shareMinor: amountMinor }];
-  const clamped = Math.max(0, Math.min(amountMinor, pinnedShareMinor));
-  const rest = divideEqually(amountMinor - clamped, others.map((o) => o.userId));
+  const ids = participants.map((p) => p.userId);
+  if (!ids.includes(pinnedUserId)) ids.unshift(pinnedUserId);
+  const solved = solveShares(amountMinor, ids, { [pinnedUserId]: pinnedShareMinor });
+  // Historical ordering: the pinned person first, then the rest as given.
   return [
-    { userId: pinnedUserId, shareMinor: clamped },
-    ...others.map((o) => ({ userId: o.userId, shareMinor: rest[o.userId] ?? 0 })),
+    solved.find((p) => p.userId === pinnedUserId)!,
+    ...solved.filter((p) => p.userId !== pinnedUserId),
   ];
 }
