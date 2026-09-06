@@ -235,6 +235,15 @@ export class BudgetService {
     const previous = prevMonth(month);
     const prior = await this.getOverview(previous, userId);
 
+    // Materialise the new month's assigned amounts BEFORE writing carry-in.
+    // setCarriedIn inserts with allocated_amount 0 when no row exists yet, and
+    // resolveEffectiveAllocations stops at the first row it finds walking back
+    // -- so a carry-in row written first reads as "assigned nothing this month"
+    // and silently discards the template amount the month should have started
+    // with. Opening the overview persists those rows, and the ON CONFLICT in
+    // setCarriedIn then touches only carried_in_minor.
+    await this.getOverview(month, userId);
+
     let carriedOverspend = 0;
     const carryIn: Array<{ categoryId: number; amount: number }> = [];
     for (const row of prior.categories) {

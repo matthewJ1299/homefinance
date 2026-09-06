@@ -8,9 +8,23 @@ import { NextRequest } from "next/server";
 
 const HAS_DB = Boolean(process.env.DATABASE_URL);
 
+// The route handlers bind tenant context from the session, so the mock has to
+// carry a household and its entitlements. Without them every tenant-scoped
+// query throws "Missing household context" and every gated route answers 403 --
+// which is what this suite had been doing since households landed.
 vi.mock("@/lib/auth", () => ({
   auth: vi.fn().mockResolvedValue({
-    user: { id: "1", name: "Test User" },
+    user: {
+      id: "1",
+      name: "Test User",
+      // Replaced in beforeAll with the seeded user's real household.
+      householdId: "0",
+      featureKeys: ["ai_budget_analysis", "recon", "what_i_owe", "mortgage", "goals"],
+      aiTier: "free",
+      householdApprovalStatus: "active",
+      isSuperAdmin: false,
+      mustChangePassword: false,
+    },
   }),
 }));
 
@@ -18,10 +32,34 @@ describe.runIf(HAS_DB)("API and DB integration", () => {
   const createdExpenseIds: number[] = [];
   const createdIncomeIds: number[] = [];
   const createdBudgetSnapshots: { userId: number; categoryId: number; month: string; amount: number }[] = [];
+  let householdId = 0;
 
   beforeAll(async () => {
-    const { initDb } = await import("@/lib/db");
+    const { initDb, get } = await import("@/lib/db");
     await initDb();
+
+    // The seed does not guarantee household id 1, so read the one user 1
+    // actually belongs to rather than hardcoding a number the seed can move.
+    const row = await get<{ household_id: number }>(
+      "SELECT household_id FROM users WHERE id = 1"
+    );
+    if (row?.household_id == null) {
+      throw new Error("Seeded user 1 has no household. Run npm run db:fresh.");
+    }
+    householdId = Number(row.household_id);
+    const { auth } = await import("@/lib/auth");
+    vi.mocked(auth).mockResolvedValue({
+      user: {
+        id: "1",
+        name: "Test User",
+        householdId: String(row.household_id),
+        featureKeys: ["ai_budget_analysis", "recon", "what_i_owe", "mortgage", "goals"],
+        aiTier: "free",
+        householdApprovalStatus: "active",
+        isSuperAdmin: false,
+        mustChangePassword: false,
+      },
+    } as never);
   });
 
   afterEach(async () => {
@@ -52,8 +90,8 @@ describe.runIf(HAS_DB)("API and DB integration", () => {
   describe("GET /api/categories", () => {
     it("returns categories", async () => {
       const { GET } = await import("@/app/api/categories/route");
-      const req = new NextRequest("http://localhost/api/categories");
-      const res = await GET(req);
+      // This handler takes no request argument.
+      const res = await GET();
       expect(res.status).toBe(200);
       const data = await res.json();
       expect(data).toHaveProperty("categories");
@@ -204,8 +242,7 @@ describe.runIf(HAS_DB)("API and DB integration", () => {
   describe("GET /api/mortgage/config", () => {
     it("returns config or 404", async () => {
       const { GET } = await import("@/app/api/mortgage/config/route");
-      const req = new NextRequest("http://localhost/api/mortgage/config");
-      const res = await GET(req);
+      const res = await GET();
       expect([200, 404]).toContain(res.status);
       if (res.status === 200) {
         const data = await res.json();
@@ -217,8 +254,7 @@ describe.runIf(HAS_DB)("API and DB integration", () => {
   describe("GET /api/mortgage/schedule", () => {
     it("returns schedule or 404", async () => {
       const { GET } = await import("@/app/api/mortgage/schedule/route");
-      const req = new NextRequest("http://localhost/api/mortgage/schedule");
-      const res = await GET(req);
+      const res = await GET();
       expect([200, 404]).toContain(res.status);
     });
   });
@@ -226,22 +262,21 @@ describe.runIf(HAS_DB)("API and DB integration", () => {
   describe("GET /api/mortgage/equity", () => {
     it("returns equity or 404", async () => {
       const { GET } = await import("@/app/api/mortgage/equity/route");
-      const req = new NextRequest("http://localhost/api/mortgage/equity");
-      const res = await GET(req);
+      const res = await GET();
       expect([200, 404]).toContain(res.status);
     });
   });
 
   describe("Unauthorized", () => {
     it("returns 401 when auth is missing", async () => {
-      vi.mocked(await import("@/lib/auth")).auth.mockResolvedValueOnce(null);
+      vi.mocked(await import("@/lib/auth")).auth.mockResolvedValueOnce(null as never);
       const { GET } = await import("@/app/api/categories/route");
-      const req = new NextRequest("http://localhost/api/categories");
-      const res = await GET(req);
+      // This handler takes no request argument.
+      const res = await GET();
       expect(res.status).toBe(401);
       vi.mocked(await import("@/lib/auth")).auth.mockResolvedValue({
-        user: { id: "1", name: "Test User" },
-      });
+        user: { id: "1", name: "Test User", householdId: String(householdId) },
+      } as never);
     });
   });
 });

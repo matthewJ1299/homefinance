@@ -14,7 +14,7 @@ import { withHouseholdFixture } from "./helpers/fixture";
 const HAS_DB = Boolean(process.env.DATABASE_URL);
 
 describe.runIf(HAS_DB)("rollover across three months", () => {
-  it.fails("carries a leftover into the same category", async () => {
+  it("carries a leftover into the same category", async () => {
     await withHouseholdFixture({ memberCount: 1 }, async ({ users, months, categories, svc }) => {
       const me = users[0].id;
       const cat = categories.find((c) => c.name === "Car service")!.id;
@@ -28,7 +28,7 @@ describe.runIf(HAS_DB)("rollover across three months", () => {
     });
   });
 
-  it.fails("an overspend does not carry into the category, it reduces unassigned", async () => {
+  it("an overspend does not carry into the category, it reduces unassigned", async () => {
     await withHouseholdFixture({ memberCount: 1 }, async ({ users, months, categories, svc }) => {
       const me = users[0].id;
       const cat = categories.find((c) => c.name === "Groceries")!.id;
@@ -42,7 +42,7 @@ describe.runIf(HAS_DB)("rollover across three months", () => {
     });
   });
 
-  it.fails("covering the overspend first means nothing is deducted", async () => {
+  it("covering the overspend first means nothing is deducted", async () => {
     await withHouseholdFixture({ memberCount: 1 }, async ({ users, months, categories, svc }) => {
       const me = users[0].id;
       const groceries = categories.find((c) => c.name === "Groceries")!.id;
@@ -56,7 +56,7 @@ describe.runIf(HAS_DB)("rollover across three months", () => {
     });
   });
 
-  it.fails("openMonth is idempotent", async () => {
+  it("openMonth is idempotent", async () => {
     await withHouseholdFixture({ memberCount: 1 }, async ({ users, months, categories, svc }) => {
       const me = users[0].id;
       const cat = categories[0].id;
@@ -68,7 +68,7 @@ describe.runIf(HAS_DB)("rollover across three months", () => {
     });
   });
 
-  it.fails("editing month 1 does not change month 3", async () => {
+  it("editing month 1 does not change month 3", async () => {
     await withHouseholdFixture({ memberCount: 1 }, async ({ users, months, categories, svc }) => {
       const me = users[0].id;
       const cat = categories[0].id;
@@ -83,7 +83,7 @@ describe.runIf(HAS_DB)("rollover across three months", () => {
     });
   });
 
-  it.fails("rollover: false resets the category each month", async () => {
+  it("rollover: false resets the category each month", async () => {
     await withHouseholdFixture({ memberCount: 1 }, async ({ users, months, categories, svc }) => {
       const me = users[0].id;
       const cat = categories[0].id;
