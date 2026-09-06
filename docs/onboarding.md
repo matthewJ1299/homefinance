@@ -23,7 +23,9 @@ Catalogue of step keys: `src/lib/onboarding/steps.ts`.
 
 ## Flow
 
+- Six steps: **household** (name it, who's in it, what they will and won't see), accounts, payday, income, categories, budget.
 - First sign-in with `not_started` redirects to `/welcome` from `(app)/layout.tsx`.
+- The payday step sets the **household's** budget month, not the user's, so everyone sees the same one.
 - Entering the guide sets `in_progress` once; **completed users are never downgraded**.
 - **Skip** sets `dismissed` and returns to the dashboard; a dismissible **Setup progress banner** links back to `/welcome`.
 - **Settings → Household setup** reopens the guide for completed users without changing status until they interact.
@@ -32,7 +34,7 @@ Catalogue of step keys: `src/lib/onboarding/steps.ts`.
 
 `bootstrapHouseholdDefaults` seeds categories with `defaultAmount = null` so step 4 is where real amounts are chosen. Dev seed (`db:seed`) keeps realistic amounts separately.
 
-Plumbing categories **Splits** and **Mortgage** are hidden from the step 4 checklist.
+Plumbing categories **Splits** and **Mortgage** are hidden from the categories checklist.
 
 ## Repository / actions
 

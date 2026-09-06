@@ -7,6 +7,15 @@ Headed Chromium suite that walks registration, admin, onboarding, feature gates,
 1. Postgres reachable via `DATABASE_URL` in `.env.local` (a wedged or missing DB will make Next hang or exit during instrumentation).
 2. Seeded demo household: `npm run db:push` then `npm run db:seed`
 3. A healthy Postgres matching `DATABASE_URL` in `.env.local` (this repo’s local URL uses port **5433**). If that port refuses connections, start your Postgres container/service first — Next will fail or hang during DB init.
+
+   The dev database is deliberately **not** in `docker-compose.yml` (that file does not publish 5432, so a
+   Coolify host can run several stacks). Start it by hand:
+
+   ```bash
+   docker run -d --name homefinance-db \
+     -e POSTGRES_USER=homefinance -e POSTGRES_PASSWORD=homefinance -e POSTGRES_DB=homefinance \
+     -p 5433:5432 -v homefinance_pgdata:/var/lib/postgresql/data postgres:16-alpine
+   ```
 4. Playwright starts its **own** app on **`http://127.0.0.1:3100`** by default (avoids a wedged `:3000`). Do not point it at a dead listener.
 
 Default users (override with `SEED_*`):
@@ -57,13 +66,14 @@ npm run test:e2e:report
 | `05`–`07` | Admin, feature gates off/on, tenant isolation |
 | `08` | Core screen smoke (routes load) |
 | `09`–`11` | Settings, gated feature shells, theme |
-| `12` | **Add expense** (Transactions + Add hub), search, **add income** |
+| `12` | **Add sheet** spend + consequence panel, search, **add income**, `/income` redirect |
 | `13` | **Create account**, **Transfer Money** between accounts |
-| `14` | **Equal split expense** + Sydney **Settle** |
-| `15` | **Mortgage extra payment**, rate-changes UI, **create savings goal** |
-| `16` | **Budget** auto-allocate (when enabled), **Summary** after mutations |
+| `14` | **Split evenly / by share / exact amounts**, the refusal when shares don't add up, Sydney **Settle into a category** |
+| `15` | **Mortgage extra payment** (behind More details), rate changes, **goal as a dated category** |
+| `16` | **Budget** headline + category sheet, **Reports** tabs, Home hero and breakdown |
 | `17` | **List item** + create list in Settings, **calendar event** |
 | `18` | **What I owe** / **Owed to me** after a split |
+| `19` | `/new-month`, **balance check**, **log the shop**, bank-inbox rules, how-this-works |
 
 Finance helpers live in `e2e/helpers/finance.ts`.
 
