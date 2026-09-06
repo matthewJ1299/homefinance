@@ -23,15 +23,18 @@ export function Dialog({ open, onOpenChange, children, className }: DialogProps)
     setMounted(true);
   }, []);
 
+  // `mounted` belongs in the deps: the portal is absent on the first render, so
+  // a dialog whose parent mounts it already open would run this before the
+  // <dialog> existed and never run it again.
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     if (open) {
-      el.showModal();
-    } else {
+      if (!el.open) el.showModal();
+    } else if (el.open) {
       el.close();
     }
-  }, [open]);
+  }, [open, mounted]);
 
   useEffect(() => {
     const el = ref.current;

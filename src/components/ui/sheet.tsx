@@ -32,6 +32,10 @@ export function Sheet({ open, onOpenChange, children, className, label }: SheetP
     setMounted(true);
   }, []);
 
+  // `mounted` belongs in the deps: the portal is absent on the first render, so
+  // a sheet whose parent mounts it already open (the settle sheet, rendered only
+  // once a recipient is picked) ran this before the <dialog> existed and never
+  // ran it again -- open state set, nothing on screen.
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -40,7 +44,7 @@ export function Sheet({ open, onOpenChange, children, className, label }: SheetP
     } else if (el.open) {
       el.close();
     }
-  }, [open]);
+  }, [open, mounted]);
 
   useEffect(() => {
     const el = ref.current;

@@ -52,7 +52,8 @@ test.describe("Password management", () => {
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
 
     await page.getByLabel("Current password").fill(afterForcePassword);
-    await page.getByLabel("New password").fill(afterVoluntaryPassword);
+    // "Confirm new password" also contains "New password".
+    await page.getByLabel("New password", { exact: true }).fill(afterVoluntaryPassword);
     await page.getByLabel("Confirm new password").fill(afterVoluntaryPassword);
     await page.getByRole("button", { name: "Save password" }).click();
     await expect(page.getByText(/Password updated|incorrect/i).first()).toBeVisible({
@@ -62,7 +63,7 @@ test.describe("Password management", () => {
 
     // Wrong current password fails
     await page.getByLabel("Current password").fill("wrong-password-xx");
-    await page.getByLabel("New password").fill("AnotherPass1!");
+    await page.getByLabel("New password", { exact: true }).fill("AnotherPass1!");
     await page.getByLabel("Confirm new password").fill("AnotherPass1!");
     await page.getByRole("button", { name: "Save password" }).click();
     await expect(page.getByText(/incorrect/i).first()).toBeVisible();

@@ -52,7 +52,7 @@ test.describe("Shared costs", () => {
     await openAddSheet(page);
     const sheet = page.getByRole("dialog", { name: "Add" });
 
-    await typeAmountOnKeypad(page, "70000");
+    await typeAmountOnKeypad(page, "700.00");
     await sheet.getByRole("button", { name: /^Groceries/ }).first().click();
     await sheet.getByRole("button", { name: OTHER, exact: true }).click();
 
@@ -72,7 +72,7 @@ test.describe("Shared costs", () => {
     await openAddSheet(page);
     const sheet = page.getByRole("dialog", { name: "Add" });
 
-    await typeAmountOnKeypad(page, "70000");
+    await typeAmountOnKeypad(page, "700.00");
     await sheet.getByRole("button", { name: /^Dining Out/ }).first().click();
     await sheet.getByRole("button", { name: OTHER, exact: true }).click();
     await sheet.getByRole("button", { name: "By share" }).click();
@@ -95,7 +95,7 @@ test.describe("Shared costs", () => {
     await openAddSheet(page);
     const sheet = page.getByRole("dialog", { name: "Add" });
 
-    await typeAmountOnKeypad(page, "70000");
+    await typeAmountOnKeypad(page, "700.00");
     await sheet.getByRole("button", { name: /^Groceries/ }).first().click();
     await sheet.getByRole("button", { name: OTHER, exact: true }).click();
     await sheet.getByRole("button", { name: "Exact amounts" }).click();
@@ -115,7 +115,7 @@ test.describe("Shared costs", () => {
     await openAddSheet(page);
     const sheet = page.getByRole("dialog", { name: "Add" });
 
-    await typeAmountOnKeypad(page, "70000");
+    await typeAmountOnKeypad(page, "700.00");
     await sheet.getByRole("button", { name: /^Groceries/ }).first().click();
     await sheet.getByRole("button", { name: OTHER, exact: true }).click();
     await sheet.getByRole("button", { name: "Exact amounts" }).click();
@@ -135,7 +135,7 @@ test.describe("Shared costs", () => {
     await openAddSheet(page);
     const sheet = page.getByRole("dialog", { name: "Add" });
 
-    await typeAmountOnKeypad(page, "10000");
+    await typeAmountOnKeypad(page, "100.00");
     await sheet.getByRole("button", { name: /^Groceries/ }).first().click();
     await sheet.getByRole("button", { name: OTHER, exact: true }).click();
     await sheet.getByRole("button", { name: "Exact amounts" }).click();
