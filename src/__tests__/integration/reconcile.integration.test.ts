@@ -11,7 +11,7 @@ import { describe, it, expect } from "vitest";
 import { withHouseholdFixture } from "./helpers/fixture";
 import { BudgetService } from "@/lib/services/budget.service";
 import { ExpenseService } from "@/lib/services/expense.service";
-import { getAccountTransactionRepository } from "@/lib/repositories";
+import { getAccountTransactionRepository, getSplitAllocationRepository } from "@/lib/repositories";
 import { AccountService } from "@/lib/services/account.service";
 
 const HAS_DB = Boolean(process.env.DATABASE_URL);
@@ -63,6 +63,89 @@ describe.runIf(HAS_DB).each([
         const txs = await txRepo.findByAccount(a.id, 100_000, 0);
         expect(a.balance).toBe(txs.reduce((s: number, t) => s + t.amount, 0));
       }
+    });
+  });
+
+  it("an uneven split still puts only my share in my envelope", async () => {
+    if (memberCount < 2) return;
+    await withHouseholdFixture({ memberCount }, async ({ users, month, categories }) => {
+      const [me, them] = users;
+      const cat = categories[0].id;
+
+      // The case a slider cannot express: 560 and 140 of a 700 bill.
+      await new ExpenseService().create(me.id, {
+        categoryId: cat,
+        amount: 70_000,
+        date: `${month}-15`,
+        participants: [
+          { userId: me.id, shareMinor: 56_000 },
+          { userId: them.id, shareMinor: 14_000 },
+        ],
+      });
+
+      const mine = await new BudgetService().getOverview(month, me.id);
+      expect(mine.categories.find((c) => c.categoryId === cat)!.spent).toBe(56_000);
+
+      // And exactly one debt row for the other person, for exactly their share.
+      const owed = await getSplitAllocationRepository().findAllForBalance();
+      const theirs = owed.filter((a) => a.allocationUserId === them.id && a.amount === 14_000);
+      expect(theirs).toHaveLength(1);
+    });
+  });
+
+  it("a four-way uneven split still sums to the bill", async () => {
+    if (memberCount < 4) return;
+    await withHouseholdFixture({ memberCount }, async ({ users, month, categories }) => {
+      const [me, ...others] = users;
+      const cat = categories[1].id;
+      // 500 / 200 / 200 / 100 of a 1000 bill.
+      const participants = [
+        { userId: me.id, shareMinor: 50_000 },
+        { userId: others[0].id, shareMinor: 20_000 },
+        { userId: others[1].id, shareMinor: 20_000 },
+        { userId: others[2].id, shareMinor: 10_000 },
+      ];
+      expect(participants.reduce((s, p) => s + p.shareMinor, 0)).toBe(100_000);
+
+      await new ExpenseService().create(me.id, {
+        categoryId: cat,
+        amount: 100_000,
+        date: `${month}-16`,
+        participants,
+      });
+
+      const mine = await new BudgetService().getOverview(month, me.id);
+      expect(mine.categories.find((c) => c.categoryId === cat)!.spent).toBe(50_000);
+
+      // One debt row per other participant, none for the payer.
+      const owed = (await getSplitAllocationRepository().findAllForBalance()).filter(
+        (a) => a.paidByUserId === me.id
+      );
+      expect(owed.filter((a) => a.allocationUserId === me.id)).toHaveLength(0);
+      for (const p of participants.slice(1)) {
+        expect(
+          owed.filter((a) => a.allocationUserId === p.userId && a.amount === p.shareMinor)
+        ).toHaveLength(1);
+      }
+    });
+  });
+
+  it("rejects a split whose shares do not add up to the bill", async () => {
+    if (memberCount < 2) return;
+    await withHouseholdFixture({ memberCount }, async ({ users, month, categories }) => {
+      const [me, them] = users;
+      await expect(
+        new ExpenseService().create(me.id, {
+          categoryId: categories[0].id,
+          amount: 70_000,
+          date: `${month}-17`,
+          // R40 short: nothing should quietly cover the difference.
+          participants: [
+            { userId: me.id, shareMinor: 56_000 },
+            { userId: them.id, shareMinor: 10_000 },
+          ],
+        })
+      ).rejects.toThrow(/add up/i);
     });
   });
 

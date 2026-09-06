@@ -38,7 +38,7 @@ test.describe("Onboarding /welcome", () => {
     await loginAs(page, ownerEmail, password);
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/dashboard/);
-    await expect(page.getByRole("heading", { name: "Where does your money sit?" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Who's in the house?" })).toHaveCount(0);
   });
 
   test("Settings can reopen the setup guide", async ({ page }) => {

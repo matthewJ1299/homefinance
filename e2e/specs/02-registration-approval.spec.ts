@@ -20,7 +20,9 @@ test.describe("Registration + approval", () => {
     await page.getByLabel("Password").fill(password);
     await page.getByRole("button", { name: "Register" }).click();
     await expect(page).toHaveURL(/\/pending-approval/, { timeout: 30_000 });
-    await expect(page.getByRole("heading", { name: "Waiting for approval" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Someone will approve your house shortly" })
+    ).toBeVisible();
   });
 
   test("pending user cannot open dashboard", async ({ page }) => {
@@ -67,6 +69,6 @@ test.describe("Registration reject path", () => {
 
     await loginAs(page, ownerEmail, password);
     await expect(page).toHaveURL(/\/pending-approval/);
-    await expect(page.getByRole("heading", { name: "Registration not approved" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your house wasn't approved" })).toBeVisible();
   });
 });

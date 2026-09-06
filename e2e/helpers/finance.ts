@@ -1,75 +1,138 @@
 import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
-import { goNav } from "./nav";
+import { clearNewMonthIfPresent, goNav } from "./nav";
 
 export async function expectToast(page: Page, text: string | RegExp): Promise<void> {
   await expect(page.getByText(text).first()).toBeVisible({ timeout: 20_000 });
 }
 
-/** Add a normal expense from Transactions (/expenses). */
+/** The bottom bar's centre button is mobile-only; the sheet is opened from it. */
+const ADD_BUTTON = { name: "Add a spend" } as const;
+
+/**
+ * Opens the Add sheet.
+ *
+ * The centre button lives in the mobile bar, so the suite drops to a phone
+ * viewport for the sheet and restores the desktop width afterwards. That is
+ * also the viewport the sheet is designed for.
+ */
+export async function openAddSheet(page: Page): Promise<void> {
+  await clearNewMonthIfPresent(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", ADD_BUTTON).click();
+  await expect(page.getByRole("dialog", { name: "Add" })).toBeVisible();
+}
+
+export async function closeAddSheet(page: Page): Promise<void> {
+  await page.setViewportSize({ width: 1280, height: 800 });
+}
+
+function sheet(page: Page) {
+  return page.getByRole("dialog", { name: "Add" });
+}
+
+/** Types an amount on the keypad, digit by digit, as a person would. */
+export async function typeAmountOnKeypad(page: Page, amount: string): Promise<void> {
+  const dialog = sheet(page);
+  for (const ch of amount) {
+    await dialog.getByRole("button", { name: ch === "." ? "." : ch, exact: true }).click();
+  }
+}
+
+export interface SplitSpec {
+  /** Who else is in on it, by first name as the avatar shows it. */
+  withNames: string[];
+  mode?: "even" | "ratio" | "exact";
+  /** ratio mode: weight per person, keyed by the label on the field. */
+  ratios?: Record<string, string>;
+  /** exact mode: rand amount per person, keyed by the label on the field. */
+  amounts?: Record<string, string>;
+}
+
+/**
+ * Adds a spend through the Add sheet: keypad, category pill, and optionally
+ * who is in on it and how it divides.
+ */
 export async function addExpense(
   page: Page,
   input: {
     amount: string;
     categoryName?: string;
     note?: string;
-    splitEqual?: boolean;
+    split?: SplitSpec;
   }
 ): Promise<void> {
-  await goNav(page, "Transactions");
-  await expect(page.getByRole("heading", { name: "Transactions" })).toBeVisible();
+  await openAddSheet(page);
+  const dialog = sheet(page);
 
-  const amountInput = page.locator("#quick-amount");
-  await amountInput.fill(input.amount);
-  const addBtn = page.getByRole("button", { name: "Add", exact: true });
-  await expect(addBtn).toBeEnabled({ timeout: 20_000 });
-  await addBtn.click();
-
-  const dialog = page.locator("dialog").filter({ hasText: "Choose category" });
-  await expect(dialog).toBeVisible();
+  await typeAmountOnKeypad(page, input.amount);
 
   const category = input.categoryName ?? "Groceries";
-  const categoryBtn = dialog.getByRole("button", { name: new RegExp(`^${escapeRegex(category)}`) });
-  if ((await categoryBtn.count()) === 0) {
-    await dialog.getByRole("button", { name: "Show more" }).click();
+  await dialog.getByRole("button", { name: new RegExp(`^${escapeRegex(category)}`) }).first().click();
+
+  if (input.split) {
+    for (const name of input.split.withNames) {
+      await dialog.getByRole("button", { name, exact: true }).click();
+    }
+    const mode = input.split.mode ?? "even";
+    if (mode !== "even") {
+      await dialog
+        .getByRole("button", { name: mode === "ratio" ? "By share" : "Exact amounts" })
+        .click();
+    }
+    if (mode === "ratio" && input.split.ratios) {
+      for (const [who, weight] of Object.entries(input.split.ratios)) {
+        await dialog.getByLabel(`${who} share of the split`).fill(weight);
+      }
+    }
+    if (mode === "exact" && input.split.amounts) {
+      for (const [who, value] of Object.entries(input.split.amounts)) {
+        await dialog.getByLabel(`${who} share`, { exact: true }).fill(value);
+      }
+    }
   }
-  await categoryBtn.first().click();
 
   if (input.note) {
-    await dialog.getByPlaceholder("Note (optional)").fill(input.note);
+    await dialog.getByRole("button", { name: "+ Note" }).click();
+    await dialog.getByLabel("Note").fill(input.note);
   }
 
-  if (input.splitEqual) {
-    await dialog.getByText("Split this expense").click();
-    await dialog.getByText("I paid, split equally").click();
-  }
+  await dialog.getByRole("button", { name: /^Save/ }).click();
+  await expectToast(page, /Saved /);
+  await closeAddSheet(page);
+}
 
-  await dialog.getByRole("button", { name: "Add expense" }).click();
-  await expectToast(page, "Expense added.");
-  if (input.note) {
-    await expect(page.getByText(input.note).first()).toBeVisible({ timeout: 20_000 });
-  }
+/** Reads the per-person share the sheet is currently showing. */
+export async function readShare(page: Page, who: string): Promise<string> {
+  const dialog = sheet(page);
+  const exact = dialog.getByLabel(`${who} share`, { exact: true });
+  if ((await exact.count()) > 0) return (await exact.inputValue()).trim();
+  // Even and ratio modes render the figure as text beside the name.
+  const row = dialog.locator("div").filter({ hasText: new RegExp(`^${escapeRegex(who)}`) }).last();
+  return (await row.innerText()).trim();
 }
 
 export async function addIncome(
   page: Page,
-  input: { amount: string; description: string; type?: "Salary" | "Ad hoc" }
+  input: { amount: string; description: string; kind?: string }
 ): Promise<void> {
-  await goNav(page, "Income");
-  await expect(page.getByRole("heading", { name: "Income" })).toBeVisible();
-  await page.locator("#income-amount").fill(input.amount);
-  if (input.type === "Ad hoc") {
-    await page.getByRole("button", { name: "Ad hoc" }).click();
+  await openAddSheet(page);
+  const dialog = sheet(page);
+  await dialog.getByRole("tab", { name: "income" }).click();
+  await typeAmountOnKeypad(page, input.amount);
+  if (input.kind) {
+    await dialog.getByRole("button", { name: input.kind, exact: true }).click();
   }
-  await page.locator("#income-desc").fill(input.description);
-  await page.getByRole("button", { name: "Add income" }).click();
-  await expectToast(page, "Income added.");
-  await expect(page.getByText(input.description).first()).toBeVisible({ timeout: 20_000 });
+  await dialog.getByRole("button", { name: "+ Note" }).click();
+  await dialog.getByLabel("Note").fill(input.description);
+  await dialog.getByRole("button", { name: /^Save .* in$/ }).click();
+  await expectToast(page, /Added /);
+  await closeAddSheet(page);
 }
 
 export async function createAccount(
   page: Page,
-  input: { name: string; type?: "Bank" | "Savings" | "Credit" }
+  input: { name: string; type?: "Bank" | "Savings" | "Credit"; shared?: boolean }
 ): Promise<void> {
   await goNav(page, "Accounts");
   await page.getByRole("button", { name: "Add account" }).click();
@@ -77,9 +140,24 @@ export async function createAccount(
   if (input.type && input.type !== "Bank") {
     await page.getByLabel("Type").selectOption({ label: input.type });
   }
+  if (input.shared) {
+    const share = page.getByRole("switch", { name: "Share with the house" });
+    if ((await share.count()) > 0) await share.click();
+  }
   await page.getByRole("button", { name: "Add account" }).click();
   await expectToast(page, "Account created.");
   await expect(page.getByText(input.name).first()).toBeVisible();
+}
+
+/** Accepts the gap between what the app thinks an account holds and the bank. */
+export async function checkAccountBalance(page: Page, statedBalance: string): Promise<void> {
+  await goNav(page, "Accounts");
+  await page.getByRole("button", { name: "Check", exact: true }).first().click();
+  const dialog = page.getByRole("dialog", { name: /^Check / });
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel("Your bank says").fill(statedBalance);
+  await dialog.getByRole("button", { name: /^Accept/ }).click();
+  await expectToast(page, /Recorded|Already matches/);
 }
 
 /** Transfer between first two real account options (seeded Matt has ≥2). */
@@ -106,6 +184,9 @@ export async function recordMortgageExtraPayment(
 ): Promise<void> {
   await goNav(page, "Mortgage");
   await expect(page.getByTestId("feature-unavailable")).toHaveCount(0);
+  // Amortisation and extra payments moved behind More details.
+  const more = page.getByRole("button", { name: /More details/i });
+  if ((await more.count()) > 0) await more.first().click();
   const form = page.getByTestId("mortgage-extra-payment");
   await form.getByLabel("Amount (R)").fill(input.amount);
   await form.getByLabel("Note (optional)").fill(input.note);
@@ -113,33 +194,37 @@ export async function recordMortgageExtraPayment(
   await expectToast(page, "Extra payment recorded.");
 }
 
-export async function createSavingsGoal(
+/**
+ * A goal is a category with a target now, so this sets one from the budget
+ * category sheet rather than from a separate Goals form.
+ */
+export async function createGoalCategory(
   page: Page,
-  input: { name: string; target: string; monthly: string }
+  input: { categoryName: string; target: string; targetDate?: string }
 ): Promise<void> {
-  await goNav(page, "Goals");
-  await expect(page.getByTestId("feature-unavailable")).toHaveCount(0);
-  await page.getByRole("button", { name: "Add goal" }).click();
-  const form = page.locator("div.rounded-lg.border").filter({ hasText: "New goal" }).first();
-  await expect(form.getByRole("heading", { name: "New goal" })).toBeVisible();
-  await form.getByPlaceholder("e.g. Car").fill(input.name);
-  const amounts = form.getByPlaceholder("0.00");
-  await amounts.nth(0).fill(input.target);
-  await amounts.nth(1).fill(input.monthly);
-  await form.getByRole("button", { name: "Add goal" }).click();
-  await expectToast(page, "Goal created.");
-  await expect(page.getByText(input.name).first()).toBeVisible({ timeout: 20_000 });
+  await goNav(page, "Budget");
+  await clearNewMonthIfPresent(page);
+  await page.getByRole("button", { name: new RegExp(`^${escapeRegex(input.categoryName)}`) }).first().click();
+  const dialog = page.getByRole("dialog", { name: input.categoryName });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Save towards something" }).click();
+  await dialog.getByLabel("Target amount").fill(input.target);
+  if (input.targetDate) {
+    await dialog.getByLabel("Target date").fill(input.targetDate);
+  }
+  await dialog.getByRole("button", { name: "Save target" }).click();
+  await expectToast(page, /saving towards/i);
 }
 
 export async function settleFirstOwedBalance(page: Page): Promise<boolean> {
-  await goNav(page, "Splits");
-  const settle = page.getByRole("button", { name: "Settle" }).first();
+  await goNav(page, "Shared costs");
+  const settle = page.getByRole("button", { name: "Settle", exact: true }).first();
   if ((await settle.count()) === 0) return false;
   await settle.click();
-  const dialog = page.locator("dialog").filter({ hasText: /Settle with/ });
+  const dialog = page.getByRole("dialog", { name: /^Settle with/ });
   await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: "Settle", exact: true }).click();
-  await expectToast(page, "Settlement recorded.");
+  await dialog.getByRole("button", { name: /^Settle/ }).click();
+  await expectToast(page, /Settled /);
   return true;
 }
 
@@ -163,19 +248,23 @@ export async function createCalendarEvent(page: Page, name: string): Promise<voi
   await expect(page.getByText(name).first()).toBeVisible({ timeout: 20_000 });
 }
 
-export async function expectSummaryLoaded(page: Page): Promise<void> {
-  await goNav(page, "Summary");
-  await expect(page.getByRole("heading", { name: "Summary" })).toBeVisible();
-  await expect(page.getByText("Total income")).toBeVisible();
-  await expect(page.getByText("Total expenses")).toBeVisible();
-  await expect(page.getByText("Net position")).toBeVisible();
-  await expect(page.getByText("Savings rate")).toBeVisible();
+/** Reports replaced Summary. */
+export async function expectReportsLoaded(page: Page): Promise<void> {
+  await goNav(page, "Reports");
+  await clearNewMonthIfPresent(page);
+  await expect(page.getByRole("heading", { name: "Reports" })).toBeVisible();
+  await expect(
+    page.getByRole("tab", { name: "Overview" }).or(page.getByText("Nothing to report yet"))
+  ).toBeVisible();
 }
 
 export async function expectBudgetLoaded(page: Page): Promise<void> {
   await goNav(page, "Budget");
+  await clearNewMonthIfPresent(page);
   await expect(page.getByRole("heading", { name: "Budget" })).toBeVisible();
-  await expect(page.getByText(/Allocated|To be allocated|Fully allocated/i).first()).toBeVisible();
+  await expect(
+    page.getByText(/Not given a job yet|Every rand has a job|promised more than you have/i).first()
+  ).toBeVisible();
 }
 
 function escapeRegex(value: string): string {

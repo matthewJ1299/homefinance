@@ -1,22 +1,26 @@
 import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
 
+/**
+ * Sidebar labels after the UX pass. Income folded into Transactions, Splits
+ * became "Shared costs", Recon became "From your bank", Summary became
+ * "Reports".
+ */
 const NAV_LABELS = [
   "Home",
   "Calendar",
   "Add",
   "Lists",
   "Transactions",
-  "Income",
-  "Recon",
-  "Splits",
+  "From your bank",
+  "Shared costs",
   "What I owe",
   "Budget",
   "Budget AI report",
   "Accounts",
   "Mortgage",
   "Goals",
-  "Summary",
+  "Reports",
   "Settings",
 ] as const;
 
@@ -33,6 +37,17 @@ export async function expectNavHidden(page: Page, label: NavLabel): Promise<void
 
 export async function goNav(page: Page, label: NavLabel): Promise<void> {
   await page.getByRole("link", { name: label, exact: true }).first().click();
+  await page.waitForLoadState("networkidle");
+}
+
+/**
+ * The budget month turns over into a gate that redirects off whatever you asked
+ * for, so any spec that lands in the app has to be able to clear it.
+ */
+export async function clearNewMonthIfPresent(page: Page): Promise<void> {
+  if (!page.url().includes("/new-month")) return;
+  await page.getByRole("button", { name: /^Start / }).click();
+  await page.waitForURL((url) => !url.pathname.includes("/new-month"), { timeout: 30_000 });
 }
 
 export async function expectFeatureUnavailable(page: Page, featureKey: string): Promise<void> {

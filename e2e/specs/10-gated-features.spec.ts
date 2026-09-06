@@ -44,7 +44,7 @@ test.describe("Gated product features (seeded entitlements)", () => {
   });
 
   test("Recon page shell (Graph connect is optional)", async ({ page }) => {
-    await goNav(page, "Recon");
+    await goNav(page, "From your bank");
     await expect(page).toHaveURL(/\/recon/);
     await expect(page.getByTestId("feature-unavailable")).toHaveCount(0);
   });

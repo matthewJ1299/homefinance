@@ -19,7 +19,7 @@ test.describe("What I owe statement", () => {
       amount: "90.00",
       categoryName: "Groceries",
       note,
-      splitEqual: true,
+      split: { withNames: ["Sydney"] },
     });
 
     await goNav(page, "What I owe");

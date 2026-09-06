@@ -5,12 +5,18 @@ import {
   openSeededHousehold,
   setHouseholdFeature,
 } from "../helpers/admin";
-import { expectFeatureUnavailable, expectNavHidden, expectNavVisible, goNav } from "../helpers/nav";
+import {
+  expectFeatureUnavailable,
+  expectNavHidden,
+  expectNavVisible,
+  goNav,
+  type NavLabel,
+} from "../helpers/nav";
 
 const GATES: Array<{
   label: string;
   featureKey: "ai_budget_analysis" | "recon" | "what_i_owe" | "mortgage" | "goals";
-  nav: "Budget AI report" | "Recon" | "What I owe" | "Mortgage" | "Goals";
+  nav: NavLabel;
   path: string;
 }> = [
   {
@@ -22,7 +28,7 @@ const GATES: Array<{
   {
     label: "Bank email reconciliation (Recon)",
     featureKey: "recon",
-    nav: "Recon",
+    nav: "From your bank",
     path: "/recon",
   },
   {
