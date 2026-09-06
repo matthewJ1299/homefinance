@@ -1,5 +1,5 @@
 import { test, expect } from "../fixtures/test";
-import { loginAsMatt, skipWelcomeIfPresent } from "../helpers/auth";
+import { loginAsMatt, skipWelcomeIfPresent, waitForStableUrl } from "../helpers/auth";
 import { addExpense, checkAccountBalance } from "../helpers/finance";
 import { clearNewMonthIfPresent, goNav } from "../helpers/nav";
 
@@ -22,6 +22,9 @@ test.describe("Redesign flows", () => {
     page,
   }) => {
     await page.goto("/new-month");
+    // The page redirects home when there is nothing to open, so let that land
+    // before deciding which case we are in.
+    await waitForStableUrl(page);
 
     // Either the month has already been opened -- in which case the page sends
     // you home rather than asking again -- or it states what happened.

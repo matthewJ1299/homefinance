@@ -128,10 +128,7 @@ export function CalendarClientCustom() {
             recurrenceType: "none" | "weekly" | "monthly" | "yearly";
             recurrenceDayOfMonth: number | null;
             reminders: { offsetMinutes: number; sendTime: string | null }[] | null;
-            expectedCostMinor: null,
-        expenseCategoryId: null,
-        loggedExpenseId: null,
-        categoryId: number | null;
+            categoryId: number | null;
             isShared: boolean;
             priority: number;
           }) => {
