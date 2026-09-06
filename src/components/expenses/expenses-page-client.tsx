@@ -7,6 +7,7 @@ import type { Category, SplitGroup } from "@/lib/types";
 import type { UserSummary } from "@/lib/repositories/interfaces/user.repository";
 import { INCOME_KINDS, type IncomeKind } from "@/lib/types/income-type";
 import { ExpenseList } from "./expense-list";
+import { IncomeList } from "@/components/income/income-list";
 import { QuickAddForm } from "./quick-add-form";
 import { formatRand, fromMinorUnits } from "@/lib/utils/currency";
 import { parseAccountsApiPayload } from "@/lib/utils/accounts-api";
@@ -262,14 +263,27 @@ export function ExpensesPageClient({
           onOptimisticReplaceExpenseId={optimisticReplaceExpenseId}
         />
       </section>
-      <ExpenseList
-        expenses={searchFilteredExpenses}
-        showOwner
-        categories={categories}
-        otherUserName={users.find((u) => u.id !== currentUserId)?.name}
-        onOptimisticRemoveExpense={optimisticRemoveExpense}
-        onOptimisticUpsertExpense={optimisticUpsertExpense}
-      />
+      {/* Money in and money out in one list, which is the point of folding
+          /income into this page. Without this the income filter showed a total
+          and nothing to look at. */}
+      {typeFilter !== "income" ? (
+        <ExpenseList
+          expenses={searchFilteredExpenses}
+          showOwner
+          categories={categories}
+          otherUserName={users.find((u) => u.id !== currentUserId)?.name}
+          onOptimisticRemoveExpense={optimisticRemoveExpense}
+          onOptimisticUpsertExpense={optimisticUpsertExpense}
+        />
+      ) : null}
+      {typeFilter !== "expense" ? (
+        <section className="space-y-2">
+          {typeFilter === "all" ? (
+            <h2 className="text-sm font-semibold text-muted-foreground">Money in</h2>
+          ) : null}
+          <IncomeList entries={filteredIncome} />
+        </section>
+      ) : null}
     </div>
   );
 }

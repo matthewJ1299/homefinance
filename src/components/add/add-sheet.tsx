@@ -418,6 +418,9 @@ export function AddSheet({
                         disabled={m.id === me.id}
                         className="flex w-14 flex-col items-center gap-1 cursor-pointer disabled:cursor-default"
                         aria-pressed={isPicked}
+                        // The initials are decorative; without this the name
+                        // reads as "SY Sydney" to a screen reader.
+                        aria-label={m.id === me.id ? "You" : m.name}
                       >
                         {/* Deliberately not AvatarCircle: that hue-hashes its own
                             colours, which fights the picked/unpicked state this

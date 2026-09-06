@@ -56,8 +56,11 @@ export function MonthOpenCard({
         toast.error(res.error);
         return;
       }
-      router.replace("/dashboard");
+      // Refresh before navigating: the client router can otherwise serve a
+      // cached /dashboard from before the month was opened, which bounces
+      // straight back here.
       router.refresh();
+      router.replace("/dashboard");
     });
   }
 

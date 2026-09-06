@@ -33,6 +33,19 @@ export async function setHouseholdFeature(
 }
 
 /** Turn every catalogue feature back on for the seeded household. */
+/**
+ * Ensure every entitlement is on, then return to the app.
+ *
+ * The gating spec turns features off and restores them best-effort; when that
+ * restore fails, every later spec that needs an entitlement fails for a reason
+ * that has nothing to do with what it was testing. Specs that depend on a
+ * feature ask for it themselves rather than trusting the previous file.
+ */
+export async function ensureFeaturesEnabled(page: Page): Promise<void> {
+  await enableAllSeededFeatures(page);
+  await page.goto("/dashboard");
+}
+
 export async function enableAllSeededFeatures(page: Page): Promise<void> {
   await openSeededHousehold(page);
   const form = page.locator("form").filter({ hasText: "Feature entitlements" });
@@ -90,10 +103,10 @@ export async function adminResetPasswordAndCapture(
   await page.goto("/admin/users");
   const row = page.locator("tr").filter({ hasText: userName }).first();
   await row.getByRole("button", { name: "Reset password" }).click();
-  const confirm = page.locator("dialog").filter({ hasText: /Reset password for/i });
+  const confirm = page.locator("dialog[open]").filter({ hasText: /Reset password for/i });
   await expect(confirm).toBeVisible();
   await confirm.getByRole("button", { name: "Reset password" }).click();
-  const result = page.locator("dialog").filter({ hasText: "Temporary password" });
+  const result = page.locator("dialog[open]").filter({ hasText: "Temporary password" });
   await expect(result).toBeVisible();
   const temp = (await result.locator(".font-mono").innerText()).trim();
   expect(temp.length).toBeGreaterThan(8);

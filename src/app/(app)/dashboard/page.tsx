@@ -207,6 +207,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         budgetMonthStartDay={budgetMonthStartDay}
         userName={String(session.user.name ?? session.user.email ?? "")}
         members={members}
+        nowIso={new Date().toISOString()}
       />
 
       <EnvelopeHeroSection

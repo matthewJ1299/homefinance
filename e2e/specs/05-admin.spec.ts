@@ -26,13 +26,11 @@ test.describe("Admin portal", () => {
     await expect(page.getByRole("link", { name, exact: true })).toBeVisible({ timeout: 20_000 });
     await page.getByRole("link", { name, exact: true }).click();
     await expect(page.getByText(/active/i).first()).toBeVisible();
-    // Core features: mortgage + goals
-    await expect(
-      page.locator("label").filter({ hasText: "Mortgage" }).locator('input[type="checkbox"]')
-    ).toBeChecked();
-    await expect(
-      page.locator("label").filter({ hasText: "Goals" }).locator('input[type="checkbox"]')
-    ).toBeChecked();
+    // Core features: mortgage + goals. Matched by the input's name, not by
+    // label text -- the "What I owe" description mentions the mortgage, so a
+    // hasText filter resolves to two checkboxes.
+    await expect(page.locator('input[name="feature_mortgage"]')).toBeChecked();
+    await expect(page.locator('input[name="feature_goals"]')).toBeChecked();
   });
 
   test("House detail can rename and edit entitlements", async ({ page }) => {

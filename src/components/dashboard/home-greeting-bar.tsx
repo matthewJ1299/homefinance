@@ -43,6 +43,7 @@ export function HomeGreetingBar({
   userName,
   members = [],
   envelopeLeftCents,
+  nowIso,
 }: {
   month: string;
   /** Matches Settings > Budget month range (default 1 = calendar month). */
@@ -53,8 +54,15 @@ export function HomeGreetingBar({
   /** Optional: month-to-date balance hint under the greeting. */
   /** Sum of every category's available -- what is actually left to spend. */
   envelopeLeftCents?: number;
+  /**
+   * The server's instant, as ISO. Calling `new Date()` here instead means the
+   * server and the client can land on different minutes -- or different
+   * greetings across an hour boundary -- and React throws out the whole tree
+   * as a hydration mismatch.
+   */
+  nowIso?: string;
 }) {
-  const now = new Date();
+  const now = nowIso ? new Date(nowIso) : new Date();
   const monthLabel = formatBudgetMonthLabel(month, budgetMonthStartDay).toUpperCase();
   const firstName = getFirstName(userName);
   const todayLine = formatDashboardDateLine(now, DASHBOARD_TIMEZONE);

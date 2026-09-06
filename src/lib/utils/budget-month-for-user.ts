@@ -18,8 +18,15 @@ import {
  * the household somehow has no day of its own.
  */
 async function startDayForUser(userId: number): Promise<number> {
-  const fromHousehold = await getHouseholdRepository().getBudgetMonthStartDay();
-  if (fromHousehold > 0) return fromHousehold;
+  try {
+    const fromHousehold = await getHouseholdRepository().getBudgetMonthStartDay();
+    if (fromHousehold > 0) return fromHousehold;
+  } catch {
+    // The household lookup is tenant-scoped and throws without request
+    // context; the per-user column is not. Falling back keeps every caller
+    // that worked before this moved -- and this is precisely what leaving that
+    // column readable for one release is for.
+  }
   return getUserRepository().getBudgetMonthStartDay(userId);
 }
 

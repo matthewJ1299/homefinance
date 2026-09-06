@@ -1,6 +1,12 @@
 import { test, expect } from "../fixtures/test";
 import { loginAsMatt, skipWelcomeIfPresent } from "../helpers/auth";
-import { addExpense, createGoalCategory, recordMortgageExtraPayment } from "../helpers/finance";
+import { ensureFeaturesEnabled } from "../helpers/admin";
+import {
+  addExpense,
+  createGoalCategory,
+  expandMoreDetails,
+  recordMortgageExtraPayment,
+} from "../helpers/finance";
 import { clearNewMonthIfPresent, goNav } from "../helpers/nav";
 
 test.describe.configure({ mode: "serial" });
@@ -11,6 +17,7 @@ test.describe("Mortgage + Goals mutations", () => {
     await skipWelcomeIfPresent(page);
     await page.goto("/dashboard");
     await skipWelcomeIfPresent(page);
+    await ensureFeaturesEnabled(page);
     await clearNewMonthIfPresent(page);
   });
 
@@ -34,7 +41,7 @@ test.describe("Mortgage + Goals mutations", () => {
 
   test("interest rate changes section is available behind More details", async ({ page }) => {
     await goNav(page, "Mortgage");
-    await page.getByRole("button", { name: /More details/i }).first().click();
+    await expandMoreDetails(page);
     await page.getByText("Interest rate changes").click();
     await expect(
       page.getByRole("button", { name: /Add rate change|Save rate schedule/i }).first()

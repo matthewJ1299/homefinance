@@ -1,5 +1,6 @@
 import { test, expect } from "../fixtures/test";
 import { loginAsMatt, skipWelcomeIfPresent } from "../helpers/auth";
+import { ensureFeaturesEnabled } from "../helpers/admin";
 import { goNav } from "../helpers/nav";
 
 /**
@@ -12,6 +13,7 @@ test.describe("Gated product features (seeded entitlements)", () => {
     await skipWelcomeIfPresent(page);
     await page.goto("/dashboard");
     await skipWelcomeIfPresent(page);
+    await ensureFeaturesEnabled(page);
   });
 
   test("What I owe default + owed view", async ({ page }) => {

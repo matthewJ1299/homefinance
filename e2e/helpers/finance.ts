@@ -167,7 +167,7 @@ export async function transferBetweenAccounts(
 ): Promise<void> {
   await goNav(page, "Accounts");
   await page.getByRole("button", { name: "Transfer Money" }).click();
-  const dialog = page.locator("dialog").filter({ hasText: "Transfer Money" });
+  const dialog = page.locator("dialog[open]").filter({ hasText: "Transfer Money" });
   await expect(dialog).toBeVisible();
 
   await dialog.locator("#transfer-from").selectOption({ index: 1 });
@@ -178,15 +178,23 @@ export async function transferBetweenAccounts(
   await expect(dialog).toHaveCount(0, { timeout: 20_000 });
 }
 
+/** Opens the Mortgage page's More details disclosure if it is closed. */
+export async function expandMoreDetails(page: Page): Promise<void> {
+  const summary = page.locator("summary").filter({ hasText: /More details/i });
+  if ((await summary.count()) === 0) return;
+  const open = await summary.first().evaluate((el) => el.closest("details")?.open === true);
+  if (!open) await summary.first().click();
+}
+
 export async function recordMortgageExtraPayment(
   page: Page,
   input: { amount: string; note: string }
 ): Promise<void> {
   await goNav(page, "Mortgage");
   await expect(page.getByTestId("feature-unavailable")).toHaveCount(0);
-  // Amortisation and extra payments moved behind More details.
-  const more = page.getByRole("button", { name: /More details/i });
-  if ((await more.count()) > 0) await more.first().click();
+  // Amortisation and extra payments moved behind More details, which is a
+  // <details>/<summary>, not a button.
+  await expandMoreDetails(page);
   const form = page.getByTestId("mortgage-extra-payment");
   await form.getByLabel("Amount (R)").fill(input.amount);
   await form.getByLabel("Note (optional)").fill(input.note);
@@ -240,7 +248,7 @@ export async function addListItemOnFirstList(page: Page, label: string): Promise
 export async function createCalendarEvent(page: Page, name: string): Promise<void> {
   await goNav(page, "Calendar");
   await page.getByRole("button", { name: "Add event" }).click();
-  const dialog = page.locator("dialog").filter({ hasText: "New event" });
+  const dialog = page.locator("dialog[open]").filter({ hasText: "New event" });
   await expect(dialog).toBeVisible();
   await dialog.getByPlaceholder("Event name").fill(name);
   await dialog.getByRole("button", { name: "Create" }).click();
