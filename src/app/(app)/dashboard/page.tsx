@@ -79,6 +79,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const period = await getBudgetPeriodForUserMonth(month, userId);
   const quickAddExpenseDate = pickQuickAddDateForBudgetPeriod(today, period);
 
+  // Onboarding is gated here for the same reason the month is, below: a
+  // `redirect()` out of the shell layout into a route that shares that layout
+  // leaves the client with nothing to render, so /welcome came up blank and
+  // the client re-fetched it forever. Home is where every login lands.
+  if (session.user.householdApprovalStatus !== "pending") {
+    const setup = await getUserRepository().getSetupWizardState(userId);
+    if (setup.status === "not_started") redirect("/welcome");
+  }
+
   // The month-open gate lives here rather than in the shell.
   //
   // A layout cannot see its own pathname -- it reads an x-pathname header the

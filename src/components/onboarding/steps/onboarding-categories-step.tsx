@@ -7,7 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toMinorUnits } from "@/lib/utils/currency";
 import type { CategoryWithActive } from "@/lib/types";
-import { ONBOARDING_DEFAULT_ACTIVE_NAMES } from "@/lib/onboarding/steps";
+import {
+  ONBOARDING_DEFAULT_ACTIVE_NAMES,
+  ONBOARDING_HIDDEN_CATEGORY_NAMES,
+} from "@/lib/onboarding/steps";
 import { toast } from "sonner";
 
 interface CategoryDraft {
@@ -38,7 +41,14 @@ export function OnboardingCategoriesStep(props: {
   onReadyChange: (ready: boolean) => void;
   onPersistRef: React.MutableRefObject<(() => Promise<boolean>) | null>;
 }) {
-  const { categories, onReadyChange, onPersistRef } = props;
+  const { categories: allCategories, onReadyChange, onPersistRef } = props;
+  // Splits and Mortgage are plumbing: one is where settlements land, the other
+  // is driven by the mortgage itself. Asking someone to tick them as spending
+  // areas invites them to turn off a category the app needs.
+  const categories = useMemo(
+    () => allCategories.filter((c) => !ONBOARDING_HIDDEN_CATEGORY_NAMES.has(c.name)),
+    [allCategories]
+  );
   const [drafts, setDrafts] = useState<Record<number, CategoryDraft>>(() => {
     const map: Record<number, CategoryDraft> = {};
     for (const c of categories) {

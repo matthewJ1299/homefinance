@@ -12,6 +12,11 @@ import {
 import { matchRules } from "@/lib/services/recon/match-rules";
 
 export default async function ReconPage() {
+  // `auth()` is what binds this request's entitlements, and a page renders in
+  // parallel with its layout -- so reading the gate first raced the layout's
+  // own auth() call and failed closed, showing "not part of your plan" on a
+  // household that has recon. Every other gated page already orders it this way.
+  const session = await auth();
   if (!hasFeature("recon")) {
     return (
       <div className="p-4 max-w-5xl mx-auto min-w-0">
@@ -20,7 +25,6 @@ export default async function ReconPage() {
     );
   }
 
-  const session = await auth();
   const userId = Number(session?.user?.id ?? 0);
 
   const [rules, pending, members] = await Promise.all([

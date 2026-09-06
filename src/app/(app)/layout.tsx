@@ -6,7 +6,12 @@ import { BudgetMonthStartDayProvider } from "@/components/settings/budget-month-
 import { getUserRepository } from "@/lib/repositories";
 import { loadAddSheetData } from "@/components/add/load-add-sheet-data";
 
-const BYPASS_PATHS = ["/pending-approval", "/welcome", "/change-password"];
+/**
+ * Paths that render before a household has a budget: the Add sheet is skipped
+ * there. The onboarding redirect itself lives on Home, because a layout cannot
+ * redirect into a route that it also renders.
+ */
+const BYPASS_PATHS = ["/welcome"];
 
 export default async function AppLayout({
   children,
@@ -32,19 +37,12 @@ export default async function AppLayout({
   const userRepo = getUserRepository();
   const featureKeys = session.user.featureKeys ?? [];
 
-  const [budgetMonthStartDay, setup] = await Promise.all([
-    userRepo.getBudgetMonthStartDay(userId),
-    userRepo.getSetupWizardState(userId),
-  ]);
+  const budgetMonthStartDay = await userRepo.getBudgetMonthStartDay(userId);
 
   const pathname = (await headers()).get("x-pathname") ?? "";
   const onBypassPath = BYPASS_PATHS.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`)
   );
-
-  if (approval === "active" && setup.status === "not_started" && !onBypassPath) {
-    redirect("/welcome");
-  }
 
   // The sheet is only reachable once setup is done; before that the shell
   // renders on paths where a budget does not exist yet.

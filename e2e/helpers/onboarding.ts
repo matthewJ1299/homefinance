@@ -8,7 +8,8 @@ export async function completeOnboarding(page: Page): Promise<void> {
   // Step 1 — household. Naming the house and seeing who is in it comes first,
   // and the privacy boundary is stated before anything is collected.
   await expect(page.getByRole("heading", { name: "Who's in the house?" })).toBeVisible();
-  await expect(page.getByText("What they'll see")).toBeVisible();
+  // The copy uses a typographic apostrophe, so match around it.
+  await expect(page.getByText(/What they.ll see/)).toBeVisible();
   await expect(page.getByText(/Your budget or what you earn/)).toBeVisible();
   await page.getByLabel("House name").fill("E2E House");
   await page.getByRole("button", { name: "Save", exact: true }).click();
