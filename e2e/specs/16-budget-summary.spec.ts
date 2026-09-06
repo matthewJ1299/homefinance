@@ -41,7 +41,13 @@ test.describe("Budget + Reports", () => {
   test("a category row opens the sheet, and the sheet is where edits happen", async ({ page }) => {
     await goNav(page, "Budget");
     await clearNewMonthIfPresent(page);
-    await page.getByRole("button", { name: /^Groceries/ }).first().click();
+    // Scoped to the budget rows: recent transactions on the same page also
+    // carry category names.
+    await page
+      .getByTestId("budget-category-row")
+      .filter({ hasText: "Groceries" })
+      .first()
+      .click();
 
     const sheet = page.getByRole("dialog", { name: "Groceries" });
     await expect(sheet).toBeVisible();

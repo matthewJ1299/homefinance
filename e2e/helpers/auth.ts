@@ -2,6 +2,27 @@ import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
 import { E2E } from "./env";
 
+/**
+ * Wait until the URL stops changing.
+ *
+ * Signing in can chain server redirects -- dashboard, then /welcome or
+ * /new-month -- and a helper that reads page.url() once can easily read it
+ * mid-chain and decide the gate is not up.
+ */
+export async function waitForStableUrl(page: Page, quietMs = 400): Promise<void> {
+  await page.waitForLoadState("domcontentloaded");
+  let last = page.url();
+  for (let i = 0; i < 15; i++) {
+    await page.waitForTimeout(quietMs / 2);
+    const now = page.url();
+    if (now === last) {
+      await page.waitForTimeout(quietMs / 2);
+      if (page.url() === now) return;
+    }
+    last = page.url();
+  }
+}
+
 export async function loginAs(
   page: Page,
   email: string,
@@ -12,6 +33,7 @@ export async function loginAs(
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 30_000 });
+  await waitForStableUrl(page);
   await clearNewMonthGate(page);
 }
 
@@ -31,6 +53,7 @@ export async function signOut(page: Page): Promise<void> {
 
 /** Skip /welcome if the layout redirected a not_started user there. */
 export async function skipWelcomeIfPresent(page: Page): Promise<void> {
+  await waitForStableUrl(page);
   if (!page.url().includes("/welcome")) return;
   await page.getByRole("button", { name: "Skip for now" }).click();
   await expect(page).toHaveURL(/\/dashboard/);
@@ -46,7 +69,7 @@ export async function skipWelcomeIfPresent(page: Page): Promise<void> {
 export async function clearNewMonthGate(page: Page): Promise<void> {
   // Home redirects here during its own render, so let the navigation settle
   // before deciding whether the gate is up.
-  await page.waitForLoadState("domcontentloaded");
+  await waitForStableUrl(page);
   if (!page.url().includes("/new-month")) return;
   await page.getByRole("button", { name: /^Start / }).click();
   await page.waitForURL((url) => !url.pathname.includes("/new-month"), { timeout: 30_000 });

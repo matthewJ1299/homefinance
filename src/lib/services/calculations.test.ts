@@ -26,6 +26,9 @@ vi.mock("@/lib/repositories", () => ({
   getSplitAllocationRepository: vi.fn().mockReturnValue({
     create: vi.fn(),
   }),
+  getSplitGroupRepository: vi.fn().mockReturnValue({
+    findDefault: vi.fn().mockResolvedValue(null),
+  }),
   getUserRepository: vi.fn().mockReturnValue({
     getBudgetMonthStartDay: vi.fn().mockResolvedValue(1),
     updateBudgetMonthStartDay: vi.fn().mockResolvedValue(undefined),

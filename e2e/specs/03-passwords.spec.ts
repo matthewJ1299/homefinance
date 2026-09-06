@@ -45,6 +45,10 @@ test.describe("Password management", () => {
   test("Settings voluntary change password", async ({ page }) => {
     await enterAppAs(page, ownerEmail, afterForcePassword);
     await page.goto("/settings");
+    // A user who has never finished setup is sent to /welcome from any app
+    // route, so clear that before looking for the page we asked for.
+    await skipWelcomeIfPresent(page);
+    await page.goto("/settings");
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
 
     await page.getByLabel("Current password").fill(afterForcePassword);

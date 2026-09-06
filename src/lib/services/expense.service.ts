@@ -4,6 +4,7 @@ import {
   getUserRepository,
   getExpenseParticipantRepository,
   getSplitAllocationRepository,
+  getSplitGroupRepository,
 } from "@/lib/repositories";
 import {
   validateParticipantShares,
@@ -27,7 +28,8 @@ export class ExpenseService {
     private repo = getExpenseRepository(),
     private accountTxRepo = getAccountTransactionRepository(),
     private participantRepo = getExpenseParticipantRepository(),
-    private allocationRepo = getSplitAllocationRepository()
+    private allocationRepo = getSplitAllocationRepository(),
+    private splitGroupRepo = getSplitGroupRepository()
   ) {}
 
   async getUsageCountsByCategory(userId?: number): Promise<Record<number, number>> {
@@ -127,6 +129,14 @@ export class ExpenseService {
       if (!valid.ok) throw new Error(valid.error);
     }
 
+    // Shared costs filters its history by split group, so a shared spend with
+    // no group never appears there. The old createSplit defaulted it; this is
+    // the same rule, now that there is one creation path.
+    const splitExpenseGroupId =
+      participants.length > 1
+        ? (data.splitExpenseGroupId ?? (await this.splitGroupRepo.findDefault())?.id ?? null)
+        : (data.splitExpenseGroupId ?? null);
+
     const { id } = await this.repo.create({
       userId,
       categoryId: data.categoryId,
@@ -137,7 +147,7 @@ export class ExpenseService {
       accountId: data.accountId ?? null,
       paidByUserId: userId,
       splitGroupId: participants.length > 1 ? crypto.randomUUID() : null,
-      splitExpenseGroupId: data.splitExpenseGroupId ?? null,
+      splitExpenseGroupId,
       recurringExpenseId: data.recurringExpenseId ?? null,
     });
 

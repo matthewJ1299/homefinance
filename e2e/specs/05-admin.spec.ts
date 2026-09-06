@@ -61,7 +61,9 @@ test.describe("Admin portal", () => {
 
     await page.goto("/admin/queries");
     await expect(page.getByRole("heading", { name: "Queries" })).toBeVisible();
-    await expect(page.getByText("Households")).toBeVisible();
-    await expect(page.getByText("Users")).toBeVisible();
+    // Scoped to main: both words are also admin nav links, so an unscoped
+    // getByText matches twice.
+    await expect(page.getByRole("main").getByText("Households")).toBeVisible();
+    await expect(page.getByRole("main").getByText("Users")).toBeVisible();
   });
 });

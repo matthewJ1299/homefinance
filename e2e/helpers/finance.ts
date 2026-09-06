@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
+import { clearNewMonthGate, waitForStableUrl } from "./auth";
 import { clearNewMonthIfPresent, goNav } from "./nav";
 
 export async function expectToast(page: Page, text: string | RegExp): Promise<void> {
@@ -17,7 +18,14 @@ const ADD_BUTTON = { name: "Add a spend" } as const;
  * also the viewport the sheet is designed for.
  */
 export async function openAddSheet(page: Page): Promise<void> {
-  await clearNewMonthIfPresent(page);
+  // The shell only loads the sheet's data on app pages, so /welcome and the
+  // other bypass paths render the centre button as a plain link to /add. Land
+  // on Home first rather than depending on where the caller happened to be.
+  if (!page.url().includes("/dashboard")) {
+    await page.goto("/dashboard");
+  }
+  await waitForStableUrl(page);
+  await clearNewMonthGate(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", ADD_BUTTON).click();
   await expect(page.getByRole("dialog", { name: "Add" })).toBeVisible();
@@ -212,7 +220,11 @@ export async function createGoalCategory(
 ): Promise<void> {
   await goNav(page, "Budget");
   await clearNewMonthIfPresent(page);
-  await page.getByRole("button", { name: new RegExp(`^${escapeRegex(input.categoryName)}`) }).first().click();
+  await page
+    .getByTestId("budget-category-row")
+    .filter({ hasText: input.categoryName })
+    .first()
+    .click();
   const dialog = page.getByRole("dialog", { name: input.categoryName });
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Save towards something" }).click();

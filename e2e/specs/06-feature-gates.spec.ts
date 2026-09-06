@@ -1,5 +1,5 @@
 import { test, expect } from "../fixtures/test";
-import { loginAsMatt, skipWelcomeIfPresent } from "../helpers/auth";
+import { loginAsMatt, skipWelcomeIfPresent, waitForStableUrl } from "../helpers/auth";
 import {
   enableAllSeededFeatures,
   openSeededHousehold,
@@ -73,14 +73,18 @@ test.describe("Household feature gating", () => {
       await setHouseholdFeature(page, gate.featureKey, false);
 
       await page.goto("/dashboard");
+      // Home can redirect to the month-open screen; navigating again while that
+      // is in flight aborts both.
+      await waitForStableUrl(page);
       await expectNavHidden(page, gate.nav);
-      await page.goto(gate.path);
+      await page.goto(gate.path, { waitUntil: "domcontentloaded" });
       await expectFeatureUnavailable(page, gate.featureKey);
 
       await openSeededHousehold(page);
       await setHouseholdFeature(page, gate.featureKey, true);
 
       await page.goto("/dashboard");
+      await waitForStableUrl(page);
       await expectNavVisible(page, gate.nav);
       await goNav(page, gate.nav);
       await expect(page.getByTestId("feature-unavailable")).toHaveCount(0);

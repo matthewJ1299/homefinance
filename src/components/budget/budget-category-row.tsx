@@ -18,6 +18,7 @@ export function BudgetCategoryRow({ c, onOpen }: { c: Row; onOpen: (id: number) 
     <button
       type="button"
       onClick={() => onOpen(c.categoryId)}
+      data-testid="budget-category-row"
       className="w-full space-y-1.5 border-b border-border/50 py-3.5 text-left last:border-0 cursor-pointer"
     >
       <div className="flex items-baseline justify-between gap-2.5">
