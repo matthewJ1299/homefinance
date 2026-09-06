@@ -5,12 +5,8 @@ import { AppShell } from "@/components/layout/app-shell";
 import { BudgetMonthStartDayProvider } from "@/components/settings/budget-month-start-context";
 import { getUserRepository } from "@/lib/repositories";
 import { loadAddSheetData } from "@/components/add/load-add-sheet-data";
-import { BudgetService } from "@/lib/services/budget.service";
 
 const BYPASS_PATHS = ["/pending-approval", "/welcome", "/change-password"];
-// /new-month is its own gate below; listing it here would make the gate
-// redirect to a page it then bounces off.
-const MONTH_GATE_EXEMPT = [...BYPASS_PATHS, "/new-month", "/settings"];
 
 export default async function AppLayout({
   children,
@@ -48,14 +44,6 @@ export default async function AppLayout({
 
   if (approval === "active" && setup.status === "not_started" && !onBypassPath) {
     redirect("/welcome");
-  }
-
-  // The budget month has turned and this user has not seen the summary.
-  // Skipping still calls openMonth, so nothing breaks if it is ignored.
-  if (approval === "active" && setup.status !== "not_started"
-      && !MONTH_GATE_EXEMPT.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
-    const monthPending = await new BudgetService().needsMonthOpen(userId);
-    if (monthPending) redirect("/new-month");
   }
 
   // The sheet is only reachable once setup is done; before that the shell

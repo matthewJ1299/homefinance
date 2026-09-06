@@ -12,6 +12,7 @@ export async function loginAs(
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 30_000 });
+  await clearNewMonthGate(page);
 }
 
 export async function loginAsMatt(page: Page): Promise<void> {
@@ -35,6 +36,22 @@ export async function skipWelcomeIfPresent(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/dashboard/);
 }
 
+/**
+ * Clear the month-open gate.
+ *
+ * The shell redirects to /new-month once the budget month has turned, which is
+ * every seeded login. Clearing it here rather than in each spec means a spec
+ * only mentions the month-open screen when it is actually testing it.
+ */
+export async function clearNewMonthGate(page: Page): Promise<void> {
+  // Home redirects here during its own render, so let the navigation settle
+  // before deciding whether the gate is up.
+  await page.waitForLoadState("domcontentloaded");
+  if (!page.url().includes("/new-month")) return;
+  await page.getByRole("button", { name: /^Start / }).click();
+  await page.waitForURL((url) => !url.pathname.includes("/new-month"), { timeout: 30_000 });
+}
+
 /** Land on an app page past login/welcome/change-password gates. */
 export async function enterAppAs(
   page: Page,
@@ -54,4 +71,5 @@ export async function enterAppAs(
   }
 
   await skipWelcomeIfPresent(page);
+  await clearNewMonthGate(page);
 }

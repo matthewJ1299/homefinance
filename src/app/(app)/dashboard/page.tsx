@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { auth } from "@/lib/auth";
 import {
@@ -77,6 +78,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const today = format(new Date(), "yyyy-MM-dd");
   const period = await getBudgetPeriodForUserMonth(month, userId);
   const quickAddExpenseDate = pickQuickAddDateForBudgetPeriod(today, period);
+
+  // The month-open gate lives here rather than in the shell.
+  //
+  // A layout cannot see its own pathname -- it reads an x-pathname header the
+  // middleware sets -- and after the layout's own redirect that header still
+  // named the page we came FROM, so /new-month failed its own exemption test
+  // and redirected to itself forever. Home is where the design says this fires
+  // anyway, and a page redirecting away has no such problem.
+  if (monthParam == null) {
+    const monthPending = await new BudgetService().needsMonthOpen(userId);
+    if (monthPending) redirect("/new-month");
+  }
 
   const userRepo = getUserRepository();
   const expenseService = new ExpenseService();
