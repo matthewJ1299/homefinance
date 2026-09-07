@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 export function FeatureUnavailable({ feature }: { feature: FeatureKey }) {
   const def = FEATURES[feature];
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-testid="feature-unavailable" data-feature={feature}>
       <PageHeader title={def.label} />
       <p className="text-sm text-muted-foreground max-w-lg">{def.deniedMessage}</p>
       <Link

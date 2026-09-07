@@ -50,19 +50,38 @@ export function ExtraPaymentForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4" data-testid="mortgage-extra-payment">
       <h2 className="font-semibold text-base">Pay a bit extra</h2>
       <div>
-        <Label>Amount (R)</Label>
-        <Input type="text" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" required />
+        <Label htmlFor="mortgage-extra-amount">Amount (R)</Label>
+        <Input
+          id="mortgage-extra-amount"
+          type="text"
+          inputMode="decimal"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="0"
+          required
+        />
       </div>
       <div>
-        <Label>Date</Label>
-        <Input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} required />
+        <Label htmlFor="mortgage-extra-date">Date</Label>
+        <Input
+          id="mortgage-extra-date"
+          type="date"
+          value={paymentDate}
+          onChange={(e) => setPaymentDate(e.target.value)}
+          required
+        />
       </div>
       <div>
-        <Label>Note (optional)</Label>
-        <Input type="text" value={note} onChange={(e) => setNote(e.target.value)} />
+        <Label htmlFor="mortgage-extra-note">Note (optional)</Label>
+        <Input
+          id="mortgage-extra-note"
+          type="text"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+        />
       </div>
       <Button type="submit" disabled={isPending}>{isPending ? "Saving..." : "Record extra payment"}</Button>
       {message === "saved" && <p className="text-sm text-primary">Saved.</p>}

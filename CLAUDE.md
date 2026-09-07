@@ -13,6 +13,8 @@ npm run lint                 # next lint (eslint-config-next / core-web-vitals)
 npm run test                 # = test:unit
 npm run test:unit            # Vitest, offline, no DB. Runs src/**/*.test.ts EXCEPT src/__tests__/integration/**
 npm run test:integration     # Vitest, needs DATABASE_URL + seeded DB (run db:fresh first)
+npm run test:e2e             # Playwright E2E, headed Chromium by default — see docs/e2e-playwright.md
+npm run test:e2e:ui          # Playwright UI mode
 npm run test:watch           # vitest watch
 
 # Run a single unit test file / name:

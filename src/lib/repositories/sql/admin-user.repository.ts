@@ -1,4 +1,4 @@
-import { all, lastInsertId, run } from "@/lib/db";
+import { all, get, run } from "@/lib/db";
 import type { AdminUserSummary, IAdminUserRepository } from "../interfaces/admin-user.repository";
 
 interface UserRow {
@@ -52,8 +52,9 @@ export class AdminUserRepository implements IAdminUserRepository {
     passwordHash: string;
     mustChangePassword?: boolean;
   }): Promise<number> {
-    await run(
-      "INSERT INTO users (name, email, password_hash, household_id, must_change_password) VALUES (?, ?, ?, ?, ?)",
+    const row = await get<{ id: number }>(
+      `INSERT INTO users (name, email, password_hash, household_id, must_change_password)
+       VALUES (?, ?, ?, ?, ?) RETURNING id`,
       [
         input.name,
         input.email,
@@ -62,9 +63,8 @@ export class AdminUserRepository implements IAdminUserRepository {
         input.mustChangePassword === true,
       ]
     );
-    const id = await lastInsertId();
-    if (id == null) throw new Error("User insert did not return an id");
-    return id;
+    if (row?.id == null) throw new Error("User insert did not return an id");
+    return Number(row.id);
   }
 
   async setUserSuperAdmin(userId: number, isSuperAdmin: boolean): Promise<void> {

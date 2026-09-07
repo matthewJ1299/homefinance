@@ -17,13 +17,19 @@ export function AccountCreateFields(props: {
   return (
     <div className="space-y-3">
       <div>
-        <Label>Account name</Label>
-        <Input value={name} onChange={(e) => onNameChange(e.target.value)} placeholder="e.g. Household Bank" />
+        <Label htmlFor="account-create-name">Account name</Label>
+        <Input
+          id="account-create-name"
+          value={name}
+          onChange={(e) => onNameChange(e.target.value)}
+          placeholder="e.g. Household Bank"
+        />
       </div>
 
       <div>
-        <Label>Type</Label>
+        <Label htmlFor="account-create-type">Type</Label>
         <select
+          id="account-create-type"
           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
           value={type}
           onChange={(e) => onTypeChange(e.target.value as AccountType)}

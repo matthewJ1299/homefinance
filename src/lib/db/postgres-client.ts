@@ -21,6 +21,22 @@ function isInsert(sql: string): boolean {
   return /^\s*INSERT\s+INTO\s+/i.test(sql.replace(/\s+/g, " ").trim());
 }
 
+/** Upserts and tables without serial/identity must not call lastval(). */
+function shouldCaptureInsertId(sql: string): boolean {
+  return isInsert(sql) && !/\bON\s+CONFLICT\b/i.test(sql);
+}
+
+async function captureLastInsertId(
+  query: (sql: string) => Promise<pg.QueryResult>
+): Promise<number | null> {
+  try {
+    const res = await query("SELECT lastval() AS id");
+    return res.rows[0]?.id != null ? Number(res.rows[0].id) : null;
+  } catch {
+    return null;
+  }
+}
+
 async function getPool(): Promise<pg.Pool> {
   if (pool) return pool;
   const url = process.env.DATABASE_URL;
@@ -84,11 +100,12 @@ const postgresClient: IDbClient = {
     if (txClient) {
       const [pgSql, pgParams] = toPgParams(sql, params);
       await txClient.query(pgSql, pgParams);
-      if (isInsert(sql)) {
-        const res = await txClient.query("SELECT lastval() AS id");
-        const id = res.rows[0]?.id != null ? Number(res.rows[0].id) : null;
-        const ctx = getRequestContext();
-        if (ctx) setRequestContext({ ...ctx, lastInsertId: id ?? undefined });
+      if (shouldCaptureInsertId(sql)) {
+        const id = await captureLastInsertId((q) => txClient.query(q));
+        if (id != null) {
+          const ctx = getRequestContext();
+          if (ctx) setRequestContext({ ...ctx, lastInsertId: id });
+        }
       }
       return;
     }
@@ -97,12 +114,13 @@ const postgresClient: IDbClient = {
     try {
       const [pgSql, pgParams] = toPgParams(sql, params);
       await client.query(pgSql, pgParams);
-      if (isInsert(sql)) {
-        const res = await client.query("SELECT lastval() AS id");
-        const id = res.rows[0]?.id != null ? Number(res.rows[0].id) : null;
-        lastInsertedIdFallback = id;
-        const ctx = getRequestContext();
-        if (ctx) setRequestContext({ ...ctx, lastInsertId: id ?? undefined });
+      if (shouldCaptureInsertId(sql)) {
+        const id = await captureLastInsertId((q) => client.query(q));
+        if (id != null) {
+          lastInsertedIdFallback = id;
+          const ctx = getRequestContext();
+          if (ctx) setRequestContext({ ...ctx, lastInsertId: id });
+        }
       }
     } finally {
       client.release();

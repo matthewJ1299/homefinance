@@ -1,4 +1,4 @@
-import { all, get, lastInsertId, run } from "@/lib/db";
+import { all, get, run } from "@/lib/db";
 import { getHouseholdFeatureRepository } from "@/lib/repositories";
 import { toFeatureKeys, type FeatureKey } from "@/lib/features/registry";
 import type {
@@ -70,19 +70,21 @@ export class AdminHouseholdRepository implements IAdminHouseholdRepository {
     approvalStatus: "pending" | "active" | "rejected" = "active"
   ): Promise<number> {
     try {
-      await run("INSERT INTO households (name, approval_status) VALUES (?, ?)", [
-        name,
-        approvalStatus,
-      ]);
+      const row = await get<{ id: number }>(
+        "INSERT INTO households (name, approval_status) VALUES (?, ?) RETURNING id",
+        [name, approvalStatus]
+      );
+      if (row?.id == null) throw new Error("Household insert did not return an id");
+      return Number(row.id);
     } catch (err) {
       if (!isMissingColumnError(err)) throw err;
-      await run("INSERT INTO households (name) VALUES (?)", [name]);
+      const row = await get<{ id: number }>(
+        "INSERT INTO households (name) VALUES (?) RETURNING id",
+        [name]
+      );
+      if (row?.id == null) throw new Error("Household insert did not return an id");
+      return Number(row.id);
     }
-    const id = await lastInsertId();
-    if (id == null) {
-      throw new Error("Household insert did not return an id");
-    }
-    return id;
   }
 
   async renameHousehold(householdId: number, name: string): Promise<void> {

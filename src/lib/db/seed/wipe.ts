@@ -23,14 +23,14 @@ export async function wipeSeedData(): Promise<void> {
   await run("DELETE FROM goals");
   await run("DELETE FROM split_settlements");
   await run("DELETE FROM split_allocations");
-  await run("DELETE FROM split_groups");
   await run("DELETE FROM account_transactions");
   await run("DELETE FROM transfers");
+  await run("DELETE FROM expenses");
+  await run("DELETE FROM income");
+  await run("DELETE FROM split_groups");
   await run("DELETE FROM accounts");
   await run("DELETE FROM budget_transfers");
   await run("DELETE FROM budgets");
-  await run("DELETE FROM expenses");
-  await run("DELETE FROM income");
   await run("DELETE FROM mortgage_schedule_snapshots");
   await run("DELETE FROM mortgage_payments");
   await run("DELETE FROM mortgage_rate_periods");
