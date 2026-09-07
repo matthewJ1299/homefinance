@@ -6,6 +6,28 @@ spares existing users the onboarding wizard. Applying them to a database with
 real history is a different exercise from creating a new one, and it was
 rehearsed rather than assumed.
 
+## Check your own data first
+
+```bash
+DATABASE_URL="postgres://..." node scripts/preflight-upgrade.mjs
+```
+
+Read-only -- it writes nothing and opens no transaction, so it is safe to point
+at production. It reports whether `db:push` will complete, and what it will
+merge on the way:
+
+- **every row can find its owner**, because the household backfill reads it and
+  a row that cannot ends the migration with a NULL household_id;
+- **budgets unique** on (user, category, month);
+- **names unique** in categories, split groups and calendar categories, all of
+  which become unique per household;
+- which **savings goals will merge** into one category, and which credit goals
+  are left alone;
+- whether **What I owe** carries over;
+- how many users skip the onboarding wizard.
+
+Exit code 0 means clear; 1 means at least one blocker, and it names the rows.
+
 ## What the rehearsal does
 
 It builds a database the way yours got here — `master`'s schema and seed, so

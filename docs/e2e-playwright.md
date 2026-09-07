@@ -103,6 +103,13 @@ E2E_DEVICE=mobile npm run test:e2e
 $env:E2E_DEVICE="mobile"; npm run test:e2e
 ```
 
+The demo flow passes on a phone. **The full suite does not yet: 75 of 92.** All
+eight failures are the specs reaching for desktop chrome -- `expectNavVisible`
+and `expectNavHidden` look for sidebar links that do not exist below the
+breakpoint, and `11-theme-layout` is explicitly about the desktop sidebar. The
+pages themselves render; it is the assertions that assume a 1280px window.
+`goNav` has been taught the mobile menu, and the rest have not.
+
 Device emulation is a real one: Android Chrome user agent, five touch points,
 and mouse events translated to touch, so anything gated on hover behaves as it
 does on a phone. Reload-time device checks re-run because the emulation is set
