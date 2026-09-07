@@ -5,6 +5,8 @@ import {
   getRecurringIncomeRepository,
   getRecurringExpenseRepository,
   getSharedListRepository,
+  getHouseholdRepository,
+  getUserRepository,
 } from "@/lib/repositories";
 import { formatBudgetMonthLabel } from "@/lib/utils/date";
 import {
@@ -21,6 +23,7 @@ import { PushNotificationsSettings } from "@/components/push/push-notifications-
 import { DashboardTilesSettings } from "@/components/settings/dashboard-tiles-settings";
 import { AccountsManage } from "@/components/accounts/accounts-manage";
 import { BudgetMonthRangeSettings } from "@/components/settings/budget-month-range-settings";
+import { HouseholdMembersPanel } from "@/components/household/household-members-panel";
 import { ExportTransactionsSettings } from "@/components/settings/export-transactions-settings";
 import { OnboardingLauncherCard } from "@/components/onboarding/onboarding-launcher-card";
 import { ProfileSettings } from "@/components/settings/profile-settings";
@@ -40,6 +43,11 @@ export default async function SettingsPage() {
     getSharedListRepository().findAll(),
   ]);
   const categoriesForRecurring = await getCategoryRepository().findAll();
+  const [household, allMembers] = await Promise.all([
+    getHouseholdRepository().getCurrent(),
+    getUserRepository().findAll(),
+  ]);
+  const householdMembers = allMembers.map((m) => ({ id: m.id, name: m.name }));
 
   // The day the *household* runs on -- which is what the settings action
   // writes. Showing the reader's own stale column here let one member edit a
@@ -61,10 +69,27 @@ export default async function SettingsPage() {
         <OnboardingLauncherCard />
       </SettingsSection>
 
-      <SettingsSection title="Preferences" description="Notifications, budget timing, and dashboard layout.">
+      <SettingsSection title="Preferences" description="Notifications and dashboard layout.">
         <PushNotificationsSettings />
-        <BudgetMonthRangeSettings currentStartDay={budgetMonthStartDay} />
         <DashboardTilesSettings />
+      </SettingsSection>
+
+      {/* The household was something you could only see while being onboarded,
+          and never again. The month start day lives here rather than under
+          Preferences because it is not a preference -- it is shared. */}
+      <SettingsSection
+        title="Household"
+        description="Your house, who is in it, and the settings everyone shares."
+      >
+        <HouseholdMembersPanel
+          householdName={household?.name ?? "Your house"}
+          members={householdMembers}
+          meUserId={userId}
+        />
+        <BudgetMonthRangeSettings
+          currentStartDay={budgetMonthStartDay}
+          description="This is when the month starts for everyone in the house."
+        />
       </SettingsSection>
 
       <SettingsSection
