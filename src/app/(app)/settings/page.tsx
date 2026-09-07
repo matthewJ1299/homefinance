@@ -80,7 +80,7 @@ export default async function SettingsPage() {
             Track bank balances, savings, and credit. Link income and expenses to accounts. Use Transfer
             Money to move funds between accounts (e.g. bank to savings, or pay down credit).
           </p>
-          <AccountsManage />
+          <AccountsManage currentUserId={userId} />
         </CollapsibleSection>
 
         <CollapsibleSection title="Split groups" defaultOpen={false}>

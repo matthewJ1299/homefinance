@@ -18,7 +18,7 @@ export default async function AccountsPage() {
         View and manage your accounts. Use Transfer Money to move funds between accounts (e.g. bank
         to savings, or pay down credit).
       </p>
-      <AccountsManage otherMembers={otherMembers} />
+      <AccountsManage otherMembers={otherMembers} currentUserId={userId} />
     </div>
   );
 }

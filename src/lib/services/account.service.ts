@@ -35,6 +35,28 @@ export class AccountService {
     return this.accountRepo.findMainAccountIdForUser(userId);
   }
 
+  /**
+   * Accounts a spend can be filed against: your own, plus the household's shared
+   * ones. Ownership still decides who can rename, share, or delete -- this is a
+   * read for the surfaces that need to name an account.
+   */
+  async listAccountsVisibleToUser(
+    userId: number
+  ): Promise<{ accounts: AccountWithBalance[]; primaryAccountId: number | null }> {
+    await this.ensurePrimaryAccountCoherence(userId);
+    const primaryAccountId = await this.userRepo.getPrimaryAccountId(userId);
+    const accounts = await this.accountRepo.findAllVisibleToUser(userId);
+    const results: AccountWithBalance[] = [];
+    for (const acc of accounts) {
+      const balance = await this.txRepo.getBalance(acc.id);
+      const availableCredit =
+        acc.type === "credit" && acc.creditLimit != null ? acc.creditLimit + balance : undefined;
+      results.push({ ...acc, balance, availableCredit });
+    }
+    return { accounts: results, primaryAccountId };
+  }
+
+  /** Owner-scoped. Backs Settings, where renaming, sharing and deleting live. */
   async listAccountsForUser(
     userId: number
   ): Promise<{ accounts: AccountWithBalance[]; primaryAccountId: number | null }> {

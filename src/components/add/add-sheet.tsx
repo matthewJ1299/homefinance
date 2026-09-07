@@ -79,7 +79,7 @@ export function AddSheet({
   me: HouseholdMember;
   members: HouseholdMember[];
   categories: AddSheetCategory[];
-  accounts: { id: number; name: string }[];
+  accounts: { id: number; name: string; ownerUserId: number }[];
   defaultAccountId?: number;
   defaultDate: string;
   prefill?: AddSheetPrefill;
@@ -620,7 +620,10 @@ export function AddSheet({
               <option value="">No account</option>
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.name}
+                  {/* Somebody else's account, shared with the household. Saying
+                      so is the difference between "Joint" and a name you do
+                      not recognise in your own account list. */}
+                  {a.ownerUserId === me.id ? a.name : `${a.name} · shared`}
                 </option>
               ))}
             </select>

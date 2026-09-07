@@ -14,7 +14,14 @@ import { BalanceCheckSheet } from "@/components/accounts/balance-check-sheet";
 import type { HouseholdMember } from "@/lib/types/household-member";
 import { validateAccountCreateDraft } from "@/lib/utils/account-create";
 
-export function AccountsManage({ otherMembers = [] }: { otherMembers?: HouseholdMember[] }) {
+export function AccountsManage({
+  otherMembers = [],
+  currentUserId,
+}: {
+  otherMembers?: HouseholdMember[];
+  /** Who is reading. Ownership decides who may reconcile a shared account. */
+  currentUserId?: number;
+}) {
   const router = useRouter();
   const [accounts, setAccounts] = useState<AccountWithBalance[]>([]);
   const [primaryAccountId, setPrimaryAccountId] = useState<number | null>(null);
@@ -203,15 +210,24 @@ export function AccountsManage({ otherMembers = [] }: { otherMembers?: Household
                 )}
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCheckAccount(acc)}
-                  disabled={isPending}
-                >
-                  Check
-                </Button>
+                {/* A shared account has one real bank balance and two people.
+                    Two people accepting two gaps would write two adjustment
+                    rows for one truth, so the check stays with the owner. */}
+                {currentUserId == null || acc.ownerUserId === currentUserId ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCheckAccount(acc)}
+                    disabled={isPending}
+                  >
+                    Check
+                  </Button>
+                ) : (
+                  <span className="text-xs text-muted-foreground">
+                    Checked by the owner
+                  </span>
+                )}
                 {showPrimaryControl && !isPrimary && (
                   <Button
                     type="button"

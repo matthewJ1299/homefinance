@@ -49,6 +49,18 @@ export class AccountRepository implements IAccountRepository {
     return rows.map(toAccount);
   }
 
+  async findAllVisibleToUser(userId: number): Promise<Account[]> {
+    const hid = requireHouseholdId();
+    const rows = await all<AccountRow>(
+      `SELECT id, name, type, owner_user_id, credit_limit, is_shared, created_at
+         FROM accounts
+        WHERE household_id = ? AND (owner_user_id = ? OR is_shared = true)
+        ORDER BY name`,
+      [hid, userId]
+    );
+    return rows.map(toAccount);
+  }
+
   async findMainAccountIdForUser(ownerUserId: number): Promise<number | null> {
     const hid = requireHouseholdId();
     const bank = await get<{ id: number }>(

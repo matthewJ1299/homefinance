@@ -13,7 +13,7 @@ export interface AddSheetData {
   me: HouseholdMember;
   members: HouseholdMember[];
   categories: AddSheetCategory[];
-  accounts: { id: number; name: string }[];
+  accounts: { id: number; name: string; ownerUserId: number }[];
   defaultAccountId?: number;
   defaultDate: string;
 }
@@ -33,7 +33,7 @@ export async function loadAddSheetData(userId: number, userName: string): Promis
     new BudgetService().getOverview(month, userId),
     new ExpenseService().getUsageCountsByCategory(userId),
     userRepo.findAllExcept(userId),
-    new AccountService().listAccountsForUser(userId),
+    new AccountService().listAccountsVisibleToUser(userId),
     getBudgetPeriodForUserMonth(month, userId),
   ]);
 
@@ -49,7 +49,11 @@ export async function loadAddSheetData(userId: number, userName: string): Promis
       available: c.available,
       useCount: useCounts[c.categoryId] ?? 0,
     })),
-    accounts: accountsResult.accounts.map((a) => ({ id: a.id, name: a.name })),
+    accounts: accountsResult.accounts.map((a) => ({
+      id: a.id,
+      name: a.name,
+      ownerUserId: a.ownerUserId,
+    })),
     defaultAccountId: accountsResult.primaryAccountId ?? undefined,
     // A spend typed on the 2nd belongs to the budget month that is open, not
     // whichever calendar month today happens to fall in.

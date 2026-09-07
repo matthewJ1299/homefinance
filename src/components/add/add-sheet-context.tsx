@@ -8,7 +8,7 @@ interface AddSheetData {
   me: HouseholdMember;
   members: HouseholdMember[];
   categories: AddSheetCategory[];
-  accounts: { id: number; name: string }[];
+  accounts: { id: number; name: string; ownerUserId: number }[];
   defaultAccountId?: number;
   /** The date the sheet opens on, inside the current budget period. */
   defaultDate: string;
