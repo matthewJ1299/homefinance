@@ -29,6 +29,8 @@
   --success-surface: #e7f7f0;
   --warning: #92400e;
   --warning-surface: #fffaf0;
+  /* The surface the bypass sites were hand-rolling as bg-red-500/10. */
+  --destructive-surface: #fdecec;
   /* The near-black used by "Cover it" and the pace bar's today marker. It is a
      token precisely because it inverts in dark; hard-coded, it went invisible. */
   --emphasis: #0f1520;
@@ -54,8 +56,6 @@
   --muted-foreground: #a7b5c9;
   --accent: #1a2540;
   --accent-foreground: #e8edf5;
-  --destructive: hsl(0 62% 50%);
-  --destructive-foreground: hsl(0 0% 98%);
   --border: #1e2738;
   --input: #1e2738;
   --ring: #5b8def;
@@ -65,6 +65,7 @@
   --success-surface: #12251f;
   --warning: #fbbf24;
   --warning-surface: #241f14;
+  --destructive-surface: #2a1618;
   /* Inverted: near-white with dark text. */
   --emphasis: #e8edf5;
   --emphasis-foreground: #0f1520;
@@ -106,6 +107,7 @@
   --color-success-surface: var(--success-surface);
   --color-warning: var(--warning);
   --color-warning-surface: var(--warning-surface);
+  --color-destructive-surface: var(--destructive-surface);
   --color-emphasis: var(--emphasis);
   --color-emphasis-foreground: var(--emphasis-foreground);
   --color-sheet: var(--sheet);

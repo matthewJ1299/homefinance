@@ -17,7 +17,7 @@ const PRIORITY_LABELS: Record<number, string> = {
 
 function priorityClass(p: number): string {
   if (p >= 4) return "bg-destructive/20 text-destructive";
-  if (p === 3) return "bg-orange-500/15 text-orange-600 dark:text-orange-400";
+  if (p === 3) return "bg-warning-surface text-warning";
   return "bg-muted text-muted-foreground";
 }
 

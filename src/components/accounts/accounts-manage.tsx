@@ -11,6 +11,7 @@ import { normalizeNumericId } from "@/lib/utils/accounts-api";
 import { AccountCreateFields } from "@/components/accounts/account-create-fields";
 import { AccountSharingSwitch } from "@/components/accounts/account-sharing-switch";
 import { BalanceCheckSheet } from "@/components/accounts/balance-check-sheet";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { HouseholdMember } from "@/lib/types/household-member";
 import { validateAccountCreateDraft } from "@/lib/utils/account-create";
 
@@ -157,9 +158,10 @@ export function AccountsManage({
       </div>
 
       {accounts.length === 0 && !showAdd && (
-        <p className="text-sm text-muted-foreground">
-          No accounts yet. Create one below to track bank balances, savings, and credit.
-        </p>
+        <EmptyState
+          title="No accounts yet"
+          message="Create one below to track bank balances, savings, and credit."
+        />
       )}
 
       {accounts.length > 0 && (

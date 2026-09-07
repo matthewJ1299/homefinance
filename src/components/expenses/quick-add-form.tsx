@@ -529,7 +529,7 @@ export function QuickAddForm({
             </div>
           )}
           {warningDetail && (
-            <p className="text-sm text-amber-600 dark:text-amber-500">{warningDetail}</p>
+            <p className="text-sm text-warning">{warningDetail}</p>
           )}
           {errorDetail && (
             <p className="text-sm text-destructive">{errorDetail}</p>

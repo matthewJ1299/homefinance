@@ -10,6 +10,7 @@ import { Dialog, DialogFooter, DialogHeader } from "@/components/ui/dialog";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Label } from "@/components/ui/label";
 import { SectionHeader } from "@/components/ui/section-header";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatRand, fromMinorUnits, toMinorUnits } from "@/lib/utils/currency";
 import { cn } from "@/lib/utils";
 import { parseAccountsApiPayload } from "@/lib/utils/accounts-api";
@@ -891,11 +892,11 @@ export function ReconPageClient() {
                           {pageRows.map((m) => {
                         const cls =
                           m.outcome === "imported_pending_duplicate"
-                            ? "bg-amber-500/10"
+                            ? "bg-warning-surface"
                             : m.outcome === "imported_pending_add"
                               ? "bg-success-surface"
                               : m.outcome === "parse_failed"
-                                ? "bg-red-500/10"
+                                ? "bg-destructive-surface"
                                 : "";
                         const outcomeLabel =
                           m.outcome === "not_bank"
@@ -979,7 +980,10 @@ export function ReconPageClient() {
         {itemsQuery.isLoading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No pending recon items. Sync after connecting Outlook.</p>
+          <EmptyState
+            title="Nothing from your bank yet"
+            message="Sync after connecting Outlook."
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse min-w-[1040px]">
@@ -1424,12 +1428,12 @@ export function ReconPageClient() {
                 <span className="font-semibold tabular-nums">{processMarkedSummary.ignoredCount}</span>
               </span>
               {processMarkedSummary.skippedNoCategory > 0 ? (
-                <span className="text-amber-700 dark:text-amber-500">
+                <span className="text-warning">
                   Skipped (expense rows with no category) {processMarkedSummary.skippedNoCategory}
                 </span>
               ) : null}
               {processMarkedSummary.skippedInvalidAmount > 0 ? (
-                <span className="text-amber-700 dark:text-amber-500">
+                <span className="text-warning">
                   Skipped (invalid amount) {processMarkedSummary.skippedInvalidAmount}
                 </span>
               ) : null}
