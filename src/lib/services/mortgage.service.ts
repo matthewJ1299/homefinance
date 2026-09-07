@@ -246,12 +246,16 @@ export class MortgageService {
       targetEquityUserAPct: targetEquityUserA,
       equitySummary: {
         userA: {
+          // The id, not just the name: two columns captioned "your share" is
+          // what happens when the reader cannot be matched to a column.
+          userId: userAId,
           name: userAName,
           deposit: params.userA.deposit,
           totalPayments: projected.userATotalPayments,
           equityPct: lastRow?.userACumulativeEquityPct ?? 0.5,
         },
         userB: {
+          userId: userBId,
           name: userBName,
           deposit: params.userB.deposit,
           totalPayments: projected.userBTotalPayments,
@@ -369,12 +373,14 @@ export class MortgageService {
       targetEquityUserAPct: targetEquityUserA,
       equitySummary: {
         userA: {
+          userId: userAId,
           name: userAName,
           deposit: params.userA.deposit,
           totalPayments: withExtras.userATotalPayments,
           equityPct: lastRow?.userACumulativeEquityPct ?? 0.5,
         },
         userB: {
+          userId: userBId,
           name: userBName,
           deposit: params.userB.deposit,
           totalPayments: withExtras.userBTotalPayments,

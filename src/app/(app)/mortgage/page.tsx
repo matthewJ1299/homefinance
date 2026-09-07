@@ -162,6 +162,7 @@ export default async function MortgagePage() {
         targetEquityUserAPct={schedule.targetEquityUserAPct}
         projectedPayoffDate={schedule.projectedPayoffDate}
         equitySummary={schedule.equitySummary}
+        meUserId={meUserId}
         currentBalance={currentBalance}
         projectedMonths={schedule.projectedMonths}
         originalTermMonths={config.loanTermMonths}

@@ -125,7 +125,9 @@ export function ReportsPageClient({
         ))}
       </div>
 
-      <p className="text-xs text-muted-foreground">{periodLabel}</p>
+      {/* Reports are per-user by design; the toggle that used to say so is
+          gone, so the scope has to be stated. */}
+      <p className="text-xs text-muted-foreground">Your own spending · {periodLabel}</p>
 
       {tab === "overview" ? (
         <section className="space-y-3">

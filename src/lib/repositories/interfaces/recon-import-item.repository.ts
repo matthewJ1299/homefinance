@@ -43,5 +43,7 @@ export interface IReconImportItemRepository {
   findByIdForUser(id: number, userId: number): Promise<ReconImportItemRow | null>;
   deleteByUserId(userId: number): Promise<void>;
   findPendingByUserId(userId: number): Promise<ReconImportItemRow[]>;
+  /** Rows whose txn date falls in `month`, whatever their status. For the caught-up line. */
+  countForMonth(userId: number, month: string, startDay: number): Promise<number>;
   updateStatusById(id: number, userId: number, status: ReconImportItemStatus): Promise<void>;
 }

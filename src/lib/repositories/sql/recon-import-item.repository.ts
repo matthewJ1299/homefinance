@@ -1,5 +1,6 @@
 import { all, get, lastInsertId, run } from "@/lib/db";
 import { requireHouseholdId } from "@/lib/db/request-context";
+import { getBudgetPeriodForMonthKey } from "@/lib/utils/date";
 import type {
   CreateReconImportItemInput,
   IReconImportItemRepository,
@@ -145,6 +146,21 @@ export class ReconImportItemRepository implements IReconImportItemRepository {
       [userId, hid]
     );
     return rows.map((r) => mapRow(r as Row));
+  }
+
+  async countForMonth(userId: number, month: string, startDay: number): Promise<number> {
+    const hid = requireHouseholdId();
+    // Counted over the arrival date, not the status: "N came in this month" has
+    // to stay still while the user works through them. Bounded by the same
+    // budget period the rest of the app frames a month with.
+    const period = getBudgetPeriodForMonthKey(month, startDay);
+    const row = await get<{ n: number }>(
+      `SELECT COUNT(*)::int AS n
+         FROM recon_import_items
+        WHERE user_id = ? AND household_id = ? AND txn_date >= ? AND txn_date <= ?`,
+      [userId, hid, period.start, period.end]
+    );
+    return row?.n ?? 0;
   }
 
   async updateStatusById(id: number, userId: number, status: ReconImportItemStatus): Promise<void> {

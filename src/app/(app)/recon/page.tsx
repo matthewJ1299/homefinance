@@ -10,6 +10,10 @@ import {
   getUserRepository,
 } from "@/lib/repositories";
 import { matchRules } from "@/lib/services/recon/match-rules";
+import {
+  budgetMonthStartDayForUser,
+  getDefaultBudgetMonthForUser,
+} from "@/lib/utils/budget-month-for-user";
 
 export default async function ReconPage() {
   // `auth()` is what binds this request's entitlements, and a page renders in
@@ -27,10 +31,16 @@ export default async function ReconPage() {
 
   const userId = Number(session?.user?.id ?? 0);
 
-  const [rules, pending, members] = await Promise.all([
+  const month = await getDefaultBudgetMonthForUser(userId);
+  const [rules, pending, members, arrivedThisMonth] = await Promise.all([
     getReconRuleRepository().findByOwner(userId),
     getReconImportItemRepository().findPendingByUserId(userId),
     getUserRepository().findAll(),
+    // What arrived, not what is left: counting pending rows made "N came in
+    // this month" shrink as the user worked through them.
+    budgetMonthStartDayForUser(userId).then((startDay) =>
+      getReconImportItemRepository().countForMonth(userId, month, startDay)
+    ),
   ]);
   const nameById = new Map(members.map((m) => [m.id, m.name]));
   const { matched, unmatched } = matchRules(pending, rules);
@@ -53,7 +63,7 @@ export default async function ReconPage() {
       <ReconRulesPanel
         matched={matchedRows}
         rules={rules}
-        totalThisMonth={pending.length}
+        totalThisMonth={arrivedThisMonth}
         unmatchedCount={unmatched.length}
       />
       <Suspense fallback={<div className="text-sm text-muted-foreground">Loading…</div>}>

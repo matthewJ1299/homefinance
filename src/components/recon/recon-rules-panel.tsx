@@ -71,7 +71,7 @@ export function ReconRulesPanel({
       {matched.length > 0 ? (
         <section className="space-y-2">
           <SectionHeader
-            title={`${matched.length} sorted themselves out`}
+            title={`${matched.length} your rules can place`}
             action={
               <Button onClick={acceptAll} disabled={pending} className="h-9 rounded-full px-3.5 text-xs">
                 {pending ? "Accepting…" : "Accept all"}
@@ -108,9 +108,10 @@ export function ReconRulesPanel({
         <Card className="rounded-2xl border-success/35 bg-success-surface p-4">
           <p className="text-[13px] font-semibold text-success">Caught up</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {totalThisMonth} transaction{totalThisMonth === 1 ? "" : "s"} came in this month.{" "}
-            {sortedThemselves} sorted {sortedThemselves === 1 ? "itself" : "themselves"} out from
-            your rules — you only had to look at {unmatchedCount}.
+            {totalThisMonth} transaction{totalThisMonth === 1 ? "" : "s"} came in this month, and
+            your rules placed{" "}
+            {sortedThemselves === totalThisMonth ? "every one" : String(sortedThemselves)}. Nothing
+            needs you.
           </p>
         </Card>
       ) : null}
