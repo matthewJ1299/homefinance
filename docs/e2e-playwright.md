@@ -58,6 +58,56 @@ npx playwright test --config=e2e/playwright.config.ts e2e/specs/01-auth.spec.ts
 npm run test:e2e:report
 ```
 
+## Watching one flow instead of the suite
+
+The suite registers households, resets passwords and signs in and out
+constantly, because that is what it is testing. None of it is interesting to
+watch. The demo run is the opposite: **one sign-in as the seeded user, one
+browser, the whole app in order**, pausing between screens so each one can be
+read.
+
+```bash
+npm run test:e2e:demo
+```
+
+Its assertions are real, so it fails on a broken screen rather than scrolling
+past it — it is a smoke test you can watch, not a screen recording.
+
+```bash
+# Slower or faster (default 350ms per action, 1.5s between screens)
+E2E_SLOW_MO=800 E2E_DEMO_PAUSE=3000 npm run test:e2e:demo
+```
+
+PowerShell sets those differently:
+
+```
+$env:E2E_SLOW_MO="800"; $env:E2E_DEMO_PAUSE="3000"; npm run test:e2e:demo
+```
+
+## Seeing the phone layout
+
+The app is mobile-first — the Add sheet, the bottom bar and the centre button
+only exist below the desktop breakpoint — so the desktop run never shows half
+of what was designed.
+
+```bash
+# The demo flow on a Pixel 5: 393x851, touch events, mobile bottom bar
+npm run test:e2e:demo:mobile
+
+# The whole suite on a phone
+E2E_DEVICE=mobile npm run test:e2e
+```
+
+```
+# PowerShell, whole suite on a phone
+$env:E2E_DEVICE="mobile"; npm run test:e2e
+```
+
+Device emulation is a real one: Android Chrome user agent, five touch points,
+and mouse events translated to touch, so anything gated on hover behaves as it
+does on a phone. Reload-time device checks re-run because the emulation is set
+before the page loads.
+
 ## What is covered
 
 | Spec | Focus |

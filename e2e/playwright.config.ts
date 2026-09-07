@@ -22,6 +22,13 @@ const slowMo =
       ? 0
       : 200;
 
+/**
+ * `E2E_DEVICE=mobile` runs everything on a phone: 393x851, touch, Android
+ * Chrome UA, and the mobile bottom bar the Add sheet is designed around.
+ * Anything else is the 1280x800 desktop the sidebar assumes.
+ */
+const useMobile = process.env.E2E_DEVICE === "mobile";
+
 const e2ePort = process.env.E2E_PORT ?? "3100";
 const baseURL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${e2ePort}`;
 
@@ -42,14 +49,16 @@ export default defineConfig({
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
-    viewport: { width: 1280, height: 800 },
+    ...(useMobile ? {} : { viewport: { width: 1280, height: 800 } }),
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
   },
   projects: [
     {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      name: useMobile ? "mobile" : "chromium",
+      use: useMobile
+        ? { ...devices["Pixel 5"] }
+        : { ...devices["Desktop Chrome"] },
     },
   ],
   webServer: {
