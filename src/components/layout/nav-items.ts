@@ -42,7 +42,7 @@ export const fullNavItems: NavItem[] = [
   { href: "/expenses", label: "Transactions", icon: Receipt },
   { href: "/recon", label: "From your bank", icon: GitCompare },
   { href: "/splits", label: "Shared costs", icon: SplitSquareVertical },
-  { href: "/what-i-owe", label: "What I owe", icon: ReceiptText },
+  { href: "/what-i-owe", label: "Statement", icon: ReceiptText },
   { href: "/budget", label: "Budget", icon: PiggyBank },
   { href: "/budget-ai-report", label: "Budget AI report", icon: Sparkles },
   { href: "/accounts", label: "Accounts", icon: CreditCard },
@@ -53,7 +53,7 @@ export const fullNavItems: NavItem[] = [
 ];
 
 /**
- * Desktop grouping. The flat list of sixteen was a wall; these four headings
+ * Desktop grouping. The flat list of fifteen was a wall; these four headings
  * are how people actually think about the app -- what they touch daily, the
  * money, the long view, and the bits you set up once.
  *
@@ -61,10 +61,10 @@ export const fullNavItems: NavItem[] = [
  * cannot silently drop it from the sidebar.
  */
 export const sidebarGroups: Array<{ name: string; items: string[] }> = [
-  { name: "Every day", items: ["/dashboard", "/calendar", "/lists"] },
+  { name: "Every day", items: ["/dashboard", "/calendar", "/lists", "/recon"] },
   { name: "Money", items: ["/budget", "/expenses", "/accounts", "/splits", "/what-i-owe"] },
   { name: "Bigger picture", items: ["/mortgage", "/goals", "/reports", "/budget-ai-report"] },
-  { name: "Setup", items: ["/recon", "/settings"] },
+  { name: "Setup", items: ["/settings"] },
 ];
 
 /** Groups `items` by `sidebarGroups`, dropping empty groups. */
