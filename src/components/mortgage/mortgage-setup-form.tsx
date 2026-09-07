@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { saveMortgageConfig } from "@/lib/actions/mortgage.actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toMinorUnits } from "@/lib/utils/currency";
+import { toMinorUnits, formatRand } from "@/lib/utils/currency";
+import { solveShares } from "@/lib/services/finance/mortgage-plan";
+import { standardMonthlyPayment } from "@/lib/services/mortgage-calculator";
 import { fromMinorUnits } from "@/lib/utils/currency";
 import { toast } from "sonner";
 
@@ -34,6 +36,19 @@ interface MortgageSetupFormProps {
   users: UserOption[];
   initialValues?: MortgageInitialValues;
   submitLabel?: string;
+}
+
+/** Fields are typed as rands with spaces and either separator. */
+function toRands(value: string): number {
+  const n = parseFloat(value.replace(/\s/g, "").replace(",", "."));
+  return Number.isFinite(n) ? n : NaN;
+}
+
+/** A rate typed as 11.5 or as 0.115 both mean the same thing. */
+function toAnnualRateFraction(value: string): number {
+  const n = parseFloat(value.replace(/,/g, "."));
+  if (!Number.isFinite(n)) return NaN;
+  return n > 1 ? n / 100 : n;
 }
 
 export function MortgageSetupForm({ users, initialValues, submitLabel }: MortgageSetupFormProps) {
@@ -68,6 +83,60 @@ export function MortgageSetupForm({ users, initialValues, submitLabel }: Mortgag
     setUser2Split(initialValues.user2Split);
     setUser2Cap(initialValues.user2Cap);
   }, [initialValues]);
+
+  /**
+   * What the numbers on screen actually produce, solved as they are typed.
+   *
+   * The form asks for a target share but has never said what reaching it costs
+   * per month, so the two figures could disagree indefinitely and only the
+   * amortisation table would ever let on. Unreachable targets are named here
+   * rather than clamped, because being told you are on track for an
+   * arithmetically impossible split is the failure with real consequences.
+   */
+  const plan = useMemo(() => {
+    if (users.length < 2) return null;
+    const price = toRands(propertyValue);
+    const loan = toRands(loanAmount);
+    const rate = toAnnualRateFraction(annualRate);
+    const years = parseInt(termYears, 10);
+    const targetPct = parseFloat(targetEquityPct);
+    if (
+      !Number.isFinite(price) || price <= 0 ||
+      !Number.isFinite(loan) || loan <= 0 ||
+      !Number.isFinite(rate) || rate < 0 ||
+      !Number.isFinite(years) || years < 1 ||
+      !Number.isFinite(targetPct)
+    ) {
+      return null;
+    }
+
+    const termMonths = years * 12;
+    const loanMinor = toMinorUnits(loan);
+    const paymentMinor = standardMonthlyPayment(loanMinor, rate / 12, termMonths);
+    if (paymentMinor <= 0) return null;
+
+    const shareBp = Math.round(Math.max(0, Math.min(100, targetPct)) * 100);
+    const result = solveShares({
+      price: toMinorUnits(price),
+      paymentMinor,
+      termMonths,
+      annualRateBp: Math.round(rate * 10_000),
+      deposits: [
+        { userId: users[0].id, amountMinor: toMinorUnits(toRands(user1Deposit) || 0) },
+        { userId: users[1].id, amountMinor: toMinorUnits(toRands(user2Deposit) || 0) },
+      ],
+      targets: [
+        { userId: users[0].id, shareBp },
+        { userId: users[1].id, shareBp: 10_000 - shareBp },
+      ],
+    });
+    return { paymentMinor, result };
+  }, [
+    users, propertyValue, loanAmount, annualRate, termYears, targetEquityPct,
+    user1Deposit, user2Deposit,
+  ]);
+
+  const nameFor = (userId: number) => users.find((u) => u.id === userId)?.name ?? "Someone";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,6 +259,44 @@ export function MortgageSetupForm({ users, initialValues, submitLabel }: Mortgag
           <Input type="text" inputMode="decimal" value={user2Cap} onChange={(e) => setUser2Cap(e.target.value)} placeholder="Optional" />
         </div>
       </div>
+
+      {plan ? (
+        <div
+          data-testid="mortgage-plan-preview"
+          className="rounded-lg border border-border bg-card p-4 space-y-2"
+        >
+          <h3 className="font-medium">To land on that split</h3>
+          <p className="text-xs text-muted-foreground">
+            Minimum payment {formatRand(plan.paymentMinor)} a month, split so the
+            share of the home works out as asked.
+          </p>
+          <ul className="space-y-1 text-sm">
+            {plan.result.shares.map((share) => (
+              <li key={share.userId} className="flex justify-between gap-3 tabular-nums">
+                <span>{nameFor(share.userId)}</span>
+                <span>
+                  {formatRand(share.monthlyMinor)}/month &middot; ends on{" "}
+                  {(share.projectedShareBp / 100).toFixed(1)}%
+                </span>
+              </li>
+            ))}
+          </ul>
+          {!plan.result.reachable ? (
+            <div className="space-y-1 rounded-md bg-destructive/10 p-3 text-sm">
+              <p className="font-medium text-destructive">That split is not reachable.</p>
+              {plan.result.blockers.map((blocker) => (
+                <p key={blocker} className="text-xs text-muted-foreground">
+                  {blocker}
+                </p>
+              ))}
+              <p className="text-xs text-muted-foreground">
+                Two things move it: change the target share, or change the
+                deposits. The figures above are the closest this bond can get.
+              </p>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {error && <p className="text-sm text-destructive">{error}</p>}
       <Button type="submit" disabled={isPending}>

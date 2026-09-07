@@ -394,12 +394,12 @@ export function HomeInlineQuickAddExpense({
                     }`}
                   >
                     {totalCentsForExact == null
-                      ? "Enter total amount above to calculate remaining."
+                      ? "Enter total amount above to calculate what is left."
                       : exactRemainingCents > 0
-                        ? `Remaining to allocate: ${formatRand(exactRemainingCents)}`
+                        ? `Left to give a job: ${formatRand(exactRemainingCents)}`
                         : exactRemainingCents < 0
-                          ? `Over allocated by ${formatRand(Math.abs(exactRemainingCents))}`
-                          : "Fully allocated."}
+                          ? `You've promised ${formatRand(Math.abs(exactRemainingCents))} more than you have`
+                          : "Every rand has a job."}
                   </p>
                 </div>
               ) : null}

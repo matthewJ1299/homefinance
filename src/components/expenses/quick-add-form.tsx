@@ -436,7 +436,7 @@ export function QuickAddForm({
                   onChange={(e) => setSplitEnabled(e.target.checked)}
                   className="rounded border-input"
                 />
-                <span className="text-sm">Split this expense</span>
+                <span className="text-sm">Who&apos;s in on this</span>
               </label>
               {splitEnabled && (
                 <div className="pl-6 space-y-2 border-l-2 border-muted">
@@ -517,10 +517,10 @@ export function QuickAddForm({
                         }`}
                       >
                         {exactRemainingCents > 0
-                          ? `Remaining to allocate: ${formatRand(exactRemainingCents)}`
+                          ? `Left to give a job: ${formatRand(exactRemainingCents)}`
                           : exactRemainingCents < 0
-                            ? `Over allocated by ${formatRand(Math.abs(exactRemainingCents))}`
-                            : "Fully allocated."}
+                            ? `You've promised ${formatRand(Math.abs(exactRemainingCents))} more than you have`
+                            : "Every rand has a job."}
                       </p>
                     </div>
                   )}

@@ -48,6 +48,23 @@ test.describe("Mortgage + Goals mutations", () => {
     ).toBeVisible();
   });
 
+  test("the setup form solves each person's monthly share as you type", async ({ page }) => {
+    await goNav(page, "Mortgage");
+    await expandMoreDetails(page);
+    await page.getByText("Change loan or who pays what").click();
+
+    const preview = page.getByTestId("mortgage-plan-preview");
+    await expect(preview).toBeVisible();
+    await expect(preview.getByText("To land on that split")).toBeVisible();
+    // Both people named, each with a monthly figure and where their share lands.
+    await expect(preview.getByText(/\/month .* ends on \d/)).toHaveCount(2);
+
+    // A target nobody's payment can reach is named, not quietly clamped.
+    await page.getByLabel(/Target share of the home/).fill("100");
+    await expect(preview.getByText("That split is not reachable.")).toBeVisible();
+    await expect(preview.getByText(/change the target share, or change the/)).toBeVisible();
+  });
+
   test("a goal is a category with a target", async ({ page }) => {
     await createGoalCategory(page, {
       categoryName: "Savings",
