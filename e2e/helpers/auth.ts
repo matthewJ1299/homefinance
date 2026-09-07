@@ -51,11 +51,17 @@ export async function signOut(page: Page): Promise<void> {
   await expect(page.getByRole("heading", { name: "HomeFinance" })).toBeVisible();
 }
 
-/** Skip /welcome if the layout redirected a not_started user there. */
+/** Skip /welcome if Home sent a not_started user there. */
 export async function skipWelcomeIfPresent(page: Page): Promise<void> {
   await waitForStableUrl(page);
-  if (!page.url().includes("/welcome")) return;
-  await page.getByRole("button", { name: "Skip for now" }).click();
+  // Decide on what is on screen: a sign-in or a forced password change can
+  // chain redirects, and reading the URL alone once caught it mid-chain and
+  // left the wizard up -- after which the shell has no Add sheet at all.
+  const skip = page.getByRole("button", { name: "Skip for now" });
+  if (!page.url().includes("/welcome") && !(await skip.isVisible().catch(() => false))) {
+    return;
+  }
+  await skip.click();
   await expect(page).toHaveURL(/\/dashboard/);
 }
 

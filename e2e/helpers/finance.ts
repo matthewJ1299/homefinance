@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
-import { clearNewMonthGate, waitForStableUrl } from "./auth";
+import { clearNewMonthGate, skipWelcomeIfPresent, waitForStableUrl } from "./auth";
 import { clearNewMonthIfPresent, goNav } from "./nav";
 
 export async function expectToast(page: Page, text: string | RegExp): Promise<void> {
@@ -25,6 +25,9 @@ export async function openAddSheet(page: Page): Promise<void> {
     await page.goto("/dashboard");
   }
   await waitForStableUrl(page);
+  // Home sends a user who has not finished setup to /welcome, where the shell
+  // has no Add sheet -- so clear that gate here, as the month gate already is.
+  await skipWelcomeIfPresent(page);
   await clearNewMonthGate(page);
   await page.setViewportSize({ width: 390, height: 844 });
   // Home refreshes itself after the month gate; opening the sheet into that
