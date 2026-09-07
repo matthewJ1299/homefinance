@@ -80,6 +80,7 @@ export class AccountService {
       name: data.name,
       type: data.type,
       creditLimit: data.creditLimit ?? null,
+      isShared: data.isShared ?? false,
     });
     const account = await this.accountRepo.findById(id, userId);
     if (!account) {
@@ -99,9 +100,13 @@ export class AccountService {
     accountId: number,
     data: UpdateAccountOptions
   ): Promise<void> {
+    // `update` ignores `undefined` per field, so a rename still leaves sharing
+    // alone -- but dropping the flag entirely meant no account could ever be
+    // shared, whatever the switch in Settings said.
     await this.accountRepo.update(accountId, userId, {
       name: data.name,
       creditLimit: data.creditLimit,
+      isShared: data.isShared,
     });
   }
 
