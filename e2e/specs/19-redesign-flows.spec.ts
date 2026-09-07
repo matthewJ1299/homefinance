@@ -99,14 +99,8 @@ test.describe("Redesign flows", () => {
     await goNav(page, "Calendar");
     await expect(page).toHaveURL(/\/calendar/);
 
-    // A day view under the grid rather than a separate screen. The empty state
-    // is two lines, so take the first of whatever matches.
-    await expect(
-      page
-        .getByText(/No events for this day|Nothing on/)
-        .or(page.locator("[role='button']"))
-        .first()
-    ).toBeVisible();
+    // A day view under the grid rather than a separate screen.
+    await expect(page.getByText(/^Schedule for /)).toBeVisible();
 
     // The person filter is the primary one when more than one person has events.
     const everyone = page.getByRole("button", { name: "Everyone" });

@@ -169,6 +169,8 @@ test.describe("Shared costs", () => {
     await clearNewMonthIfPresent(page);
 
     await goNav(page, "Shared costs");
+    // count() does not wait, so let the page render before asking.
+    await expect(page.getByRole("heading", { name: "Shared costs" })).toBeVisible();
     const settle = page.getByRole("button", { name: "Settle", exact: true }).first();
     if ((await settle.count()) > 0) {
       await settle.click();

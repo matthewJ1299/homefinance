@@ -238,7 +238,10 @@ export async function createGoalCategory(
     .click();
   const dialog = page.getByRole("dialog", { name: input.categoryName });
   await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: "Save towards something" }).click();
+  // Only offered while the category has no target yet; re-running the spec finds
+  // the editor already open.
+  const startSaving = dialog.getByRole("button", { name: "Save towards something" });
+  if (await startSaving.isVisible().catch(() => false)) await startSaving.click();
   await dialog.getByLabel("Target amount").fill(input.target);
   if (input.targetDate) {
     await dialog.getByLabel("Target date").fill(input.targetDate);
@@ -253,6 +256,8 @@ export async function createGoalCategory(
 
 export async function settleFirstOwedBalance(page: Page): Promise<boolean> {
   await goNav(page, "Shared costs");
+  // count() does not wait, so let the page render before asking.
+  await expect(page.getByRole("heading", { name: "Shared costs" })).toBeVisible();
   const settle = page.getByRole("button", { name: "Settle", exact: true }).first();
   if ((await settle.count()) === 0) return false;
   await settle.click();

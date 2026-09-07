@@ -233,7 +233,16 @@ export function SplitsPageClient({
                       <span className="block text-xs text-muted-foreground tabular-nums">
                         {item.paidByUserId === currentUserId ? "You paid" : `${item.paidByUserName} paid`}
                         {" · "}
-                        {[item.paidByUserName, ...item.allocations.map((a) => a.userName)].join(", ")}
+                        {/* The payer can also carry an allocation of their own,
+                            which read as "Matt, Matt, Sydney". */}
+                        {[
+                          ...new Map<number, string>([
+                            [item.paidByUserId, item.paidByUserName],
+                            ...item.allocations.map(
+                              (a) => [a.userId, a.userName] as [number, string]
+                            ),
+                          ]).values(),
+                        ].join(", ")}
                         {" · "}
                         {formatRand(item.totalAmount)}
                         {" / your "}

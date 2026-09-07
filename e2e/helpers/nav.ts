@@ -68,6 +68,9 @@ export async function goNav(page: Page, label: NavLabel): Promise<void> {
     await arrived();
   }
   await page.waitForLoadState("domcontentloaded");
+  // Best effort: give the page a moment to render before a caller counts
+  // elements, but never fail here -- pages that poll never go idle.
+  await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => {});
 }
 
 /**
