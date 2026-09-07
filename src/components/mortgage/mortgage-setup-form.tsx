@@ -191,28 +191,28 @@ export function MortgageSetupForm({ users, initialValues, submitLabel }: Mortgag
       <div className="grid gap-4">
         <h3 className="font-medium">Loan details</h3>
         <div>
-          <Label>Property value (R)</Label>
-          <Input type="text" inputMode="decimal" value={propertyValue} onChange={(e) => setPropertyValue(e.target.value)} placeholder="0" required />
+          <Label htmlFor="mortgage-property-value">Property value (R)</Label>
+          <Input id="mortgage-property-value" type="text" inputMode="decimal" value={propertyValue} onChange={(e) => setPropertyValue(e.target.value)} placeholder="0" required />
         </div>
         <div>
-          <Label>Loan amount (R)</Label>
-          <Input type="text" inputMode="decimal" value={loanAmount} onChange={(e) => setLoanAmount(e.target.value)} placeholder="0" required />
+          <Label htmlFor="mortgage-loan-amount">Loan amount (R)</Label>
+          <Input id="mortgage-loan-amount" type="text" inputMode="decimal" value={loanAmount} onChange={(e) => setLoanAmount(e.target.value)} placeholder="0" required />
         </div>
         <div>
-          <Label>Annual interest rate (%) — e.g. 11.5 or 0.115</Label>
-          <Input type="text" inputMode="decimal" value={annualRate} onChange={(e) => setAnnualRate(e.target.value)} placeholder="11.5" required />
+          <Label htmlFor="mortgage-annual-rate">Annual interest rate (%) — e.g. 11.5 or 0.115</Label>
+          <Input id="mortgage-annual-rate" type="text" inputMode="decimal" value={annualRate} onChange={(e) => setAnnualRate(e.target.value)} placeholder="11.5" required />
         </div>
         <div>
-          <Label>Term (years)</Label>
-          <Input type="number" min={1} value={termYears} onChange={(e) => setTermYears(e.target.value)} required />
+          <Label htmlFor="mortgage-term-years">Term (years)</Label>
+          <Input id="mortgage-term-years" type="number" min={1} value={termYears} onChange={(e) => setTermYears(e.target.value)} required />
         </div>
         <div>
-          <Label>Start date</Label>
-          <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+          <Label htmlFor="mortgage-start-date">Start date</Label>
+          <Input id="mortgage-start-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
         </div>
         <div>
-          <Label>Target share of the home – person who pays the extra (%)</Label>
-          <Input
+          <Label htmlFor="mortgage-target-share">Target share of the home – person who pays the extra (%)</Label>
+          <Input id="mortgage-target-share"
             type="number"
             min={0}
             max={100}
@@ -229,34 +229,34 @@ export function MortgageSetupForm({ users, initialValues, submitLabel }: Mortgag
       <div className="grid gap-4">
         <h3 className="font-medium">{users[0]?.name ?? "User 1"}</h3>
         <div>
-          <Label>Initial deposit (R)</Label>
-          <Input type="text" inputMode="decimal" value={user1Deposit} onChange={(e) => setUser1Deposit(e.target.value)} placeholder="0" />
+          <Label htmlFor="mortgage-user1-deposit">Initial deposit (R)</Label>
+          <Input id="mortgage-user1-deposit" type="text" inputMode="decimal" value={user1Deposit} onChange={(e) => setUser1Deposit(e.target.value)} placeholder="0" />
         </div>
         <div>
-          <Label>Share of the minimum payment (%)</Label>
-          <Input type="number" min={0} max={100} value={user1Split} onChange={(e) => setUser1Split(e.target.value)} />
+          <Label htmlFor="mortgage-user1-split">Share of the minimum payment (%)</Label>
+          <Input id="mortgage-user1-split" type="number" min={0} max={100} value={user1Split} onChange={(e) => setUser1Split(e.target.value)} />
           <p className="text-xs text-muted-foreground mt-1">This person pays this % of the minimum monthly amount.</p>
         </div>
         <div>
-          <Label>Maximum this person pays per month (R, optional)</Label>
-          <Input type="text" inputMode="decimal" value={user1Cap} onChange={(e) => setUser1Cap(e.target.value)} placeholder="Optional" />
+          <Label htmlFor="mortgage-user1-cap">Maximum this person pays per month (R, optional)</Label>
+          <Input id="mortgage-user1-cap" type="text" inputMode="decimal" value={user1Cap} onChange={(e) => setUser1Cap(e.target.value)} placeholder="Optional" />
         </div>
       </div>
 
       <div className="grid gap-4">
         <h3 className="font-medium">{users[1]?.name ?? "User 2"}</h3>
         <div>
-          <Label>Initial deposit (R)</Label>
-          <Input type="text" inputMode="decimal" value={user2Deposit} onChange={(e) => setUser2Deposit(e.target.value)} placeholder="500000" />
+          <Label htmlFor="mortgage-user2-deposit">Initial deposit (R)</Label>
+          <Input id="mortgage-user2-deposit" type="text" inputMode="decimal" value={user2Deposit} onChange={(e) => setUser2Deposit(e.target.value)} placeholder="500000" />
         </div>
         <div>
-          <Label>Share of the minimum payment (%)</Label>
-          <Input type="number" min={0} max={100} value={user2Split} onChange={(e) => setUser2Split(e.target.value)} />
+          <Label htmlFor="mortgage-user2-split">Share of the minimum payment (%)</Label>
+          <Input id="mortgage-user2-split" type="number" min={0} max={100} value={user2Split} onChange={(e) => setUser2Split(e.target.value)} />
           <p className="text-xs text-muted-foreground mt-1">This person pays this % of the minimum monthly amount.</p>
         </div>
         <div>
-          <Label>Maximum this person pays per month (R, optional)</Label>
-          <Input type="text" inputMode="decimal" value={user2Cap} onChange={(e) => setUser2Cap(e.target.value)} placeholder="Optional" />
+          <Label htmlFor="mortgage-user2-cap">Maximum this person pays per month (R, optional)</Label>
+          <Input id="mortgage-user2-cap" type="text" inputMode="decimal" value={user2Cap} onChange={(e) => setUser2Cap(e.target.value)} placeholder="Optional" />
         </div>
       </div>
 

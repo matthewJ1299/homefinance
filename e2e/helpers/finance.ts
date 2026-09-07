@@ -223,6 +223,16 @@ export async function expandMoreDetails(page: Page): Promise<void> {
     const open = await summary.evaluate((el) => el.closest("details")?.open === true);
     if (!open) await summary.click();
   }
+
+  // The Mortgage page nests a second "More details" inside the first, and that
+  // one is a button with aria-expanded rather than a <details>. Opening only
+  // the outer disclosure leaves the amortisation table and the setup form
+  // hidden inside it.
+  const toggles = page.getByRole("button", { name: /^More details$/i });
+  for (let i = 0; i < (await toggles.count()); i++) {
+    const toggle = toggles.nth(i);
+    if ((await toggle.getAttribute("aria-expanded")) === "false") await toggle.click();
+  }
 }
 
 export async function recordMortgageExtraPayment(

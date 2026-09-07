@@ -11,6 +11,11 @@ import { E2E } from "./env";
  */
 export async function waitForStableUrl(page: Page, quietMs = 400): Promise<void> {
   await page.waitForLoadState("domcontentloaded");
+  // A server redirect is an RSC request in flight, and on a cold dev server it
+  // can take longer than the quiet window below -- so the URL reads "stable" at
+  // the page you came from and the gate is missed. Wait for the fetch to finish
+  // first; best effort, because a page that polls never goes idle.
+  await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => {});
   let last = page.url();
   for (let i = 0; i < 15; i++) {
     await page.waitForTimeout(quietMs / 2);
