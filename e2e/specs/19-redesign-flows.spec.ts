@@ -27,9 +27,11 @@ test.describe("Redesign flows", () => {
     await waitForStableUrl(page);
 
     // Either the month has already been opened -- in which case the page sends
-    // you home rather than asking again -- or it states what happened.
-    if (page.url().includes("/new-month")) {
-      await expect(page.getByRole("heading", { name: "New month" })).toBeVisible();
+    // you home rather than asking again -- or it states what happened. Decide on
+    // what is on screen, not on a URL that can still be mid-redirect.
+    const heading = page.getByRole("heading", { name: "New month" });
+    if (await heading.isVisible().catch(() => false)) {
+      await expect(heading).toBeVisible();
       await expect(page.getByText(/is done$/)).toBeVisible();
       await expect(page.getByRole("button", { name: /^Start / })).toBeVisible();
       // No "is it a new month?" prompt: the month has already turned.
@@ -97,9 +99,13 @@ test.describe("Redesign flows", () => {
     await goNav(page, "Calendar");
     await expect(page).toHaveURL(/\/calendar/);
 
-    // A day view under the grid rather than a separate screen.
+    // A day view under the grid rather than a separate screen. The empty state
+    // is two lines, so take the first of whatever matches.
     await expect(
-      page.getByText(/No events for this day|Nothing on/).or(page.locator("[role='button']").first())
+      page
+        .getByText(/No events for this day|Nothing on/)
+        .or(page.locator("[role='button']"))
+        .first()
     ).toBeVisible();
 
     // The person filter is the primary one when more than one person has events.

@@ -48,10 +48,17 @@ export async function goNav(page: Page, label: NavLabel): Promise<void> {
   const link = page.getByRole("link", { name: label, exact: true }).first();
   await expect(link).toBeVisible();
   const href = (await link.getAttribute("href")) ?? "";
+  // The month-open gate can bounce you off whatever you asked for, and that is
+  // an arrival too -- callers clear it with clearNewMonthIfPresent.
   const arrived = () =>
-    page.waitForURL((url) => url.pathname === href || url.pathname.startsWith(`${href}/`), {
-      timeout: 15_000,
-    });
+    page.waitForURL(
+      (url) =>
+        url.pathname === href ||
+        url.pathname.startsWith(`${href}/`) ||
+        url.pathname === "/new-month" ||
+        url.pathname === "/welcome",
+      { timeout: 15_000, waitUntil: "commit" }
+    );
 
   await link.click();
   try {
