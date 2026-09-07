@@ -101,7 +101,20 @@ export function ReportsPageClient({
 
   const totalIn = months.reduce((s, m) => s + m.incomeMinor, 0);
   const totalOut = months.reduce((s, m) => s + m.spentMinor, 0);
+  // Twelve rows is a screenful; the tail becomes one row so the shares still
+  // add to 100% and the list does not run off the bottom of a phone.
+  const CATEGORY_ROWS = 12;
+  const topCategories = categories.slice(0, CATEGORY_ROWS);
+  const restCategories = categories.slice(CATEGORY_ROWS);
+  const restTotal = restCategories.reduce((sum, c) => sum + c.totalMinor, 0);
+  const restShare = restCategories.reduce((sum, c) => sum + c.share, 0);
   const maxCategory = Math.max(1, ...categories.map((c) => c.totalMinor));
+  // Hoisted: this was recomputed inside the row map, once per bar.
+  const mortgageWindow = mortgage.slice(0, 36);
+  const mortgageMax = Math.max(
+    1,
+    ...mortgageWindow.map((x) => x.interestMinor + x.equityMinor)
+  );
 
   return (
     <div className="space-y-5">
@@ -154,6 +167,17 @@ export function ReportsPageClient({
               </span>
             </div>
             <InOutBars months={months} currentMonth={currentMonth} />
+            {/* `title` tooltips do not exist on touch, and this is a phone app:
+                the colours and the faded bar had to be said in words. */}
+            <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1 pt-2 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-sm bg-success" /> Money in
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-sm bg-primary" /> Money out
+              </span>
+              <span>The faded month is still running.</span>
+            </div>
           </Card>
 
           {observations.length > 0 ? (
@@ -173,7 +197,7 @@ export function ReportsPageClient({
         <section className="space-y-2.5">
           <SectionHeader title="Where it went" />
           <Card className="rounded-2xl px-3.5 py-1.5">
-            {categories.map((c) => (
+            {topCategories.map((c) => (
               <div key={c.categoryId} className="space-y-1.5 border-b border-border/50 py-3 last:border-0">
                 <div className="flex items-baseline justify-between gap-2.5">
                   <span className="min-w-0 truncate text-sm font-medium">{c.name}</span>
@@ -187,6 +211,22 @@ export function ReportsPageClient({
                 <Bar pct={(c.totalMinor / maxCategory) * 100} />
               </div>
             ))}
+            {restCategories.length > 0 ? (
+              <div className="space-y-1.5 border-b border-border/50 py-3 last:border-0">
+                <div className="flex items-baseline justify-between gap-2.5">
+                  <span className="min-w-0 truncate text-sm font-medium text-muted-foreground">
+                    Everything else ({restCategories.length})
+                  </span>
+                  <span className="shrink-0 text-sm font-semibold tabular-nums">
+                    {formatRand(restTotal)}
+                    <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                      {Math.round(restShare * 100)}%
+                    </span>
+                  </span>
+                </div>
+                <Bar pct={(restTotal / maxCategory) * 100} />
+              </div>
+            ) : null}
           </Card>
         </section>
       ) : null}
@@ -236,11 +276,7 @@ export function ReportsPageClient({
             <Card className="rounded-2xl p-4">
               <div className="overflow-x-auto">
                 <div className="flex h-[132px] min-w-full items-end justify-between gap-1">
-                  {mortgage.slice(0, 36).map((m) => {
-                    const max = Math.max(
-                      1,
-                      ...mortgage.slice(0, 36).map((x) => x.interestMinor + x.equityMinor)
-                    );
+                  {mortgageWindow.map((m) => {
                     return (
                       <div
                         key={m.month}
@@ -250,11 +286,11 @@ export function ReportsPageClient({
                         <div className="flex h-[120px] items-end gap-0.5">
                           <div
                             className="w-[7px] rounded-t-sm bg-destructive"
-                            style={{ height: `${(m.interestMinor / max) * 120}px` }}
+                            style={{ height: `${(m.interestMinor / mortgageMax) * 120}px` }}
                           />
                           <div
                             className="w-[7px] rounded-t-sm bg-success"
-                            style={{ height: `${(m.equityMinor / max) * 120}px` }}
+                            style={{ height: `${(m.equityMinor / mortgageMax) * 120}px` }}
                           />
                         </div>
                       </div>
