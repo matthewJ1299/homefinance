@@ -8,7 +8,7 @@ import {
 import { ExpenseService } from "@/lib/services/expense.service";
 import { IncomeService } from "@/lib/services/income.service";
 import { SplitService } from "@/lib/services/split.service";
-import { divideEqually } from "@/lib/services/finance/participants";
+import { divideEqually, validateParticipantShares } from "@/lib/services/finance/participants";
 import type { IncomeType } from "@/lib/types";
 import { encryptString, decryptString } from "./token-crypto";
 import {
@@ -311,7 +311,8 @@ export class ReconService {
     itemId: number,
     categoryId: number | undefined,
     accountId?: number | null,
-    split?: boolean,
+    /** Explicit shares, summing to the amount. `true` still means "everyone, evenly". */
+    split?: boolean | { userId: number; shareMinor: number }[],
     noteOverride?: string,
     amountMinorOverride?: number,
     entryKind: "expense" | "income" = "expense",
@@ -362,7 +363,15 @@ export class ReconService {
     // Accepted rows go through the same expense path as manual entry, so
     // participants and rollover behave identically either way.
     let participants: { userId: number; shareMinor: number }[] | undefined;
-    if (split) {
+    if (Array.isArray(split)) {
+      // The sheet solved these. Validate rather than trust: the same rule the
+      // Add sheet enforces, in the one other place a split can be written.
+      const check = validateParticipantShares(amountMinor, split);
+      if (!check.ok) throw new Error(check.error);
+      participants = split;
+    } else if (split === true) {
+      // "Everyone in the house, evenly" -- the pre-Phase-3 behaviour, kept so
+      // the existing table and rule-driven accepts do not change meaning.
       const picked = [userId, ...(await this.userRepo.findAllExcept(userId)).map((u) => u.id)];
       if (picked.length < 2) {
         throw new Error("No one else in this household to share with.");

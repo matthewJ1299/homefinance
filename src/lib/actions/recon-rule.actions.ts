@@ -7,6 +7,7 @@ import { getReconRuleRepository, getUserRepository } from "@/lib/repositories";
 import { ReconService } from "@/lib/services/recon/recon.service";
 import { getReconImportItemRepository } from "@/lib/repositories";
 import { matchRules } from "@/lib/services/recon/match-rules";
+import { divideEqually } from "@/lib/services/finance/participants";
 import type { ReconRuleRow } from "@/lib/repositories/interfaces/recon-rule.repository";
 
 export type ReconRuleResult = { success: true } | { success: false; error: string };
@@ -96,12 +97,17 @@ export async function acceptAllRuleMatched(): Promise<
   const usedRuleIds = new Set<number>();
   for (const { item, rule } of matched) {
     try {
+      // The rule knows who was in on it; an even split across those people is
+      // what the rule was created from. Passing a boolean here meant "everyone
+      // in the house", which is not what the rule said.
+      const ids = rule.participantUserIds.length > 0 ? rule.participantUserIds : [userId];
+      const even = divideEqually(item.amount, ids);
       await service.acceptAdd(
         userId,
         item.id,
         rule.categoryId ?? undefined,
         null,
-        rule.participantUserIds.filter((id) => id !== userId).length > 0,
+        ids.length > 1 ? ids.map((id) => ({ userId: id, shareMinor: even[id] ?? 0 })) : undefined,
         undefined,
         undefined,
         "expense"

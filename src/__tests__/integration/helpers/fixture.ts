@@ -150,6 +150,8 @@ export async function withHouseholdFixture(
       await run(`DELETE FROM budget_transfers WHERE user_id IN (${ph})`, ids);
       await run(`DELETE FROM budget_month_opens WHERE user_id IN (${ph})`, ids);
       await run(`DELETE FROM budgets WHERE user_id IN (${ph})`, ids);
+      await run(`DELETE FROM recon_import_items WHERE user_id IN (${ph})`, ids);
+      await run(`DELETE FROM vendor_category_mappings WHERE user_id IN (${ph})`, ids);
       // `accounts.owner_user_id` is ON DELETE NO ACTION, so an account made
       // during a test blocks the user delete below. Its transactions cascade,
       // and `users.primary_account_id` is ON DELETE SET NULL.
