@@ -25,7 +25,7 @@ test.describe("Mortgage + Goals mutations", () => {
     await goNav(page, "Mortgage");
     await expect(page.getByRole("heading", { name: /Mortgage/i }).first()).toBeVisible();
     // The headline is now share of what's paid for so far.
-    await expect(page.getByText("You own")).toBeVisible();
+    await expect(page.getByText("You own", { exact: true })).toBeVisible();
     await expect(page.getByText("of what’s paid for so far")).toBeVisible();
 
     const note = `e2e-mortgage-${Date.now()}`;

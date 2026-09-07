@@ -186,12 +186,23 @@ export async function transferBetweenAccounts(
   await expect(dialog).toHaveCount(0, { timeout: 20_000 });
 }
 
-/** Opens the Mortgage page's More details disclosure if it is closed. */
+/**
+ * Opens every closed "More details" disclosure on the page.
+ *
+ * The Mortgage page has two -- the page-level section and the one inside the
+ * details card -- so opening only the first one left the rate-changes section
+ * still hidden inside the other.
+ */
 export async function expandMoreDetails(page: Page): Promise<void> {
-  const summary = page.locator("summary").filter({ hasText: /More details/i });
-  if ((await summary.count()) === 0) return;
-  const open = await summary.first().evaluate((el) => el.closest("details")?.open === true);
-  if (!open) await summary.first().click();
+  const summaries = page.locator("summary").filter({ hasText: /More details/i });
+  // The page may still be rendering: counting straight away found none and
+  // returned, leaving everything collapsed.
+  await summaries.first().waitFor({ state: "attached", timeout: 10_000 }).catch(() => {});
+  for (let i = 0; i < (await summaries.count()); i++) {
+    const summary = summaries.nth(i);
+    const open = await summary.evaluate((el) => el.closest("details")?.open === true);
+    if (!open) await summary.click();
+  }
 }
 
 export async function recordMortgageExtraPayment(
@@ -234,6 +245,10 @@ export async function createGoalCategory(
   }
   await dialog.getByRole("button", { name: "Save target" }).click();
   await expectToast(page, /saving towards/i);
+  // Setting a target leaves the sheet open so you can assign to it; close it
+  // before the caller navigates.
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
 }
 
 export async function settleFirstOwedBalance(page: Page): Promise<boolean> {

@@ -84,10 +84,13 @@ test.describe("Budget + Reports", () => {
     await clearNewMonthIfPresent(page);
     await expect(page).toHaveURL(/\/dashboard/);
 
-    await expect(page.getByText("Left in your categories")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Breakdown" })).toBeVisible();
-    await expect(page.getByText("Needs you")).toBeVisible();
-    await expect(page.getByText("What's left, by category")).toBeVisible();
+    // Scoped to the page: the breakdown sheet sits closed in the DOM and
+    // repeats the same headline.
+    const main = page.getByRole("main");
+    await expect(main.getByText("Left in your categories")).toBeVisible();
+    await expect(main.getByRole("button", { name: "Breakdown" })).toBeVisible();
+    await expect(main.getByText("Needs you")).toBeVisible();
+    await expect(main.getByText("What's left, by category")).toBeVisible();
     await expect(page.locator("body")).not.toContainText("Missing household context");
   });
 
@@ -100,7 +103,7 @@ test.describe("Budget + Reports", () => {
     await expect(sheet).toBeVisible();
     await expect(sheet.getByText("Set aside this month")).toBeVisible();
     await expect(sheet.getByText("Left in your categories")).toBeVisible();
-    await expect(sheet.getByText("Owed to you")).toBeVisible();
+    await expect(sheet.getByText("Owed to you", { exact: true })).toBeVisible();
     // The sentence that resolves the double-count question.
     await expect(sheet.getByText(/isn.t in an envelope yet/)).toBeVisible();
 

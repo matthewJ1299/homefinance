@@ -35,9 +35,32 @@ export async function expectNavHidden(page: Page, label: NavLabel): Promise<void
   await expect(page.getByRole("link", { name: label, exact: true })).toHaveCount(0);
 }
 
+/**
+ * Click a nav link and wait until the URL is actually the link's own href.
+ *
+ * `networkidle` is the wrong wait here twice over: a client-side navigation
+ * fires no load event, so it can return while still on the page you came from,
+ * and any page that polls never goes idle at all. Waiting on the href also
+ * survives a click that lands while the page is still settling -- it retries
+ * once rather than leaving the spec to fail on a screen it never left.
+ */
 export async function goNav(page: Page, label: NavLabel): Promise<void> {
-  await page.getByRole("link", { name: label, exact: true }).first().click();
-  await page.waitForLoadState("networkidle");
+  const link = page.getByRole("link", { name: label, exact: true }).first();
+  await expect(link).toBeVisible();
+  const href = (await link.getAttribute("href")) ?? "";
+  const arrived = () =>
+    page.waitForURL((url) => url.pathname === href || url.pathname.startsWith(`${href}/`), {
+      timeout: 15_000,
+    });
+
+  await link.click();
+  try {
+    await arrived();
+  } catch {
+    await link.click();
+    await arrived();
+  }
+  await page.waitForLoadState("domcontentloaded");
 }
 
 /**
