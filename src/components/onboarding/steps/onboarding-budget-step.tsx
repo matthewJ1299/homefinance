@@ -3,7 +3,9 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { autoAllocateBudget } from "@/lib/actions/budget.actions";
-import { BudgetCategoryCard } from "@/components/budget/budget-category-card";
+import { BudgetCategoryRow } from "@/components/budget/budget-category-row";
+import { BudgetCategorySheet } from "@/components/budget/budget-category-sheet";
+import { Card } from "@/components/ui/card";
 import { UnassignedHeadline } from "@/components/budget/unassigned-headline";
 import type { BudgetOverviewResult } from "@/lib/services/budget.service";
 import { toast } from "sonner";
@@ -16,6 +18,7 @@ export function OnboardingBudgetStep(props: {
   const router = useRouter();
   const [overview, setOverview] = useState(initialOverview);
   const [autoRan, setAutoRan] = useState(false);
+  const [sheetCategoryId, setSheetCategoryId] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -36,6 +39,8 @@ export function OnboardingBudgetStep(props: {
   }, [initialOverview]);
 
   const unassigned = overview.unassigned;
+  const sheetCategory =
+    overview.categories.find((c) => c.categoryId === sheetCategoryId) ?? null;
 
   return (
     <div className="space-y-4">
@@ -61,22 +66,16 @@ export function OnboardingBudgetStep(props: {
           onCover={() => {}}
         />
       ) : null}
-      <div className="space-y-3">
-        {overview.categories.map((cat) => (
-          <BudgetCategoryCard
-            key={cat.categoryId}
-            categoryId={cat.categoryId}
-            categoryName={cat.categoryName}
-            groupName={cat.groupName}
-            costType={cat.costType}
-            allocated={cat.allocated}
-            spent={cat.spent}
-            totalIncome={overview.totalIncome}
-            month={month}
-            onTransfer={() => {}}
-          />
-        ))}
-      </div>
+      {/* The same row and keypad as the budget screen. The first budget
+          anyone sets should not be the one interaction that exists nowhere
+          else in the app. */}
+      {overview.categories.length > 0 ? (
+        <Card className="rounded-2xl px-3.5 py-0">
+          {overview.categories.map((cat) => (
+            <BudgetCategoryRow key={cat.categoryId} c={cat} onOpen={setSheetCategoryId} />
+          ))}
+        </Card>
+      ) : null}
       {overview.categories.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Add income and categories first, then return to this step.
@@ -85,6 +84,18 @@ export function OnboardingBudgetStep(props: {
       {isPending ? (
         <p className="text-xs text-muted-foreground">Allocating your budget…</p>
       ) : null}
+
+      <BudgetCategorySheet
+        open={sheetCategory != null}
+        onOpenChange={(open) => !open && setSheetCategoryId(null)}
+        category={sheetCategory}
+        month={month}
+        // No prior month during setup, and nothing has been spent yet, so
+        // there is no "Match last month" figure and no transactions to list.
+        lastMonthAssigned={0}
+        transactions={[]}
+        onMoveMoney={() => setSheetCategoryId(null)}
+      />
     </div>
   );
 }
