@@ -4,7 +4,6 @@ import { auth } from "@/lib/auth";
 import {
   getCategoryRepository,
   getUserRepository,
-  getSplitGroupRepository,
   getSharedListRepository,
   getSharedListItemRepository,
   getHouseholdRepository,
@@ -23,7 +22,6 @@ import {
   getDefaultBudgetMonthForUser,
   getBudgetPeriodForUserMonth,
 } from "@/lib/utils/budget-month-for-user";
-import { pickQuickAddDateForBudgetPeriod } from "@/lib/utils/date";
 import { soleOtherMemberName, type HouseholdMember } from "@/lib/types/household-member";
 import { AiAnalysisButton } from "@/components/dashboard/ai-analysis-button";
 import { WhenDashboardTileEnabled } from "@/components/dashboard/when-dashboard-tile-enabled";
@@ -78,7 +76,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const month = monthParam ?? (await getDefaultBudgetMonthForUser(userId));
   const today = format(new Date(), "yyyy-MM-dd");
   const period = await getBudgetPeriodForUserMonth(month, userId);
-  const quickAddExpenseDate = pickQuickAddDateForBudgetPeriod(today, period);
 
   // Onboarding is gated here for the same reason the month is, below: a
   // `redirect()` out of the shell layout into a route that shares that layout
@@ -111,7 +108,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const [
     categories,
     otherUsers,
-    splitGroups,
     expensePage,
     balances,
     calendarOccurrences,
@@ -121,7 +117,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   ] = await Promise.all([
     getCategoryRepository().findAll(),
     userRepo.findAllExcept(userId),
-    getSplitGroupRepository().findAll(),
     expenseService.getByMonthPaginated(
       month,
       1,
@@ -256,22 +251,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
       <DashboardExpensesClient
         userId={userId}
-        userName={String(session.user.name ?? session.user.email ?? "")}
         month={month}
         monthLabelPretty={monthLabelPretty}
         categories={categories}
-        splitGroups={splitGroups}
         otherUserName={otherUserName}
-        budgetByCategory={
-          new Map(
-            budgetOverview.categories.map((c) => [
-              c.categoryId,
-              { remaining: c.available, isOverspent: c.isOverspent },
-            ])
-          )
-        }
         primaryAccountId={mainAccountId}
-        expenseDate={quickAddExpenseDate}
         initialExpenses={expensePage.expenses}
         incomeEntries={[]}
         mergedTransactionsDisplayLimit={DASHBOARD_TRANSACTIONS_DISPLAY_LIMIT}

@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Calendar, ChevronRight, ClipboardList, Receipt, Zap } from "lucide-react";
-import type { QuickAddFabProps } from "@/components/quick-add-fab/quick-add-fab";
+import type { Category, SplitGroup } from "@/lib/types";
+import type { SharedList } from "@/lib/repositories/interfaces/shared-list.repository";
+import type { HouseholdMember } from "@/lib/types/household-member";
 import { EventFormDialog, buildCalendarEventApiBody } from "@/components/calendar/event-form-dialog";
 import { AddListItemDialog } from "@/components/shared-lists/add-list-item-dialog";
 import { Button } from "@/components/ui/button";
@@ -17,7 +19,15 @@ import { cn } from "@/lib/utils";
 type ModalType = "list-item" | "calendar" | null;
 type QuickKind = "task" | "event";
 
-export function AddHubClient(props: QuickAddFabProps) {
+export interface AddHubProps {
+  categories: Category[];
+  userId: number;
+  members?: HouseholdMember[];
+  splitGroups: SplitGroup[];
+  lists: SharedList[];
+}
+
+export function AddHubClient(props: AddHubProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [modal, setModal] = useState<ModalType>(null);

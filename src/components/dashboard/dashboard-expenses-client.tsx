@@ -7,36 +7,28 @@ import type { IncomeEntry } from "@/lib/repositories/interfaces/income.repositor
 import type { CategoryBudgetHint } from "@/components/expenses/category-picker";
 import { usePropSyncedState } from "@/hooks/use-prop-synced-state";
 import { WhenDashboardTileEnabled } from "@/components/dashboard/when-dashboard-tile-enabled";
-import { HomeInlineQuickAddExpense } from "@/components/dashboard/home-inline-quick-add";
+import { HomeQuickAddLauncher } from "@/components/dashboard/home-quick-add-launcher";
 import { DashboardRecentTransactionsList } from "@/components/dashboard/dashboard-recent-transactions-list";
 import { buildRecentMergedByDate } from "@/lib/utils/dashboard-recent-transactions";
 import { formatRand } from "@/lib/utils/currency";
 
 export function DashboardExpensesClient({
   userId,
-  userName,
   month,
   monthLabelPretty,
   categories,
-  splitGroups,
   otherUserName,
-  budgetByCategory,
   primaryAccountId,
-  expenseDate,
   initialExpenses,
   incomeEntries,
   mergedTransactionsDisplayLimit,
 }: {
   userId: number;
-  userName: string;
   month: string;
   monthLabelPretty: string;
   categories: Category[];
-  splitGroups: SplitGroup[];
   otherUserName?: string;
-  budgetByCategory?: Map<number, CategoryBudgetHint>;
   primaryAccountId?: number | null;
-  expenseDate: string;
   initialExpenses: ExpenseWithDetails[];
   incomeEntries: IncomeEntry[];
   mergedTransactionsDisplayLimit: number;
@@ -58,15 +50,6 @@ export function DashboardExpensesClient({
       return () => setExpensesState(snapshot);
     },
     [expensesState, setExpensesState]
-  );
-
-  const optimisticReplaceExpenseId = useCallback(
-    (tempId: number, realId: number) => {
-      setExpensesState((prev) =>
-        prev.map((e) => (e.id === tempId ? { ...e, id: realId } : e))
-      );
-    },
-    [setExpensesState]
   );
 
   const optimisticRemoveExpense = useCallback(
@@ -97,19 +80,7 @@ export function DashboardExpensesClient({
             <h2 className="text-sm font-semibold tracking-tight">Quick add expense</h2>
             <span className="text-xs text-muted-foreground">{monthLabelPretty}</span>
           </div>
-          <HomeInlineQuickAddExpense
-            userId={userId}
-            userName={userName}
-            month={month}
-            categories={categories}
-            splitGroups={splitGroups}
-            otherUserName={otherUserName}
-            budgetByCategory={budgetByCategory}
-            primaryAccountId={primaryAccountId}
-            expenseDate={expenseDate}
-            onOptimisticUpsertExpense={optimisticUpsertExpense}
-            onOptimisticReplaceExpenseId={optimisticReplaceExpenseId}
-          />
+          <HomeQuickAddLauncher />
         </div>
       </WhenDashboardTileEnabled>
 

@@ -8,7 +8,8 @@ import type { UserSummary } from "@/lib/repositories/interfaces/user.repository"
 import { INCOME_KINDS, type IncomeKind } from "@/lib/types/income-type";
 import { ExpenseList } from "./expense-list";
 import { IncomeList } from "@/components/income/income-list";
-import { QuickAddForm } from "./quick-add-form";
+import { Button } from "@/components/ui/button";
+import { useAddSheet } from "@/components/add/add-sheet-context";
 import { formatRand, fromMinorUnits } from "@/lib/utils/currency";
 import { parseAccountsApiPayload } from "@/lib/utils/accounts-api";
 import { usePropSyncedState } from "@/hooks/use-prop-synced-state";
@@ -42,6 +43,7 @@ export function ExpensesPageClient({
   const searchFieldId = useId();
   // The my/theirs/combined toggle is gone: you see your own rows plus rows on
   // shared accounts, which is the honest answer to "whose money is this?".
+  const addSheet = useAddSheet();
   const [typeFilter, setTypeFilter] = useState(initialType);
   const [incomeKind, setIncomeKind] = useState<IncomeKind | "all">("all");
   const [accountId, setAccountId] = useState<number | null>(null);
@@ -253,15 +255,16 @@ export function ExpensesPageClient({
       </div>
       <section>
         <h2 className="sr-only">Add expense</h2>
-        <QuickAddForm
-          categories={categories}
-          userId={currentUserId}
-          currentUserName={currentUserName}
-          month={month}
-          splitGroups={splitGroups}
-          onOptimisticUpsertExpense={optimisticUpsertExpense}
-          onOptimisticReplaceExpenseId={optimisticReplaceExpenseId}
-        />
+        {/* One entry surface. The old inline form split with one other person
+            and could not express a 3-person spend at all. */}
+        <Button
+          type="button"
+          onClick={() => addSheet?.open()}
+          disabled={!addSheet}
+          className="h-12 w-full rounded-xl text-base"
+        >
+          Add a spend
+        </Button>
       </section>
       {/* Money in and money out in one list, which is the point of folding
           /income into this page. Without this the income filter showed a total
