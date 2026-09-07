@@ -272,14 +272,61 @@ export class BudgetService {
     return { opened: true, carriedOverspend };
   }
 
+  /**
+   * Opens every unopened month from the oldest gap forward.
+   *
+   * Order is the whole point: `openMonth(M)` reads M-1's availables, so opening
+   * M before M-1 reads a carry-in of zero and drops the chain. Someone who skips
+   * a month should still find their leftover waiting.
+   */
+  async openMonthBacklog(
+    userId: number
+  ): Promise<{ opened: string[]; carriedOverspend: number }> {
+    const current = await getDefaultBudgetMonthForUser(userId);
+
+    const pending: string[] = [];
+    let m = current;
+    for (let i = 0; i < CARRY_OVER_MONTHS; i++) {
+      if (await this.budgetRepo.getMonthOpenState(m, userId)) break;
+      const prior = await this.budgetRepo.getAllocationsForMonth(prevMonth(m), userId);
+      if (prior.length === 0) break; // first-ever month: nothing behind it to carry
+      pending.push(m);
+      m = prevMonth(m);
+    }
+
+    const opened: string[] = [];
+    let carriedOverspend = 0;
+    for (const month of pending.reverse()) {
+      const res = await this.openMonth(month, userId);
+      if (res.opened) {
+        opened.push(month);
+        carriedOverspend = res.carriedOverspend; // the newest month's is the live one
+      }
+    }
+    return { opened, carriedOverspend };
+  }
+
   /** True when the user's budget month has rolled over and they have not seen the summary. */
-  async needsMonthOpen(userId: number): Promise<{ month: string; previous: string } | null> {
+  async needsMonthOpen(
+    userId: number
+  ): Promise<{ month: string; previous: string; skippedMonths: string[] } | null> {
     const month = await getDefaultBudgetMonthForUser(userId);
     if (await this.budgetRepo.getMonthOpenState(month, userId)) return null;
     const previous = prevMonth(month);
     const priorAllocations = await this.budgetRepo.getAllocationsForMonth(previous, userId);
     if (priorAllocations.length === 0) return null; // first-ever month, nothing to summarise
-    return { month, previous };
+
+    // Months between the last one they opened and this one. Named so the card
+    // can say "two months at once" instead of quietly rolling them up.
+    const skippedMonths: string[] = [];
+    let m = previous;
+    for (let i = 0; i < CARRY_OVER_MONTHS; i++) {
+      if (await this.budgetRepo.getMonthOpenState(m, userId)) break;
+      if ((await this.budgetRepo.getAllocationsForMonth(prevMonth(m), userId)).length === 0) break;
+      skippedMonths.unshift(m);
+      m = prevMonth(m);
+    }
+    return { month, previous, skippedMonths };
   }
 
   /** Moves money between categories to clear an overspend. Thin wrapper over transfer. */

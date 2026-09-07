@@ -80,7 +80,13 @@ export async function openBudgetMonth(month: string): Promise<
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
   setRequestContextFromSession(session);
   if (!isValidMonth(month)) return { success: false, error: "Invalid month" };
-  const result = await new BudgetService().openMonth(month, Number(session.user.id));
+  const service = new BudgetService();
+  // The month named by the screen, plus any month behind it that was never
+  // opened -- oldest first, or the carry chain reads a zero.
+  await service.openMonthBacklog(Number(session.user.id));
+  // `openMonth` is idempotent, so this is a no-op when the backlog already
+  // covered `month`; it stays for the case where it did not.
+  const result = await service.openMonth(month, Number(session.user.id));
   revalidatePath("/budget");
   revalidatePath("/dashboard");
   return { success: true, ...result };
