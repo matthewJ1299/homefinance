@@ -141,6 +141,10 @@ export async function isMigrationAlreadyApplied(
       // Re-running it is harmless -- it only ever moves a user who still reads
       // as not_started -- so let it apply rather than seed it as done.
       return false;
+    case "0045_repair_negative_allocations_pg.sql":
+      // Data-only, and idempotent by its own WHERE clause: once the negative
+      // rows are gone it matches nothing. Let it apply rather than seed it.
+      return false;
     default:
       return false;
   }
