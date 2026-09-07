@@ -158,15 +158,18 @@ async function seedTransactionsAndIncome(ctx: SeedContext): Promise<void> {
             userAccounts.bankAccountId,
           ]
         );
+        // Read the id before anything else is inserted: lastInsertId() answers
+        // for the most recent insert, so asking again after the participant row
+        // asked about that row instead -- and it has no id to give.
+        const expenseId = await lastInsertId();
         // Seeded rows go in raw, so they need the participant row the service
         // would have written. Without it every seeded expense reads as
         // "pre-backfill" forever and the envelope arithmetic falls back to the
         // full amount instead of the viewer's share.
         await run(
           "INSERT INTO expense_participants (household_id, expense_id, user_id, share_minor) VALUES (?, ?, ?, ?) ON CONFLICT (expense_id, user_id) DO NOTHING",
-          [householdId, await lastInsertId(), userId, amount]
+          [householdId, expenseId, userId, amount]
         );
-        const expenseId = await lastInsertId();
         await run(
           "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note) VALUES (?, ?, 'expense', 'expense', ?, ?)",
           [userAccounts.bankAccountId, -amount, expenseId, template.note]
