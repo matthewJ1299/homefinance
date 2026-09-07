@@ -296,7 +296,12 @@ ALTER TABLE budgets ALTER COLUMN household_id SET NOT NULL;
 --> statement-breakpoint
 DROP INDEX IF EXISTS budgets_user_id_category_id_month_unique;
 --> statement-breakpoint
-CREATE UNIQUE INDEX IF NOT EXISTS budgets_household_id_category_id_month_unique ON budgets (household_id, category_id, month);
+-- Budgets are per person, so user_id belongs in the key. Without it this
+-- index asserts one row per category per month for the whole household,
+-- which is false the moment two people are moved into one -- and creating
+-- it against existing per-user rows fails outright, aborting the upgrade.
+-- 0033_budgets_per_user_pg.sql replaces this with the named constraint.
+CREATE UNIQUE INDEX IF NOT EXISTS budgets_household_id_category_id_month_unique ON budgets (household_id, category_id, month, user_id);
 --> statement-breakpoint
 ALTER TABLE budget_transfers ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
 --> statement-breakpoint

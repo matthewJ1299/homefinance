@@ -136,6 +136,11 @@ export async function isMigrationAlreadyApplied(
     case "0043_goals_as_categories_pg.sql":
       // Late-stage marker: target_date is added after target_minor.
       return columnExists(query, "categories", "target_date");
+    case "0044_established_users_skip_onboarding_pg.sql":
+      // Data-only: it adds no schema, so detection cannot see whether it ran.
+      // Re-running it is harmless -- it only ever moves a user who still reads
+      // as not_started -- so let it apply rather than seed it as done.
+      return false;
     default:
       return false;
   }

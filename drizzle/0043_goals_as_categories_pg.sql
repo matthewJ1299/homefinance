@@ -7,8 +7,17 @@ ALTER TABLE categories ADD COLUMN IF NOT EXISTS target_date TEXT;
 --> statement-breakpoint
 -- Backfill savings goals into a "Goals" group. Credit goals are a debt payoff
 -- plan, not an envelope, and are left where they are.
+--
+-- DISTINCT ON, because two people in one household saving for the same thing
+-- are two goals rows but one category: NOT EXISTS is evaluated against the
+-- pre-insert snapshot, so without this both rows pass the check and the second
+-- violates categories_household_id_name_unique -- aborting the upgrade. They
+-- collapse into one shared category, taking the earliest goal's target, which
+-- is what the new model means by a goal anyway. ON CONFLICT covers the case
+-- where a category of that name is created between the check and the insert.
 INSERT INTO categories (name, group_name, household_id, is_active, sort_order, cost_type, target_minor, target_date)
-SELECT g.name, 'Goals', u.household_id, TRUE, 900, 'variable',
+SELECT DISTINCT ON (u.household_id, g.name)
+       g.name, 'Goals', u.household_id, TRUE, 900, 'variable',
        g.target_amount, NULL
 FROM goals g
 JOIN users u ON u.id = g.owner_user_id
@@ -16,4 +25,6 @@ WHERE g.type = 'savings'
   AND g.archived_at IS NULL
   AND NOT EXISTS (
     SELECT 1 FROM categories c WHERE c.household_id = u.household_id AND c.name = g.name
-  );
+  )
+ORDER BY u.household_id, g.name, g.id
+ON CONFLICT DO NOTHING;
