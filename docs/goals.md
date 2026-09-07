@@ -1,5 +1,20 @@
 # Goals (intent vs ledger)
 
+> **This describes the pre-redesign goals feature.** Since the UX pass, a goal
+> is a **category with a target amount and a target date** — `/goals` is a
+> filtered view of Budget showing categories that have one, and assigning to a
+> goal is the ordinary assign flow. There is no second way to move money.
+>
+> Migration `0043_goals_as_categories_pg.sql` added `categories.target_minor`
+> and `categories.target_date` and backfilled savings goals into a "Goals"
+> group. The `goals` and `goal_contributions` tables stay in place, read-only,
+> for one release; the credit-payoff planning below has no replacement yet and
+> is the part of this document still worth reading.
+>
+> Current behaviour: `src/lib/services/finance/goal-categories.ts`,
+> `src/components/goals/goal-category-list.tsx`, and the budget model section
+> of [design-system.md](./design-system.md).
+
 ## Purpose
 
 Goals answer **what you intend** to do (save toward a target or pay down a card) without turning those movements into **expenses**. The ledger (`account_transactions`) remains the source of truth for balances; `goal_contributions` links ledger rows to a goal.
