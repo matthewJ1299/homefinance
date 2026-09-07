@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<style>
+  body { margin:0; background:#e9edf4; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color:#2563eb; text-decoration:none; }
+  a:hover { text-decoration:underline; }
+</style>
+</helmet>
+
+<section style="padding:48px 56px 96px; display:flex; flex-direction:column; gap:56px">
+
+  <div style="max-width:900px; display:flex; flex-direction:column; gap:12px">
+    <div style="font-size:11px; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:#4d5f7a">Turn 4 · design pass, part three</div>
+    <h1 style="margin:0; font-size:34px; font-weight:600; letter-spacing:-0.025em; color:#0f1520">Reports, mortgage setup, sharing</h1>
+    <p style="margin:0; font-size:16px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">Built on your latest calls: Summary becomes Reports, periods run from when you started, mortgage setup takes deposits and a target split and works out the payments, and account sharing is a per-account choice. First though, the Home row density you were worried about — three versions, pick by eye.</p>
+  </div>
+
+  <!-- HOME DENSITY -->
+  <div style="display:flex; flex-direction:column; gap:20px">
+    <div style="max-width:800px; display:flex; flex-direction:column; gap:8px">
+      <h2 style="margin:0; font-size:22px; font-weight:600; letter-spacing:-0.02em">Needs you · how heavy is too heavy</h2>
+      <p style="margin:0; font-size:15px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">Your worry was that one shape of row gets bulky on a phone once there are five of them. All three below show the same six items on a 390px screen. <a href="#4c">4c</a> is the middle ground you asked for: 4b's one-line density with 4a's icon circles, tinted surfaces and action pills.</p>
+    </div>
+
+    <div style="display:flex; gap:32px; flex-wrap:wrap; align-items:flex-start">
+      <div id="4a" style="display:flex; flex-direction:column; gap:10px">
+        <div style="display:flex; align-items:center; gap:9px">
+          <span style="font-size:11px; font-weight:700; letter-spacing:0.08em; padding:4px 9px; border-radius:6px; background:#0f1520; color:#fafbfd">4a</span>
+          <span style="font-size:12px; font-weight:600; color:#4d5f7a">FULL ROWS · what you've seen so far</span>
+        </div>
+        <div style="width:390px; border:1px solid #cdd5e3; border-radius:22px; overflow:hidden; background:#f4f6fa; box-shadow:0 14px 40px rgba(15,21,32,0.14)">
+          <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid #dde3ee; background:rgba(244,246,250,0.95)">
+            <span style="font-size:14px; font-weight:600">Matt</span><span style="font-size:13px; color:#4d5f7a">25 Aug – 24 Sep</span>
+          </div>
+          <div style="padding:16px; display:flex; flex-direction:column; gap:14px">
+            <div style="border:1px solid rgba(37,99,235,0.25); background:linear-gradient(180deg,#ffffff,#f7f9ff); border-radius:20px; padding:18px; display:flex; flex-direction:column; gap:8px">
+              <div style="font-size:13px; font-weight:600; color:#4d5f7a">Left in your categories</div>
+              <div style="font-size:40px; line-height:1; font-weight:600; letter-spacing:-0.03em; font-variant-numeric:tabular-nums">R 5 250</div>
+              <div style="font-size:14px; color:#0f1520">About <strong>R 219 a day</strong> for 24 days</div>
+            </div>
+            <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.1em; color:#4d5f7a">Needs you</div>
+            <sc-for list="{{ needsYou }}" as="n" hint-placeholder-count="6">
+              <div style="border:1px solid {{ n.border }}; background:{{ n.bg }}; border-radius:14px; padding:13px 14px; display:flex; align-items:center; gap:12px">
+                <span style="width:30px; height:30px; flex-shrink:0; border-radius:9999px; background:{{ n.iconBg }}; color:{{ n.iconFg }}; font-size:14px; display:flex; align-items:center; justify-content:center">{{ n.icon }}</span>
+                <div style="min-width:0; flex:1">
+                  <div style="font-size:14px; font-weight:600; color:#0f1520; text-wrap:pretty">{{ n.title }}</div>
+                  <div style="font-size:12px; color:#4d5f7a; text-wrap:pretty">{{ n.body }}</div>
+                </div>
+                <span style="flex-shrink:0; height:32px; padding:0 12px; border-radius:9999px; background:{{ n.actionBg }}; color:{{ n.actionFg }}; border:1px solid {{ n.actionBorder }}; font-size:12px; font-weight:600; display:flex; align-items:center">{{ n.action }}</span>
+              </div>
+            </sc-for>
+            <div style="font-size:12px; color:#4d5f7a; text-align:center; padding-top:2px">↓ categories, last few, household</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="4b" style="display:flex; flex-direction:column; gap:10px">
+        <div style="display:flex; align-items:center; gap:9px">
+          <span style="font-size:11px; font-weight:700; letter-spacing:0.08em; padding:4px 9px; border-radius:6px; background:#2563eb; color:#f8fbff">4b</span>
+          <span style="font-size:12px; font-weight:600; color:#2563eb">COMPACT · one line each, top item expanded</span>
+        </div>
+        <div style="width:390px; border:1px solid #cdd5e3; border-radius:22px; overflow:hidden; background:#f4f6fa; box-shadow:0 14px 40px rgba(15,21,32,0.14)">
+          <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid #dde3ee; background:rgba(244,246,250,0.95)">
+            <span style="font-size:14px; font-weight:600">Matt</span><span style="font-size:13px; color:#4d5f7a">25 Aug – 24 Sep</span>
+          </div>
+          <div style="padding:16px; display:flex; flex-direction:column; gap:14px">
+            <div style="border:1px solid rgba(37,99,235,0.25); background:linear-gradient(180deg,#ffffff,#f7f9ff); border-radius:20px; padding:18px; display:flex; flex-direction:column; gap:8px">
+              <div style="font-size:13px; font-weight:600; color:#4d5f7a">Left in your categories</div>
+              <div style="font-size:40px; line-height:1; font-weight:600; letter-spacing:-0.03em; font-variant-numeric:tabular-nums">R 5 250</div>
+              <div style="font-size:14px; color:#0f1520">About <strong>R 219 a day</strong> for 24 days</div>
+            </div>
+            <div style="display:flex; align-items:baseline; justify-content:space-between">
+              <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.1em; color:#4d5f7a">Needs you</div>
+              <span style="font-size:12px; font-weight:600; color:#4d5f7a">6</span>
+            </div>
+            <div style="border:1px solid rgba(239,68,68,0.35); background:rgba(239,68,68,0.06); border-radius:14px; padding:13px 14px; display:flex; align-items:center; gap:11px">
+              <span style="width:28px; height:28px; flex-shrink:0; border-radius:9999px; background:rgba(239,68,68,0.15); color:#b91c1c; font-size:14px; display:flex; align-items:center; justify-content:center">!</span>
+              <div style="min-width:0; flex:1">
+                <div style="font-size:14px; font-weight:600; color:#0f1520">Groceries is R 420 over</div>
+                <div style="font-size:12px; color:#4d5f7a">Fuel has R 700 spare.</div>
+              </div>
+              <span style="flex-shrink:0; height:30px; padding:0 12px; border-radius:9999px; background:#0f1520; color:#fafbfd; font-size:12px; font-weight:600; display:flex; align-items:center">Cover it</span>
+            </div>
+            <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:16px; padding:2px 14px; box-shadow:0 1px 2px rgba(15,21,32,0.05)">
+              <sc-for list="{{ compactRows }}" as="r" hint-placeholder-count="5">
+                <div style="padding:12px 0; border-bottom:1px solid rgba(221,227,238,0.5); display:flex; align-items:center; gap:11px">
+                  <span style="width:22px; flex-shrink:0; text-align:center; font-size:14px; color:{{ r.iconFg }}">{{ r.icon }}</span>
+                  <span style="min-width:0; flex:1; font-size:14px; color:#0f1520; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.title }}</span>
+                  <span style="flex-shrink:0; font-size:13px; font-weight:600; color:{{ r.actionFg }}">{{ r.action }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="font-size:12px; color:#4d5f7a; text-align:center; padding-top:2px">↓ categories, last few, household</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="4c" style="display:flex; flex-direction:column; gap:10px">
+        <div style="display:flex; align-items:center; gap:9px">
+          <span style="font-size:11px; font-weight:700; letter-spacing:0.08em; padding:4px 9px; border-radius:6px; background:#047857; color:#f8fbff">4c</span>
+          <span style="font-size:12px; font-weight:600; color:#047857">MIDDLE GROUND · compact tiles, 4a's colour</span>
+        </div>
+        <div style="width:390px; border:1px solid #cdd5e3; border-radius:22px; overflow:hidden; background:#f4f6fa; box-shadow:0 14px 40px rgba(15,21,32,0.14)">
+          <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid #dde3ee; background:rgba(244,246,250,0.95)">
+            <span style="font-size:14px; font-weight:600">Matt</span><span style="font-size:13px; color:#4d5f7a">25 Aug – 24 Sep</span>
+          </div>
+          <div style="padding:16px; display:flex; flex-direction:column; gap:14px">
+            <div style="border:1px solid rgba(37,99,235,0.25); background:linear-gradient(180deg,#ffffff,#f7f9ff); border-radius:20px; padding:18px; display:flex; flex-direction:column; gap:8px">
+              <div style="font-size:13px; font-weight:600; color:#4d5f7a">Left in your categories</div>
+              <div style="font-size:40px; line-height:1; font-weight:600; letter-spacing:-0.03em; font-variant-numeric:tabular-nums">R 5 250</div>
+              <div style="font-size:14px; color:#0f1520">About <strong>R 219 a day</strong> for 24 days</div>
+            </div>
+            <div style="display:flex; align-items:baseline; justify-content:space-between">
+              <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.1em; color:#4d5f7a">Needs you</div>
+              <span style="font-size:12px; font-weight:600; color:#4d5f7a">6</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:7px">
+              <sc-for list="{{ hybridRows }}" as="r" hint-placeholder-count="6">
+                <div style="border:1px solid {{ r.border }}; background:{{ r.bg }}; border-radius:13px; padding:10px 11px; display:flex; align-items:center; gap:10px">
+                  <span style="width:30px; height:30px; flex-shrink:0; border-radius:9999px; background:{{ r.iconBg }}; color:{{ r.iconFg }}; font-size:14px; display:flex; align-items:center; justify-content:center">{{ r.icon }}</span>
+                  <div style="min-width:0; flex:1">
+                    <div style="font-size:14px; font-weight:600; color:#0f1520; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.title }}</div>
+                    <sc-if value="{{ r.expanded }}" hint-placeholder-val="{{ false }}">
+                      <div style="font-size:12px; color:#4d5f7a">{{ r.sub }}</div>
+                    </sc-if>
+                  </div>
+                  <span style="flex-shrink:0; height:30px; padding:0 12px; border-radius:9999px; background:{{ r.actionBg }}; color:{{ r.actionFg }}; border:1px solid {{ r.actionBorder }}; font-size:12px; font-weight:600; display:flex; align-items:center">{{ r.action }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="font-size:12px; color:#4d5f7a; text-align:center; padding-top:2px">↓ categories, last few, household</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="width:330px; display:flex; flex-direction:column; gap:12px; padding-top:34px">
+        <sc-for list="{{ densityNotes }}" as="n" hint-placeholder-count="7">
+          <div style="border-left:2px solid #2563eb; padding:2px 0 2px 14px">
+            <div style="font-size:14px; font-weight:600; color:#0f1520; text-wrap:pretty">{{ n.title }}</div>
+            <p style="margin:4px 0 0; font-size:13px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">{{ n.body }}</p>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:20px">
+    <div style="max-width:800px; display:flex; flex-direction:column; gap:8px">
+      <h2 style="margin:0; font-size:22px; font-weight:600; letter-spacing:-0.02em">Reports · Summary's replacement</h2>
+      <p style="margin:0; font-size:15px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">The five you picked, on four tabs, all drawn as bars. Everything runs from when you started rather than a calendar year, and it's your own money only — the household snapshot is gone.</p>
+    </div>
+
+    <div style="display:flex; gap:32px; flex-wrap:wrap; align-items:flex-start">
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <div style="font-size:12px; font-weight:600; color:#2563eb">REPORTS · overview</div>
+        <div style="width:390px; border:1px solid #cdd5e3; border-radius:22px; overflow:hidden; background:#f4f6fa; box-shadow:0 14px 40px rgba(15,21,32,0.14)">
+          <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid #dde3ee; background:rgba(244,246,250,0.95)">
+            <span style="font-size:16px; font-weight:600">Reports</span>
+            <span style="font-size:13px; font-weight:600; color:#2563eb">Export</span>
+          </div>
+          <div style="padding:16px; display:flex; flex-direction:column; gap:16px">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; border:1px solid #dde3ee; background:#fafbfd; border-radius:12px; padding:11px 14px">
+              <div style="min-width:0">
+                <div style="font-size:14px; font-weight:600">Since you started</div>
+                <div style="font-size:12px; color:#4d5f7a">March – September 2026</div>
+              </div>
+              <span style="font-size:13px; color:#4d5f7a; flex-shrink:0">Change ▾</span>
+            </div>
+
+            <div style="display:flex; gap:7px; flex-wrap:wrap">
+              <sc-for list="{{ reportTabs }}" as="t" hint-placeholder-count="4">
+                <div style="border-radius:9999px; padding:7px 13px; font-size:13px; font-weight:600; background:{{ t.bg }}; color:{{ t.fg }}">{{ t.label }}</div>
+              </sc-for>
+            </div>
+
+            <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:14px; box-shadow:0 1px 2px rgba(15,21,32,0.05)">
+              <div style="display:flex; align-items:baseline; justify-content:space-between">
+                <div style="font-size:14px; font-weight:600">In and out, by month</div>
+                <div style="display:flex; gap:11px; font-size:11px; color:#4d5f7a">
+                  <span style="display:flex; align-items:center; gap:5px"><span style="width:8px; height:8px; border-radius:2px; background:#059669"></span>in</span>
+                  <span style="display:flex; align-items:center; gap:5px"><span style="width:8px; height:8px; border-radius:2px; background:#2563eb"></span>out</span>
+                </div>
+              </div>
+              <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:6px; height:132px; padding-top:8px">
+                <sc-for list="{{ monthBars }}" as="m" hint-placeholder-count="7">
+                  <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; opacity:{{ m.opacity }}">
+                    <div style="display:flex; align-items:flex-end; gap:3px; height:120px">
+                      <div style="width:9px; height:{{ m.incomeH }}; background:#059669; border-radius:3px 3px 0 0"></div>
+                      <div style="width:9px; height:{{ m.spentH }}; background:#2563eb; border-radius:3px 3px 0 0"></div>
+                    </div>
+                    <span style="font-size:11px; font-weight:600; color:{{ m.labelTone }}">{{ m.label }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="font-size:12px; color:#4d5f7a; text-align:center">September is only 12 days in</div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px">
+              <sc-for list="{{ overviewStats }}" as="s" hint-placeholder-count="3">
+                <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:14px; padding:13px 11px; display:flex; flex-direction:column; gap:4px">
+                  <span style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:#4d5f7a">{{ s.label }}</span>
+                  <span style="font-size:16px; font-weight:600; font-variant-numeric:tabular-nums; letter-spacing:-0.01em">{{ s.value }}</span>
+                  <span style="font-size:11px; color:#4d5f7a; text-wrap:pretty">{{ s.note }}</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:13px">
+              <div style="font-size:14px; font-weight:600">Where it went</div>
+              <sc-for list="{{ catRows }}" as="c" hint-placeholder-count="8">
+                <div style="display:flex; flex-direction:column; gap:5px">
+                  <div style="display:flex; align-items:baseline; justify-content:space-between; gap:10px">
+                    <span style="font-size:13px; color:#0f1520">{{ c.name }}</span>
+                    <span style="font-size:13px; font-weight:600; font-variant-numeric:tabular-nums">{{ c.value }}</span>
+                  </div>
+                  <div style="height:8px; border-radius:9999px; background:#eef3ff; overflow:hidden"><div style="height:100%; width:{{ c.pct }}; background:#2563eb; border-radius:9999px"></div></div>
+                  <span style="font-size:11px; color:#4d5f7a">{{ c.share }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <div style="font-size:12px; font-weight:600; color:#2563eb">REPORTS · budget accuracy</div>
+        <div style="width:390px; border:1px solid #cdd5e3; border-radius:22px; overflow:hidden; background:#f4f6fa; box-shadow:0 14px 40px rgba(15,21,32,0.14)">
+          <div style="height:56px; display:flex; align-items:center; padding:0 16px; border-bottom:1px solid #dde3ee; background:rgba(244,246,250,0.95)">
+            <span style="font-size:16px; font-weight:600">Reports</span>
+          </div>
+          <div style="padding:16px; display:flex; flex-direction:column; gap:16px">
+            <div>
+              <div style="font-size:18px; font-weight:600; letter-spacing:-0.02em">How close were you?</div>
+              <p style="margin:6px 0 0; font-size:14px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">Typical assigned amount against typical actual, over seven months. The gaps tell you where to move money.</p>
+            </div>
+            <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:16px">
+              <div style="display:flex; gap:12px; font-size:11px; color:#4d5f7a">
+                <span style="display:flex; align-items:center; gap:5px"><span style="width:8px; height:8px; border-radius:2px; background:#b9c4d6"></span>assigned</span>
+                <span style="display:flex; align-items:center; gap:5px"><span style="width:8px; height:8px; border-radius:2px; background:#2563eb"></span>actually spent</span>
+              </div>
+              <sc-for list="{{ accuracyRows }}" as="a" hint-placeholder-count="5">
+                <div style="display:flex; flex-direction:column; gap:6px">
+                  <div style="display:flex; align-items:baseline; justify-content:space-between; gap:10px">
+                    <span style="font-size:14px; font-weight:500; color:#0f1520">{{ a.name }}</span>
+                    <span style="font-size:12px; color:#4d5f7a; font-variant-numeric:tabular-nums">{{ a.assigned }} → {{ a.actual }}</span>
+                  </div>
+                  <div style="height:9px; border-radius:9999px; background:#eef3ff; overflow:hidden"><div style="height:100%; width:{{ a.assignedPct }}; background:#b9c4d6; border-radius:9999px"></div></div>
+                  <div style="height:9px; border-radius:9999px; background:#eef3ff; overflow:hidden"><div style="height:100%; width:{{ a.actualPct }}; background:#2563eb; border-radius:9999px"></div></div>
+                  <span style="font-size:11px; font-weight:600; color:{{ a.tone }}">{{ a.verdict }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="border:1px solid rgba(37,99,235,0.35); background:rgba(37,99,235,0.06); border-radius:14px; padding:14px">
+              <div style="font-size:14px; font-weight:600">Worth doing</div>
+              <p style="margin:4px 0 0; font-size:13px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">Fuel and Household have spare room nearly every month. Moving R 1 200 of it to Groceries and Eating out would have stopped six of your seven overspends.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <div style="font-size:12px; font-weight:600; color:#2563eb">REPORTS · the house</div>
+        <div style="width:390px; border:1px solid #cdd5e3; border-radius:22px; overflow:hidden; background:#f4f6fa; box-shadow:0 14px 40px rgba(15,21,32,0.14)">
+          <div style="height:56px; display:flex; align-items:center; padding:0 16px; border-bottom:1px solid #dde3ee; background:rgba(244,246,250,0.95)">
+            <span style="font-size:16px; font-weight:600">Reports</span>
+          </div>
+          <div style="padding:16px; display:flex; flex-direction:column; gap:16px">
+            <div>
+              <div style="font-size:18px; font-weight:600; letter-spacing:-0.02em">Interest paid vs equity built</div>
+              <p style="margin:6px 0 0; font-size:14px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">Of every payment, most goes to the bank early on. This is the shape of that changing.</p>
+            </div>
+            <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:14px">
+              <div style="display:flex; gap:12px; font-size:11px; color:#4d5f7a">
+                <span style="display:flex; align-items:center; gap:5px"><span style="width:8px; height:8px; border-radius:2px; background:#b9c4d6"></span>interest</span>
+                <span style="display:flex; align-items:center; gap:5px"><span style="width:8px; height:8px; border-radius:2px; background:#2563eb"></span>into the house</span>
+              </div>
+              <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:8px; height:136px">
+                <sc-for list="{{ mortgageBars }}" as="m" hint-placeholder-count="7">
+                  <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px">
+                    <div style="display:flex; flex-direction:column; justify-content:flex-end; height:120px; width:20px">
+                      <div style="width:100%; height:{{ m.interestH }}; background:#b9c4d6; border-radius:3px 3px 0 0"></div>
+                      <div style="width:100%; height:{{ m.equityH }}; background:#2563eb"></div>
+                    </div>
+                    <span style="font-size:11px; font-weight:600; color:#4d5f7a">{{ m.label }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="border:1px solid #dde3ee; background:#fafbfd; border-radius:16px; padding:15px; display:flex; flex-direction:column; gap:11px">
+              <div style="display:flex; align-items:baseline; justify-content:space-between"><span style="font-size:13px; color:#4d5f7a">Paid so far</span><span style="font-size:15px; font-weight:600; font-variant-numeric:tabular-nums">R 149 800</span></div>
+              <div style="display:flex; align-items:baseline; justify-content:space-between"><span style="font-size:13px; color:#4d5f7a">Of that, interest</span><span style="font-size:15px; font-weight:600; font-variant-numeric:tabular-nums">R 118 195</span></div>
+              <div style="display:flex; align-items:baseline; justify-content:space-between"><span style="font-size:13px; color:#4d5f7a">Of that, into the house</span><span style="font-size:15px; font-weight:600; font-variant-numeric:tabular-nums; color:#2563eb">R 31 605</span></div>
+              <div style="border-top:1px solid rgba(221,227,238,0.7); padding-top:11px; font-size:13px; line-height:1.6; color:#0f1520; text-wrap:pretty">Paying an extra R 2 000 a month has moved your payoff date forward by <strong>31 months</strong> and will save roughly R 512 000 in interest.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="width:330px; display:flex; flex-direction:column; gap:12px; padding-top:26px">
+        <sc-for list="{{ reportNotes }}" as="n" hint-placeholder-count="6">
+          <div style="border-left:2px solid #2563eb; padding:2px 0 2px 14px">
+            <div style="font-size:14px; font-weight:600; color:#0f1520; text-wrap:pretty">{{ n.title }}</div>
+            <p style="margin:4px 0 0; font-size:13px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">{{ n.body }}</p>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:20px">
+    <div style="max-width:800px; display:flex; flex-direction:column; gap:8px">
+      <h2 style="margin:0; font-size:22px; font-weight:600; letter-spacing:-0.02em">Mortgage setup · and the story, templated</h2>
+      <p style="margin:0; font-size:15px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">Deposits and a target split go in, the monthly shares come out. The story screen then picks one of three templates from what it finds, so it works for a household that pays half and half as well as for yours.</p>
+    </div>
+
+    <div style="display:flex; gap:32px; flex-wrap:wrap; align-items:flex-start">
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <div style="font-size:12px; font-weight:600; color:#2563eb">MORTGAGE SETUP</div>
+        <div style="width:390px; border:1px solid #cdd5e3; border-radius:22px; overflow:hidden; background:#f4f6fa; box-shadow:0 14px 40px rgba(15,21,32,0.14)">
+          <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid #dde3ee; background:rgba(244,246,250,0.95)">
+            <span style="font-size:16px; font-weight:600">Set up the mortgage</span>
+            <span style="font-size:13px; color:#4d5f7a">Skip</span>
+          </div>
+          <div style="padding:16px; display:flex; flex-direction:column; gap:18px">
+            <div style="display:flex; flex-direction:column; gap:9px">
+              <sc-for list="{{ setupFields }}" as="f" hint-placeholder-count="3">
+                <div style="display:flex; flex-direction:column; gap:6px">
+                  <label style="font-size:12px; font-weight:600; color:#4d5f7a">{{ f.label }}</label>
+                  <div style="height:46px; border:1px solid #dde3ee; background:#fafbfd; border-radius:12px; display:flex; align-items:center; padding:0 14px; font-size:16px; font-weight:600; font-variant-numeric:tabular-nums">{{ f.value }}</div>
+                  <sc-if value="{{ f.note }}" hint-placeholder-val="{{ false }}">
+                    <span style="font-size:12px; color:#4d5f7a; text-wrap:pretty">{{ f.note }}</span>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:9px">
+              <label style="font-size:12px; font-weight:600; color:#4d5f7a">Who put down a deposit?</label>
+              <sc-for list="{{ deposits }}" as="d" hint-placeholder-count="2">
+                <div style="border:1px solid #dde3ee; background:#fafbfd; border-radius:12px; padding:12px 13px; display:flex; align-items:center; gap:11px">
+                  <span style="width:32px; height:32px; flex-shrink:0; border-radius:9999px; background:#eef3ff; color:#1a2540; font-size:13px; font-weight:600; display:flex; align-items:center; justify-content:center">{{ d.initial }}</span>
+                  <span style="min-width:0; flex:1; font-size:14px; font-weight:500">{{ d.name }}</span>
+                  <span style="font-size:15px; font-weight:600; font-variant-numeric:tabular-nums; flex-shrink:0">{{ d.value }}</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:10px">
+              <label style="font-size:12px; font-weight:600; color:#4d5f7a">Who should own what, at the end?</label>
+              <div style="display:flex; height:34px; border-radius:10px; overflow:hidden; border:1px solid #dde3ee">
+                <sc-for list="{{ targetSplit }}" as="t" hint-placeholder-count="2">
+                  <div style="width:50%; background:{{ t.tone }}; color:#f8fbff; font-size:13px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:6px">{{ t.name }} {{ t.pct }}</div>
+                </sc-for>
+              </div>
+              <div style="position:relative; height:26px">
+                <div style="position:absolute; top:11px; left:0; right:0; height:4px; border-radius:9999px; background:#dde3ee"></div>
+                <div style="position:absolute; top:3px; left:50%; margin-left:-10px; width:20px; height:20px; border-radius:9999px; background:#fafbfd; border:2px solid #2563eb; box-shadow:0 2px 6px rgba(15,21,32,0.15)"></div>
+              </div>
+              <span style="font-size:12px; color:#4d5f7a">Drag to change. Most households leave this at half each.</span>
+            </div>
+
+            <div style="border:1px solid rgba(37,99,235,0.35); background:rgba(37,99,235,0.06); border-radius:16px; padding:15px; display:flex; flex-direction:column; gap:11px">
+              <div style="font-size:13px; font-weight:600">So each of you should pay</div>
+              <sc-for list="{{ calcResult }}" as="c" hint-placeholder-count="2">
+                <div style="display:flex; align-items:baseline; justify-content:space-between; gap:10px">
+                  <span style="font-size:14px; color:#0f1520">{{ c.name }}</span>
+                  <div style="text-align:right; flex-shrink:0">
+                    <span style="font-size:17px; font-weight:600; font-variant-numeric:tabular-nums">{{ c.value }}</span>
+                    <span style="font-size:12px; color:#4d5f7a"> · {{ c.pct }}</span>
+                  </div>
+                </div>
+              </sc-for>
+              <p style="margin:0; font-size:12px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">Sydney's deposit is already 27% of the house, so Matt pays more each month until you're level.</p>
+            </div>
+            <div style="height:50px; border-radius:14px; background:#2563eb; color:#f8fbff; font-size:16px; font-weight:600; display:flex; align-items:center; justify-content:center">Save the plan</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <div style="font-size:12px; font-weight:600; color:#2563eb">STORY · three templates</div>
+        <div style="width:390px; display:flex; flex-direction:column; gap:14px">
+          <sc-for list="{{ cases }}" as="c" hint-placeholder-count="3">
+            <div style="border:1px solid #cdd5e3; border-radius:18px; overflow:hidden; background:#f4f6fa; box-shadow:0 8px 24px rgba(15,21,32,0.1)">
+              <div style="padding:12px 15px; border-bottom:1px solid #dde3ee; background:rgba(244,246,250,0.95); display:flex; align-items:center; gap:9px">
+                <span style="font-size:10px; font-weight:700; letter-spacing:0.08em; padding:3px 8px; border-radius:5px; background:#eef3ff; color:#1a2540">{{ c.id }}</span>
+                <span style="font-size:12px; color:#4d5f7a">{{ c.when }}</span>
+              </div>
+              <div style="padding:15px; display:flex; flex-direction:column; gap:11px">
+                <div style="border:1px solid {{ c.border }}; background:{{ c.bg }}; border-radius:14px; padding:14px">
+                  <div style="font-size:15px; font-weight:600; color:{{ c.tone }}; text-wrap:pretty">{{ c.headline }}</div>
+                  <p style="margin:6px 0 0; font-size:13px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">{{ c.body }}</p>
+                </div>
+                <p style="margin:0; font-size:12px; line-height:1.6; color:#8b97ab; text-wrap:pretty">{{ c.detail }}</p>
+              </div>
+            </div>
+          </sc-for>
+          <div style="border:1px solid rgba(239,68,68,0.35); background:rgba(239,68,68,0.06); border-radius:16px; padding:15px; display:flex; flex-direction:column; gap:11px">
+            <div style="font-size:14px; font-weight:600; color:#0f1520">{{ unreachable.title }}</div>
+            <p style="margin:0; font-size:13px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">{{ unreachable.body }}</p>
+            <div style="display:flex; gap:7px; flex-wrap:wrap">
+              <sc-for list="{{ unreachable.options }}" as="o" hint-placeholder-count="3">
+                <span style="font-size:12px; font-weight:600; padding:7px 12px; border-radius:9999px; background:#fafbfd; border:1px solid #dde3ee; color:#0f1520">{{ o }}</span>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="width:330px; display:flex; flex-direction:column; gap:12px; padding-top:26px">
+        <sc-for list="{{ mortgageNotes }}" as="n" hint-placeholder-count="5">
+          <div style="border-left:2px solid #2563eb; padding:2px 0 2px 14px">
+            <div style="font-size:14px; font-weight:600; color:#0f1520; text-wrap:pretty">{{ n.title }}</div>
+            <p style="margin:4px 0 0; font-size:13px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">{{ n.body }}</p>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:20px">
+    <div style="max-width:800px; display:flex; flex-direction:column; gap:8px">
+      <h2 style="margin:0; font-size:22px; font-weight:600; letter-spacing:-0.02em">Sharing an account, and income types</h2>
+      <p style="margin:0; font-size:15px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">Shared or private is decided when you add the account, and it decides one thing: whether the other people can see the rows. Budgets stay personal either way.</p>
+    </div>
+
+    <div style="display:flex; gap:32px; flex-wrap:wrap; align-items:flex-start">
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <div style="font-size:12px; font-weight:600; color:#2563eb">NEW ACCOUNT</div>
+        <div style="width:390px; border:1px solid #cdd5e3; border-radius:22px; overflow:hidden; background:#f4f6fa; box-shadow:0 14px 40px rgba(15,21,32,0.14)">
+          <div style="height:80px; background:rgba(15,21,32,0.25)"></div>
+          <div style="background:#fafbfd; border-radius:24px 24px 0 0; padding:18px 16px 20px; display:flex; flex-direction:column; gap:15px">
+            <div style="width:40px; height:4px; border-radius:9999px; background:#dde3ee; margin:0 auto"></div>
+            <div style="font-size:18px; font-weight:600">Add an account</div>
+            <div style="display:flex; flex-direction:column; gap:6px">
+              <label style="font-size:12px; font-weight:600; color:#4d5f7a">Name</label>
+              <div style="height:46px; border:1px solid #dde3ee; background:#f4f6fa; border-radius:12px; display:flex; align-items:center; padding:0 14px; font-size:15px">House account</div>
+            </div>
+            <div style="display:flex; gap:7px">
+              <div style="flex:1; height:40px; border-radius:10px; background:#2563eb; color:#f8fbff; font-size:13px; font-weight:600; display:flex; align-items:center; justify-content:center">Bank</div>
+              <div style="flex:1; height:40px; border-radius:10px; border:1px solid #dde3ee; background:#f4f6fa; font-size:13px; font-weight:600; display:flex; align-items:center; justify-content:center">Savings</div>
+              <div style="flex:1; height:40px; border-radius:10px; border:1px solid #dde3ee; background:#f4f6fa; font-size:13px; font-weight:600; display:flex; align-items:center; justify-content:center">Credit</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px">
+              <label style="font-size:12px; font-weight:600; color:#4d5f7a">Balance now</label>
+              <div style="height:46px; border:1px solid #dde3ee; background:#f4f6fa; border-radius:12px; display:flex; align-items:center; padding:0 14px; font-size:18px; font-weight:600; font-variant-numeric:tabular-nums">R 12 840</div>
+            </div>
+            <div style="border:1px solid rgba(37,99,235,0.35); background:rgba(37,99,235,0.06); border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:11px">
+              <div style="display:flex; align-items:center; gap:12px">
+                <div style="min-width:0; flex:1">
+                  <div style="font-size:14px; font-weight:600; color:#0f1520">Share with the house</div>
+                  
+                  <div style="font-size:12px; color:#4d5f7a">Sydney</div>
+                </div>
+                <div style="width:46px; height:27px; border-radius:9999px; background:#2563eb; flex-shrink:0; display:flex; align-items:center; justify-content:flex-end; padding:0 3px">
+                  <span style="width:21px; height:21px; border-radius:9999px; background:#fafbfd"></span>
+                </div>
+              </div>
+              <p style="margin:0; font-size:12px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">She'll see this balance and every transaction on it. She won't see your budget, and she'll still assign her own money to her own categories.</p>
+            </div>
+            <div style="height:50px; border-radius:14px; background:#2563eb; color:#f8fbff; font-size:16px; font-weight:600; display:flex; align-items:center; justify-content:center">Add account</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <div style="font-size:12px; font-weight:600; color:#2563eb">ACCOUNTS · mixed</div>
+        <div style="width:390px; border:1px solid #cdd5e3; border-radius:22px; overflow:hidden; background:#f4f6fa; box-shadow:0 14px 40px rgba(15,21,32,0.14)">
+          <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid #dde3ee; background:rgba(244,246,250,0.95)">
+            <span style="font-size:16px; font-weight:600">Accounts</span>
+            <span style="font-size:13px; font-weight:600; color:#2563eb">Move money</span>
+          </div>
+          <div style="padding:16px; display:flex; flex-direction:column; gap:12px">
+            <sc-for list="{{ accountRows }}" as="a" hint-placeholder-count="4">
+              <div style="border:1px solid #dde3ee; background:#fafbfd; border-radius:16px; padding:15px; display:flex; flex-direction:column; gap:10px">
+                <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px">
+                  <div style="min-width:0">
+                    <div style="font-size:15px; font-weight:600">{{ a.name }}</div>
+                    <div style="font-size:12px; color:#4d5f7a; margin-top:2px">{{ a.sub }}</div>
+                  </div>
+                  <span style="font-size:18px; font-weight:600; font-variant-numeric:tabular-nums; flex-shrink:0">{{ a.balance }}</span>
+                </div>
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:10px">
+                  <span style="font-size:11px; font-weight:600; padding:4px 9px; border-radius:9999px; background:{{ a.chipBg }}; color:{{ a.chipFg }}">{{ a.chip }}</span>
+                  <span style="font-size:12px; font-weight:600; color:#2563eb">Check balance</span>
+                </div>
+              </div>
+            </sc-for>
+            <div style="border:1px solid #dde3ee; background:rgba(238,243,255,0.5); border-radius:14px; padding:13px; font-size:12px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">
+              Rent, bills and groceries run off the house account, so those costs are visible to everyone. Your Cheque and Savings stay yours alone.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <div style="font-size:12px; font-weight:600; color:#2563eb">ADD · income</div>
+        <div style="width:390px; border:1px solid #cdd5e3; border-radius:22px; overflow:hidden; background:#f4f6fa; box-shadow:0 14px 40px rgba(15,21,32,0.14)">
+          <div style="height:150px; background:rgba(15,21,32,0.25)"></div>
+          <div style="background:#fafbfd; border-radius:24px 24px 0 0; padding:16px 16px 20px; display:flex; flex-direction:column; gap:14px">
+            <div style="width:40px; height:4px; border-radius:9999px; background:#dde3ee; margin:0 auto"></div>
+            <div style="display:flex; align-items:center; justify-content:space-between">
+              <span style="font-size:16px; font-weight:600">Add</span>
+              <div style="display:flex; gap:4px">
+                <span style="font-size:13px; font-weight:500; padding:6px 12px; border-radius:9999px; color:#4d5f7a">Spend</span>
+                <span style="font-size:13px; font-weight:600; padding:6px 12px; border-radius:9999px; background:rgba(16,185,129,0.15); color:#047857">Income</span>
+              </div>
+            </div>
+            <div style="text-align:center"><div style="font-size:46px; line-height:1; font-weight:600; letter-spacing:-0.03em; font-variant-numeric:tabular-nums; color:#047857">R 32 000</div></div>
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.1em; color:#4d5f7a">What kind</div>
+              <div style="display:flex; flex-wrap:wrap; gap:7px">
+                <sc-for list="{{ incomeTypes }}" as="t" hint-placeholder-count="5">
+                  <div style="border-radius:9999px; padding:7px 13px; font-size:14px; font-weight:{{ t.weight }}; background:{{ t.bg }}; border:1px solid {{ t.border }}; color:{{ t.fg }}">{{ t.name }}</div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="display:flex; gap:7px; flex-wrap:wrap">
+              <div style="border:1px solid #dde3ee; background:#f4f6fa; border-radius:9999px; padding:6px 12px; font-size:13px">25 Sep</div>
+              <div style="border:1px solid #dde3ee; background:#f4f6fa; border-radius:9999px; padding:6px 12px; font-size:13px">Cheque</div>
+              <div style="border:1px dashed #b9c4d6; border-radius:9999px; padding:6px 12px; font-size:13px; color:#4d5f7a">+ Note</div>
+            </div>
+            <div style="border:1px solid rgba(16,185,129,0.35); background:rgba(16,185,129,0.07); border-radius:14px; padding:12px 14px">
+              <div style="font-size:14px; font-weight:600">R 32 000 to assign</div>
+              <div style="font-size:13px; color:#4d5f7a; margin-top:2px">Give it jobs now, or leave it and we'll remind you.</div>
+            </div>
+            <div style="height:50px; border-radius:14px; background:#047857; color:#f8fbff; font-size:16px; font-weight:600; display:flex; align-items:center; justify-content:center">Save income</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="width:330px; display:flex; flex-direction:column; gap:12px; padding-top:26px">
+        <sc-for list="{{ sharingNotes }}" as="n" hint-placeholder-count="5">
+          <div style="border-left:2px solid #2563eb; padding:2px 0 2px 14px">
+            <div style="font-size:14px; font-weight:600; color:#0f1520; text-wrap:pretty">{{ n.title }}</div>
+            <p style="margin:4px 0 0; font-size:13px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">{{ n.body }}</p>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const BLUE = "#2563eb", FG = "#0f1520", MUTED = "#4d5f7a", RED = "#ef4444", GREEN = "#047857", AMBER = "#92400e";
+
+class Component extends DCLogic {
+  densityVals() {
+    return {
+      needsYou: [
+        { icon: "!", title: "Groceries is R 420 over", body: "Fuel has R 700 spare.", action: "Cover it", border: "rgba(239,68,68,0.35)", bg: "rgba(239,68,68,0.06)", iconBg: "rgba(239,68,68,0.15)", iconFg: "#b91c1c", actionBg: FG, actionFg: "#fafbfd", actionBorder: FG },
+        { icon: "◈", title: "R 1 800 hasn't got a job", body: "Assign it before the month runs away.", action: "Assign", border: "rgba(245,158,11,0.4)", bg: "rgba(245,158,11,0.08)", iconBg: "rgba(245,158,11,0.18)", iconFg: AMBER, actionBg: "#f4f6fa", actionFg: FG, actionBorder: "#dde3ee" },
+        { icon: "⑃", title: "Sydney owes you R 1 240", body: "From 4 shared spends.", action: "Settle", border: "#dde3ee", bg: "#fafbfd", iconBg: "#eef3ff", iconFg: BLUE, actionBg: "#f4f6fa", actionFg: FG, actionBorder: "#dde3ee" },
+        { icon: "▤", title: "Dentist at 14:30", body: "Today · shared with Sydney", action: "Open", border: "#dde3ee", bg: "#fafbfd", iconBg: "#eef3ff", iconFg: BLUE, actionBg: "#f4f6fa", actionFg: FG, actionBorder: "#dde3ee" },
+        { icon: "☰", title: "Milk and 3 more on Shopping", body: "Sydney added two this morning.", action: "Open", border: "#dde3ee", bg: "#fafbfd", iconBg: "#eef3ff", iconFg: BLUE, actionBg: "#f4f6fa", actionFg: FG, actionBorder: "#dde3ee" },
+        { icon: "▭", title: "Credit card never checked", body: "Confirm the balance to keep it honest.", action: "Check", border: "#dde3ee", bg: "#fafbfd", iconBg: "#eef3ff", iconFg: BLUE, actionBg: "#f4f6fa", actionFg: FG, actionBorder: "#dde3ee" },
+      ],
+      compactRows: [
+        { icon: "◈", iconFg: AMBER, title: "R 1 800 hasn't got a job", action: "Assign", actionFg: BLUE },
+        { icon: "⑃", iconFg: MUTED, title: "Sydney owes you R 1 240", action: "Settle", actionFg: BLUE },
+        { icon: "▤", iconFg: MUTED, title: "Dentist at 14:30", action: "Open", actionFg: BLUE },
+        { icon: "☰", iconFg: MUTED, title: "Milk and 3 more on Shopping", action: "Open", actionFg: BLUE },
+        { icon: "▭", iconFg: MUTED, title: "Credit card never checked", action: "Check", actionFg: BLUE },
+      ],
+      hybridRows: [
+        { icon: "!", title: "Groceries is R 420 over", sub: "Fuel has R 700 spare", action: "Cover it", border: "rgba(239,68,68,0.35)", bg: "rgba(239,68,68,0.06)", iconBg: "rgba(239,68,68,0.15)", iconFg: "#b91c1c", actionBg: FG, actionFg: "#fafbfd", actionBorder: FG, expanded: true },
+        { icon: "◈", title: "R 1 800 hasn't got a job", sub: "", action: "Assign", border: "rgba(245,158,11,0.4)", bg: "rgba(245,158,11,0.08)", iconBg: "rgba(245,158,11,0.18)", iconFg: AMBER, actionBg: "#fffdf7", actionFg: AMBER, actionBorder: "rgba(245,158,11,0.4)", expanded: false },
+        { icon: "⑃", title: "Sydney owes you R 1 240", sub: "", action: "Settle", border: "#dde3ee", bg: "#fafbfd", iconBg: "rgba(37,99,235,0.12)", iconFg: BLUE, actionBg: "#f4f6fa", actionFg: FG, actionBorder: "#dde3ee", expanded: false },
+        { icon: "▤", title: "Dentist at 14:30", sub: "", action: "Open", border: "#dde3ee", bg: "#fafbfd", iconBg: "rgba(139,92,246,0.14)", iconFg: "#7c3aed", actionBg: "#f4f6fa", actionFg: FG, actionBorder: "#dde3ee", expanded: false },
+        { icon: "☰", title: "Milk and 3 more on Shopping", sub: "", action: "Open", border: "#dde3ee", bg: "#fafbfd", iconBg: "rgba(16,185,129,0.15)", iconFg: GREEN, actionBg: "#f4f6fa", actionFg: FG, actionBorder: "#dde3ee", expanded: false },
+        { icon: "▭", title: "Credit card never checked", sub: "", action: "Check", border: "#dde3ee", bg: "#fafbfd", iconBg: "rgba(37,99,235,0.12)", iconFg: BLUE, actionBg: "#f4f6fa", actionFg: FG, actionBorder: "#dde3ee", expanded: false },
+      ],
+      densityNotes: [
+        { title: "4a is 6 cards, about 480px of rows", body: "Every item gets equal weight and an explanation. Honest, but by the fourth row you're reading detail about a list item with the same emphasis as an overspend, and the categories are well below the fold." },
+        { title: "4b is one card plus a 5-row list, about 300px", body: "Only the top-priority item keeps its explanation and its own surface. The rest collapse to icon, one line, one action — still tappable, still specific, a third less height." },
+        { title: "The ordering rule does the work", body: "Whatever is most urgent gets promoted to the expanded slot. Money usually wins, but an appointment in the next hour should beat an overspend you can fix any time this month." },
+        { title: "4c is the middle ground", body: "One tile per item like 4a, so every row keeps its own surface, its coloured icon and a real action pill. But one line of text instead of two, 30px circles instead of 34, and only the top item keeps its explanation." },
+        { title: "Colour does the sorting", body: "Red for over budget, amber for unassigned money, blue for money owed and the balance check, purple for calendar, green for lists. You can tell what kind of thing a row is before reading it, which is what 4a bought and 4b gave up." },
+        { title: "4c is about 330px for six items", body: "Against 480px for 4a and 300px for 4b. Ten percent more than the flat list, and it keeps the whole visual language — categories still start above the fold on a 390px screen." },
+      ],
+    };
+  }
+
+  reportVals() {
+    const months = [
+      { label: "Mar", income: 32000, spent: 26800 },
+      { label: "Apr", income: 32000, spent: 29100 },
+      { label: "May", income: 32000, spent: 27400 },
+      { label: "Jun", income: 34400, spent: 30200 },
+      { label: "Jul", income: 32000, spent: 28900 },
+      { label: "Aug", income: 32000, spent: 28150 },
+      { label: "Sep", income: 32000, spent: 12400, partial: true },
+    ];
+    const peak = 34400;
+    const spentTotal = months.reduce((s, m) => s + m.spent, 0);
+    const cats = [
+      { name: "Rent", total: 84000 },
+      { name: "Groceries", total: 34900 },
+      { name: "Savings", total: 24400 },
+      { name: "Insurance", total: 12600 },
+      { name: "Fuel", total: 12600 },
+      { name: "Eating out", total: 7800 },
+      { name: "Household", total: 4550 },
+      { name: "Transport", total: 2100 },
+    ].sort((a, b) => b.total - a.total);
+    const catMax = cats[0].total;
+    const fmtK = (v) => "R " + v.toLocaleString("en-ZA").replace(/,/g, " ");
+    return {
+      reportTabs: [
+        { label: "Overview", bg: BLUE, fg: "#f8fbff" },
+        { label: "Categories", bg: "rgba(238,243,255,0.8)", fg: MUTED },
+        { label: "Budget accuracy", bg: "rgba(238,243,255,0.8)", fg: MUTED },
+        { label: "House", bg: "rgba(238,243,255,0.8)", fg: MUTED },
+      ],
+      monthBars: months.map((m) => ({
+        label: m.label,
+        incomeH: Math.round((m.income / peak) * 120) + "px",
+        spentH: Math.round((m.spent / peak) * 120) + "px",
+        opacity: m.partial ? "0.45" : "1",
+        labelTone: m.partial ? "#8b97ab" : MUTED,
+      })),
+      overviewStats: [
+        { label: "Earned", value: "R 226 400", note: "7 months" },
+        { label: "Spent", value: "R 182 950", note: "81% of what you earned" },
+        { label: "Kept", value: "R 43 450", note: "19% savings rate" },
+      ],
+      catRows: cats.map((c) => ({
+        name: c.name,
+        value: fmtK(c.total),
+        pct: Math.round((c.total / catMax) * 100) + "%",
+        share: Math.round((c.total / spentTotal) * 100) + "% of spending",
+      })),
+      accuracyRows: [
+        { name: "Rent", assignedPct: "100%", actualPct: "100%", assigned: "R 12 000", actual: "R 12 000", verdict: "Spot on", tone: GREEN },
+        { name: "Groceries", assignedPct: "42%", actualPct: "45%", assigned: "R 5 000", actual: "R 5 420", verdict: "Over most months", tone: RED },
+        { name: "Fuel", assignedPct: "21%", actualPct: "15%", assigned: "R 2 500", actual: "R 1 800", verdict: "R 700 spare, every month", tone: BLUE },
+        { name: "Eating out", assignedPct: "8%", actualPct: "10%", assigned: "R 1 000", actual: "R 1 180", verdict: "Over most months", tone: RED },
+        { name: "Household", assignedPct: "17%", actualPct: "6%", assigned: "R 2 000", actual: "R 760", verdict: "Assigned too much", tone: BLUE },
+      ],
+      mortgageBars: [
+        { label: "Mar", interestH: "96px", equityH: "24px" },
+        { label: "Apr", interestH: "96px", equityH: "24px" },
+        { label: "May", interestH: "95px", equityH: "25px" },
+        { label: "Jun", interestH: "95px", equityH: "25px" },
+        { label: "Jul", interestH: "95px", equityH: "25px" },
+        { label: "Aug", interestH: "94px", equityH: "26px" },
+        { label: "Sep", interestH: "94px", equityH: "26px" },
+      ],
+      reportNotes: [
+        { title: "Summary becomes Reports", today: true, body: "Same slot in the nav, a different job. The monthly snapshot it used to show is already on Home and Budget, so what's left is the thing neither of those can do: history." },
+        { title: "Periods run from when you started", today: false, body: "\"Since you started · Mar – Sep 2026\". No calendar-year-to-date that reads as a collapse every January, and no trend claimed from two data points." },
+        { title: "Bars only, one shape everywhere", today: false, body: "Month bars for time, horizontal bars for ranking. It survives a 390px screen without a legend, and it's the one chart type nobody has to learn." },
+        { title: "The current month is faded", today: false, body: "September is 12 days in. Drawing it solid next to six full months invites the wrong conclusion, so it's dimmed and labelled." },
+        { title: "Budget accuracy is the useful one", today: false, body: "Assigned against actual, per category, over months. \"R 700 spare in Fuel every month\" is a concrete instruction to move R 700 somewhere else — the only report here that changes what you do next." },
+        { title: "Reports are yours alone", today: false, body: "Per your call, the household snapshot is gone. The one shared thing that survives is the house itself: mortgage interest against equity, which is jointly owned by definition." },
+      ],
+    };
+  }
+
+  mortgageVals() {
+    return {
+      setupFields: [
+        { label: "What the house cost", value: "R 2 880 000", note: "" },
+        { label: "Total monthly payment", value: "R 21 400", note: "Bank minimum is R 19 400 — you're paying R 2 000 extra" },
+        { label: "Term left", value: "217 months", note: "Rate 11%, changeable later" },
+      ],
+      deposits: [
+        { initial: "S", name: "Sydney", value: "R 780 000" },
+        { initial: "M", name: "Matt", value: "R 0" },
+      ],
+      targetSplit: [
+        { name: "Sydney", pct: "50%", tone: "#7c3aed" },
+        { name: "Matt", pct: "50%", tone: BLUE },
+      ],
+      calcResult: [
+        { name: "Sydney", value: "R 8 988", pct: "42%" },
+        { name: "Matt", value: "R 12 412", pct: "58%" },
+      ],
+      cases: [
+        {
+          id: "Case 1", when: "Equal payments, no deposits",
+          headline: "You each own half, all the way through",
+          body: "You're both putting in R 10 700 a month and neither of you paid a deposit, so your shares are identical from the first payment to the last. Nothing to balance.",
+          border: "#dde3ee", bg: "#fafbfd", tone: FG,
+          detail: "Shown when deposits are equal (usually both zero) and the payment split is even. The story screen is one sentence, because there's nothing to explain.",
+        },
+        {
+          id: "Case 2", when: "Equal payments, one deposit",
+          headline: "Sydney will end up owning 62%",
+          body: "Her R 780 000 deposit stays hers, and you're paying the same amount each month, so the gap never closes. If you want to end up level, one of you needs to pay more — we can work out how much.",
+          border: "rgba(245,158,11,0.4)", bg: "rgba(245,158,11,0.08)", tone: AMBER,
+          detail: "The important case to catch, because most couples assume equal payments means equal ownership. The screen names the outcome and offers to fix it rather than just reporting it.",
+        },
+        {
+          id: "Case 3", when: "Unequal payments, target split",
+          headline: "You'll each own half by March 2044",
+          body: "Sydney's deposit gives her a head start, so Matt pays R 12 412 against her R 8 988. Her share falls from 86% to 50% as his payments accumulate. That's the plan working, not a problem.",
+          border: "rgba(37,99,235,0.35)", bg: "rgba(37,99,235,0.06)", tone: BLUE,
+          detail: "Your household. The one case where the declining percentage needs explaining, because it looks like going backwards until someone says why.",
+        },
+      ],
+      unreachable: {
+        title: "50/50 isn't reachable here",
+        body: "Sydney's R 1 400 000 deposit is too large to even out over 217 months at R 21 400 a month. The closest is 58/42 with Matt paying the whole R 21 400.",
+        options: ["Use 58/42 instead", "Increase the payment", "Extend the term"],
+      },
+      mortgageNotes: [
+        { title: "Setup asks for what people know", body: "House price, deposits, the total monthly payment, the term. Nobody knows what their ownership-correct payment share should be — that's the calculation, and it's the reason to build this at all." },
+        { title: "Target split is a slider, not a form field", body: "Most households want 50/50, so it starts there. Dragging it recalculates both payments live, which makes the relationship between the two visible instead of theoretical." },
+        { title: "Three cases, three templates", body: "Detected from deposits and the payment split. Case 2 is the one that earns its keep — equal payments with an unequal deposit is the mistake couples make, and the app can name it before it's twenty years old." },
+        { title: "Unreachable targets say so", body: "A big enough deposit can't be evened out inside the term. Rather than silently rounding, it states the closest reachable split and offers the two levers that would change it." },
+        { title: "Rate changes protect the target", body: "Your call: when the bank moves the rate, the total moves and each share recalculates so the ownership target still lands. The alternative silently changes what people end up owning." },
+      ],
+      accountRows: [
+        { name: "Cheque", sub: "Bank · everyday", balance: "R 4 100", shared: false, chip: "Just you", chipBg: "#eef3ff", chipFg: MUTED },
+        { name: "House account", sub: "Bank · rent, bills, groceries", balance: "R 12 840", shared: true, chip: "Shared with Sydney", chipBg: "rgba(37,99,235,0.1)", chipFg: BLUE },
+        { name: "Savings", sub: "Bank · savings", balance: "R 38 400", shared: false, chip: "Just you", chipBg: "#eef3ff", chipFg: MUTED },
+        { name: "Credit card", sub: "Credit · R 21 600 available", balance: "−R 18 400", shared: false, chip: "Just you", chipBg: "#eef3ff", chipFg: MUTED },
+      ],
+      incomeTypes: [
+        { name: "Salary", bg: "#047857", border: "#047857", fg: "#f8fbff", weight: "600" },
+        { name: "Bonus", bg: "#f4f6fa", border: "#dde3ee", fg: FG, weight: "400" },
+        { name: "Interest", bg: "#f4f6fa", border: "#dde3ee", fg: FG, weight: "400" },
+        { name: "Gift", bg: "#f4f6fa", border: "#dde3ee", fg: FG, weight: "400" },
+        { name: "Other", bg: "transparent", border: "#b9c4d6", fg: MUTED, weight: "400" },
+      ],
+      sharingNotes: [
+        { title: "Sharing is chosen per account, when you add it", body: "One switch, with the consequence spelled out under it. No settings archaeology later, and no global choice that's wrong for one of your accounts." },
+        { title: "Shared means both people see the rows", body: "Your call, and it resolves the contradiction cleanly: on a shared account the transactions are visible to everyone who shares it. On a private account they're never visible, to anyone." },
+        { title: "Each person still budgets their own share", body: "A shared account doesn't create a shared budget. If you both spend from the house account, each of you assigns your own money against your own categories." },
+        { title: "This is the answer to the tracking problem", body: "You said it gets confusing if one person isn't religious about it. A shared house account for rent, bills and groceries means the joint costs are visible and reconciled by whoever cares, while both budgets stay personal." },
+        { title: "Income types stay a short list", body: "Salary, bonus, interest, gift, and Other. No tax flag, per your call. Enough for the reports you asked for without turning income entry into a form." },
+      ],
+    };
+  }
+
+  renderVals() {
+    return Object.assign({}, this.densityVals(), this.reportVals(), this.mortgageVals());
+  }
+}
+</script>
+</body>
+</html>

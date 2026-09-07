@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<style>
+  body { margin:0; background:#07090d; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color:#5b8def; text-decoration:none; }
+  a:hover { text-decoration:underline; }
+</style>
+</helmet>
+
+<section style="padding:48px 56px 96px; display:flex; flex-direction:column; gap:52px">
+
+  <div style="max-width:900px; display:flex; flex-direction:column; gap:12px">
+    <div style="font-size:11px; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:#a7b5c9">Turn 3 · dark mode</div>
+    <h1 style="margin:0; font-size:34px; font-weight:600; letter-spacing:-0.025em; color:#e8edf5">The same screens after dark</h1>
+    <p style="margin:0; font-size:16px; line-height:1.6; color:#a7b5c9; text-wrap:pretty">Your <code style="font-size:13px">.dark</code> tokens, unchanged: <code style="font-size:13px">#0f1117</code> background, <code style="font-size:13px">#161b27</code> cards, <code style="font-size:13px">#1e2738</code> borders, <code style="font-size:13px">#5b8def</code> primary, <code style="font-size:13px">#a7b5c9</code> muted. Four things need deciding beyond a colour swap, and they're called out below.</p>
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:18px">
+    <h2 style="margin:0; font-size:22px; font-weight:600; letter-spacing:-0.02em; color:#e8edf5">What dark mode actually changes</h2>
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(340px,1fr)); gap:14px; max-width:1180px">
+      <sc-for list="{{ decisions }}" as="d" hint-placeholder-count="6">
+        <div style="border:1px solid #1e2738; background:#161b27; border-radius:16px; padding:16px 18px; display:flex; flex-direction:column; gap:9px">
+          <div style="font-size:11px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:#a7b5c9">{{ d.tag }}</div>
+          <div style="font-size:15px; font-weight:600; color:#e8edf5; text-wrap:pretty">{{ d.title }}</div>
+          <p style="margin:0; font-size:13px; line-height:1.6; color:#a7b5c9; text-wrap:pretty">{{ d.body }}</p>
+          <div style="display:flex; gap:7px; align-items:center; padding-top:3px">
+            <sc-for list="{{ d.swatches }}" as="s" hint-placeholder-count="0">
+              <div style="display:flex; align-items:center; gap:6px; border:1px solid #1e2738; border-radius:9999px; padding:4px 9px 4px 5px">
+                <span style="width:14px; height:14px; border-radius:9999px; background:{{ s.color }}; border:1px solid rgba(232,237,245,0.15)"></span>
+                <span style="font-size:11px; font-family:ui-monospace, monospace; color:#a7b5c9">{{ s.label }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <!-- HOME + ADD -->
+  <div style="display:flex; flex-direction:column; gap:20px">
+    <h2 style="margin:0; font-size:22px; font-weight:600; letter-spacing:-0.02em; color:#e8edf5">Home and Add</h2>
+    <div style="display:flex; gap:32px; flex-wrap:wrap; align-items:flex-start">
+
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <div style="font-size:12px; font-weight:600; color:#5b8def">HOME · dark</div>
+        <div style="width:390px; border:1px solid #262f42; border-radius:22px; overflow:hidden; background:#0f1117; box-shadow:0 14px 40px rgba(0,0,0,0.5)">
+          <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; background:rgba(15,17,23,0.95); border-bottom:1px solid #1e2738">
+            <div style="display:flex; align-items:center; gap:8px"><span style="width:28px; height:28px; border-radius:9999px; background:#1a2540; color:#e8edf5; font-size:12px; font-weight:600; display:flex; align-items:center; justify-content:center">M</span><span style="font-size:14px; font-weight:600; color:#e8edf5">Matt</span></div>
+            <div style="display:flex; align-items:center; gap:10px; font-size:13px; color:#a7b5c9"><span>25 Aug – 24 Sep</span><span style="font-size:16px">≡</span></div>
+          </div>
+
+          <div style="padding:16px; display:flex; flex-direction:column; gap:18px">
+            <div style="border:1px solid rgba(91,141,239,0.3); background:linear-gradient(180deg,#1b2436,#161b27); border-radius:20px; padding:20px; display:flex; flex-direction:column; gap:13px">
+              <div style="display:flex; align-items:center; justify-content:space-between">
+                <span style="font-size:13px; font-weight:600; color:#a7b5c9">Left in your categories</span>
+                <span style="font-size:12px; font-weight:600; color:#5b8def">Breakdown</span>
+              </div>
+              <div style="font-size:44px; line-height:1; font-weight:600; letter-spacing:-0.03em; font-variant-numeric:tabular-nums; color:#f2f6fc">R 5 250</div>
+              <p style="margin:0; font-size:15px; line-height:1.5; color:#e8edf5">About <strong>R 219 a day</strong> for the 24 days left.</p>
+              <div style="display:flex; flex-direction:column; gap:6px">
+                <div style="position:relative; height:10px; border-radius:9999px; background:#1a2540; overflow:hidden">
+                  <div style="position:absolute; top:0; bottom:0; left:0; width:84%; background:#5b8def; border-radius:9999px"></div>
+                  <div style="position:absolute; top:-3px; bottom:-3px; left:23%; width:2px; background:#e8edf5; border-radius:2px"></div>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:12px; color:#a7b5c9"><span>R 28 150 spent of R 33 400</span><span>│ today</span></div>
+              </div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:9px">
+              <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.1em; color:#a7b5c9">Needs you</div>
+              <sc-for list="{{ needsYou }}" as="n" hint-placeholder-count="3">
+                <div style="border:1px solid {{ n.border }}; background:{{ n.bg }}; border-radius:14px; padding:13px 14px; display:flex; align-items:center; gap:12px">
+                  <span style="width:30px; height:30px; flex-shrink:0; border-radius:9999px; background:{{ n.iconBg }}; color:{{ n.iconFg }}; font-size:14px; display:flex; align-items:center; justify-content:center">{{ n.icon }}</span>
+                  <div style="min-width:0; flex:1">
+                    <div style="font-size:14px; font-weight:600; color:#e8edf5; text-wrap:pretty">{{ n.title }}</div>
+                    <div style="font-size:12px; color:#a7b5c9; text-wrap:pretty">{{ n.body }}</div>
+                  </div>
+                  <span style="flex-shrink:0; height:32px; padding:0 12px; border-radius:9999px; background:{{ n.actionBg }}; color:{{ n.actionFg }}; border:1px solid {{ n.actionBorder }}; font-size:12px; font-weight:600; display:flex; align-items:center">{{ n.action }}</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:10px">
+              <div style="display:flex; align-items:baseline; justify-content:space-between">
+                <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.1em; color:#a7b5c9">What's left, by category</div>
+                <span style="font-size:12px; font-weight:600; color:#5b8def">All 9</span>
+              </div>
+              <div style="border:1px solid #1e2738; background:#161b27; border-radius:16px; padding:6px 14px">
+                <sc-for list="{{ envelopes }}" as="e" hint-placeholder-count="5">
+                  <div style="padding:12px 0; border-bottom:1px solid rgba(30,39,56,0.9); display:flex; flex-direction:column; gap:7px">
+                    <div style="display:flex; align-items:baseline; justify-content:space-between; gap:10px">
+                      <span style="font-size:14px; font-weight:500; color:#e8edf5">{{ e.name }}</span>
+                      <span style="font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; color:{{ e.tone }}">{{ e.label }}</span>
+                    </div>
+                    <div style="height:6px; border-radius:9999px; background:#1a2540; overflow:hidden"><div style="height:100%; width:{{ e.pct }}; background:{{ e.tone }}; border-radius:9999px"></div></div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:10px">
+              <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.1em; color:#a7b5c9">Last few</div>
+              <div style="border:1px solid #1e2738; background:#161b27; border-radius:16px; padding:4px 14px">
+                <sc-for list="{{ recent }}" as="t" hint-placeholder-count="3">
+                  <div style="padding:12px 0; border-bottom:1px solid rgba(30,39,56,0.9); display:flex; align-items:center; justify-content:space-between; gap:12px">
+                    <div style="min-width:0"><div style="font-size:14px; font-weight:500; color:#e8edf5">{{ t.title }}</div><div style="font-size:12px; color:#a7b5c9">{{ t.meta }}</div></div>
+                    <div style="font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; flex-shrink:0; color:{{ t.tone }}">{{ t.amount }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <div style="border-top:1px solid #1e2738; background:rgba(15,17,23,0.97); height:56px; display:flex; justify-content:space-around; align-items:flex-end; padding-bottom:6px">
+            <div style="display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px; color:#5b8def"><span style="font-size:16px">▣</span><span style="font-size:11px; font-weight:600">Home</span></div>
+            <div style="display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px; color:#a7b5c9"><span style="font-size:16px">▤</span><span style="font-size:11px; font-weight:600">Calendar</span></div>
+            <div style="width:60px; height:60px; border-radius:9999px; background:#5b8def; color:#0f1520; display:flex; flex-direction:column; align-items:center; justify-content:center; margin-top:-22px; box-shadow:0 10px 26px rgba(91,141,239,0.4)"><span style="font-size:24px; line-height:1">+</span><span style="font-size:10px; font-weight:700; margin-top:1px">Add</span></div>
+            <div style="display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px; color:#a7b5c9"><span style="font-size:16px">☰</span><span style="font-size:11px; font-weight:600">Lists</span></div>
+            <div style="display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px; color:#a7b5c9"><span style="font-size:16px">◈</span><span style="font-size:11px; font-weight:600">Budget</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <div style="font-size:12px; font-weight:600; color:#5b8def">ADD · dark</div>
+        <div style="width:390px; border:1px solid #262f42; border-radius:22px; overflow:hidden; background:#0f1117; box-shadow:0 14px 40px rgba(0,0,0,0.5)">
+          <div style="height:60px; background:rgba(0,0,0,0.55)"></div>
+          <div style="background:#161b27; border-top:1px solid #262f42; border-radius:24px 24px 0 0; padding:16px 16px 20px; display:flex; flex-direction:column; gap:14px">
+            <div style="width:40px; height:4px; border-radius:9999px; background:#2b3550; margin:0 auto"></div>
+            <div style="display:flex; align-items:center; justify-content:space-between">
+              <span style="font-size:16px; font-weight:600; color:#e8edf5">Add</span>
+              <div style="display:flex; gap:4px">
+                <span style="font-size:13px; font-weight:600; padding:6px 12px; border-radius:9999px; background:#1a2540; color:#e8edf5">Spend</span>
+                <span style="font-size:13px; font-weight:500; padding:6px 12px; border-radius:9999px; color:#a7b5c9">Income</span>
+              </div>
+            </div>
+            <div style="text-align:center"><div style="font-size:48px; line-height:1; font-weight:600; letter-spacing:-0.03em; font-variant-numeric:tabular-nums; color:#f2f6fc">R 900</div></div>
+
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.1em; color:#a7b5c9">Category</div>
+              <div style="display:flex; flex-wrap:wrap; gap:7px">
+                <sc-for list="{{ pills }}" as="p" hint-placeholder-count="5">
+                  <div style="border-radius:9999px; padding:7px 13px; font-size:14px; font-weight:500; border:1px solid {{ p.border }}; background:{{ p.bg }}; color:{{ p.fg }}; display:flex; align-items:center; gap:6px"><span>{{ p.name }}</span><span style="font-size:11px; font-variant-numeric:tabular-nums; opacity:0.8">{{ p.left }}</span></div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:7px">
+              <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.1em; color:#a7b5c9">Who's in on this</div>
+              <div style="display:flex; gap:8px">
+                <sc-for list="{{ people }}" as="p" hint-placeholder-count="3">
+                  <div style="display:flex; flex-direction:column; align-items:center; gap:4px; width:58px">
+                    <span style="width:42px; height:42px; border-radius:9999px; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:600; border:2px solid {{ p.border }}; background:{{ p.bg }}; color:{{ p.fg }}">{{ p.initial }}</span>
+                    <span style="font-size:11px; color:{{ p.labelTone }}; font-weight:{{ p.labelWeight }}">{{ p.name }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="border:1px solid rgba(248,113,113,0.35); background:rgba(248,113,113,0.09); border-radius:14px; padding:12px 14px">
+              <div style="font-size:14px; font-weight:600; color:#e8edf5">Your R 450 comes off Groceries</div>
+              <div style="font-size:13px; color:#a7b5c9; margin-top:2px">Groceries goes R 870 over. Sydney's R 450 is added to what she owes you.</div>
+            </div>
+
+            <div style="display:flex; gap:7px; flex-wrap:wrap">
+              <div style="border:1px solid #1e2738; background:#0f1117; border-radius:9999px; padding:6px 12px; font-size:13px; color:#e8edf5">Today</div>
+              <div style="border:1px solid #1e2738; background:#0f1117; border-radius:9999px; padding:6px 12px; font-size:13px; color:#e8edf5">Cheque</div>
+              <div style="border:1px dashed #2b3550; border-radius:9999px; padding:6px 12px; font-size:13px; color:#a7b5c9">+ Note</div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:7px">
+              <sc-for list="{{ keypad }}" as="k" hint-placeholder-count="12">
+                <div style="height:46px; border-radius:14px; background:#0f1117; border:1px solid #1e2738; display:flex; align-items:center; justify-content:center; font-size:21px; font-weight:500; color:#e8edf5">{{ k }}</div>
+              </sc-for>
+            </div>
+            <div style="height:50px; border-radius:14px; background:#5b8def; color:#0f1520; font-size:16px; font-weight:700; display:flex; align-items:center; justify-content:center">Save · your share R 450</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <div style="font-size:12px; font-weight:600; color:#5b8def">BUDGET · dark</div>
+        <div style="width:390px; border:1px solid #262f42; border-radius:22px; overflow:hidden; background:#0f1117; box-shadow:0 14px 40px rgba(0,0,0,0.5)">
+          <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid #1e2738; background:rgba(15,17,23,0.95)">
+            <span style="font-size:16px; font-weight:600; color:#e8edf5">Budget</span>
+            <div style="display:flex; align-items:center; gap:10px; font-size:14px; color:#e8edf5"><span style="color:#a7b5c9">‹</span><span style="font-weight:600">Aug</span><span style="color:#a7b5c9">›</span></div>
+          </div>
+          <div style="padding:16px; display:flex; flex-direction:column; gap:16px">
+            <div style="border:1px solid rgba(245,158,11,0.35); background:linear-gradient(180deg,#241f14,#1c1a17); border-radius:20px; padding:18px; display:flex; flex-direction:column; gap:12px">
+              <div style="font-size:13px; font-weight:600; color:#fbbf24">Not given a job yet</div>
+              <div style="font-size:36px; line-height:1; font-weight:600; letter-spacing:-0.03em; font-variant-numeric:tabular-nums; color:#f2f6fc">R 1 800</div>
+              <p style="margin:0; font-size:14px; line-height:1.5; color:#e8edf5">Money with nothing to do. Put it somewhere, or it just drifts.</p>
+              <div style="display:flex; gap:8px">
+                <div style="height:38px; padding:0 15px; border-radius:9999px; background:#e8edf5; color:#0f1520; font-size:13px; font-weight:700; display:flex; align-items:center">Spread it for me</div>
+                <div style="height:38px; padding:0 15px; border-radius:9999px; border:1px solid #3a3226; background:transparent; color:#e8edf5; font-size:13px; font-weight:600; display:flex; align-items:center">Cover the R 600</div>
+              </div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:13px; color:#a7b5c9; padding:0 4px">
+              <span>R 32 000 in</span><span>R 30 200 assigned</span><span>R 28 150 spent</span>
+            </div>
+            <div style="border:1px solid #1e2738; background:#161b27; border-radius:16px; padding:4px 14px">
+              <sc-for list="{{ budgetGroups }}" as="g" hint-placeholder-count="3">
+                <div style="padding:10px 0">
+                  <div style="font-size:11px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:#8f9fb8; padding:4px 0 6px">{{ g.name }}</div>
+                  <sc-for list="{{ g.rows }}" as="b" hint-placeholder-count="3">
+                    <div style="padding:12px 0; border-bottom:1px solid rgba(30,39,56,0.9); display:flex; flex-direction:column; gap:7px">
+                      <div style="display:flex; align-items:baseline; justify-content:space-between; gap:10px">
+                        <div style="min-width:0">
+                          <span style="font-size:15px; font-weight:500; color:#e8edf5">{{ b.name }}</span>
+                          <span style="font-size:12px; color:#a7b5c9; display:block; margin-top:2px">{{ b.meta }}</span>
+                        </div>
+                        <div style="text-align:right; flex-shrink:0">
+                          <div style="font-size:16px; font-weight:600; font-variant-numeric:tabular-nums; color:{{ b.tone }}">{{ b.left }}</div>
+                          <div style="font-size:11px; color:#a7b5c9">{{ b.leftLabel }}</div>
+                        </div>
+                      </div>
+                      <div style="height:7px; border-radius:9999px; background:#1a2540; overflow:hidden"><div style="height:100%; width:{{ b.pct }}; background:{{ b.tone }}; border-radius:9999px"></div></div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="width:330px; display:flex; flex-direction:column; gap:12px; padding-top:26px">
+        <sc-for list="{{ notes }}" as="n" hint-placeholder-count="6">
+          <div style="border-left:2px solid #5b8def; padding:2px 0 2px 14px">
+            <div style="font-size:14px; font-weight:600; color:#e8edf5; text-wrap:pretty">{{ n.title }}</div>
+            <p style="margin:4px 0 0; font-size:13px; line-height:1.6; color:#a7b5c9; text-wrap:pretty">{{ n.body }}</p>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDE BY SIDE -->
+  <div style="display:flex; flex-direction:column; gap:20px">
+    <div style="max-width:800px; display:flex; flex-direction:column; gap:8px">
+      <h2 style="margin:0; font-size:22px; font-weight:600; letter-spacing:-0.02em; color:#e8edf5">Light and dark, same card</h2>
+      <p style="margin:0; font-size:15px; line-height:1.6; color:#a7b5c9; text-wrap:pretty">The pairs that need a real decision rather than a token swap: status tints, the hero gradient, and buttons that were near-black in light mode.</p>
+    </div>
+    <div style="display:flex; gap:20px; flex-wrap:wrap">
+      <sc-for list="{{ pairs }}" as="p" hint-placeholder-count="4">
+        <div style="width:330px; display:flex; flex-direction:column; gap:9px">
+          <div style="font-size:12px; font-weight:600; color:#a7b5c9">{{ p.label }}</div>
+          <div style="border:1px solid #dde3ee; background:#f4f6fa; border-radius:14px; padding:14px">
+            <div style="border:1px solid {{ p.lightBorder }}; background:{{ p.lightBg }}; border-radius:12px; padding:13px">
+              <div style="font-size:14px; font-weight:600; color:{{ p.lightTitle }}">{{ p.title }}</div>
+              <div style="font-size:12px; color:#4d5f7a; margin-top:2px">{{ p.body }}</div>
+            </div>
+          </div>
+          <div style="border:1px solid #1e2738; background:#0f1117; border-radius:14px; padding:14px">
+            <div style="border:1px solid {{ p.darkBorder }}; background:{{ p.darkBg }}; border-radius:12px; padding:13px">
+              <div style="font-size:14px; font-weight:600; color:{{ p.darkTitle }}">{{ p.title }}</div>
+              <div style="font-size:12px; color:#a7b5c9; margin-top:2px">{{ p.body }}</div>
+            </div>
+          </div>
+          <p style="margin:0; font-size:12px; line-height:1.6; color:#a7b5c9; text-wrap:pretty">{{ p.note }}</p>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:16px; max-width:900px">
+    <h2 style="margin:0; font-size:22px; font-weight:600; letter-spacing:-0.02em; color:#e8edf5">Tokens to add</h2>
+    <p style="margin:0; font-size:15px; line-height:1.6; color:#a7b5c9; text-wrap:pretty">Your palette has no semantic success or warning, and the money screens need both in each theme. Six variables, defined in the same two blocks as everything else.</p>
+    <div style="border:1px solid #1e2738; background:#161b27; border-radius:16px; overflow:hidden">
+      <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:0; font-size:11px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:#8f9fb8; padding:13px 16px; border-bottom:1px solid #1e2738">
+        <span>Variable</span><span>Light</span><span>Dark</span>
+      </div>
+      <sc-for list="{{ tokens }}" as="t" hint-placeholder-count="6">
+        <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:0; padding:12px 16px; border-bottom:1px solid rgba(30,39,56,0.8); align-items:center">
+          <span style="font-size:13px; font-family:ui-monospace, monospace; color:#e8edf5">{{ t.name }}</span>
+          <div style="display:flex; align-items:center; gap:8px">
+            <span style="width:16px; height:16px; border-radius:5px; background:{{ t.light }}; border:1px solid rgba(232,237,245,0.2)"></span>
+            <span style="font-size:12px; font-family:ui-monospace, monospace; color:#a7b5c9">{{ t.light }}</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px">
+            <span style="width:16px; height:16px; border-radius:5px; background:{{ t.dark }}; border:1px solid rgba(232,237,245,0.2)"></span>
+            <span style="font-size:12px; font-family:ui-monospace, monospace; color:#a7b5c9">{{ t.dark }}</span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const D_FG = "#e8edf5", D_MUTED = "#a7b5c9", D_BLUE = "#5b8def", D_RED = "#f87171", D_GREEN = "#34d399";
+
+const person = (initial, name, on) => ({
+  initial, name,
+  border: on ? D_BLUE : "#1e2738",
+  bg: on ? "rgba(91,141,239,0.16)" : "#0f1117",
+  fg: on ? D_BLUE : D_MUTED,
+  labelTone: on ? D_FG : D_MUTED,
+  labelWeight: on ? "600" : "400",
+});
+
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      decisions: [
+        {
+          tag: "Status colours", title: "Light-mode red and green go muddy on navy",
+          body: "#ef4444 on #161b27 fails contrast for text and reads brown. Over-budget and income need lighter variants, and the tint backgrounds go from 6% to about 9% opacity to stay visible.",
+          swatches: [{ color: "#ef4444", label: "#ef4444" }, { color: "#f87171", label: "#f87171" }, { color: "#34d399", label: "#34d399" }],
+        },
+        {
+          tag: "Primary buttons", title: "#5b8def needs dark text, not white",
+          body: "Your token already pairs it with #0f1520 foreground — worth honouring, because white on that blue is under 3:1. It also means the primary button reads lighter than in light mode, so weight goes up a step.",
+          swatches: [{ color: "#5b8def", label: "#5b8def" }, { color: "#0f1520", label: "text" }],
+        },
+        {
+          tag: "Emphasis buttons", title: "The near-black action needs inverting",
+          body: "\"Cover it\" and \"Spread it for me\" use #0f1520 on light to sit above the blue without competing. On dark that's invisible, so it inverts to #e8edf5 with dark text.",
+          swatches: [{ color: "#0f1520", label: "light" }, { color: "#e8edf5", label: "dark" }],
+        },
+        {
+          tag: "Elevation", title: "Sheets need a lighter surface, not a shadow",
+          body: "Shadows do nothing on #0f1117. The bottom sheet sits at card level with a 1px #262f42 top edge, and the scrim goes to 55% black so the sheet still separates.",
+          swatches: [{ color: "#0f1117", label: "bg" }, { color: "#161b27", label: "card" }, { color: "#262f42", label: "edge" }],
+        },
+        {
+          tag: "Hero card", title: "The gradient flips direction",
+          body: "On light it goes white to faint blue. On dark, a lift toward #1b2436 at the top, because a darker-than-background card reads as a hole rather than a raised surface.",
+          swatches: [{ color: "#1b2436", label: "#1b2436" }, { color: "#161b27", label: "#161b27" }],
+        },
+        {
+          tag: "Progress tracks", title: "Muted is the track, and it barely shows",
+          body: "#1a2540 on #161b27 is only just visible, which is right for a track but not for the today marker — that becomes #e8edf5 instead of the light-mode near-black.",
+          swatches: [{ color: "#1a2540", label: "track" }, { color: "#e8edf5", label: "marker" }],
+        },
+      ],
+      needsYou: [
+        { icon: "!", title: "Groceries is R 420 over", body: "Fuel has R 700 spare.", action: "Cover it", border: "rgba(248,113,113,0.35)", bg: "rgba(248,113,113,0.09)", iconBg: "rgba(248,113,113,0.18)", iconFg: D_RED, actionBg: D_FG, actionFg: "#0f1520", actionBorder: D_FG },
+        { icon: "◈", title: "R 1 800 hasn't got a job", body: "Assign it before the month runs away.", action: "Assign", border: "rgba(245,158,11,0.35)", bg: "rgba(245,158,11,0.1)", iconBg: "rgba(245,158,11,0.2)", iconFg: "#fbbf24", actionBg: "#0f1117", actionFg: D_FG, actionBorder: "#2b3550" },
+        { icon: "▤", title: "Dentist at 14:30", body: "Today · shared with Sydney", action: "Open", border: "#1e2738", bg: "#161b27", iconBg: "#1a2540", iconFg: D_BLUE, actionBg: "#0f1117", actionFg: D_FG, actionBorder: "#2b3550" },
+      ],
+      envelopes: [
+        { name: "Groceries", label: "R 420 over", pct: "100%", tone: D_RED },
+        { name: "Eating out", label: "R 180 over", pct: "100%", tone: D_RED },
+        { name: "Household", label: "R 1 240 left", pct: "38%", tone: D_BLUE },
+        { name: "Fuel", label: "R 700 left", pct: "72%", tone: D_BLUE },
+        { name: "Car service", label: "R 3 600 saved", pct: "0%", tone: D_BLUE },
+      ],
+      recent: [
+        { title: "Groceries", meta: "Checkers · yesterday · your half of R 900", amount: "−R 450,00", tone: D_FG },
+        { title: "Fuel", meta: "Engen · yesterday", amount: "−R 900,00", tone: D_FG },
+        { title: "Salary", meta: "25 Aug", amount: "+R 32 000,00", tone: D_GREEN },
+      ],
+      pills: [
+        { name: "Groceries", left: "420 over", bg: D_BLUE, border: D_BLUE, fg: "#0f1520" },
+        { name: "Fuel", left: "700 left", bg: "#0f1117", border: "#1e2738", fg: D_FG },
+        { name: "Eating out", left: "180 over", bg: "rgba(248,113,113,0.1)", border: "rgba(248,113,113,0.45)", fg: D_RED },
+        { name: "Household", left: "1 240 left", bg: "#0f1117", border: "#1e2738", fg: D_FG },
+        { name: "More…", left: "", bg: "transparent", border: "#2b3550", fg: D_MUTED },
+      ],
+      people: [person("M", "You", true), person("S", "Sydney", true), person("T", "Thabo", false)],
+      keypad: ["1", "2", "3", "4", "5", "6", "7", "8", "9", ",", "0", "⌫"],
+      budgetGroups: [
+        { name: "Bills", rows: [
+          { name: "Rent", meta: "R 12 000 of R 12 000", left: "R 0", leftLabel: "left", pct: "100%", tone: D_BLUE },
+        ]},
+        { name: "Day to day", rows: [
+          { name: "Groceries", meta: "R 5 420 of R 5 000", left: "R 420", leftLabel: "over", pct: "100%", tone: D_RED },
+          { name: "Fuel", meta: "R 1 800 of R 2 500", left: "R 700", leftLabel: "left", pct: "72%", tone: D_BLUE },
+          { name: "Household", meta: "R 760 of R 2 000", left: "R 1 240", leftLabel: "left", pct: "38%", tone: D_BLUE },
+        ]},
+        { name: "Saving up", rows: [
+          { name: "Car service", meta: "R 400 a month · R 3 200 carried over", left: "R 3 600", leftLabel: "saved", pct: "0%", tone: D_BLUE },
+        ]},
+      ],
+      notes: [
+        { title: "Nothing structural changes", body: "Same hierarchy, same order, same copy. Dark mode is a palette question here, not a layout one, which is how it should be if the light design is sound." },
+        { title: "The hero still wins on contrast", body: "R 5 250 at #f2f6fc against a lifted card is the brightest thing on the screen, same as the light version. Everything else steps down from it." },
+        { title: "Over-budget red is lighter", body: "#f87171 rather than #ef4444, at 4.6:1 on card. It still reads as a warning without vibrating against the navy." },
+        { title: "Income green needs adding", body: "There's no success token today, so income has been using an ad-hoc emerald. #34d399 works on dark, #047857 on light." },
+        { title: "Amber keeps its own surface", body: "The unassigned-money card is the one place a warm surface is worth it. On dark it's a desaturated brown-gold rather than the light cream — same signal, no glare." },
+        { title: "Test on OLED at low brightness", body: "#0f1117 is right rather than pure black: it keeps card separation visible when the screen dims, which pure black destroys." },
+      ],
+      pairs: [
+        {
+          label: "Over budget", title: "Groceries is R 420 over", body: "Fuel has R 700 spare.", note: "Border and tint both lift on dark. Text moves from #b91c1c to #f87171.",
+          lightBg: "rgba(239,68,68,0.06)", lightBorder: "rgba(239,68,68,0.35)", lightTitle: "#0f1520",
+          darkBg: "rgba(248,113,113,0.09)", darkBorder: "rgba(248,113,113,0.35)", darkTitle: D_FG,
+        },
+        {
+          label: "Money with no job", title: "R 1 800 hasn't got a job", body: "Assign it before the month runs away.", note: "Cream becomes desaturated gold-brown. The heading colour goes from #92400e to #fbbf24.",
+          lightBg: "rgba(245,158,11,0.08)", lightBorder: "rgba(245,158,11,0.4)", lightTitle: "#92400e",
+          darkBg: "rgba(245,158,11,0.1)", darkBorder: "rgba(245,158,11,0.35)", darkTitle: "#fbbf24",
+        },
+        {
+          label: "Saved / on track", title: "Car service has R 3 600", body: "R 3 200 carried over, plus R 400 this month.", note: "Needs the new success token. Emerald at #047857 light, #34d399 dark.",
+          lightBg: "rgba(16,185,129,0.07)", lightBorder: "rgba(16,185,129,0.35)", lightTitle: "#0f1520",
+          darkBg: "rgba(52,211,153,0.1)", darkBorder: "rgba(52,211,153,0.32)", darkTitle: D_FG,
+        },
+        {
+          label: "Neutral card", title: "Sydney owes you R 1 240", body: "From 4 shared spends this month.", note: "The plain case: card and border tokens only, no tint. Included as the contrast baseline.",
+          lightBg: "#fafbfd", lightBorder: "#dde3ee", lightTitle: "#0f1520",
+          darkBg: "#161b27", darkBorder: "#1e2738", darkTitle: D_FG,
+        },
+      ],
+      tokens: [
+        { name: "--success", light: "#047857", dark: "#34d399" },
+        { name: "--success-foreground", light: "#f8fbff", dark: "#0f1520" },
+        { name: "--success-surface", light: "#e7f7f0", dark: "#12251f" },
+        { name: "--warning", light: "#92400e", dark: "#fbbf24" },
+        { name: "--warning-surface", light: "#fffaf0", dark: "#241f14" },
+        { name: "--emphasis", light: "#0f1520", dark: "#e8edf5" },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
