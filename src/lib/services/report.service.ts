@@ -1,7 +1,7 @@
 import { all } from "@/lib/db";
 import { requireHouseholdId } from "@/lib/db/request-context";
-import { getUserRepository } from "@/lib/repositories";
 import { MortgageService } from "@/lib/services/mortgage.service";
+import { budgetMonthStartDayForUser } from "@/lib/utils/budget-month-for-user";
 import { budgetMonthKeyFromIsoDate, normalizeBudgetMonthStartDay } from "@/lib/utils/date";
 
 export interface MonthlyInOutRow {
@@ -60,9 +60,7 @@ export class ReportService {
   }
 
   private async startDay(userId: number): Promise<number> {
-    return normalizeBudgetMonthStartDay(
-      await getUserRepository().getBudgetMonthStartDay(userId)
-    );
+    return normalizeBudgetMonthStartDay(await budgetMonthStartDayForUser(userId));
   }
 
   async monthlyInOut(userId: number, from: string, to: string): Promise<MonthlyInOutRow[]> {

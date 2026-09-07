@@ -19,6 +19,7 @@ import { SplitService } from "@/lib/services/split.service";
 import { buildGoalRows, goalsBehind } from "@/lib/services/finance/goal-categories";
 import { formatBudgetMonthLabel } from "@/lib/utils/date";
 import {
+  budgetMonthStartDayForUser,
   getDefaultBudgetMonthForUser,
   getBudgetPeriodForUserMonth,
 } from "@/lib/utils/budget-month-for-user";
@@ -138,7 +139,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const members: HouseholdMember[] = otherUsers.map((u) => ({ id: u.id, name: u.name }));
   const otherUserName = soleOtherMemberName(members);
-  const budgetMonthStartDay = await userRepo.getBudgetMonthStartDay(userId);
+  const budgetMonthStartDay = await budgetMonthStartDayForUser(userId);
   const setup = await userRepo.getSetupWizardState(userId);
   const monthLabelPretty = formatBudgetMonthLabel(month, budgetMonthStartDay);
 

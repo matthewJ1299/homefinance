@@ -1,7 +1,6 @@
 import {
   getExpenseRepository,
   getAccountTransactionRepository,
-  getUserRepository,
   getExpenseParticipantRepository,
   getSplitAllocationRepository,
   getSplitGroupRepository,
@@ -10,7 +9,11 @@ import {
   validateParticipantShares,
   type ParticipantShare,
 } from "@/lib/services/finance/participants";
-import { budgetMonthKeyForUser, getBudgetPeriodForUserMonth } from "@/lib/utils/budget-month-for-user";
+import {
+  budgetMonthKeyForUser,
+  budgetMonthStartDayForUser,
+  getBudgetPeriodForUserMonth,
+} from "@/lib/utils/budget-month-for-user";
 import type { ExpenseWithDetails } from "@/lib/types";
 import type { CreateExpenseInput, UpdateExpenseInput } from "@/lib/repositories/interfaces/expense.repository";
 
@@ -40,7 +43,7 @@ export class ExpenseService {
     if (userId == null) {
       return this.repo.getSpendingByCategoryForMonths(months, undefined, undefined);
     }
-    const startDay = await getUserRepository().getBudgetMonthStartDay(userId);
+    const startDay = await budgetMonthStartDayForUser(userId);
     return this.repo.getSpendingByCategoryForMonths(months, userId, startDay);
   }
 

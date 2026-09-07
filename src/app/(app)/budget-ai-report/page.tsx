@@ -6,10 +6,10 @@ import {
   getAIAnalysisRunApplicationRepository,
   getAIAnalysisRunMessageRepository,
   getAIAnalysisRunRepository,
-  getUserRepository,
 } from "@/lib/repositories";
 import { BudgetService } from "@/lib/services/budget.service";
 import { resolveAiInteractiveEnabled } from "@/lib/services/feature-access.service";
+import { budgetMonthStartDayForUser } from "@/lib/utils/budget-month-for-user";
 import { getCurrentBudgetMonth } from "@/lib/utils/date";
 import { normalizeBudgetAnalysisReport } from "@/lib/utils/normalize-budget-analysis-report";
 
@@ -24,10 +24,7 @@ export default async function BudgetAiReportPage({ searchParams }: BudgetAiRepor
   }
 
   const userId = Number(session?.user?.id ?? 0);
-  const userRepo = getUserRepository();
-  const budgetMonthStartDay = userId
-    ? await userRepo.getBudgetMonthStartDay(userId)
-    : 1;
+  const budgetMonthStartDay = userId ? await budgetMonthStartDayForUser(userId) : 1;
   const aiEnabled = resolveAiInteractiveEnabled();
 
   const { month: monthParam, runId: runIdParam } = await searchParams;

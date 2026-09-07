@@ -4,8 +4,8 @@ import {
   getIncomeRepository,
   getExpenseRepository,
   getExpenseParticipantRepository,
-  getUserRepository,
 } from "@/lib/repositories";
+import { budgetMonthStartDayForUser } from "@/lib/utils/budget-month-for-user";
 import { dateForMonthAndDay, nextMonth } from "@/lib/utils/date";
 
 export interface PopulateMonthResult {
@@ -22,8 +22,7 @@ export class PopulationService {
     private recurringExpenseRepo = getRecurringExpenseRepository(),
     private incomeRepo = getIncomeRepository(),
     private expenseRepo = getExpenseRepository(),
-    private participantRepo = getExpenseParticipantRepository(),
-    private userRepo = getUserRepository()
+    private participantRepo = getExpenseParticipantRepository()
   ) {}
 
   /**
@@ -111,7 +110,7 @@ export class PopulationService {
   private async getBudgetMonthStartDay(userId: number): Promise<number> {
     const cached = this.budgetStartDayByUserId.get(userId);
     if (cached != null) return cached;
-    const startDay = await this.userRepo.getBudgetMonthStartDay(userId);
+    const startDay = await budgetMonthStartDayForUser(userId);
     this.budgetStartDayByUserId.set(userId, startDay);
     return startDay;
   }

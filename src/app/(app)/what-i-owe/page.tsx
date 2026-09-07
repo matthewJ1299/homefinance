@@ -7,7 +7,10 @@ import { hasFeature } from "@/lib/features/access";
 import { FeatureUnavailable } from "@/components/ui/feature-unavailable";
 import { SplitService } from "@/lib/services/split.service";
 import { MortgageService } from "@/lib/services/mortgage.service";
-import { getDefaultBudgetMonthForUser } from "@/lib/utils/budget-month-for-user";
+import {
+  budgetMonthStartDayForUser,
+  getDefaultBudgetMonthForUser,
+} from "@/lib/utils/budget-month-for-user";
 import { formatBudgetMonthLabel, formatDisplayDate } from "@/lib/utils/date";
 import { MonthNavigator } from "@/components/layout/month-navigator";
 import { PageHeader } from "@/components/ui/page-header";
@@ -38,7 +41,7 @@ export default async function WhatIOwePage({ searchParams }: WhatIOwePageProps) 
 
   const [others, startDay] = await Promise.all([
     userRepo.findAllExcept(userId),
-    userRepo.getBudgetMonthStartDay(userId),
+    budgetMonthStartDayForUser(userId),
   ]);
   // Whose statement? Explicit when chosen, otherwise the first housemate. With
   // three people there is no "the other person", so the tabs below do the

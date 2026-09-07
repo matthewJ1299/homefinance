@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { BudgetService } from "@/lib/services/budget.service";
-import { getUserRepository } from "@/lib/repositories";
+import { budgetMonthStartDayForUser } from "@/lib/utils/budget-month-for-user";
 import { formatBudgetMonthLabel } from "@/lib/utils/date";
 import { MonthOpenCard } from "@/components/budget/month-open-card";
 
@@ -21,7 +21,7 @@ export default async function NewMonthPage() {
 
   const [prior, startDay] = await Promise.all([
     service.getOverview(pending.previous, userId),
-    getUserRepository().getBudgetMonthStartDay(userId),
+    budgetMonthStartDayForUser(userId),
   ]);
 
   const overspent = prior.categories

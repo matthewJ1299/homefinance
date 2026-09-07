@@ -5,10 +5,12 @@ import {
   getRecurringIncomeRepository,
   getRecurringExpenseRepository,
   getSharedListRepository,
-  getUserRepository,
 } from "@/lib/repositories";
 import { formatBudgetMonthLabel } from "@/lib/utils/date";
-import { getDefaultBudgetMonthForUser } from "@/lib/utils/budget-month-for-user";
+import {
+  budgetMonthStartDayForUser,
+  getDefaultBudgetMonthForUser,
+} from "@/lib/utils/budget-month-for-user";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { CategoriesManage } from "@/components/categories/categories-manage";
 import { SplitGroupsManage } from "@/components/split-groups/split-groups-manage";
@@ -39,8 +41,10 @@ export default async function SettingsPage() {
   ]);
   const categoriesForRecurring = await getCategoryRepository().findAll();
 
-  const userRepoForSettings = getUserRepository();
-  const budgetMonthStartDay = await userRepoForSettings.getBudgetMonthStartDay(userId);
+  // The day the *household* runs on -- which is what the settings action
+  // writes. Showing the reader's own stale column here let one member edit a
+  // number the app was not using.
+  const budgetMonthStartDay = await budgetMonthStartDayForUser(userId);
   const currentMonth = await getDefaultBudgetMonthForUser(userId);
 
   return (
