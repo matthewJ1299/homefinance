@@ -13,6 +13,7 @@ import { BudgetService } from "@/lib/services/budget.service";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { getAccountTransactionRepository, getSplitAllocationRepository } from "@/lib/repositories";
 import { AccountService } from "@/lib/services/account.service";
+import { PopulationService } from "@/lib/services/population.service";
 
 const HAS_DB = Boolean(process.env.DATABASE_URL);
 
@@ -49,6 +50,33 @@ describe.runIf(HAS_DB).each([
       for (const c of overview.categories) {
         expect(c.assigned + c.carriedIn - c.spent).toBe(c.available);
       }
+    });
+  });
+
+  it("every expense carries participant rows that sum to its amount", async () => {
+    await withHouseholdFixture({ memberCount }, async ({ householdId, users, categories, month }) => {
+      // getByMonth falls back to the full amount when an expense has no
+      // participant rows, so a write path that forgets them still reconciles --
+      // by luck. Assert the rows themselves, so the invariant holds by
+      // construction and PopulationService cannot quietly drop them again.
+      const { all, run } = await import("@/lib/db");
+      await run(
+        `INSERT INTO recurring_expenses (user_id, household_id, category_id, amount, note, day_of_month)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [users[0].id, householdId, categories[0].id, 15_900, "Streaming", 5]
+      );
+      const populated = await new PopulationService().populateMonth(month, users[0].id);
+      expect(populated.expensesCreated).toBeGreaterThan(0);
+      const mismatched = await all<{ id: number; note: string | null }>(
+        `SELECT e.id, e.note
+           FROM expenses e
+           LEFT JOIN expense_participants p ON p.expense_id = e.id
+          WHERE e.household_id = ?
+          GROUP BY e.id, e.note, e.amount
+         HAVING COALESCE(SUM(p.share_minor), 0) <> e.amount`,
+        [householdId]
+      );
+      expect(mismatched).toEqual([]);
     });
   });
 

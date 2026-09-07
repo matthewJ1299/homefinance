@@ -127,6 +127,10 @@ export async function withHouseholdFixture(
       await run(`DELETE FROM split_settlements WHERE payer_user_id IN (${ph}) OR recipient_user_id IN (${ph})`, [...ids, ...ids]);
       await run(`DELETE FROM income WHERE user_id IN (${ph})`, ids);
       await run(`DELETE FROM expenses WHERE user_id IN (${ph})`, ids);
+      // Templates outlive the rows they produce and reference the categories
+      // deleted below, so they have to go before them.
+      await run(`DELETE FROM recurring_expenses WHERE user_id IN (${ph})`, ids);
+      await run(`DELETE FROM recurring_income WHERE user_id IN (${ph})`, ids);
       await run(`DELETE FROM budget_transfers WHERE user_id IN (${ph})`, ids);
       await run(`DELETE FROM budgets WHERE user_id IN (${ph})`, ids);
     }
