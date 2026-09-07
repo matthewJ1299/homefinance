@@ -97,34 +97,50 @@ export default async function MortgagePage() {
   const monthRow =
     schedule.schedule.find((r) => r.closingBalance <= currentBalance) ?? schedule.schedule[0];
   const principalRepaid = config.loanAmount - currentBalance;
+
+  // The two people the schedule actually modelled, taken by id rather than by
+  // position. `usersForForm` is the whole household, so a positional read gave
+  // a third member the second person's payment and equity as if they were
+  // their own.
+  const userA = schedule.equitySummary.userA;
+  const userB = schedule.equitySummary.userB;
+  const modelledIds = [userA.userId, userB.userId];
+  const notOnBond = usersForForm.filter((u) => !modelledIds.includes(u.id));
+  const onBond = usersForForm.filter((u) => modelledIds.includes(u.id));
+
+  const paymentFor = (userId: number): number =>
+    userId === userA.userId
+      ? schedule.monthlyPaymentUserA
+      : userId === userB.userId
+        ? schedule.monthlyPaymentUserB
+        : 0;
+  const equityPctFor = (userId: number): number =>
+    userId === userA.userId ? userA.equityPct : userId === userB.userId ? userB.equityPct : 0;
+
   const ownership = calculateOwnership({
-    people: usersForForm.map((u, i) => ({
+    people: onBond.map((u) => ({
       userId: u.id,
       userName: u.name,
       depositMinor: userConfigs.find((c) => c.userId === u.id)?.initialDeposit ?? 0,
-      paymentShare: i === 0 ? schedule.monthlyPaymentUserA : schedule.monthlyPaymentUserB,
+      paymentShare: paymentFor(u.id),
     })),
     principalRepaidMinor: principalRepaid,
     currentBalanceMinor: currentBalance,
   });
-  const meIsUserA = usersForForm[0]?.id === meUserId;
-  const myMonthly = meIsUserA ? schedule.monthlyPaymentUserA : schedule.monthlyPaymentUserB;
+
+  const meIsOnBond = modelledIds.includes(meUserId);
+  const myMonthly = paymentFor(meUserId);
   const totalMonthly = schedule.monthlyPaymentUserA + schedule.monthlyPaymentUserB || 1;
-  const myFraction = myMonthly / totalMonthly;
+  // Someone not on the bond has no share of it; showing them a fraction of
+  // someone else's interest and equity is the bug this replaces.
+  const myFraction = meIsOnBond ? myMonthly / totalMonthly : 0;
   const story = buildStory({
     people: ownership.slices.map((sl) => ({
       userId: sl.userId,
       name: sl.userName,
       depositMinor: sl.depositMinor,
-      monthlyMinor:
-        usersForForm[0]?.id === sl.userId
-          ? schedule.monthlyPaymentUserA
-          : schedule.monthlyPaymentUserB,
-      projectedShareBp: Math.round(
-        (usersForForm[0]?.id === sl.userId
-          ? schedule.equitySummary.userA.equityPct
-          : schedule.equitySummary.userB.equityPct) * 10_000
-      ),
+      monthlyMinor: paymentFor(sl.userId),
+      projectedShareBp: Math.round(equityPctFor(sl.userId) * 10_000),
     })),
     levelOutLabel: schedule.projectedPayoffDate,
   });
@@ -138,20 +154,20 @@ export default async function MortgagePage() {
         meUserId={meUserId}
         monthSplit={{
           yourShareMinor: myMonthly,
-          others: usersForForm
+          others: onBond
             .filter((u) => u.id !== meUserId)
-            .map((u) => ({
-              name: u.name,
-              monthlyMinor:
-                usersForForm[0]?.id === u.id
-                  ? schedule.monthlyPaymentUserA
-                  : schedule.monthlyPaymentUserB,
-            })),
+            .map((u) => ({ name: u.name, monthlyMinor: paymentFor(u.id) })),
           interestMinor: Math.round((monthRow?.interest ?? 0) * myFraction),
           equityMinor: Math.round((monthRow?.principal ?? 0) * myFraction),
         }}
         story={story}
       />
+      {notOnBond.length > 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {notOnBond.map((u) => u.name).join(" and ")}{" "}
+          {notOnBond.length === 1 ? "is" : "are"} not on the bond.
+        </p>
+      ) : null}
 
       <CollapsibleSection title="More details" defaultOpen={false}>
       <MortgageSummaryCard

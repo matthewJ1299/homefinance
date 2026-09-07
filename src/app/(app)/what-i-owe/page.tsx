@@ -71,13 +71,17 @@ export default async function WhatIOwePage({ searchParams }: WhatIOwePageProps) 
     asOfDate
   );
 
-  const mortgageService = new MortgageService();
-  const [schedule, { userConfigs }] = await Promise.all([
-    mortgageService.getSchedule(),
-    mortgageService.getConfig(),
-  ]);
+  // The schedule names its own two people now, so the config read that existed
+  // only to guess them is gone.
+  const schedule = await new MortgageService().getSchedule();
   const subjectUserId = view === "owed" ? them.id : userId;
-  const mortgageAmount = mortgageShareForUser(subjectUserId, month, schedule, userConfigs);
+  const mortgageAmount = mortgageShareForUser(subjectUserId, month, schedule);
+  // Someone not on the bond has no mortgage line at all -- a R0.00 row reads
+  // as "your share is nothing this month", which is a different claim.
+  const subjectOnBond =
+    schedule != null &&
+    (subjectUserId === schedule.equitySummary.userA.userId ||
+      subjectUserId === schedule.equitySummary.userB.userId);
 
   const isOwedView = view === "owed";
   const lineItems = isOwedView ? statement.owedItems : statement.owingItems;
@@ -121,6 +125,7 @@ export default async function WhatIOwePage({ searchParams }: WhatIOwePageProps) 
         splitNet={splitNet}
         mortgageAmount={mortgageAmount}
         mortgageLabel={mortgageLabel}
+        showMortgage={subjectOnBond}
       />
       <p className="text-xs text-muted-foreground print:hidden">
         The mortgage line is this budget month&rsquo;s share.{" "}
@@ -132,15 +137,23 @@ export default async function WhatIOwePage({ searchParams }: WhatIOwePageProps) 
   );
 }
 
+/**
+ * This person's share of the bond for `month`, or 0 if they are not on it.
+ *
+ * It used to re-sort `userConfigs` by `baseSplitPct` to guess which person was
+ * A and which was B, which is not how the service chose them -- and anyone who
+ * was neither fell through to A's payment, so a third member's statement
+ * claimed someone else's bond share.
+ */
 function mortgageShareForUser(
   userId: number,
   month: string,
-  schedule: Awaited<ReturnType<MortgageService["getSchedule"]>>,
-  userConfigs: { userId: number; baseSplitPct: number }[]
+  schedule: Awaited<ReturnType<MortgageService["getSchedule"]>>
 ): number {
-  if (!schedule || userConfigs.length < 2) return 0;
-  const sorted = [...userConfigs].sort((a, b) => b.baseSplitPct - a.baseSplitPct);
-  const isUserB = sorted[1]?.userId === userId;
+  if (!schedule) return 0;
+  const { userA, userB } = schedule.equitySummary;
+  if (userId !== userA.userId && userId !== userB.userId) return 0;
+  const isUserB = userId === userB.userId;
   const row = schedule.schedule.find((r) => r.date === month);
   if (row) return isUserB ? row.userBPayment : row.userAPayment;
   return isUserB ? schedule.monthlyPaymentUserB : schedule.monthlyPaymentUserA;
