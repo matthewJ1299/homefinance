@@ -11,7 +11,9 @@ import {
 } from "@/lib/repositories";
 import { matchRules } from "@/lib/services/recon/match-rules";
 import { ReconDecisionList, type DecisionRow } from "@/components/recon/recon-decision-list";
-import { getCategoryRepository } from "@/lib/repositories";
+import { getCategoryRepository, getReconGraphConnectionRepository } from "@/lib/repositories";
+import { ReconConnectionBar } from "@/components/recon/recon-connection-bar";
+import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import {
   budgetMonthStartDayForUser,
   getDefaultBudgetMonthForUser,
@@ -44,6 +46,7 @@ export default async function ReconPage() {
       getReconImportItemRepository().countForMonth(userId, month, startDay)
     ),
   ]);
+  const connection = await getReconGraphConnectionRepository().findByUserId(userId);
   const nameById = new Map(members.map((m) => [m.id, m.name]));
   const { matched, unmatched } = matchRules(pending, rules);
 
@@ -80,6 +83,11 @@ export default async function ReconPage() {
     <div className="p-4 max-w-5xl mx-auto min-w-0 space-y-5">
       {/* "Recon" is what the developer called it. */}
       <h1 className="text-xl font-semibold tracking-tight">From your bank</h1>
+      <ReconConnectionBar
+        connected={connection != null}
+        msAccountEmail={connection?.msAccountEmail ?? null}
+        lastSyncedAt={connection?.lastSyncedAt ?? null}
+      />
       <ReconRulesPanel
         matched={matchedRows}
         rules={rules}
@@ -92,9 +100,16 @@ export default async function ReconPage() {
           <ReconDecisionList rows={decisionRows} />
         </section>
       ) : null}
-      <Suspense fallback={<div className="text-sm text-muted-foreground">Loading…</div>}>
-        <ReconPageClient />
-      </Suspense>
+      {/* Graph ids, batch $skip, parse-failure reasons, Copy debug bundle.
+          Useful to whoever maintains the parsers, and not what someone with one
+          unrecognised merchant needs. */}
+      {session?.user?.isSuperAdmin === true ? (
+        <CollapsibleSection title="Mailbox and parser tools" defaultOpen={false}>
+          <Suspense fallback={<div className="text-sm text-muted-foreground">Loading…</div>}>
+            <ReconPageClient />
+          </Suspense>
+        </CollapsibleSection>
+      ) : null}
     </div>
   );
 }
