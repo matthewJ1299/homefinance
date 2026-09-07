@@ -169,7 +169,8 @@ export function ReconRulesPanel({
         ) : null}
       </div>
 
-      {unmatchedCount > 0 ? <SectionHeader title="Need a decision" /> : null}
+      {/* The "Need a decision" list lives on the page now, next to its own
+          heading -- this was a header with nothing under it. */}
     </div>
   );
 }

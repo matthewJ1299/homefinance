@@ -10,6 +10,8 @@ import {
   getUserRepository,
 } from "@/lib/repositories";
 import { matchRules } from "@/lib/services/recon/match-rules";
+import { ReconDecisionList, type DecisionRow } from "@/components/recon/recon-decision-list";
+import { getCategoryRepository } from "@/lib/repositories";
 import {
   budgetMonthStartDayForUser,
   getDefaultBudgetMonthForUser,
@@ -45,6 +47,24 @@ export default async function ReconPage() {
   const nameById = new Map(members.map((m) => [m.id, m.name]));
   const { matched, unmatched } = matchRules(pending, rules);
 
+  // `unmatched` was computed and thrown away: these are the rows that actually
+  // need a person, and they are now the page's decision list.
+  const categoryNameById = new Map(
+    (await getCategoryRepository().findAll()).map((c) => [c.id, c.name])
+  );
+  const decisionRows: DecisionRow[] = unmatched.map((item) => ({
+    itemId: item.id,
+    vendor: item.vendor,
+    merchantKey: item.merchantKeyNormalized,
+    amountMinor: item.amount,
+    txnDate: item.txnDate,
+    suggestedCategoryId: item.suggestedCategoryId,
+    suggestedCategoryName:
+      item.suggestedCategoryId != null
+        ? (categoryNameById.get(item.suggestedCategoryId) ?? null)
+        : null,
+  }));
+
   const matchedRows: MatchedRowSummary[] = matched.map(({ item, rule }) => ({
     itemId: item.id,
     vendor: item.vendor,
@@ -66,6 +86,12 @@ export default async function ReconPage() {
         totalThisMonth={arrivedThisMonth}
         unmatchedCount={unmatched.length}
       />
+      {unmatched.length > 0 ? (
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold tracking-tight">Need a decision</h2>
+          <ReconDecisionList rows={decisionRows} />
+        </section>
+      ) : null}
       <Suspense fallback={<div className="text-sm text-muted-foreground">Loading…</div>}>
         <ReconPageClient />
       </Suspense>

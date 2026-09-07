@@ -34,6 +34,35 @@ export interface AddSheetPrefill {
   amountMinor?: number;
   note?: string;
   tab?: "spend" | "income";
+  /** Overrides the default date. A recon row carries the date it happened. */
+  date?: string;
+  /** Sheet heading. "Add" unless the caller is doing something more specific. */
+  title?: string;
+  /** Save button label. */
+  submitLabel?: string;
+  /**
+   * Renders under the consequence panel. The recon sheet puts "Do this every
+   * time" here; nothing else needs it yet.
+   */
+  extraControl?: React.ReactNode;
+  /**
+   * Takes over the save. Given the values the sheet solved, it writes them
+   * however its own path requires and returns an error string on failure.
+   *
+   * This is option B from the stage-3 plan. Lifting the sheet body into a
+   * shared component would have meant ~25 props across a new boundary on the
+   * app's central write surface; an override keeps one component, which is the
+   * actual goal -- the category pills, the split modes and the consequence
+   * panel must not diverge between the two ways a spend gets filed.
+   */
+  onSubmit?: (values: {
+    categoryId: number;
+    amountMinor: number;
+    date: string;
+    note: string | null;
+    accountId?: number;
+    participants: { userId: number; shareMinor: number }[];
+  }) => Promise<{ ok: true } | { ok: false; error: string }>;
   /** Runs after a successful save. Used to clear a list's ticked items. */
   onSaved?: () => void | Promise<void>;
 }
@@ -118,7 +147,7 @@ export function AddSheet({
     setShareText({});
     setRatios({});
     setAccountId(defaultAccountId);
-    setDate(defaultDate);
+    setDate(prefill.date ?? defaultDate);
     setNote(prefill.note ?? "");
     setNoteOpen(Boolean(prefill.note));
     setIncomeKind("salary");
@@ -295,6 +324,28 @@ export function AddSheet({
         return;
       }
 
+      // A caller that writes through its own path -- the recon accept route --
+      // takes over here. Everything above this line is identical either way,
+      // which is the point of the override.
+      if (prefill.onSubmit) {
+        const out = await prefill.onSubmit({
+          categoryId: categoryId!,
+          amountMinor,
+          date,
+          note: note || null,
+          accountId,
+          participants,
+        });
+        if (!out.ok) {
+          toast.error(out.error);
+          return;
+        }
+        toast.success(`Saved ${formatRand(myShare)} to ${category?.name ?? "your budget"}.`);
+        await prefill.onSaved?.();
+        onOpenChange(false);
+        return;
+      }
+
       const res = await addExpenseWithParticipants({
         categoryId: categoryId!,
         amount: amountMinor,
@@ -333,9 +384,9 @@ export function AddSheet({
   const showShares = pickedIds.length > 1 && tab === "spend";
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} label="Add">
+    <Sheet open={open} onOpenChange={onOpenChange} label={prefill.title ?? "Add"}>
       <div className="flex items-center justify-between px-4 pb-2">
-        <h2 className="text-base font-semibold">Add</h2>
+        <h2 className="text-base font-semibold">{prefill.title ?? "Add"}</h2>
         <div className="flex rounded-full border border-border bg-muted p-0.5" role="tablist">
           {(["spend", "income"] as const).map((t) => (
             <button
@@ -580,6 +631,10 @@ export function AddSheet({
               <div className="font-medium">{consequence.title}</div>
               <div className="opacity-90">{consequence.body}</div>
             </div>
+
+            {prefill.extraControl ? (
+              <div className="pt-2">{prefill.extraControl}</div>
+            ) : null}
           </>
         ) : (
           <div className="flex flex-wrap gap-2 pb-3">
@@ -671,14 +726,12 @@ export function AddSheet({
           {shareGap !== 0
             ? "Shares don't add up"
             : !canSave
-              ? tab === "income"
-                ? "Save money in"
-                : "Save spend"
+              ? (prefill.submitLabel ?? (tab === "income" ? "Save money in" : "Save spend"))
               : tab === "income"
                 ? `Save ${formatRand(amountMinor)} in`
                 : pickedIds.length > 1
-                  ? `Save · your share ${formatRand(myShare)}`
-                  : `Save ${formatRand(amountMinor)}`}
+                  ? `${prefill.submitLabel ?? "Save"} · your share ${formatRand(myShare)}`
+                  : `${prefill.submitLabel ?? "Save"} ${formatRand(amountMinor)}`}
         </button>
       </div>
     </Sheet>
