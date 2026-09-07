@@ -80,8 +80,7 @@ export default async function WhatIOwePage({ searchParams }: WhatIOwePageProps) 
   // as "your share is nothing this month", which is a different claim.
   const subjectOnBond =
     schedule != null &&
-    (subjectUserId === schedule.equitySummary.userA.userId ||
-      subjectUserId === schedule.equitySummary.userB.userId);
+    schedule.equitySummary.people.some((p) => p.userId === subjectUserId);
 
   const isOwedView = view === "owed";
   const lineItems = isOwedView ? statement.owedItems : statement.owingItems;
@@ -141,9 +140,10 @@ export default async function WhatIOwePage({ searchParams }: WhatIOwePageProps) 
  * This person's share of the bond for `month`, or 0 if they are not on it.
  *
  * It used to re-sort `userConfigs` by `baseSplitPct` to guess which person was
- * A and which was B, which is not how the service chose them -- and anyone who
- * was neither fell through to A's payment, so a third member's statement
- * claimed someone else's bond share.
+ * A and which was B -- not how the service chose them -- and anyone who was
+ * neither fell through to A's payment, so a third member's statement claimed
+ * someone else's bond share. The schedule is keyed by user id now, so there is
+ * nothing left to guess.
  */
 function mortgageShareForUser(
   userId: number,
@@ -151,10 +151,8 @@ function mortgageShareForUser(
   schedule: Awaited<ReturnType<MortgageService["getSchedule"]>>
 ): number {
   if (!schedule) return 0;
-  const { userA, userB } = schedule.equitySummary;
-  if (userId !== userA.userId && userId !== userB.userId) return 0;
-  const isUserB = userId === userB.userId;
+  if (!schedule.equitySummary.people.some((p) => p.userId === userId)) return 0;
   const row = schedule.schedule.find((r) => r.date === month);
-  if (row) return isUserB ? row.userBPayment : row.userAPayment;
-  return isUserB ? schedule.monthlyPaymentUserB : schedule.monthlyPaymentUserA;
+  if (row) return row.paymentByUserId[userId] ?? 0;
+  return schedule.monthlyPaymentByUserId[userId] ?? 0;
 }

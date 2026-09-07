@@ -17,24 +17,22 @@ export async function GET() {
   if (!schedule) {
     return NextResponse.json({ error: "No mortgage configured" }, { status: 404 });
   }
+  // Keyed by user id rather than shaped as userA/userB: a bond can have any
+  // number of people on it, and two named slots dropped the rest.
   const history = schedule.schedule.map((row) => ({
     month: row.month,
-    userAEquityPct: row.userACumulativeEquityPct,
-    userBEquityPct: row.userBCumulativeEquityPct,
+    equityPctByUserId: row.equityPctByUserId,
   }));
   const lastRow = schedule.schedule[schedule.schedule.length - 1];
   return NextResponse.json({
     currentMonth: lastRow?.month ?? 0,
-    userA: {
-      deposit: schedule.equitySummary.userA.deposit,
-      totalPaid: schedule.equitySummary.userA.totalPayments,
-      equityPct: schedule.equitySummary.userA.equityPct,
-    },
-    userB: {
-      deposit: schedule.equitySummary.userB.deposit,
-      totalPaid: schedule.equitySummary.userB.totalPayments,
-      equityPct: schedule.equitySummary.userB.equityPct,
-    },
+    people: schedule.equitySummary.people.map((p) => ({
+      userId: p.userId,
+      name: p.name,
+      deposit: p.deposit,
+      totalPaid: p.totalPayments,
+      equityPct: p.equityPct,
+    })),
     history,
   });
 }

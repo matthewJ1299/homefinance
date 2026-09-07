@@ -76,7 +76,13 @@ export function calculateBasePaymentForMonth(input: {
   );
 }
 
-export function calculateUserBBaseForPayment(
+/**
+ * One person's own share of a month's payment, capped.
+ *
+ * Named for user B when the engine modelled two people; it is the same
+ * arithmetic for anyone who is not carrying the remainder.
+ */
+export function baseForUser(
   payment: number,
   baseSplitPct: number,
   monthlyCap: number | null

@@ -19,6 +19,10 @@ import {
   projectScheduleFromBalance,
 } from "@/lib/services/mortgage-calculator";
 import type { MortgageParams } from "@/lib/types/mortgage.types";
+
+/** A is the primary (largest base split), B the other. Ids, not positions. */
+const A = 1;
+const B = 2;
 import { estimateCreditPayoff } from "@/lib/services/finance/credit";
 import { toMinorUnits, fromMinorUnits } from "@/lib/utils/currency";
 
@@ -27,8 +31,10 @@ const mortgageParams: MortgageParams = {
   monthlyRate: 0.1125 / 12,
   termMonths: 360,
   propertyValue: 3_000_000_00,
-  userA: { deposit: 300_000_00, baseSplitPct: 0.55, monthlyCap: null },
-  userB: { deposit: 250_000_00, baseSplitPct: 0.45, monthlyCap: null },
+  people: [
+    { userId: A, deposit: 300_000_00, baseSplitPct: 0.55, monthlyCap: null },
+    { userId: B, deposit: 250_000_00, baseSplitPct: 0.45, monthlyCap: null },
+  ],
 };
 
 function expectInterestFromOpeningBalance(
@@ -46,11 +52,11 @@ describe("transaction drift — mortgage (high volume)", () => {
       mortgageParams.monthlyRate,
       mortgageParams.termMonths
     );
-    const userBBase = Math.round(mortgageParams.userB.baseSplitPct * M);
+    const userBBase = Math.round(mortgageParams.people[1].baseSplitPct * M);
     const { schedule } = simulateSchedule(
       mortgageParams,
       M,
-      userBBase,
+      { [B]: userBBase },
       0,
       "2024-01"
     );
@@ -63,7 +69,7 @@ describe("transaction drift — mortgage (high volume)", () => {
       const row = schedule[i]!;
       expectInterestFromOpeningBalance(row.openingBalance, mortgageParams.monthlyRate, row.interest);
       expect(row.principal + row.interest).toBe(row.totalPayment);
-      expect(row.userAPayment + row.userBPayment).toBe(row.totalPayment);
+      expect(row.paymentByUserId[A] + row.paymentByUserId[B]).toBe(row.totalPayment);
       expect(row.openingBalance - row.principal).toBe(row.closingBalance);
       if (i > 0) {
         expect(row.openingBalance).toBe(schedule[i - 1]!.closingBalance);
@@ -85,10 +91,10 @@ describe("transaction drift — mortgage (high volume)", () => {
       termMonths: 360,
     };
     const M = standardMonthlyPayment(params.loanAmount, params.monthlyRate, params.termMonths);
-    const userBBase = Math.min(Math.round(params.userB.baseSplitPct * M), M);
+    const userBBase = Math.min(Math.round(params.people[1].baseSplitPct * M), M);
     const extraByMonth = (month: number) => (month % 6 === 0 ? 500_00 : month % 11 === 0 ? 250_00 : 0);
 
-    const { schedule } = simulateSchedule(params, M, userBBase, 0, "2020-06", extraByMonth);
+    const { schedule } = simulateSchedule(params, M, { [B]: userBBase }, 0, "2020-06", extraByMonth);
 
     let totalPrincipal = 0;
     for (let i = 0; i < schedule.length; i++) {
@@ -113,12 +119,14 @@ describe("transaction drift — mortgage (high volume)", () => {
       monthlyRate: 0.1025 / 12,
       termMonths: 360,
       propertyValue: 3_800_000_00,
-      userA: { deposit: 400_000_00, baseSplitPct: 0.6, monthlyCap: null },
-      userB: { deposit: 200_000_00, baseSplitPct: 0.4, monthlyCap: null },
+      people: [
+        { userId: A, deposit: 400_000_00, baseSplitPct: 0.6, monthlyCap: null },
+        { userId: B, deposit: 200_000_00, baseSplitPct: 0.4, monthlyCap: null },
+      ],
     };
     const M = standardMonthlyPayment(params.loanAmount, params.monthlyRate, params.termMonths);
-    const userBBase = Math.round(params.userB.baseSplitPct * M);
-    const { schedule } = simulateSchedule(params, M, userBBase, 0, "2018-03");
+    const userBBase = Math.round(params.people[1].baseSplitPct * M);
+    const { schedule } = simulateSchedule(params, M, { [B]: userBBase }, 0, "2018-03");
 
     const after180 = schedule[179]!;
     const month181 = schedule[180]!;
@@ -140,8 +148,8 @@ describe("transaction drift — mortgage (high volume)", () => {
       mortgageParams.monthlyRate,
       mortgageParams.termMonths
     );
-    const userBBase = Math.round(mortgageParams.userB.baseSplitPct * M);
-    const full = simulateSchedule(mortgageParams, M, userBBase, 0, "2022-01");
+    const userBBase = Math.round(mortgageParams.people[1].baseSplitPct * M);
+    const full = simulateSchedule(mortgageParams, M, { [B]: userBBase }, 0, "2022-01");
     const pivot = 96;
     const pivotRow = full.schedule[pivot - 1]!;
 
@@ -151,10 +159,12 @@ describe("transaction drift — mortgage (high volume)", () => {
       startMonth: pivot + 1,
       startDate: "2022-01",
       M,
-      userBBase,
+      bases: { [B]: userBBase },
       topUp: 0,
-      initialUserATotal: pivotRow.userAPayment,
-      initialUserBTotal: pivotRow.userBPayment,
+      initialTotals: {
+        [A]: pivotRow.paymentByUserId[A],
+        [B]: pivotRow.paymentByUserId[B],
+      },
     });
 
     for (let i = 0; i < projected.schedule.length; i++) {

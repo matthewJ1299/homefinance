@@ -14,16 +14,14 @@ interface UserOption {
 
 interface MortgageDetailsSectionProps {
   schedule: AmortisationRow[];
-  userAName: string;
-  userBName: string;
+  people: Array<{ userId: number; name: string }>;
   users: UserOption[];
   initialValues: MortgageInitialValues | null;
 }
 
 export function MortgageDetailsSection({
   schedule,
-  userAName,
-  userBName,
+  people,
   users,
   initialValues,
 }: MortgageDetailsSectionProps) {
@@ -44,8 +42,7 @@ export function MortgageDetailsSection({
         <div className="border-t p-4 space-y-4">
           <AmortisationTable
             schedule={schedule}
-            userAName={userAName}
-            userBName={userBName}
+            people={people}
           />
           {initialValues && (
             <MortgageUpdateSection users={users} initialValues={initialValues} />

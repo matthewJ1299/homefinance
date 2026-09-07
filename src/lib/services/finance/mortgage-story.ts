@@ -62,6 +62,29 @@ export function buildStory(input: StoryInput): StorySection[] {
   const [first, second] = people;
   const level = input.levelOutLabel ? ` by ${input.levelOutLabel}` : "";
 
+  // The three templates below are written for exactly two contributors: they
+  // name `first` and `second` and compare one against the other. With more
+  // people on the bond that prose would quietly leave someone out, so this
+  // states everyone's share plainly instead of inventing a fourth template.
+  if (people.length > 2) {
+    const shares = people
+      .map((p) => `${p.name} ${pct(p.projectedShareBp)}`)
+      .join(", ");
+    const sections: StorySection[] = [
+      {
+        title: "Where it lands",
+        body: `At the end you own ${shares}${level}. The percentage moves every month, which is why it looks different each time you look.`,
+      },
+    ];
+    if (kind !== "equal-no-deposit") {
+      sections.push({
+        title: "Why the payments are uneven",
+        body: "Whoever put more in up front pays less each month, so the shares even out towards what you agreed rather than towards the deposits.",
+      });
+    }
+    return sections;
+  }
+
   if (kind === "equal-no-deposit") {
     return [
       {

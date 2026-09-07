@@ -14,17 +14,25 @@ import type { AmortisationRow } from "@/lib/types/mortgage.types";
 
 interface EquitySplitChartProps {
   schedule: AmortisationRow[];
-  userAName: string;
-  userBName: string;
+  /** Everyone on the bond. One band each. */
+  people: Array<{ userId: number; name: string }>;
 }
 
-export function EquitySplitChart({ schedule, userAName, userBName }: EquitySplitChartProps) {
-  const data = schedule.map((row) => ({
-    month: row.month,
-    date: row.date,
-    userA: Math.round(row.userACumulativeEquityPct * 100),
-    userB: Math.round(row.userBCumulativeEquityPct * 100),
-  }));
+/**
+ * One band per person. The primary keeps the brand colour; everyone else takes
+ * a neutral, so the chart reads the same whether the bond has two people on it
+ * or four.
+ */
+const BAND_COLOURS = ["var(--primary)", "#94a3b8", "var(--success)", "var(--warning)"];
+
+export function EquitySplitChart({ schedule, people }: EquitySplitChartProps) {
+  const data = schedule.map((row) => {
+    const point: Record<string, number | string> = { month: row.month, date: row.date };
+    for (const p of people) {
+      point[`u${p.userId}`] = Math.round((row.equityPctByUserId[p.userId] ?? 0) * 100);
+    }
+    return point;
+  });
 
   return (
     <div className="h-[280px] w-full">
@@ -35,8 +43,20 @@ export function EquitySplitChart({ schedule, userAName, userBName }: EquitySplit
           <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} tickFormatter={(v) => `${v}%`} />
           <Tooltip formatter={(value: number, name: string) => [`${value}%`, name]} />
           <ReferenceLine y={50} stroke="var(--muted-foreground)" strokeDasharray="3 3" />
-          <Area type="monotone" dataKey="userA" name={userAName} stroke="var(--primary)" fill="var(--primary)" fillOpacity={0.4} />
-          <Area type="monotone" dataKey="userB" name={userBName} stroke="#94a3b8" fill="#94a3b8" fillOpacity={0.4} />
+          {people.map((p, i) => {
+            const colour = BAND_COLOURS[i % BAND_COLOURS.length];
+            return (
+              <Area
+                key={p.userId}
+                type="monotone"
+                dataKey={`u${p.userId}`}
+                name={p.name}
+                stroke={colour}
+                fill={colour}
+                fillOpacity={0.4}
+              />
+            );
+          })}
         </AreaChart>
       </ResponsiveContainer>
     </div>

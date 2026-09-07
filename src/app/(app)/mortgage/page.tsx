@@ -98,39 +98,33 @@ export default async function MortgagePage() {
     schedule.schedule.find((r) => r.closingBalance <= currentBalance) ?? schedule.schedule[0];
   const principalRepaid = config.loanAmount - currentBalance;
 
-  // The two people the schedule actually modelled, taken by id rather than by
-  // position. `usersForForm` is the whole household, so a positional read gave
-  // a third member the second person's payment and equity as if they were
-  // their own.
-  const userA = schedule.equitySummary.userA;
-  const userB = schedule.equitySummary.userB;
-  const modelledIds = [userA.userId, userB.userId];
-  const notOnBond = usersForForm.filter((u) => !modelledIds.includes(u.id));
-  const onBond = usersForForm.filter((u) => modelledIds.includes(u.id));
+  // Everyone the schedule models, which is now everyone with a user config on
+  // the bond rather than the first two by split. Members of the household who
+  // are not on it at all are named below instead of being given someone
+  // else's figures.
+  const bondPeople = schedule.equitySummary.people;
+  const bondIds = bondPeople.map((p) => p.userId);
+  const notOnBond = usersForForm.filter((u) => !bondIds.includes(u.id));
 
-  const paymentFor = (userId: number): number =>
-    userId === userA.userId
-      ? schedule.monthlyPaymentUserA
-      : userId === userB.userId
-        ? schedule.monthlyPaymentUserB
-        : 0;
+  const paymentFor = (userId: number): number => schedule.monthlyPaymentByUserId[userId] ?? 0;
   const equityPctFor = (userId: number): number =>
-    userId === userA.userId ? userA.equityPct : userId === userB.userId ? userB.equityPct : 0;
+    bondPeople.find((p) => p.userId === userId)?.equityPct ?? 0;
 
   const ownership = calculateOwnership({
-    people: onBond.map((u) => ({
-      userId: u.id,
-      userName: u.name,
-      depositMinor: userConfigs.find((c) => c.userId === u.id)?.initialDeposit ?? 0,
-      paymentShare: paymentFor(u.id),
+    people: bondPeople.map((p) => ({
+      userId: p.userId,
+      userName: p.name,
+      depositMinor: p.deposit,
+      paymentShare: paymentFor(p.userId),
     })),
     principalRepaidMinor: principalRepaid,
     currentBalanceMinor: currentBalance,
   });
 
-  const meIsOnBond = modelledIds.includes(meUserId);
+  const meIsOnBond = bondIds.includes(meUserId);
   const myMonthly = paymentFor(meUserId);
-  const totalMonthly = schedule.monthlyPaymentUserA + schedule.monthlyPaymentUserB || 1;
+  const totalMonthly =
+    Object.values(schedule.monthlyPaymentByUserId).reduce((s, v) => s + v, 0) || 1;
   // Someone not on the bond has no share of it; showing them a fraction of
   // someone else's interest and equity is the bug this replaces.
   const myFraction = meIsOnBond ? myMonthly / totalMonthly : 0;
@@ -154,9 +148,9 @@ export default async function MortgagePage() {
         meUserId={meUserId}
         monthSplit={{
           yourShareMinor: myMonthly,
-          others: onBond
-            .filter((u) => u.id !== meUserId)
-            .map((u) => ({ name: u.name, monthlyMinor: paymentFor(u.id) })),
+          others: bondPeople
+            .filter((p) => p.userId !== meUserId)
+            .map((p) => ({ name: p.name, monthlyMinor: paymentFor(p.userId) })),
           interestMinor: Math.round((monthRow?.interest ?? 0) * myFraction),
           equityMinor: Math.round((monthRow?.principal ?? 0) * myFraction),
         }}
@@ -173,9 +167,7 @@ export default async function MortgagePage() {
       <MortgageSummaryCard
         monthlyBasePayment={schedule.monthlyBasePayment}
         monthlyTopUp={schedule.monthlyTopUp}
-        monthlyPaymentUserA={schedule.monthlyPaymentUserA}
-        monthlyPaymentUserB={schedule.monthlyPaymentUserB}
-        targetEquityUserAPct={schedule.targetEquityUserAPct}
+        monthlyPaymentByUserId={schedule.monthlyPaymentByUserId}
         projectedPayoffDate={schedule.projectedPayoffDate}
         equitySummary={schedule.equitySummary}
         meUserId={meUserId}
@@ -196,16 +188,11 @@ export default async function MortgagePage() {
         <p className="text-sm text-muted-foreground mb-2">
           This shows how each person&apos;s share of the home grows as you pay.
         </p>
-        <EquitySplitChart
-          schedule={schedule.schedule}
-          userAName={schedule.equitySummary.userA.name}
-          userBName={schedule.equitySummary.userB.name}
-        />
+        <EquitySplitChart schedule={schedule.schedule} people={bondPeople} />
       </section>
       <MortgageDetailsSection
         schedule={schedule.schedule}
-        userAName={schedule.equitySummary.userA.name}
-        userBName={schedule.equitySummary.userB.name}
+        people={bondPeople}
         users={usersForForm}
         initialValues={mortgageInitialValues}
       />
