@@ -31,6 +31,8 @@ export function MonthOpenCard({
   overspent,
   carrying,
   startsWith,
+  carriedOverspend,
+  skippedMonths,
 }: {
   month: string;
   previous: string;
@@ -40,6 +42,10 @@ export function MonthOpenCard({
   carrying: MonthOpenCategory[];
   /** Already assigned in the new month, before anything is carried in. */
   startsWith: number;
+  /** Overspend nobody covered. Comes off the new month's unassigned money. */
+  carriedOverspend: number;
+  /** Months opened alongside this one because the app was not used. */
+  skippedMonths?: string[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -113,6 +119,13 @@ export function MonthOpenCard({
           )}
         </p>
       </div>
+
+      {skippedMonths && skippedMonths.length > 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Also opening {skippedMonths.length === 1 ? "the month" : "the months"} you missed, so
+          what was left over carries all the way through.
+        </p>
+      ) : null}
 
       {overspent.length > 0 ? (
         <Card className="rounded-2xl border-destructive/40 bg-destructive/[0.06] p-4">
@@ -195,8 +208,14 @@ export function MonthOpenCard({
           {formatRand(startsWith)} already assigned
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Same amounts as {previousLabel}. Change any of it any time.
+          From your usual amounts. Change any of it any time.
         </p>
+        {carriedOverspend > 0 ? (
+          <p className="mt-3 border-t border-border/40 pt-3 text-sm text-warning">
+            Less {formatRand(carriedOverspend)} of overspend nobody covered, taken off
+            {" "}{monthLabel}&rsquo;s unassigned money.
+          </p>
+        ) : null}
       </Card>
 
       <Button onClick={start} disabled={pending} className="h-12 w-full rounded-xl text-base">

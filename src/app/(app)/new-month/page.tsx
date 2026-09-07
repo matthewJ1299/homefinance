@@ -19,8 +19,11 @@ export default async function NewMonthPage() {
   const pending = await service.needsMonthOpen(userId);
   if (!pending) redirect("/dashboard");
 
-  const [prior, startDay] = await Promise.all([
+  const [prior, next, startDay] = await Promise.all([
     service.getOverview(pending.previous, userId),
+    // What the new month actually opens with: templates, fixed categories and
+    // anything already assigned. `prior.totalAssigned` was last month's.
+    service.getOverview(pending.month, userId),
     budgetMonthStartDayForUser(userId),
   ]);
 
@@ -42,6 +45,10 @@ export default async function NewMonthPage() {
     }))
     .sort((a, b) => b.available - a.available);
 
+  const carriedOverspend = prior.categories
+    .filter((c) => c.available < 0)
+    .reduce((sum, c) => sum - c.available, 0);
+
   return (
     <div className="p-4 pb-24 md:pb-8">
       <div className="mx-auto max-w-lg">
@@ -52,7 +59,9 @@ export default async function NewMonthPage() {
           monthLabel={formatBudgetMonthLabel(pending.month, startDay)}
           overspent={overspent}
           carrying={carrying}
-          startsWith={prior.totalAssigned}
+          startsWith={next.totalAssigned}
+          carriedOverspend={carriedOverspend}
+          skippedMonths={pending.skippedMonths}
         />
       </div>
     </div>
