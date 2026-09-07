@@ -102,7 +102,7 @@ function roundSharesToTotal(raw: Array<{ userId: number; value: number }>, total
  * It is never clamped silently: telling someone they are on track for an
  * arithmetically impossible split is the failure mode with real consequences.
  */
-export function solveShares(input: SolveSharesInput): SolveSharesResult {
+export function solveMortgageShares(input: SolveSharesInput): SolveSharesResult {
   const depositByUser = new Map(input.deposits.map((d) => [d.userId, d.amountMinor]));
   const userIds = input.targets.map((t) => t.userId);
   const totalDeposits = input.deposits.reduce((s, d) => s + d.amountMinor, 0);

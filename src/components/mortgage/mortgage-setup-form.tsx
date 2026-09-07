@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toMinorUnits, formatRand } from "@/lib/utils/currency";
-import { solveShares } from "@/lib/services/finance/mortgage-plan";
+import { solveMortgageShares } from "@/lib/services/finance/mortgage-plan";
 import { standardMonthlyPayment } from "@/lib/services/mortgage-calculator";
 import { fromMinorUnits } from "@/lib/utils/currency";
 import { toast } from "sonner";
@@ -116,7 +116,7 @@ export function MortgageSetupForm({ users, initialValues, submitLabel }: Mortgag
     if (paymentMinor <= 0) return null;
 
     const shareBp = Math.round(Math.max(0, Math.min(100, targetPct)) * 100);
-    const result = solveShares({
+    const result = solveMortgageShares({
       price: toMinorUnits(price),
       paymentMinor,
       termMonths,

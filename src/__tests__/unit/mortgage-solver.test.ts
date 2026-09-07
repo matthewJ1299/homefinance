@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { solveShares } from "@/lib/services/finance/mortgage-plan";
+import { solveMortgageShares } from "@/lib/services/finance/mortgage-plan";
 
 const base = {
   price: 3_000_000_00,
@@ -12,7 +12,7 @@ const base = {
 
 describe("mortgage share solver", () => {
   it("gives the non-depositor the larger share", () => {
-    const r = solveShares(base);
+    const r = solveMortgageShares(base);
     expect(r.reachable).toBe(true);
     const matt = r.shares.find((s) => s.userId === 1)!;
     const syd = r.shares.find((s) => s.userId === 2)!;
@@ -20,12 +20,12 @@ describe("mortgage share solver", () => {
   });
 
   it("the shares sum to the total payment exactly", () => {
-    const r = solveShares(base);
+    const r = solveMortgageShares(base);
     expect(r.shares.reduce((s, x) => s + x.monthlyMinor, 0)).toBe(base.paymentMinor);
   });
 
   it("lands on the target split within a rand at term end", () => {
-    const r = solveShares(base);
+    const r = solveMortgageShares(base);
     for (const s of r.shares) {
       const target = base.targets.find((t) => t.userId === s.userId)!.shareBp;
       expect(Math.abs(s.projectedShareBp - target)).toBeLessThanOrEqual(1);
@@ -33,13 +33,13 @@ describe("mortgage share solver", () => {
   });
 
   it("equal payments and no deposits means equal shares", () => {
-    const r = solveShares({ ...base, deposits: [] });
+    const r = solveMortgageShares({ ...base, deposits: [] });
     const [a, b] = r.shares;
     expect(Math.abs(a.monthlyMinor - b.monthlyMinor)).toBeLessThanOrEqual(1);
   });
 
   it("reports an unreachable target instead of clamping", () => {
-    const r = solveShares({
+    const r = solveMortgageShares({
       ...base,
       targets: [{ userId: 1, shareBp: 9_900 }, { userId: 2, shareBp: 100 }],
     });
@@ -50,8 +50,8 @@ describe("mortgage share solver", () => {
   });
 
   it("holds the target when the rate changes", () => {
-    const before = solveShares(base);
-    const after = solveShares({ ...base, annualRateBp: 1_250 });
+    const before = solveMortgageShares(base);
+    const after = solveMortgageShares({ ...base, annualRateBp: 1_250 });
     for (const s of after.shares) {
       const target = base.targets.find((t) => t.userId === s.userId)!.shareBp;
       expect(Math.abs(s.projectedShareBp - target)).toBeLessThanOrEqual(1);
