@@ -391,11 +391,39 @@ export class BudgetService {
     if (fromRow.available < data.amount) {
       return { success: false, error: "Insufficient funds in source category" };
     }
-    const newFromAllocated = fromRow.assigned - data.amount;
-    const newToAllocated = toRow.assigned + data.amount;
-    await this.budgetRepo.upsertAllocation(data.fromCategoryId, data.month, newFromAllocated, data.userId);
-    await this.budgetRepo.upsertAllocation(data.toCategoryId, data.month, newToAllocated, data.userId);
-    await this.budgetRepo.createTransfer(data);
+    // Spend this month's assignment first, carry-in second. Writing the whole
+    // amount against `assigned` is what let it go negative: a category funded
+    // entirely by carry-in has assigned 0 and available 500, and 0 - 300 is a
+    // negative assignment that inflates `unassigned` by the same 300.
+    // `Math.max(0, ...)` because rows written negative by the old code are
+    // still out there: a negative `assigned` would otherwise make `fromCarry`
+    // exceed the transfer and over-debit the carry-in.
+    const fromAssignment = Math.min(Math.max(0, fromRow.assigned), data.amount);
+    const fromCarry = data.amount - fromAssignment;
+
+    await withTransaction(async () => {
+      await this.budgetRepo.upsertAllocation(
+        data.fromCategoryId,
+        data.month,
+        fromRow.assigned - fromAssignment,
+        data.userId
+      );
+      if (fromCarry > 0) {
+        await this.budgetRepo.adjustCarriedIn(
+          data.fromCategoryId,
+          data.month,
+          -fromCarry,
+          data.userId
+        );
+      }
+      await this.budgetRepo.upsertAllocation(
+        data.toCategoryId,
+        data.month,
+        toRow.assigned + data.amount,
+        data.userId
+      );
+      await this.budgetRepo.createTransfer(data);
+    });
     return { success: true };
   }
 }

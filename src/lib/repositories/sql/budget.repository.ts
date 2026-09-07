@@ -80,6 +80,21 @@ export class BudgetRepository implements IBudgetRepository {
     );
   }
 
+  async adjustCarriedIn(
+    categoryId: number,
+    month: string,
+    delta: number,
+    userId: number
+  ): Promise<void> {
+    const hid = requireHouseholdId();
+    await run(
+      `UPDATE budgets
+          SET carried_in_minor = GREATEST(0, carried_in_minor + ?), updated_at = NOW()
+        WHERE category_id = ? AND month = ? AND user_id = ? AND household_id = ?`,
+      [delta, categoryId, month, userId, hid]
+    );
+  }
+
   async getMonthOpenState(month: string, userId: number): Promise<BudgetMonthOpenState | null> {
     const hid = requireHouseholdId();
     const rows = await all<{ month: string; overspend_carried_minor: number; opened_at: string }>(
