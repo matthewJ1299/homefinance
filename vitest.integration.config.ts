@@ -17,6 +17,8 @@ export default defineConfig({
     environment: "node",
     globals: true,
     include: ["src/__tests__/integration/**/*.test.ts"],
+    // Loaded in the worker, not just here -- see the file for why.
+    setupFiles: ["src/__tests__/integration/helpers/load-env.ts"],
     testTimeout: 30000,
     hookTimeout: 30000,
   },

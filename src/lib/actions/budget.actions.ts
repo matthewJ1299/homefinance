@@ -83,7 +83,7 @@ export async function openBudgetMonth(month: string): Promise<
   const service = new BudgetService();
   // The month named by the screen, plus any month behind it that was never
   // opened -- oldest first, or the carry chain reads a zero.
-  await service.openMonthBacklog(Number(session.user.id));
+  await service.openMonthBacklog(Number(session.user.id), month);
   // `openMonth` is idempotent, so this is a no-op when the backlog already
   // covered `month`; it stays for the case where it did not.
   const result = await service.openMonth(month, Number(session.user.id));

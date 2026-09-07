@@ -273,6 +273,24 @@ export class BudgetService {
   }
 
   /**
+   * The oldest month within the carry window that has an assignment of its own,
+   * or null when there is no history at all. This is what separates "the very
+   * first month" from "a month nobody opened" -- both have no rows of their
+   * own, and only the first should stop a carry chain.
+   */
+  private async earliestAssignedMonth(from: string, userId: number): Promise<string | null> {
+    const window: string[] = [];
+    let cursor = from;
+    for (let i = 0; i <= CARRY_OVER_MONTHS; i++) {
+      window.push(cursor);
+      cursor = prevMonth(cursor);
+    }
+    const history = await this.budgetRepo.getAllocationsForMonths(window, userId);
+    if (history.length === 0) return null;
+    return history.reduce((min, a) => (a.month < min ? a.month : min), history[0].month);
+  }
+
+  /**
    * Opens every unopened month from the oldest gap forward.
    *
    * Order is the whole point: `openMonth(M)` reads M-1's availables, so opening
@@ -280,16 +298,23 @@ export class BudgetService {
    * a month should still find their leftover waiting.
    */
   async openMonthBacklog(
-    userId: number
+    userId: number,
+    /** The newest month to open. Defaults to the live budget month. */
+    upTo?: string
   ): Promise<{ opened: string[]; carriedOverspend: number }> {
-    const current = await getDefaultBudgetMonthForUser(userId);
+    const current = upTo ?? (await getDefaultBudgetMonthForUser(userId));
+
+    const earliest = await this.earliestAssignedMonth(current, userId);
+    if (earliest == null) return { opened: [], carriedOverspend: 0 };
 
     const pending: string[] = [];
     let m = current;
     for (let i = 0; i < CARRY_OVER_MONTHS; i++) {
       if (await this.budgetRepo.getMonthOpenState(m, userId)) break;
-      const prior = await this.budgetRepo.getAllocationsForMonth(prevMonth(m), userId);
-      if (prior.length === 0) break; // first-ever month: nothing behind it to carry
+      // Is there anything BEHIND this month to carry? Asking whether the
+      // previous month has rows of its own is the wrong question: a month
+      // nobody opened has none, which is exactly the case being repaired.
+      if (prevMonth(m) < earliest) break; // first-ever month
       pending.push(m);
       m = prevMonth(m);
     }
@@ -313,8 +338,11 @@ export class BudgetService {
     const month = await getDefaultBudgetMonthForUser(userId);
     if (await this.budgetRepo.getMonthOpenState(month, userId)) return null;
     const previous = prevMonth(month);
-    const priorAllocations = await this.budgetRepo.getAllocationsForMonth(previous, userId);
-    if (priorAllocations.length === 0) return null; // first-ever month, nothing to summarise
+    const earliest = await this.earliestAssignedMonth(month, userId);
+    // First-ever month, nothing to summarise. Note this asks for history
+    // anywhere behind `month`, not rows in `previous` specifically -- after a
+    // gap `previous` has none, and the card has to fire then most of all.
+    if (earliest == null || earliest > previous) return null;
 
     // Months between the last one they opened and this one. Named so the card
     // can say "two months at once" instead of quietly rolling them up.
@@ -322,7 +350,7 @@ export class BudgetService {
     let m = previous;
     for (let i = 0; i < CARRY_OVER_MONTHS; i++) {
       if (await this.budgetRepo.getMonthOpenState(m, userId)) break;
-      if ((await this.budgetRepo.getAllocationsForMonth(prevMonth(m), userId)).length === 0) break;
+      if (prevMonth(m) < earliest) break;
       skippedMonths.unshift(m);
       m = prevMonth(m);
     }

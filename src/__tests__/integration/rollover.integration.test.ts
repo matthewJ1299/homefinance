@@ -83,6 +83,40 @@ describe.runIf(HAS_DB)("rollover across three months", () => {
     });
   });
 
+  it("carries through a month nobody opened", async () => {
+    await withHouseholdFixture({ memberCount: 1 }, async ({ users, months, categories, svc }) => {
+      const me = users[0].id;
+      const cat = categories.find((c) => c.name === "Fuel")!.id;
+      // Assign and underspend M1, skip M2 entirely, then open M3.
+      await svc.budget.setAllocation(cat, months[0], 40_000, me);
+      await svc.budget.openMonthBacklog(me, months[2]);
+
+      // M2 got its carry-in from M1, and M3 got its from M2 -- so the leftover
+      // reaches M3 rather than reading zero through the gap.
+      const m2 = await svc.budget.getOverview(months[1], me);
+      expect(m2.categories.find((c) => c.categoryId === cat)!.carriedIn).toBe(40_000);
+      const m3 = await svc.budget.getOverview(months[2], me);
+      const row = m3.categories.find((c) => c.categoryId === cat)!;
+      expect(row.carriedIn).toBe(80_000);
+      // Spendable in M3 is this month's assignment (the M1 amount is still the
+      // effective one) plus everything that carried through the gap.
+      expect(row.available).toBe(row.assigned + 80_000);
+    });
+  });
+
+  it("is idempotent across the backlog", async () => {
+    await withHouseholdFixture({ memberCount: 1 }, async ({ users, months, categories, svc }) => {
+      const me = users[0].id;
+      const cat = categories.find((c) => c.name === "Fuel")!.id;
+      await svc.budget.setAllocation(cat, months[0], 40_000, me);
+      await svc.budget.openMonthBacklog(me, months[2]);
+
+      const first = await svc.budget.getOverview(months[2], me);
+      await svc.budget.openMonthBacklog(me, months[2]);
+      expect(await svc.budget.getOverview(months[2], me)).toEqual(first);
+    });
+  });
+
   it("rollover: false resets the category each month", async () => {
     await withHouseholdFixture({ memberCount: 1 }, async ({ users, months, categories, svc }) => {
       const me = users[0].id;

@@ -54,7 +54,17 @@ function monthKeysEndingBefore(now: Date): [string, string, string] {
 }
 
 export async function withHouseholdFixture(
-  options: { memberCount: number },
+  options: {
+    memberCount: number;
+    /** Household budget-month start day. Defaults to 1. */
+    budgetMonthStartDay?: number;
+    /**
+     * Per-user `budget_month_start_day` values, by member index. Only useful
+     * for asserting that the household's day is the one that counts -- nothing
+     * should read these.
+     */
+    memberStartDays?: number[];
+  },
   body: (ctx: FixtureContext) => Promise<void>
 ): Promise<void> {
   const { initDb, run, all, lastInsertId } = await import("@/lib/db");
@@ -62,9 +72,10 @@ export async function withHouseholdFixture(
   await initDb();
 
   const stamp = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  await run("INSERT INTO households (name, approval_status) VALUES (?, 'active')", [
-    `__fixture_${stamp}`,
-  ]);
+  await run(
+    "INSERT INTO households (name, approval_status, budget_month_start_day) VALUES (?, 'active', ?)",
+    [`__fixture_${stamp}`, options.budgetMonthStartDay ?? 1]
+  );
   const householdId = await lastInsertId();
 
   const users: FixtureUser[] = [];
@@ -73,8 +84,13 @@ export async function withHouseholdFixture(
       const name = `Member ${i + 1}`;
       await run(
         `INSERT INTO users (name, email, password_hash, household_id, budget_month_start_day)
-         VALUES (?, ?, 'x', ?, 1)`,
-        [name, `__fixture_${stamp}_${i}@test.local`, householdId]
+         VALUES (?, ?, 'x', ?, ?)`,
+        [
+          name,
+          `__fixture_${stamp}_${i}@test.local`,
+          householdId,
+          options.memberStartDays?.[i] ?? 1,
+        ]
       );
       users.push({ id: await lastInsertId(), name });
     }
@@ -132,7 +148,12 @@ export async function withHouseholdFixture(
       await run(`DELETE FROM recurring_expenses WHERE user_id IN (${ph})`, ids);
       await run(`DELETE FROM recurring_income WHERE user_id IN (${ph})`, ids);
       await run(`DELETE FROM budget_transfers WHERE user_id IN (${ph})`, ids);
+      await run(`DELETE FROM budget_month_opens WHERE user_id IN (${ph})`, ids);
       await run(`DELETE FROM budgets WHERE user_id IN (${ph})`, ids);
+      // `accounts.owner_user_id` is ON DELETE NO ACTION, so an account made
+      // during a test blocks the user delete below. Its transactions cascade,
+      // and `users.primary_account_id` is ON DELETE SET NULL.
+      await run(`DELETE FROM accounts WHERE owner_user_id IN (${ph})`, ids);
     }
     await run("DELETE FROM categories WHERE household_id = ?", [householdId]);
     await run("DELETE FROM users WHERE household_id = ?", [householdId]);

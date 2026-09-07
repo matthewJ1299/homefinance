@@ -11,7 +11,16 @@ import { describe, it, expect } from "vitest";
 import { withHouseholdFixture } from "./helpers/fixture";
 import { BudgetService } from "@/lib/services/budget.service";
 import { ExpenseService } from "@/lib/services/expense.service";
-import { getAccountTransactionRepository, getSplitAllocationRepository } from "@/lib/repositories";
+import {
+  getAccountTransactionRepository,
+  getAccountRepository,
+  getBudgetRepository,
+  getSplitAllocationRepository,
+} from "@/lib/repositories";
+import {
+  budgetMonthKeyForUser,
+  getDefaultBudgetMonthForUser,
+} from "@/lib/utils/budget-month-for-user";
 import { AccountService } from "@/lib/services/account.service";
 import { PopulationService } from "@/lib/services/population.service";
 
@@ -174,6 +183,133 @@ describe.runIf(HAS_DB).each([
           ],
         })
       ).rejects.toThrow(/add up/i);
+    });
+  });
+
+  it("never stores a negative assignment", async () => {
+    await withHouseholdFixture({ memberCount }, async ({ users, month, categories, svc }) => {
+      const me = users[0].id;
+      const [a, b] = categories;
+      // The shape that used to go negative: nothing assigned this month, money
+      // present only as carry-in.
+      await svc.budget.setAllocation(a.id, month, 0, me);
+      await getBudgetRepository().setCarriedIn(a.id, month, 50_000, me);
+
+      const moved = await svc.budget.transfer({
+        fromCategoryId: a.id,
+        toCategoryId: b.id,
+        month,
+        amount: 30_000,
+        userId: me,
+      });
+      expect(moved.success).toBe(true);
+
+      const after = await svc.budget.getOverview(month, me);
+      for (const row of after.categories) expect(row.assigned).toBeGreaterThanOrEqual(0);
+      const rowA = after.categories.find((c) => c.categoryId === a.id)!;
+      const rowB = after.categories.find((c) => c.categoryId === b.id)!;
+      expect(rowA.assigned).toBe(0);
+      expect(rowA.carriedIn).toBe(20_000);
+      expect(rowB.assigned).toBe(30_000);
+    });
+  });
+
+  it("a transfer leaves the envelope total alone", async () => {
+    await withHouseholdFixture({ memberCount }, async ({ users, month, categories, svc }) => {
+      const me = users[0].id;
+      const [a, b] = categories;
+      // The source is funded by carry-in, not by this month's assignment.
+      // That is the only shape where the old `assigned - amount` write showed
+      // up as money appearing: a transfer out of a carry-funded envelope drove
+      // `totalAssigned` down, which drove `unassigned` up by the same amount.
+      await svc.budget.setAllocation(a.id, month, 0, me);
+      await svc.budget.setAllocation(b.id, month, 10_000, me);
+      await getBudgetRepository().setCarriedIn(a.id, month, 50_000, me);
+
+      const before = await svc.budget.getOverview(month, me);
+      const moved = await svc.budget.transfer({
+        fromCategoryId: a.id,
+        toCategoryId: b.id,
+        month,
+        amount: 30_000,
+        userId: me,
+      });
+      expect(moved.success).toBe(true);
+
+      const after = await svc.budget.getOverview(month, me);
+      // Moving money between envelopes creates none and destroys none: the
+      // envelope total and the spendable total both survive the move.
+      expect(after.envelopeTotal).toBe(before.envelopeTotal);
+      const spendable = (r: typeof before) =>
+        r.categories.reduce((sum, c) => sum + c.available, 0);
+      expect(spendable(after)).toBe(spendable(before));
+
+      // `unassigned` is deliberately NOT asserted equal. Carry-in that becomes
+      // a this-month assignment raises `totalAssigned`, so unassigned falls by
+      // the carried portion. The bug this guards against moved it the other
+      // way -- a negative assignment made unassigned *rise*, money from
+      // nothing -- so the direction is what matters here.
+      expect(after.unassigned).toBe(before.unassigned - 30_000);
+    });
+  });
+
+  it("both members frame the same month", async () => {
+    if (memberCount < 2) return;
+    // Household day 25, member rows deliberately disagreeing at 1 and 15.
+    await withHouseholdFixture(
+      {
+        memberCount,
+        budgetMonthStartDay: 25,
+        memberStartDays: Array.from({ length: memberCount }, (_, i) => (i === 0 ? 1 : 15)),
+      },
+      async ({ users }) => {
+        const keys = await Promise.all(
+          users.map((u) => getDefaultBudgetMonthForUser(u.id))
+        );
+        expect(new Set(keys).size).toBe(1);
+
+        // And a spend dated the 20th lands in the same month for everyone --
+        // day 25 puts it in the *next* month key, which is exactly the
+        // difference the per-user columns above would have produced.
+        const onThe20th = await Promise.all(
+          users.map((u) => budgetMonthKeyForUser(u.id, `${keys[0]}-20`))
+        );
+        expect(new Set(onThe20th).size).toBe(1);
+      }
+    );
+  });
+
+  it("shows a partner rows on a shared account", async () => {
+    if (memberCount < 2) return;
+    await withHouseholdFixture({ memberCount }, async ({ users, month, categories, svc }) => {
+      const [owner, partner] = users;
+      const accountService = new AccountService();
+      const { id } = await accountService.createAccount(owner.id, {
+        name: "Joint",
+        type: "bank",
+        isShared: true,
+      });
+      // The flag has to survive the service, or the rest of this is untestable.
+      expect((await getAccountRepository().findById(id, owner.id))?.isShared).toBe(true);
+
+      await svc.expense.create(owner.id, {
+        categoryId: categories[0].id,
+        amount: 12_500,
+        date: `${month}-11`,
+        accountId: id,
+      });
+
+      // The partner sees the row...
+      const rows = await svc.expense.getByMonth(month, partner.id, undefined, true);
+      expect(rows.expenses.some((e) => e.accountId === id)).toBe(true);
+
+      // ...and can now see the account itself, which is what makes it
+      // selectable when they file a spend.
+      const visible = await accountService.listAccountsVisibleToUser(partner.id);
+      expect(visible.accounts.some((a) => a.id === id)).toBe(true);
+      // Ownership is unchanged: it is not theirs to rename or delete.
+      const owned = await accountService.listAccountsForUser(partner.id);
+      expect(owned.accounts.some((a) => a.id === id)).toBe(false);
     });
   });
 
