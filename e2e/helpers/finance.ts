@@ -27,8 +27,14 @@ export async function openAddSheet(page: Page): Promise<void> {
   await waitForStableUrl(page);
   await clearNewMonthGate(page);
   await page.setViewportSize({ width: 390, height: 844 });
+  // Home refreshes itself after the month gate; opening the sheet into that
+  // detaches the keypad mid-click. Let it settle first -- best effort, since a
+  // page that polls never goes idle.
+  await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => {});
   await page.getByRole("button", ADD_BUTTON).click();
-  await expect(page.getByRole("dialog", { name: "Add" })).toBeVisible();
+  const dialog = page.getByRole("dialog", { name: "Add" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "1", exact: true })).toBeVisible();
 }
 
 export async function closeAddSheet(page: Page): Promise<void> {
@@ -43,7 +49,15 @@ function sheet(page: Page) {
 export async function typeAmountOnKeypad(page: Page, amount: string): Promise<void> {
   const dialog = sheet(page);
   for (const ch of amount) {
-    await dialog.getByRole("button", { name: ch === "." ? "." : ch, exact: true }).click();
+    const key = dialog.getByRole("button", { name: ch, exact: true });
+    // A background refresh can replace the sheet between keys; one retry is
+    // enough, and it keeps the failure about the amount rather than the timing.
+    try {
+      await key.click({ timeout: 10_000 });
+    } catch {
+      await expect(dialog).toBeVisible();
+      await key.click({ timeout: 10_000 });
+    }
   }
 }
 
@@ -178,8 +192,11 @@ export async function transferBetweenAccounts(
   const dialog = page.locator("dialog[open]").filter({ hasText: "Transfer Money" });
   await expect(dialog).toBeVisible();
 
-  await dialog.locator("#transfer-from").selectOption({ index: 1 });
-  await dialog.locator("#transfer-to").selectOption({ index: 2 });
+  // Out of savings and into the everyday account, not the other way round: the
+  // everyday account is where every seeded and e2e expense lands, so it can be
+  // overdrawn by the time this runs and the transfer is refused.
+  await dialog.locator("#transfer-from").selectOption({ index: 2 });
+  await dialog.locator("#transfer-to").selectOption({ index: 1 });
   await dialog.locator("#transfer-amount").fill(input.amount);
   await dialog.locator("#transfer-note").fill(input.note);
   await dialog.getByRole("button", { name: "Transfer", exact: true }).click();

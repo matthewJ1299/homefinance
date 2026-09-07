@@ -139,9 +139,11 @@ test.describe("Redesign flows", () => {
 
   test("an overspend turns into a row that offers to cover it", async ({ page }) => {
     await clearNewMonthIfPresent(page);
-    // Big enough to put a category over whatever it was assigned.
+    // Big enough to put a category over whatever it was assigned, and no bigger:
+    // the keypad reads rands, so the old "9999900" spent ten million a run and
+    // drained the seeded account the transfer spec needs.
     await addExpense(page, {
-      amount: "9999900",
+      amount: "5000.00",
       categoryName: "Dining Out",
       note: `e2e-over-${Date.now()}`,
     });
