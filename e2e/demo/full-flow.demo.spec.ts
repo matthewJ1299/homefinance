@@ -1,4 +1,6 @@
 import { test, expect } from "@playwright/test";
+import fs from "node:fs";
+import path from "node:path";
 import { loginAsMatt, clearNewMonthGate, skipWelcomeIfPresent } from "../helpers/auth";
 import { E2E } from "../helpers/env";
 import { clearNewMonthIfPresent, goNav } from "../helpers/nav";
@@ -23,10 +25,40 @@ import { clearNewMonthIfPresent, goNav } from "../helpers/nav";
 const PAUSE = Number(process.env.E2E_DEMO_PAUSE ?? 1_500);
 const OTHER = E2E.sydneyName;
 
-/** A labelled beat, so the terminal narrates what the browser is doing. */
-async function beat(page: import("@playwright/test").Page, what: string) {
+/** e2e/screenshots/<desktop|mobile>/NN-slug.png, numbered in flow order. */
+let shot = 0;
+function shotDir(): string {
+  return path.join(process.cwd(), "e2e", "screenshots", test.info().project.name);
+}
+
+/**
+ * A labelled beat: narrate it, hold long enough to read, and photograph it.
+ *
+ * The screenshot is the point as much as the pause -- one numbered image per
+ * screen, in the order a person meets them, for both the phone and the desktop.
+ * It is attached to the HTML report too, so `npm run test:e2e:report` is a
+ * gallery rather than a list of green ticks.
+ */
+async function beat(page: import("@playwright/test").Page, what: string, slug?: string) {
   console.log(`   → ${what}`);
   await page.waitForTimeout(PAUSE);
+  const name = `${String(++shot).padStart(2, "0")}-${slug ?? slugify(what)}.png`;
+  const file = path.join(shotDir(), name);
+  await page.screenshot({ path: file, fullPage: false });
+  await test.info().attach(name, { path: file, contentType: "image/png" });
+}
+
+/** True when the run is the phone project, which is already the right size. */
+function onPhone(): boolean {
+  return test.info().project.name === "mobile";
+}
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 48);
 }
 
 test.describe.configure({ mode: "serial" });
@@ -34,6 +66,10 @@ test.describe.configure({ mode: "serial" });
 test("the whole flow, one sign-in", async ({ page }) => {
   test.setTimeout(10 * 60_000);
   const note = `demo-${Date.now()}`;
+  // Start from an empty gallery so a shorter run cannot leave stale frames
+  // behind and read as if they belong to it.
+  fs.rmSync(shotDir(), { recursive: true, force: true });
+  fs.mkdirSync(shotDir(), { recursive: true });
 
   await test.step("Sign in", async () => {
     await loginAsMatt(page);
@@ -60,8 +96,10 @@ test("the whole flow, one sign-in", async ({ page }) => {
   });
 
   await test.step("Add a spend, and see what it does before saving", async () => {
-    // The centre button is the mobile bar's; the sheet is designed for it.
-    await page.setViewportSize({ width: 390, height: 844 });
+    // The centre button is the mobile bar's, so the desktop run borrows a phone
+    // viewport for the sheet. The phone run is already there -- resizing it
+    // would hand the rest of the gallery back to the desktop layout.
+    if (!onPhone()) await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => {});
     await page.getByRole("button", { name: "Add a spend" }).click();
 
@@ -99,7 +137,7 @@ test("the whole flow, one sign-in", async ({ page }) => {
     await sheet.getByRole("button", { name: /^Save/ }).click();
     await expect(page.getByText(/Saved R/).first()).toBeVisible({ timeout: 20_000 });
     await beat(page, "saved — only your share hits your envelope");
-    await page.setViewportSize({ width: 1280, height: 800 });
+    if (!onPhone()) await page.setViewportSize({ width: 1280, height: 800 });
   });
 
   await test.step("Transactions — money in and money out, one list", async () => {

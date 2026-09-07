@@ -45,7 +45,16 @@ export async function expectNavHidden(page: Page, label: NavLabel): Promise<void
  * once rather than leaving the spec to fail on a screen it never left.
  */
 export async function goNav(page: Page, label: NavLabel): Promise<void> {
-  const link = page.getByRole("link", { name: label, exact: true }).first();
+  // Below the desktop breakpoint the sidebar is gone and the same links live
+  // behind "Open menu", so a phone run opens it first -- and then looks inside
+  // it, because the header's own "Home" link sits behind the menu's scrim and
+  // cannot be clicked while it is up.
+  const openMenu = page.getByRole("button", { name: "Open menu" });
+  const onPhone = await openMenu.isVisible().catch(() => false);
+  if (onPhone) await openMenu.click();
+  const scope = onPhone ? page.getByRole("dialog", { name: "Navigation menu" }) : page;
+
+  const link = scope.getByRole("link", { name: label, exact: true }).first();
   await expect(link).toBeVisible();
   const href = (await link.getAttribute("href")) ?? "";
   // The month-open gate can bounce you off whatever you asked for, and that is
