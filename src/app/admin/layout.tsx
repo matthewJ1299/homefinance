@@ -3,6 +3,7 @@ import { setRequestContextFromSession } from "@/lib/auth/set-session-request-con
 import { requireSuperAdmin } from "@/lib/db/request-context";
 import { redirect } from "next/navigation";
 import { AdminShell } from "@/components/admin/admin-shell";
+import { FeedbackService } from "@/lib/services/feedback.service";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,10 @@ export default async function AdminLayout({
     redirect("/dashboard");
   }
 
-  return <AdminShell>{children}</AdminShell>;
+  // Read here rather than on the feedback page, so the badge is on screen from
+  // whichever admin page they happen to be looking at.
+  const unreadFeedback = await new FeedbackService().unreadCountFor(Number(session.user.id));
+
+  return <AdminShell unreadFeedback={unreadFeedback}>{children}</AdminShell>;
 }
 

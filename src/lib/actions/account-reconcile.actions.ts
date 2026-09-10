@@ -1,8 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { auth } from "@/lib/auth";
-import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
+import { authedAction } from "@/lib/actions/_shared/authed-action";
 import { AccountService } from "@/lib/services/account.service";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { getCategoryRepository } from "@/lib/repositories";
@@ -25,11 +24,7 @@ export async function reconcileAccount(
   accountId: number,
   statedBalanceMinor: number
 ): Promise<ReconcileAccountResult> {
-  const session = await auth();
-  if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContextFromSession(session);
-  const userId = Number(session.user.id);
-
+  return authedAction<{ success: true; adjusted: number }>(async ({ userId }) => {
   if (!Number.isInteger(statedBalanceMinor)) {
     return { success: false, error: "Enter the balance your bank shows." };
   }
@@ -42,12 +37,13 @@ export async function reconcileAccount(
 
   const categoryRepo = getCategoryRepository();
   const unaccounted =
-    (await categoryRepo.findByName(UNACCOUNTED)) ??
+    (await categoryRepo.findBySemanticKey("unaccounted")) ??
     (await categoryRepo.create({
       name: UNACCOUNTED,
       groupName: "Adjustments",
       costType: "variable",
       sortOrder: 999,
+      semanticKey: "unaccounted",
     }));
 
   await new ExpenseService().create(userId, {
@@ -63,4 +59,5 @@ export async function reconcileAccount(
   revalidatePath("/dashboard");
   revalidatePath("/expenses");
   return { success: true, adjusted: diff };
+  }, { onError: "The balance check didn't save. Nothing was adjusted." });
 }

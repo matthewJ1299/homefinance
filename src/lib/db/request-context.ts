@@ -28,10 +28,34 @@ export interface RequestContext {
   householdApprovalStatus?: HouseholdApprovalStatus;
   /** When true, user must change password before using the app. */
   mustChangePassword?: boolean;
+  /**
+   * Household budget month start day, memoised for the request by
+   * `budgetMonthStartDayForUser`. It is constant for a request and was being
+   * re-queried five to eight times per render — the dashboard alone reaches it
+   * through `getDefaultBudgetMonthForUser`, `getBudgetPeriodForUserMonth`, a
+   * direct call, and again inside the expense and income services.
+   *
+   * An identity key so it survives into every component of an RSC render tree;
+   * always written through `memoiseBudgetMonthStartDay`, never by replacing the
+   * context wholesale.
+   */
+  budgetMonthStartDay?: number;
   /** Set by Postgres client after INSERT so lastInsertId() is request-scoped. */
   lastInsertId?: number;
   /** When set, DB calls use this client inside an open transaction. */
   pgClient?: pg.PoolClient;
+  /**
+   * Mutable slot for the id of the last INSERT inside an open transaction.
+   *
+   * It has to be a shared object that `run` mutates, not a value written back
+   * with `setRequestContext`. `als.enterWith` inside `run` does not reach the
+   * caller's already-suspended frame, so a value written that way is invisible
+   * to the `lastInsertId()` call that follows -- outside a transaction the
+   * module-level fallback happened to cover that up, and inside one there is no
+   * fallback. Created per transaction by `withTransaction`, so nothing is shared
+   * between concurrent requests.
+   */
+  txInsertId?: { value: number | null };
 }
 
 /**
@@ -81,6 +105,7 @@ const IDENTITY_KEYS = [
   "aiTier",
   "householdApprovalStatus",
   "mustChangePassword",
+  "budgetMonthStartDay",
 ] as const;
 
 function identityOf(ctx: RequestContext): RequestContext {
@@ -141,6 +166,29 @@ export function requireHouseholdId(): number {
     );
   }
   return hid;
+}
+
+/**
+ * Caches the resolved budget month start day for the rest of the request.
+ *
+ * Merges onto the current context rather than replacing it: `setRequestContext`
+ * overwrites the shared identity holder wholesale, so passing only this field
+ * would wipe `userId` and `householdId` and every tenant-scoped repository would
+ * start throwing.
+ */
+export function memoiseBudgetMonthStartDay(day: number): void {
+  const current = getRequestContext();
+  if (!current) return;
+  setRequestContext({ ...current, budgetMonthStartDay: day });
+}
+
+/** Clears the memo after the household setting changes within one request. */
+export function clearBudgetMonthStartDayMemo(): void {
+  const current = getRequestContext();
+  if (!current) return;
+  const next = { ...current };
+  delete next.budgetMonthStartDay;
+  setRequestContext(next);
 }
 
 export function requireSuperAdmin(): void {

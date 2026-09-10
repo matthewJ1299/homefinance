@@ -1,3 +1,4 @@
+import { withTransaction } from "@/lib/db";
 import {
   getExpenseRepository,
   getAccountTransactionRepository,
@@ -140,56 +141,60 @@ export class ExpenseService {
         ? (data.splitExpenseGroupId ?? (await this.splitGroupRepo.findDefault())?.id ?? null)
         : (data.splitExpenseGroupId ?? null);
 
-    const { id } = await this.repo.create({
-      userId,
-      categoryId: data.categoryId,
-      amount: data.amount,
-      note: data.note,
-      date: data.date,
-      month,
-      accountId: data.accountId ?? null,
-      paidByUserId: userId,
-      splitGroupId: participants.length > 1 ? crypto.randomUUID() : null,
-      splitExpenseGroupId,
-      recurringExpenseId: data.recurringExpenseId ?? null,
-    });
-
     // A shared spend touches two people's balances, so it lands whole or not at
     // all. Half a split is worse than no split: the payer's envelope moves and
     // the debt never appears, and nothing on either screen says so.
+    //
+    // This used to be four sequential writes followed by three best-effort
+    // compensating deletes, each swallowed with `.catch(() => {})` -- so a
+    // failed compensation left a half-written spend and said nothing. One
+    // transaction is both shorter and actually atomic.
     try {
-      await this.participantRepo.createMany(id, participants);
+      return await withTransaction(async () => {
+        const { id } = await this.repo.create({
+          userId,
+          categoryId: data.categoryId,
+          amount: data.amount,
+          note: data.note,
+          date: data.date,
+          month,
+          accountId: data.accountId ?? null,
+          paidByUserId: userId,
+          splitGroupId: participants.length > 1 ? crypto.randomUUID() : null,
+          splitExpenseGroupId,
+          recurringExpenseId: data.recurringExpenseId ?? null,
+        });
 
-      // Every non-payer share is a debt. split_allocations stays the debt
-      // ledger: calculateSplitBalance and the settlement history both read it.
-      for (const p of participants) {
-        if (p.userId === userId || p.shareMinor <= 0) continue;
-        await this.allocationRepo.create(id, p.userId, p.shareMinor);
-      }
+        await this.participantRepo.createMany(id, participants);
+
+        // Every non-payer share is a debt. split_allocations stays the debt
+        // ledger: calculateSplitBalance and the settlement history both read it.
+        for (const p of participants) {
+          if (p.userId === userId || p.shareMinor <= 0) continue;
+          await this.allocationRepo.create(id, p.userId, p.shareMinor);
+        }
+
+        if (data.accountId != null) {
+          await this.accountTxRepo.create({
+            accountId: data.accountId,
+            // The full amount left the account, even though only `mine` hit the
+            // envelope. That asymmetry is why Home needs a cash-behind-envelopes
+            // row, and why the two figures are allowed to disagree.
+            amount: -data.amount,
+            transactionType: "expense",
+            referenceType: "expense",
+            referenceId: id,
+          });
+        }
+        return { id };
+      });
     } catch (err) {
-      await this.allocationRepo.deleteByExpenseId(id).catch(() => {});
-      await this.participantRepo.deleteByExpenseId(id).catch(() => {});
-      await this.repo.delete(id).catch(() => {});
       const who = participants.length > 1 ? "shared spend" : "spend";
       throw new Error(
         `That ${who} didn't save, so nothing was recorded on anyone's side. ` +
           (err instanceof Error ? err.message : "Try again.")
       );
     }
-
-    if (data.accountId != null) {
-      await this.accountTxRepo.create({
-        accountId: data.accountId,
-        // The full amount left the account, even though only `mine` hit the
-        // envelope. That asymmetry is why Home needs a cash-behind-envelopes
-        // row, and why the two figures are allowed to disagree.
-        amount: -data.amount,
-        transactionType: "expense",
-        referenceType: "expense",
-        referenceId: id,
-      });
-    }
-    return { id };
   }
 
   /** Who was in on an expense, and for how much. */
@@ -200,10 +205,45 @@ export class ExpenseService {
   async update(id: number, userId: number, data: UpdateExpenseInput): Promise<void> {
     const payload: UpdateExpenseInput = { ...data };
     if (data.date) payload.month = await budgetMonthKeyForUser(userId, data.date);
-    await this.repo.update(id, payload);
+    await withTransaction(async () => {
+      await this.repo.update(id, payload);
+      // The ledger has to follow the figure, or correcting a typo silently
+      // moves the account balance by the difference. Debits are negative.
+      if (data.amount != null) {
+        await this.accountTxRepo.updateAmountByReference("expense", id, -data.amount);
+      }
+    });
   }
 
+  /**
+   * Removes the spend and everything raised from it.
+   *
+   * The ledger row is the part that used to be missed: `create` writes an
+   * `account_transactions` debit when the spend is filed against an account,
+   * and nothing removed it, so every deleted spend left the account balance
+   * understated by its amount -- permanently, because the ledger IS the balance.
+   * `expense_participants` and `split_allocations` cascade in the schema.
+   */
   async delete(id: number): Promise<void> {
-    await this.repo.delete(id);
+    await withTransaction(async () => {
+      await this.accountTxRepo.deleteByReference("expense", id);
+      await this.repo.delete(id);
+    });
+  }
+
+  /**
+   * Deletes every expense in a split group, ledger rows included, in one
+   * transaction. The old path deleted a single row found with `LIMIT 1` and
+   * left any others -- and left every ledger entry behind.
+   */
+  async deleteBySplitGroup(splitGroupId: string): Promise<void> {
+    const ids = await this.repo.findIdsBySplitGroupId(splitGroupId);
+    if (ids.length === 0) return;
+    await withTransaction(async () => {
+      for (const id of ids) {
+        await this.accountTxRepo.deleteByReference("expense", id);
+        await this.repo.delete(id);
+      }
+    });
   }
 }

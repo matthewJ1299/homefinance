@@ -1,3 +1,11 @@
+/**
+ * Retained pure helpers, currently exercised only by the test suite.
+ *
+ * Their callers went with the pre-0043 goals model (savings/credit goals as
+ * their own tables). The maths is correct and covered, and a debt-payoff view
+ * would need it again, so it stays rather than being rewritten from scratch --
+ * but nothing in the running app imports it today.
+ */
 import { addMonths, format } from "date-fns";
 import { calculateMonthsToGoal } from "./goals";
 import { estimateCreditPayoff } from "./credit";

@@ -31,7 +31,7 @@ npm run generate-pwa-icons   # regenerate public/icons/*
 
 The Docker production build runs `test:unit` before `next build`, so a failing unit test fails the deploy.
 
-Local minimum env (put in `.env.local`, auto-loaded by Next): `DATABASE_URL`, `AUTH_SECRET`, `NEXTAUTH_URL` (no trailing slash). Without `DATABASE_URL` the server still boots but skips DB init / scheduler and DB-backed routes fail. Full env matrix is in `README.md`.
+Local minimum env (put in `.env.local`, auto-loaded by Next): `DATABASE_URL`, `AUTH_SECRET`, `NEXTAUTH_URL` (no trailing slash). Optional: `DB_LOG=off|summary|verbose` (query logging; production defaults to `summary`, which omits parameter values because they are personal financial data), `PGPOOL_MAX` / `PG_STATEMENT_TIMEOUT_MS` (pool tuning), `PGSSL=require`, `CRON_SECRET` (required — the cron endpoint returns 503 without it). Without `DATABASE_URL` the server still boots but skips DB init / scheduler and DB-backed routes fail. Full env matrix is in `README.md`.
 
 ## Architecture
 
@@ -53,6 +53,8 @@ Client component ──► Server Action (src/lib/actions/*.actions.ts)  ──�
 ```
 
 - **Actions vs routes:** mutations from the UI go through server actions; API route handlers exist mainly for cron, push, export, recon OAuth, and calendar (React Query). Both entry points do `auth()` → `setRequestContext({userId,userName})` → validate with a Zod schema from `src/lib/validators/` → call a service. Actions return `{ success: false, error }` rather than throwing, and call `revalidatePath`.
+- **Wrap actions in `authedAction`** (`src/lib/actions/_shared/authed-action.ts`): it does auth, request context, and the never-throw contract in one place, and keeps raw Postgres text out of the browser in production. A bare `try`-less action breaks the optimistic-rollback contract in `docs/mutations-ux.md`.
+- **Multi-repository writes go in `withTransaction`**, in the service that owns the operation. Compensating deletes in a `catch` are not a substitute — a failed compensation leaves half a record and says nothing.
 - **Repositories** are obtained via `getXRepository()` factories in `src/lib/repositories/index.ts` (lazy singletons typed to the interface). Services take repos as constructor defaults (`constructor(private repo = getExpenseRepository())`) so tests inject fakes. Never `import` a `sql/*.repository` directly outside the factory.
 - **`src/lib/db/index.ts`** is the only DB surface: `run`, `get`, `all`, `lastInsertId`, `withTransaction`, plus `initDb` / `startPersistLoop`. Every call is logged with the request-context user (`[DB] …`). There is **no ORM at runtime** — the `drizzle/` folder is just hand-written SQL migration files.
 - **Pure finance logic** lives in `src/lib/services/finance/*` (accounts, credit, goals, mortgage, projections, mortgage-rate-periods) and `mortgage-calculator.ts` — no I/O, heavily unit-tested including drift/parity tests in `src/tests/`. Keep money math here, not in repositories or components.
@@ -63,8 +65,13 @@ Client component ──► Server Action (src/lib/actions/*.actions.ts)  ──�
 - **Budget month ≠ calendar month.** Each user has `budget_month_start_day` (1–28). Always derive month windows via `src/lib/utils/budget-month-for-user.ts` (`budgetMonthKeyForUser`, `getBudgetPeriodForUserMonth`) and pass the period down to repositories — don't filter by raw `date` prefix.
 - **Optimistic UI contract** (`docs/mutations-ux.md`): UI applies the change immediately, success toast + background `router.refresh()` / query invalidation, failure toast + explicit rollback. Server-list pages mirror RSC props into local state; Calendar uses React Query cache.
 - **Timezone:** user-facing "today"/greeting uses Africa/Johannesburg (UTC+2), not the device clock. Date helpers in `src/lib/utils/date.ts`.
-- **Feature gating** (AI budget analysis, Recon): needs a server-side allow flag on the user row (`ai_feature_allowed` / `recon_feature_allowed`) **and** a user Settings toggle. See `src/lib/services/feature-access.service.ts`, `docs/feature-access.md`.
-- **Polymorphic pointers** (no DB FK): `account_transactions.reference_type/reference_id`, `notes.linked_type/linked_id`. The `account_transactions` ledger is the source of truth for account balances and goal activity.
+- **Feature gating is per household, with no per-user layer.** Entitlements live in `household_features` (migration 0030) and are set only by a super-admin in `/admin`; `getAuthState` resolves them per request and `hasFeature` / `requireFeature` (`src/lib/features/access.ts`) read them synchronously. Add a feature by appending to `FEATURE_KEYS` in `src/lib/features/registry.ts` — no migration, no nav change. Some features also need server config (`ai_budget_analysis` needs API keys, `recon` needs the Graph OAuth app); `src/lib/services/feature-access.service.ts` is where entitlement and server config are combined. There is **no end-user Settings toggle**. The `users.ai_feature_allowed` / `recon_feature_allowed` / `ai_enabled` / `recon_enabled` columns are the superseded pre-0030 model, still in the schema and read by nothing. See `docs/feature-access.md`.
+- **The ledger is the balance.** `account_transactions` has no stored balance column; the balance is `SUM(amount)`. Since migration 0049 it carries typed `expense_id`/`income_id`/`transfer_id` foreign keys with `ON DELETE CASCADE`, so a ledger row cannot outlive its source. The legacy `reference_type`/`reference_id` pair is still written alongside and a CHECK keeps the two in step. `notes.linked_type/linked_id` is still polymorphic with no FK.
+- **Tenancy is enforced by the schema, not just the repository.** Every tenant-scoped foreign key is declared on `(fk_column, household_id)` against the parent's `UNIQUE (id, household_id)` (migration 0048), which makes a cross-tenant reference unrepresentable. `requireHouseholdId()` is still the read-path guard; the FK is what catches a write that forgets. Give a new tenant-scoped FK the same treatment — and note `ON DELETE SET NULL` needs the Postgres 15+ column list (`SET NULL (account_id)`), or it tries to null `household_id` too. The one deliberate exception is `household_features.granted_by_user_id`, which points at the granting super-admin in another household.
+- **The database knows its enums.** Enum columns, ISO date/month formats and ranges all carry CHECK constraints (0050). Adding a value to a TypeScript union means adding it to the constraint in the same change — and the allowed set is the union of what the code writes and what existing rows hold, which are not always the same. Dry-run any new constraint against real data before shipping it: use `[0-9]` not `\d` in a regex CHECK (`\d` matches nothing here), and check both sources before writing an `IN` list.
+- **Behaviour never keys off a category's display name.** Categories are user-editable; `categories.semantic_key` (`splits` / `mortgage` / `unaccounted`) is the stable identity. Use `findBySemanticKey` / `categoryHasSemanticKey` from `src/lib/categories/semantic-key.ts`, never `findByName`.
+- **`SUM()` over a BIGINT column returns a string** from node-pg. Run every aggregate through `coerceBigInt` — a missing one turns an addition into string concatenation with a `number` type still on it.
+- **Reads must not write.** `BudgetService.getOverview` is called on every dashboard render; materialising allocation rows is `openMonth`'s job.
 
 ### Migrations
 
@@ -74,13 +81,15 @@ Add `drizzle/00XX_description_pg.sql` (statements separated by `--> statement-br
 
 `src/instrumentation.ts` runs on server boot (nodejs runtime only): `initDb()`, `startPersistLoop(60s)`, and `NotificationScheduler` (daily 9am calendar summary + per-event reminders, `node-cron`). `server.js` does the equivalent for the custom-server path.
 
+Every replica runs that scheduler, so both jobs take a Postgres advisory lock per tick (`src/lib/db/advisory-lock.ts`) and the loser skips. `db:push` takes a blocking one for the same reason. `GET /api/health` is the readiness probe.
+
 ### PWA
 
 Serwist service worker from `src/sw.ts` → `public/sw.js`, wired in `next.config.ts` and **disabled in development**. Test install/push against a production build. `public/manifest.json` is static.
 
 ## Docs
 
-Feature-level behaviour and design notes: `docs/` (`goals.md`, `mortgage.md`, `recon.md`, `ai-budget-analysis.md`, `feature-access.md`, `calendar.md`, `lists.md`, `mutations-ux.md`, `database.md`, `design-system.md`, `push-notifications.md`). Deployment (Coolify/Docker/Traefik): `DEPLOY.md`. The `README.md` ERD is the current schema reference.
+Feature-level behaviour and design notes: `docs/` (`feedback.md`, `goals.md`, `mortgage.md`, `recon.md`, `ai-budget-analysis.md`, `feature-access.md`, `calendar.md`, `lists.md`, `mutations-ux.md`, `database.md`, `design-system.md`, `push-notifications.md`). Deployment (Coolify/Docker/Traefik): `DEPLOY.md`. The `README.md` ERD is the current schema reference.
 
 ## Notes
 

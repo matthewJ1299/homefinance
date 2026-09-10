@@ -5,6 +5,7 @@ import { getHouseholdRepository, getSentReminderRepository, getUserRepository } 
 import { runWithHouseholdFeatures } from "@/lib/features/run-with-household-features";
 import { formatEventLine } from "@/lib/utils/format-time";
 import { computeReminderInstant, REMINDER_LOOKAHEAD_DAYS } from "@/lib/utils/reminder-time";
+import { withTryAdvisoryLock } from "@/lib/db/advisory-lock";
 
 const DEFAULT_DAILY_HOUR = 9;
 const TIMEZONE = process.env.TZ ?? "UTC";
@@ -23,8 +24,24 @@ function getDailyHour(): number {
  */
 import { isPushEnvConfigured } from "@/lib/push/push-env";
 
+/**
+ * Every replica runs this scheduler, so without a lock N containers send N copies
+ * of the same 9am summary. The per-event reminders below are protected by the
+ * `sent_reminders` unique index; this one has no such guard, so the lock is it.
+ *
+ * A skipped tick is the correct outcome for the loser -- the winner is sending.
+ */
 async function runDailySummary(): Promise<void> {
   if (!isPushEnvConfigured()) return;
+  const ran = await withTryAdvisoryLock("notification:daily-summary", () =>
+    runDailySummaryInner()
+  );
+  if (!ran) {
+    console.log("[NotificationScheduler] Daily summary already running elsewhere; skipped.");
+  }
+}
+
+async function runDailySummaryInner(): Promise<void> {
   try {
     const today = format(new Date(), "yyyy-MM-dd");
     const householdIds = await getHouseholdRepository().listAllHouseholdIds();
@@ -71,6 +88,14 @@ async function sendDailySummaryForHousehold(today: string): Promise<void> {
  */
 async function runPerEventReminders(): Promise<void> {
   if (!isPushEnvConfigured()) return;
+  // `sent_reminders` already makes a duplicate send impossible, so the lock here
+  // is only to stop every replica doing the same scan every minute.
+  await withTryAdvisoryLock("notification:per-event-reminders", () =>
+    runPerEventRemindersInner()
+  );
+}
+
+async function runPerEventRemindersInner(): Promise<void> {
   try {
     const now = new Date();
     const todayStr = format(now, "yyyy-MM-dd");

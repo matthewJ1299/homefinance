@@ -49,7 +49,10 @@ export function BottomNav({ hasAddSheet = false }: { hasAddSheet?: boolean }) {
   const addActive = pathname === "/add" || pathname.startsWith("/add/");
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm md:hidden">
+    <nav
+      aria-label="Primary"
+      className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm md:hidden"
+    >
       <div className="flex h-[calc(3.25rem+env(safe-area-inset-bottom))] justify-around">
         <div className="flex flex-1 justify-around items-end pb-[env(safe-area-inset-bottom)]">
           <NavLinks items={mobileLeftItems} pathname={pathname} />

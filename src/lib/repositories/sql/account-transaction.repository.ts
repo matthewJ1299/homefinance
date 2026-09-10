@@ -4,6 +4,7 @@ import { coerceBigInt, coerceBigIntOrNull } from "@/lib/db/coerce-bigint";
 import type {
   IAccountTransactionRepository,
   AccountTransaction,
+  AccountTransactionReferenceType,
   CreateAccountTransactionInput,
 } from "../interfaces/account-transaction.repository";
 
@@ -45,31 +46,105 @@ export class AccountTransactionRepository
     if (!accountOk) {
       throw new Error("Account not found for this household");
     }
+    // The typed columns (0049) are what carry the ON DELETE CASCADE, so a ledger
+    // row cannot outlive the thing that raised it. reference_type/reference_id
+    // stay written alongside for one release; a CHECK keeps the two in step.
+    const ref = input.referenceType ?? null;
+    const refId = input.referenceId ?? null;
     await run(
-      "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note) VALUES (?, ?, ?, ?, ?, ?)",
+      `INSERT INTO account_transactions
+         (account_id, amount, transaction_type, reference_type, reference_id, note,
+          expense_id, income_id, transfer_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         input.accountId,
         input.amount,
         input.transactionType,
-        input.referenceType ?? null,
-        input.referenceId ?? null,
+        ref,
+        refId,
         input.note ?? null,
+        ref === "expense" ? refId : null,
+        ref === "income" ? refId : null,
+        ref === "transfer" ? refId : null,
       ]
     );
     const id = await lastInsertId();
     return { id };
   }
 
+  async deleteByReference(
+    referenceType: AccountTransactionReferenceType,
+    referenceId: number
+  ): Promise<void> {
+    const hid = requireHouseholdId();
+    // Scoped through `accounts`, the same way getBalance is: account_transactions
+    // carries no household_id of its own.
+    await run(
+      `DELETE FROM account_transactions at
+        USING accounts a
+        WHERE at.account_id = a.id
+          AND a.household_id = ?
+          AND at.reference_type = ?
+          AND at.reference_id = ?`,
+      [hid, referenceType, referenceId]
+    );
+  }
+
+  async updateAmountByReference(
+    referenceType: AccountTransactionReferenceType,
+    referenceId: number,
+    amount: number
+  ): Promise<void> {
+    const hid = requireHouseholdId();
+    await run(
+      `UPDATE account_transactions at
+          SET amount = ?
+         FROM accounts a
+        WHERE at.account_id = a.id
+          AND a.household_id = ?
+          AND at.reference_type = ?
+          AND at.reference_id = ?`,
+      [amount, hid, referenceType, referenceId]
+    );
+  }
+
   async getBalance(accountId: number): Promise<number> {
     const hid = requireHouseholdId();
-    const row = await get<{ balance: number }>(
+    const row = await get<{ balance: number | string }>(
       `SELECT COALESCE(SUM(at.amount), 0) AS balance
        FROM account_transactions at
        INNER JOIN accounts a ON at.account_id = a.id
        WHERE at.account_id = ? AND a.household_id = ?`,
       [accountId, hid]
     );
-    return row?.balance ?? 0;
+    // SUM() over a BIGINT column is NUMERIC, which node-pg returns as a STRING.
+    // Without this the balance was a string wearing a `number` type: Home's
+    // cash-on-hand concatenated its accounts instead of adding them, available
+    // credit came out as "50000-20000", and `balance !== 0` never matched.
+    return coerceBigInt(row?.balance);
+  }
+
+  /**
+   * Balances for many accounts in one query.
+   *
+   * AccountService ran `getBalance` in a loop, so listing accounts cost one
+   * round trip per account -- on Home, Accounts and the Add sheet. Accounts
+   * with no ledger rows are absent from the result; callers default to 0.
+   */
+  async getBalances(accountIds: number[]): Promise<Map<number, number>> {
+    const hid = requireHouseholdId();
+    const unique = [...new Set(accountIds.filter((id) => Number.isInteger(id) && id > 0))];
+    if (unique.length === 0) return new Map();
+    const placeholders = unique.map(() => "?").join(", ");
+    const rows = await all<{ account_id: number | string; balance: number | string }>(
+      `SELECT at.account_id, COALESCE(SUM(at.amount), 0) AS balance
+         FROM account_transactions at
+         INNER JOIN accounts a ON at.account_id = a.id
+        WHERE a.household_id = ? AND at.account_id IN (${placeholders})
+        GROUP BY at.account_id`,
+      [hid, ...unique]
+    );
+    return new Map(rows.map((r) => [coerceBigInt(r.account_id), coerceBigInt(r.balance)]));
   }
 
   async findById(id: number): Promise<AccountTransaction | null> {

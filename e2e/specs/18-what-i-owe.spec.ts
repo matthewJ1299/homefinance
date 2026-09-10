@@ -22,7 +22,7 @@ test.describe("What I owe statement", () => {
       split: { withNames: ["Sydney"] },
     });
 
-    await goNav(page, "What I owe");
+    await goNav(page, "Statement");
     await expect(page.getByTestId("feature-unavailable")).toHaveCount(0);
     await expect(page.getByText(/What you owe|What .+ owes you/i).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Print" })).toBeVisible();

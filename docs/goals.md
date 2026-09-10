@@ -1,19 +1,35 @@
-# Goals (intent vs ledger)
+# Goals
 
-> **This describes the pre-redesign goals feature.** Since the UX pass, a goal
-> is a **category with a target amount and a target date** — `/goals` is a
-> filtered view of Budget showing categories that have one, and assigning to a
-> goal is the ordinary assign flow. There is no second way to move money.
->
-> Migration `0043_goals_as_categories_pg.sql` added `categories.target_minor`
-> and `categories.target_date` and backfilled savings goals into a "Goals"
-> group. The `goals` and `goal_contributions` tables stay in place, read-only,
-> for one release; the credit-payoff planning below has no replacement yet and
-> is the part of this document still worth reading.
->
-> Current behaviour: `src/lib/services/finance/goal-categories.ts`,
-> `src/components/goals/goal-category-list.tsx`, and the budget model section
-> of [design-system.md](./design-system.md).
+A goal is a **category with a target amount and a target date**. `/goals` is a
+filtered view of Budget showing the categories that have one, and assigning to a
+goal is the ordinary assign flow — there is exactly one way to move money.
+
+Migration `0043_goals_as_categories_pg.sql` added `categories.target_minor` and
+`categories.target_date` and backfilled savings goals into a "Goals" group.
+
+Current behaviour lives in
+[`src/lib/services/finance/goal-categories.ts`](../src/lib/services/finance/goal-categories.ts),
+[`src/components/goals/goal-category-list.tsx`](../src/components/goals/goal-category-list.tsx),
+and the budget model section of [design-system.md](./design-system.md).
+
+## The retired model
+
+The pre-redesign feature stored goals in their own `goals` and
+`goal_contributions` tables, with savings and credit-payoff variants, five
+services and ten API routes. None of it was reachable from the UI after the
+redesign, so it was removed: the routes, the services, and the components that
+called them.
+
+The **tables remain** — migrations here are additive, and a household that
+had legacy rows keeps them. Nothing reads them.
+
+The credit-payoff planning that model carried has **no replacement**. Its pure
+maths survives in `src/lib/services/finance/credit.ts`, `goals.ts` and
+`projections.ts`, exercised by the test suite and imported by nothing else, so a
+debt-payoff view can be built on it rather than from scratch. The `goals` feature
+description in the registry no longer claims debt payoff.
+
+## How it worked (historical)
 
 ## Purpose
 

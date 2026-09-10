@@ -1,6 +1,10 @@
 import { test, expect } from "../fixtures/test";
 import { loginAsMatt, skipWelcomeIfPresent } from "../helpers/auth";
-import { addExpense, addIncome } from "../helpers/finance";
+import {
+  addButton,
+  addExpense,
+  addIncome,
+} from "../helpers/finance";
 import { clearNewMonthIfPresent, goNav } from "../helpers/nav";
 
 test.describe.configure({ mode: "serial" });
@@ -29,7 +33,7 @@ test.describe("Transactions + income mutations", () => {
     await page.goto("/dashboard");
     await clearNewMonthIfPresent(page);
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.getByRole("button", { name: "Add a spend" }).click();
+    await addButton(page).click();
 
     const sheet = page.getByRole("dialog", { name: "Add" });
     await expect(sheet).toBeVisible();

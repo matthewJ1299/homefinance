@@ -35,4 +35,10 @@ export interface IAIAnalysisRunRepository {
   listExpenseMonthlyRuns(userId: number, limit?: number): Promise<AIAnalysisRunSummaryRow[]>;
   getRunForUser(userId: number, id: number): Promise<AIAnalysisRunDetailRow | null>;
   getLatestExpenseMonthlyRunForMonth(userId: number, month: string): Promise<AIAnalysisRunDetailRow | null>;
+  /**
+   * How many runs this user started in the last `windowMs`. Backs the AI rate
+   * limit, which used to be a module-level Map -- per process, so two replicas
+   * doubled the allowance and a deploy reset everyone's quota to zero.
+   */
+  countRunsSince(userId: number, windowMs: number): Promise<{ count: number; oldestAt: string | null }>;
 }

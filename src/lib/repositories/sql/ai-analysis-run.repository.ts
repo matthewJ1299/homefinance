@@ -29,6 +29,24 @@ export class AIAnalysisRunRepository implements IAIAnalysisRunRepository {
     return typeof id === "string" ? Number(id) : Number(id ?? 0);
   }
 
+  async countRunsSince(
+    userId: number,
+    windowMs: number
+  ): Promise<{ count: number; oldestAt: string | null }> {
+    const hid = requireHouseholdId();
+    const seconds = Math.max(1, Math.round(windowMs / 1000));
+    // NOW() rather than a client timestamp: the window must not move when the
+    // app server's clock drifts from the database's.
+    const row = await get<{ c: string | number; oldest: string | null }>(
+      `SELECT COUNT(*) AS c, MIN(created_at) AS oldest
+         FROM ai_analysis_runs
+        WHERE household_id = ? AND user_id = ?
+          AND created_at > NOW() - (? * INTERVAL '1 second')`,
+      [hid, userId, seconds]
+    );
+    return { count: Number(row?.c ?? 0), oldestAt: row?.oldest ?? null };
+  }
+
   async listExpenseMonthlyRuns(userId: number, limit = 50): Promise<AIAnalysisRunSummaryRow[]> {
     const hid = requireHouseholdId();
     const safeLimit = Math.max(1, Math.min(200, Math.floor(limit)));

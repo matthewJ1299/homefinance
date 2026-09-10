@@ -25,9 +25,13 @@ public/swe-worker*
 *.pem
 
 # Debug
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+# JVM crash dumps (a Playwright/Java toolchain drops these in the repo root)
+hs_err_pid*.log
+replay_pid*.log
 
 # Local env files
 .env
@@ -48,3 +52,10 @@ next-env.d.ts
 .next
 .cursor
 .cursor/
+
+# Scratch
+Untitled-*.txt
+
+# Local DB copies (live household data — never commit)
+*.dump
+prod.sql

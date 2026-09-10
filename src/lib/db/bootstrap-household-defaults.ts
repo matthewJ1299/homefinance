@@ -18,8 +18,18 @@ export async function bootstrapHouseholdDefaults(householdId: number): Promise<v
 
   for (const c of BOOTSTRAP_CATEGORIES) {
     await run(
-      "INSERT INTO categories (name, group_name, icon, sort_order, is_active, cost_type, default_amount, household_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      [c.name, c.groupName, null, c.sortOrder, true, c.costType, c.defaultAmount, householdId]
+      "INSERT INTO categories (name, group_name, icon, sort_order, is_active, cost_type, default_amount, household_id, semantic_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [
+        c.name,
+        c.groupName,
+        null,
+        c.sortOrder,
+        true,
+        c.costType,
+        c.defaultAmount,
+        householdId,
+        c.semanticKey ?? null,
+      ]
     );
   }
 

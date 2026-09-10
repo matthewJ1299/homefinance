@@ -1,7 +1,6 @@
 "use server";
 
-import { auth } from "@/lib/auth";
-import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
+import { authedAction } from "@/lib/actions/_shared/authed-action";
 import { hasFeature, featureDeniedMessage } from "@/lib/features/access";
 import { resolveAiInteractiveEnabled, getHouseholdAiTier } from "@/lib/services/feature-access.service";
 import { AIService } from "@/lib/services/ai.service";
@@ -17,12 +16,7 @@ export async function analyzeExpenses(
   month: string,
   options: AnalyzeExpensesOptions = {}
 ): Promise<AnalyzeExpensesOutcome> {
-  const session = await auth();
-  setRequestContextFromSession(session);
-  if (!session?.user?.id) {
-    return { success: false, error: "Unauthorized" };
-  }
-  const userId = Number(session.user.id);
+  return authedAction<AnalyzeExpensesOutcome & { success: true }>(async ({ userId }) => {
   if (!hasFeature("ai_budget_analysis")) {
     return { success: false, error: featureDeniedMessage("ai_budget_analysis") };
   }
@@ -30,7 +24,7 @@ export async function analyzeExpenses(
     return { success: false, error: "AI is not configured on this server for your household tier." };
   }
 
-  const { allowed, retryAfterMs } = checkRateLimit(userId);
+  const { allowed, retryAfterMs } = await checkRateLimit(userId);
   if (!allowed) {
     const retryMin = retryAfterMs != null ? Math.ceil(retryAfterMs / 60000) : 0;
     return {
@@ -50,4 +44,5 @@ export async function analyzeExpenses(
     recordCall(userId);
   }
   return result;
+  }, { onError: "The analysis didn't run. Try again." });
 }

@@ -42,24 +42,51 @@ function amountFromParams(
   return typeof num === "number" ? num : undefined;
 }
 
+/**
+ * Query logging, and specifically whether bound parameters are printed.
+ *
+ * Parameters here are expense notes, people's names, email addresses, amounts
+ * and (on the auth path) password hashes. Printing them writes personal
+ * financial data into container logs on every page render, so the verbose shape
+ * is development-only. `DB_LOG` overrides in either direction:
+ *   DB_LOG=off      never log
+ *   DB_LOG=summary  log the statement shape, never parameter values
+ *   DB_LOG=verbose  log parameters too (development default)
+ */
+type DbLogLevel = "off" | "summary" | "verbose";
+
+function resolveDbLogLevel(): DbLogLevel {
+  const raw = process.env.DB_LOG?.trim().toLowerCase();
+  if (raw === "off" || raw === "summary" || raw === "verbose") return raw;
+  return process.env.NODE_ENV === "production" ? "summary" : "verbose";
+}
+
+// Read once: this runs on every query and the value cannot change mid-process.
+const DB_LOG_LEVEL: DbLogLevel = resolveDbLogLevel();
+
 function logDbCall(
   op: "run" | "get" | "all",
   sql: string,
   params: (string | number | boolean | null)[]
 ): void {
+  if (DB_LOG_LEVEL === "off") return;
   const when = new Date().toISOString();
   const ctx = getRequestContext();
   const who = ctx?.userId
     ? `user:${ctx.userId}${ctx.userName ? ` (${ctx.userName})` : ""}`
     : "system";
   const what = describeSql(sql);
-  const amount = op === "run" ? amountFromParams(sql, params) : undefined;
   const parts = [`[DB] ${when} | ${who} | ${op} ${what}`];
-  if (amount != null) parts.push(`| amount: ${amount}`);
-  if (params.length > 0 && params.length <= 8)
-    parts.push(`| params: [${params.join(", ")}]`);
-  else if (params.length > 8)
-    parts.push(`| params: [${params.slice(0, 4).join(", ")}... (+${params.length - 4} more)]`);
+  if (DB_LOG_LEVEL === "verbose") {
+    const amount = op === "run" ? amountFromParams(sql, params) : undefined;
+    if (amount != null) parts.push(`| amount: ${amount}`);
+    if (params.length > 0 && params.length <= 8)
+      parts.push(`| params: [${params.join(", ")}]`);
+    else if (params.length > 8)
+      parts.push(`| params: [${params.slice(0, 4).join(", ")}... (+${params.length - 4} more)]`);
+  } else if (params.length > 0) {
+    parts.push(`| params: ${params.length}`);
+  }
   console.log(parts.join(" "));
 }
 

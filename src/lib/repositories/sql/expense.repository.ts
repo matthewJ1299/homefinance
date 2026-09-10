@@ -326,15 +326,22 @@ export class ExpenseRepository implements IExpenseRepository {
     await run("DELETE FROM expenses WHERE id = ? AND household_id = ?", [id, hid]);
   }
 
-  async deleteBySplitGroupId(splitGroupId: string): Promise<void> {
+  /**
+   * Every expense row in the group, not just the first.
+   *
+   * This replaced a `deleteBySplitGroupId` that took `LIMIT 1` and deleted one
+   * row. That is only correct because the current model writes one expense per
+   * split UUID -- the moment a split writes two rows again it silently left one
+   * behind. Returning ids lets the service delete them all, and clean up each
+   * one's ledger entry on the way (see ExpenseService.deleteBySplitGroup).
+   */
+  async findIdsBySplitGroupId(splitGroupId: string): Promise<number[]> {
     const hid = requireHouseholdId();
-    const row = await get<{ id: number }>(
-      "SELECT id FROM expenses WHERE household_id = ? AND split_group_id = ? LIMIT 1",
+    const rows = await all<{ id: number }>(
+      "SELECT id FROM expenses WHERE household_id = ? AND split_group_id = ? ORDER BY id",
       [hid, splitGroupId]
     );
-    if (!row) return;
-    await run("DELETE FROM split_allocations WHERE expense_id = ?", [row.id]);
-    await run("DELETE FROM expenses WHERE id = ?", [row.id]);
+    return rows.map((r) => r.id);
   }
 
   async findSplitExpenses(groupId?: number): Promise<ExpenseWithDetails[]> {

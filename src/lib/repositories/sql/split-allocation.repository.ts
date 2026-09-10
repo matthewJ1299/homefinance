@@ -52,12 +52,63 @@ export class SplitAllocationRepository implements ISplitAllocationRepository {
     }));
   }
 
+  /**
+   * Backs the balances shown on Home, so it runs on every render.
+   *
+   * The names come from the join. They used to come from two extra `SELECT name
+   * FROM users` per allocation row -- 1,001 queries for 500 allocations -- and
+   * both joins are tenant-scoped through the expense's household, exactly as
+   * the per-row lookups were.
+   */
+  /**
+   * Allocations for many expenses at once, grouped by expense id.
+   *
+   * The splits history rendered one `findByExpenseId` -- a three-table join --
+   * per split expense. One query covers the page.
+   */
+  async findByExpenseIds(expenseIds: number[]): Promise<Map<number, SplitAllocationWithUser[]>> {
+    const hid = requireHouseholdId();
+    const unique = [...new Set(expenseIds.filter((id) => Number.isInteger(id) && id > 0))];
+    if (unique.length === 0) return new Map();
+    const placeholders = unique.map(() => "?").join(", ");
+    const rows = await all<RowWithUser>(
+      `SELECT sa.id, sa.expense_id AS expense_id, sa.user_id AS user_id, sa.amount, u.name
+         FROM split_allocations sa
+         INNER JOIN expenses e ON sa.expense_id = e.id
+         INNER JOIN users u ON sa.user_id = u.id AND u.household_id = e.household_id
+        WHERE e.household_id = ? AND sa.expense_id IN (${placeholders})
+        ORDER BY sa.expense_id, sa.id`,
+      [hid, ...unique]
+    );
+    const byExpense = new Map<number, SplitAllocationWithUser[]>();
+    for (const r of rows) {
+      const list = byExpense.get(r.expense_id) ?? [];
+      list.push({
+        id: r.id,
+        expenseId: r.expense_id,
+        userId: r.user_id,
+        amount: r.amount,
+        userName: r.name,
+      });
+      byExpense.set(r.expense_id, list);
+    }
+    return byExpense;
+  }
+
   async findAllForBalance(groupId?: number): Promise<SplitAllocationBalanceRow[]> {
     const hid = requireHouseholdId();
-    let sql =
-      `SELECT sa.amount, e.paid_by_user_id, sa.user_id AS allocation_user_id
-       FROM split_allocations sa
-       INNER JOIN expenses e ON sa.expense_id = e.id
+    let sql = `
+      SELECT sa.amount,
+             e.paid_by_user_id,
+             payer.name AS payer_name,
+             sa.user_id AS allocation_user_id,
+             debtor.name AS debtor_name
+        FROM split_allocations sa
+        INNER JOIN expenses e ON sa.expense_id = e.id
+        LEFT JOIN users payer
+               ON payer.id = e.paid_by_user_id AND payer.household_id = e.household_id
+        LEFT JOIN users debtor
+               ON debtor.id = sa.user_id AND debtor.household_id = e.household_id
        WHERE e.household_id = ? AND e.paid_by_user_id IS NOT NULL`;
     const params: number[] = [hid];
     if (groupId != null) {
@@ -67,27 +118,17 @@ export class SplitAllocationRepository implements ISplitAllocationRepository {
     const rows = await all<{
       amount: number;
       paid_by_user_id: number;
+      payer_name: string | null;
       allocation_user_id: number;
+      debtor_name: string | null;
     }>(sql, params);
-    const result: SplitAllocationBalanceRow[] = [];
-    for (const r of rows) {
-      const payer = await get<{ name: string }>(
-        "SELECT name FROM users WHERE id = ? AND household_id = ?",
-        [r.paid_by_user_id, hid]
-      );
-      const allocUser = await get<{ name: string }>(
-        "SELECT name FROM users WHERE id = ? AND household_id = ?",
-        [r.allocation_user_id, hid]
-      );
-      result.push({
-        amount: r.amount,
-        paidByUserId: r.paid_by_user_id,
-        paidByUserName: payer?.name ?? "?",
-        allocationUserId: r.allocation_user_id,
-        allocationUserName: allocUser?.name ?? "?",
-      });
-    }
-    return result;
+    return rows.map((r) => ({
+      amount: r.amount,
+      paidByUserId: r.paid_by_user_id,
+      paidByUserName: r.payer_name ?? "?",
+      allocationUserId: r.allocation_user_id,
+      allocationUserName: r.debtor_name ?? "?",
+    }));
   }
 
   async findOwedToPayerInPeriod(
@@ -97,15 +138,21 @@ export class SplitAllocationRepository implements ISplitAllocationRepository {
     end: string,
     groupId?: number
   ): Promise<OwedLineItemRow[]> {
+    // This was the one query in the repository layer that neither called
+    // requireHouseholdId() nor filtered on household_id -- so it failed OPEN
+    // where everything else fails closed. The callers happen to pass ids drawn
+    // from tenant-scoped data, which is what kept it from being exploitable.
+    const hid = requireHouseholdId();
     let sql = `
       SELECT e.id AS "expenseId", e.note, e.date, c.name AS "categoryName", sa.amount
       FROM split_allocations sa
       INNER JOIN expenses e ON sa.expense_id = e.id
-      LEFT JOIN categories c ON e.category_id = c.id
-      WHERE e.paid_by_user_id = ?
+      LEFT JOIN categories c ON e.category_id = c.id AND c.household_id = e.household_id
+      WHERE e.household_id = ?
+        AND e.paid_by_user_id = ?
         AND sa.user_id = ?
         AND e.date >= ? AND e.date <= ?`;
-    const params: (number | string)[] = [payerUserId, debtorUserId, start, end];
+    const params: (number | string)[] = [hid, payerUserId, debtorUserId, start, end];
     if (groupId != null) {
       sql += " AND e.split_expense_group_id = ?";
       params.push(groupId);

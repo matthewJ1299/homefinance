@@ -7,8 +7,20 @@ export async function expectToast(page: Page, text: string | RegExp): Promise<vo
   await expect(page.getByText(text).first()).toBeVisible({ timeout: 20_000 });
 }
 
-/** The bottom bar's centre button is mobile-only; the sheet is opened from it. */
+/**
+ * The bottom bar's centre button is mobile-only; the sheet is opened from it.
+ *
+ * Scoped to the Primary nav landmark: Home also renders a full-width "Add a
+ * spend" launcher, so a bare name lookup matched two buttons and failed on
+ * strict mode. Both open the same sheet -- the bar is the one every page has.
+ */
 const ADD_BUTTON = { name: "Add a spend" } as const;
+
+export function addButton(page: Page) {
+  return page
+    .getByRole("navigation", { name: "Primary" })
+    .getByRole("button", ADD_BUTTON);
+}
 
 /**
  * Opens the Add sheet.
@@ -34,7 +46,7 @@ export async function openAddSheet(page: Page): Promise<void> {
   // detaches the keypad mid-click. Let it settle first -- best effort, since a
   // page that polls never goes idle.
   await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => {});
-  await page.getByRole("button", ADD_BUTTON).click();
+  await addButton(page).click();
   const dialog = page.getByRole("dialog", { name: "Add" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("button", { name: "1", exact: true })).toBeVisible();

@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { BCRYPT_ROUNDS } from "@/lib/services/password.service";
 import { withTransaction } from "@/lib/db";
 import { bootstrapHouseholdDefaults } from "@/lib/db/bootstrap-household-defaults";
 import { getUserRepository } from "@/lib/repositories";
@@ -19,7 +20,7 @@ export class RegistrationService {
 
     const households = new AdminHouseholdRepository();
     const users = new AdminUserRepository();
-    const passwordHash = await bcrypt.hash(input.password, 10);
+    const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
 
     try {
       await withTransaction(async () => {

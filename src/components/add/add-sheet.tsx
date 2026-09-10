@@ -6,6 +6,7 @@ import { Delete } from "lucide-react";
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { formatRand } from "@/lib/utils/currency";
+import { toastActionFailure } from "@/lib/feedback/action-error";
 import {
   sharesFromRatios,
   solveShares,
@@ -309,7 +310,7 @@ export function AddSheet({
           accountId,
         });
         if (!res.success) {
-          toast.error(res.error);
+          toastActionFailure(res, { attemptedAction: "Add income" });
           return;
         }
         toast.success(`Added ${formatRand(amountMinor)} in.`);
@@ -355,7 +356,9 @@ export function AddSheet({
         participants,
       });
       if (!res.success) {
-        toast.error(res.error);
+        toastActionFailure(res, {
+          attemptedAction: participants.length > 1 ? 'Save a shared spend' : 'Save a spend',
+        });
         return;
       }
       // One toast, not three. The old flow fired saved, remaining and

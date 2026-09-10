@@ -46,13 +46,17 @@ export class AccountService {
     await this.ensurePrimaryAccountCoherence(userId);
     const primaryAccountId = await this.userRepo.getPrimaryAccountId(userId);
     const accounts = await this.accountRepo.findAllVisibleToUser(userId);
-    const results: AccountWithBalance[] = [];
-    for (const acc of accounts) {
-      const balance = await this.txRepo.getBalance(acc.id);
-      const availableCredit =
-        acc.type === "credit" && acc.creditLimit != null ? acc.creditLimit + balance : undefined;
-      results.push({ ...acc, balance, availableCredit });
-    }
+    // One query for every balance, not one per account.
+    const balances = await this.txRepo.getBalances(accounts.map((a) => a.id));
+    const results: AccountWithBalance[] = accounts.map((acc) => {
+      const balance = balances.get(acc.id) ?? 0;
+      return {
+        ...acc,
+        balance,
+        availableCredit:
+          acc.type === "credit" && acc.creditLimit != null ? acc.creditLimit + balance : undefined,
+      };
+    });
     return { accounts: results, primaryAccountId };
   }
 
@@ -63,15 +67,16 @@ export class AccountService {
     await this.ensurePrimaryAccountCoherence(userId);
     const primaryAccountId = await this.userRepo.getPrimaryAccountId(userId);
     const accounts = await this.accountRepo.findAllForUser(userId);
-    const results: AccountWithBalance[] = [];
-    for (const acc of accounts) {
-      const balance = await this.txRepo.getBalance(acc.id);
-      const availableCredit =
-        acc.type === "credit" && acc.creditLimit != null
-          ? acc.creditLimit + balance
-          : undefined;
-      results.push({ ...acc, balance, availableCredit });
-    }
+    const balances = await this.txRepo.getBalances(accounts.map((a) => a.id));
+    const results: AccountWithBalance[] = accounts.map((acc) => {
+      const balance = balances.get(acc.id) ?? 0;
+      return {
+        ...acc,
+        balance,
+        availableCredit:
+          acc.type === "credit" && acc.creditLimit != null ? acc.creditLimit + balance : undefined,
+      };
+    });
     const pid = primaryAccountId;
     const byName = (a: AccountWithBalance, b: AccountWithBalance) =>
       a.name.localeCompare(b.name, undefined, { sensitivity: "base" });

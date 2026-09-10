@@ -24,6 +24,12 @@ async function pushPostgres(): Promise<void> {
   const query = (sql: string) => client.query(sql);
 
   try {
+    // docker-entrypoint.sh runs this before every container start, so two
+    // replicas coming up together race on the same DDL. The lock is blocking,
+    // not try-: a migration that is skipped is worse than one that waits.
+    // Session-scoped, and this is a dedicated Client, so it is released with
+    // the connection even if the process dies mid-run.
+    await client.query("SELECT pg_advisory_lock(hashtext($1))", ["homefinance:migrations"]);
     await client.query(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
         filename TEXT PRIMARY KEY,

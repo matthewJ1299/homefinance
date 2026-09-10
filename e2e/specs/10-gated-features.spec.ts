@@ -17,7 +17,7 @@ test.describe("Gated product features (seeded entitlements)", () => {
   });
 
   test("What I owe default + owed view", async ({ page }) => {
-    await goNav(page, "What I owe");
+    await goNav(page, "Statement");
     await expect(page).toHaveURL(/\/what-i-owe/);
     await expect(page.getByTestId("feature-unavailable")).toHaveCount(0);
     await page.goto("/what-i-owe?view=owed");

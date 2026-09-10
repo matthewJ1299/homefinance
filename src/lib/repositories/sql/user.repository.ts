@@ -41,6 +41,67 @@ function toUserForAuth(
 }
 
 export class UserRepository implements IUserRepository {
+  /**
+   * Tenant-scoped name lookup. Replaces a raw `SELECT id, name FROM users WHERE
+   * id IN (...)` that lived in BudgetService and carried no household filter --
+   * the one user query in the codebase that could have crossed tenants.
+   */
+  async getFeedbackLastSeenAt(userId: number): Promise<string | null> {
+    const hid = requireHouseholdId();
+    const row = await get<{ feedback_last_seen_at: string | null }>(
+      "SELECT feedback_last_seen_at FROM users WHERE id = ? AND household_id = ?",
+      [userId, hid]
+    );
+    return row?.feedback_last_seen_at ?? null;
+  }
+
+  async markFeedbackSeen(userId: number): Promise<void> {
+    const hid = requireHouseholdId();
+    // NOW() rather than a client timestamp, so the marker is on the same clock
+    // as the feedback rows it is compared against.
+    await run(
+      "UPDATE users SET feedback_last_seen_at = NOW() WHERE id = ? AND household_id = ?",
+      [userId, hid]
+    );
+  }
+
+  async getPasswordHash(userId: number): Promise<string | null> {
+    const row = await get<{ password_hash: string }>(
+      "SELECT password_hash FROM users WHERE id = ?",
+      [userId]
+    );
+    return row?.password_hash ?? null;
+  }
+
+  async setPasswordHash(
+    userId: number,
+    passwordHash: string,
+    options: { mustChangePassword: boolean }
+  ): Promise<void> {
+    // password_changed_at records when the USER last chose one, so an admin
+    // reset clears it rather than stamping now.
+    await run(
+      `UPDATE users
+          SET password_hash = ?,
+              must_change_password = ?,
+              password_changed_at = ${options.mustChangePassword ? "NULL" : "NOW()"}
+        WHERE id = ?`,
+      [passwordHash, options.mustChangePassword, userId]
+    );
+  }
+
+  async namesByIds(userIds: number[]): Promise<Map<number, string>> {
+    const hid = requireHouseholdId();
+    const unique = [...new Set(userIds.filter((id) => Number.isInteger(id) && id > 0))];
+    if (unique.length === 0) return new Map();
+    const placeholders = unique.map(() => "?").join(", ");
+    const rows = await all<{ id: number; name: string }>(
+      `SELECT id, name FROM users WHERE household_id = ? AND id IN (${placeholders})`,
+      [hid, ...unique]
+    );
+    return new Map(rows.map((r) => [r.id, r.name]));
+  }
+
   async findAll(): Promise<UserSummary[]> {
     const hid = requireHouseholdId();
     const rows = await all<UserRow>(

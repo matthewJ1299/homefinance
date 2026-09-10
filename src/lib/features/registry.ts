@@ -92,7 +92,8 @@ export const FEATURES: Readonly<Record<FeatureKey, FeatureDefinition>> = {
   goals: {
     key: "goals",
     label: "Goals",
-    description: "Savings and debt payoff goals with contributions linked to accounts.",
+    description:
+      "A Goals view of the budget: categories with an amount to reach by a date, and what to assign each month to land it.",
     navHrefs: ["/goals"],
     deniedMessage: "Goals are not part of your plan. Contact your administrator to add it.",
     serverConfig: "none",

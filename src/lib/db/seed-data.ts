@@ -1,3 +1,5 @@
+import type { CategorySemanticKey } from "@/lib/categories/semantic-key";
+
 /**
  * Shared seed data for db:seed and db:reset (categories-only).
  * Single source of truth for default categories.
@@ -10,6 +12,8 @@ export const defaultCategories: Array<{
   sortOrder: number;
   costType: "fixed" | "variable";
   defaultAmount: number | null;
+  /** Stable identity for categories the app behaves differently around. */
+  semanticKey?: CategorySemanticKey;
 }> = [
   { name: "Groceries", groupName: "Living", sortOrder: 0, costType: "variable", defaultAmount: null },
   { name: "Transport", groupName: "Living", sortOrder: 1, costType: "variable", defaultAmount: null },
@@ -23,6 +27,6 @@ export const defaultCategories: Array<{
   { name: "Education", groupName: "Goals", sortOrder: 9, costType: "variable", defaultAmount: null },
   { name: "Home", groupName: "Living", sortOrder: 10, costType: "variable", defaultAmount: null },
   { name: "Other", groupName: "Other", sortOrder: 11, costType: "variable", defaultAmount: null },
-  { name: "Splits", groupName: "Other", sortOrder: 12, costType: "variable", defaultAmount: null },
-  { name: "Mortgage", groupName: "Bills", sortOrder: 13, costType: "variable", defaultAmount: null },
+  { name: "Splits", groupName: "Other", sortOrder: 12, costType: "variable", defaultAmount: null, semanticKey: "splits" },
+  { name: "Mortgage", groupName: "Bills", sortOrder: 13, costType: "variable", defaultAmount: null, semanticKey: "mortgage" },
 ];

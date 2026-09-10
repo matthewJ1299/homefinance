@@ -1,3 +1,5 @@
+import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { FeedbackProvider } from "@/components/feedback/feedback-context";
 import { Header } from "./header";
 import { BottomNav } from "./bottom-nav";
 import { DesktopSidebar } from "./desktop-sidebar";
@@ -17,19 +19,35 @@ interface AppShellProps {
 export function AppShell({ children, featureKeys, isSuperAdmin, addSheetData }: AppShellProps) {
   return (
     <AddSheetProvider data={addSheetData}>
+    <FeedbackProvider>
     <div className="min-h-screen flex flex-col">
-      <PushSubscriptionRepair />
-      <Header featureKeys={featureKeys} isSuperAdmin={isSuperAdmin} />
+      {/*
+        Each piece of shell chrome is contained on its own. These render from the
+        layout, above the page segment, so an uncaught throw here would otherwise
+        skip `(app)/error.tsx` entirely and replace the whole app with the
+        full-page `global-error` fallback.
+      */}
+      <ErrorBoundary name="PushSubscriptionRepair">
+        <PushSubscriptionRepair />
+      </ErrorBoundary>
+      <ErrorBoundary name="Header">
+        <Header featureKeys={featureKeys} isSuperAdmin={isSuperAdmin} />
+      </ErrorBoundary>
       <div className="flex flex-1">
-        <DesktopSidebar featureKeys={featureKeys} isSuperAdmin={isSuperAdmin} />
+        <ErrorBoundary name="DesktopSidebar">
+          <DesktopSidebar featureKeys={featureKeys} isSuperAdmin={isSuperAdmin} />
+        </ErrorBoundary>
         <main className="flex-1 min-w-0 pb-24 md:pb-8">
           <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 md:max-w-none md:mx-0 md:px-8">
             {children}
           </div>
         </main>
       </div>
-      <BottomNav hasAddSheet={addSheetData != null} />
+      <ErrorBoundary name="BottomNav">
+        <BottomNav hasAddSheet={addSheetData != null} />
+      </ErrorBoundary>
     </div>
+    </FeedbackProvider>
     </AddSheetProvider>
   );
 }

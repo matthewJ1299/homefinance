@@ -4,7 +4,9 @@ import { expect } from "@playwright/test";
 /**
  * Sidebar labels after the UX pass. Income folded into Transactions, Splits
  * became "Shared costs", Recon became "From your bank", Summary became
- * "Reports".
+ * "Reports", and What I owe became "Statement" (51a622e) — keep this list in
+ * step with `src/components/layout/nav-items.ts`, or specs fail on a link that
+ * no longer exists rather than on the behaviour they are testing.
  */
 const NAV_LABELS = [
   "Home",
@@ -14,7 +16,7 @@ const NAV_LABELS = [
   "Transactions",
   "From your bank",
   "Shared costs",
-  "What I owe",
+  "Statement",
   "Budget",
   "Budget AI report",
   "Accounts",
@@ -22,6 +24,7 @@ const NAV_LABELS = [
   "Goals",
   "Reports",
   "Settings",
+  "Admin",
 ] as const;
 
 export type NavLabel = (typeof NAV_LABELS)[number];

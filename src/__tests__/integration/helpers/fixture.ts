@@ -152,6 +152,18 @@ export async function withHouseholdFixture(
       await run(`DELETE FROM budgets WHERE user_id IN (${ph})`, ids);
       await run(`DELETE FROM recon_import_items WHERE user_id IN (${ph})`, ids);
       await run(`DELETE FROM vendor_category_mappings WHERE user_id IN (${ph})`, ids);
+      // `transfers.from_account_id` / `to_account_id` are ON DELETE NO ACTION,
+      // so a transfer made during a test blocks the account delete below --
+      // unlike `account_transactions`, which cascades. That asymmetry is real
+      // in the schema, so the teardown has to know about it.
+      await run(
+        `DELETE FROM transfers WHERE from_account_id IN (
+           SELECT id FROM accounts WHERE owner_user_id IN (${ph})
+         ) OR to_account_id IN (
+           SELECT id FROM accounts WHERE owner_user_id IN (${ph})
+         )`,
+        [...ids, ...ids]
+      );
       // `accounts.owner_user_id` is ON DELETE NO ACTION, so an account made
       // during a test blocks the user delete below. Its transactions cascade,
       // and `users.primary_account_id` is ON DELETE SET NULL.

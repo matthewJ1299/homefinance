@@ -4,6 +4,7 @@ import path from "node:path";
 import { loginAsMatt, clearNewMonthGate, skipWelcomeIfPresent } from "../helpers/auth";
 import { E2E } from "../helpers/env";
 import { clearNewMonthIfPresent, goNav } from "../helpers/nav";
+import { addButton } from "../helpers/finance";
 
 /**
  * One sign-in, one browser, the whole app in order — for watching rather than
@@ -101,7 +102,10 @@ test("the whole flow, one sign-in", async ({ page }) => {
     // would hand the rest of the gallery back to the desktop layout.
     if (!onPhone()) await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => {});
-    await page.getByRole("button", { name: "Add a spend" }).click();
+    // Scoped to the nav bar: Home renders its own "Add a spend" launcher with
+    // the same accessible name, so a bare lookup matches two and fails strict
+    // mode. Both open the same sheet; the bar is the one every page has.
+    await addButton(page).click();
 
     const sheet = page.getByRole("dialog", { name: "Add" });
     await expect(sheet).toBeVisible();
@@ -155,6 +159,20 @@ test("the whole flow, one sign-in", async ({ page }) => {
     await beat(page, "one card per person, netted — the row states your share, not the bill");
   });
 
+  await test.step("Statement — the same balances, printable", async () => {
+    await goNav(page, "Statement");
+    await expect(page.getByText(/What you owe|What .+ owes you/i).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Print" })).toBeVisible();
+    await beat(page, "the same balances, laid out as a statement you can print");
+  });
+
+  await test.step("Accounts — balances, and where a transfer goes", async () => {
+    await goNav(page, "Accounts");
+    await expect(page.getByRole("heading", { name: "Accounts" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Transfer Money" })).toBeVisible();
+    await beat(page, "accounts and their balances, with Transfer Money between them");
+  });
+
   await test.step("Budget — read-only rows, edits in the sheet", async () => {
     await goNav(page, "Budget");
     await clearNewMonthIfPresent(page);
@@ -179,6 +197,12 @@ test("the whole flow, one sign-in", async ({ page }) => {
     await beat(page, "share of what is paid for so far, in a sentence");
   });
 
+  await test.step("Budget AI report", async () => {
+    await goNav(page, "Budget AI report");
+    await expect(page.getByRole("heading", { name: "Budget AI report" })).toBeVisible();
+    await beat(page, "a monthly read on where you overspent, if you want it");
+  });
+
   await test.step("Reports, Calendar, Lists", async () => {
     await goNav(page, "Reports");
     await expect(page.getByRole("heading", { name: "Reports" })).toBeVisible();
@@ -190,6 +214,28 @@ test("the whole flow, one sign-in", async ({ page }) => {
 
     await goNav(page, "Lists");
     await beat(page, "ticking anything offers to log the whole shop once");
+  });
+
+  await test.step("From your bank — the recon inbox", async () => {
+    await goNav(page, "From your bank");
+    await expect(page.getByRole("heading", { name: "From your bank" })).toBeVisible();
+    await beat(page, "merchant emails waiting to become transactions");
+  });
+
+  await test.step("Settings", async () => {
+    await goNav(page, "Settings");
+    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+    await beat(page, "grouped sections, and the setup guide you can reopen");
+  });
+
+  await test.step("Admin — every household, and the feedback inbox", async () => {
+    await goNav(page, "Admin");
+    await expect(page.getByRole("heading", { name: "Houses" })).toBeVisible();
+    await beat(page, "every household, from one screen");
+
+    await page.getByRole("link", { name: "Feedback", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Feedback" })).toBeVisible();
+    await beat(page, "feedback lands here, with who sent it and what they were doing");
   });
 
   await test.step("How this works", async () => {

@@ -34,7 +34,8 @@ const GATES: Array<{
   {
     label: "What I owe",
     featureKey: "what_i_owe",
-    nav: "What I owe",
+    // The admin entitlement is still called "What I owe"; the nav link is "Statement".
+    nav: "Statement",
     path: "/what-i-owe",
   },
   { label: "Mortgage", featureKey: "mortgage", nav: "Mortgage", path: "/mortgage" },

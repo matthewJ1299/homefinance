@@ -115,7 +115,7 @@ Go to the **Environment Variables** tab and add:
 | `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD`, etc. | No                      | Used when running the user/demo seed scripts to create initial users from env (see **Running seed scripts on the server**).                                                                                                                                                                                                                                  |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`                            | No (for push)           | Required for PWA push notifications. Generate with `npm run generate-vapid-keys` and add both to env. Without them, users cannot enable notifications in Settings. Keep the private key secret. You do **not** need to rotate keys on a schedule; only change them if the private key was exposed or compromised (see **When to change VAPID keys** below). |
 | `VAPID_SUBJECT`                                                    | No (for push)           | The `mailto:` or `https:` URI in the VAPID JWT `sub` claim. Default: `mailto:push@homefinance.app`. Apple is strict about this; use a real email domain (not `.local`). Example: `mailto:you@yourdomain.com`. |
-| `CRON_SECRET`                                                      | No (for daily calendar) | Secret for the 10am daily calendar notification cron. If set, requests to `/api/cron/daily-calendar-notification` must send `Authorization: Bearer <CRON_SECRET>` or header `x-cron-secret: <CRON_SECRET>`. If unset, the route runs without auth (use only for testing).                                                                                   |
+| `CRON_SECRET`                                                      | **Yes** | Secret for the 10am daily calendar notification cron. Requests to `/api/cron/daily-calendar-notification` must send `Authorization: Bearer <CRON_SECRET>` or header `x-cron-secret: <CRON_SECRET>`. The route now fails closed: **without this set it returns 503**, not an open endpoint. |
 
 
 Do **not** commit real values to the repository.
@@ -127,7 +127,7 @@ Do **not** commit real values to the repository.
 To send a push at 10am on days when there is a calendar event, call the cron endpoint once per day at 10am in your desired timezone.
 
 - **Endpoint**: `GET https://<your-app-domain>/api/cron/daily-calendar-notification`
-- **Auth**: Set `CRON_SECRET` in the app env, then send it with the request: `Authorization: Bearer <CRON_SECRET>` or header `x-cron-secret: <CRON_SECRET>`. If `CRON_SECRET` is not set, the route runs without auth (do not use in production).
+- **Auth**: Set `CRON_SECRET` in the app env, then send it with the request: `Authorization: Bearer <CRON_SECRET>` or header `x-cron-secret: <CRON_SECRET>`. The route fails closed — without `CRON_SECRET` set it returns 503 and sends nothing, rather than running open.
 - **Example (system cron, 10am server time)**:
   ```bash
   0 10 * * * curl -s -H "Authorization: Bearer $CRON_SECRET" "https://your-domain/api/cron/daily-calendar-notification"

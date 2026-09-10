@@ -70,8 +70,10 @@ async function ensureJordaanHousehold(): Promise<number> {
   }
 
   await run(
-    `INSERT INTO households (name, ai_tier, approval_status, ai_feature_allowed, recon_feature_allowed)
-     VALUES (?, 'free', 'active', true, true)`,
+    // Entitlements live in household_features since migration 0030; the
+    // households.*_feature_allowed columns it superseded are read by nothing.
+    `INSERT INTO households (name, ai_tier, approval_status)
+     VALUES (?, 'free', 'active')`,
     [SEED_HOUSEHOLD_NAME]
   );
   const householdId = await lastInsertId();

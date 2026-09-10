@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { HouseholdMember } from "@/lib/types/household-member";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { AddSheet, type AddSheetCategory, type AddSheetPrefill } from "./add-sheet";
 
 interface AddSheetData {
@@ -46,17 +47,22 @@ export function AddSheetProvider({
     <AddSheetContext.Provider value={value}>
       {children}
       {data ? (
-        <AddSheet
-          open={isOpen}
-          onOpenChange={setIsOpen}
-          me={data.me}
-          members={data.members}
-          categories={data.categories}
-          accounts={data.accounts}
-          defaultAccountId={data.defaultAccountId}
-          defaultDate={data.defaultDate}
-          prefill={prefill ?? {}}
-        />
+        // The sheet is the largest client component in the shell and the one
+        // most likely to throw on odd data. Contained so a bad prefill costs
+        // the sheet, not the whole app.
+        <ErrorBoundary name="AddSheet">
+          <AddSheet
+            open={isOpen}
+            onOpenChange={setIsOpen}
+            me={data.me}
+            members={data.members}
+            categories={data.categories}
+            accounts={data.accounts}
+            defaultAccountId={data.defaultAccountId}
+            defaultDate={data.defaultDate}
+            prefill={prefill ?? {}}
+          />
+        </ErrorBoundary>
       ) : null}
     </AddSheetContext.Provider>
   );

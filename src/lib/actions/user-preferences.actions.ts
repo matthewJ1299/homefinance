@@ -5,7 +5,8 @@ import { auth } from "@/lib/auth";
 import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { getHouseholdRepository, getUserRepository } from "@/lib/repositories";
 import { normalizeBudgetMonthStartDay } from "@/lib/utils/date";
-import type { SetupWizardStatus } from "@/lib/repositories/interfaces/user.repository";
+import { clearBudgetMonthStartDayMemo } from "@/lib/db/request-context";
+import { isSetupWizardStatus, type SetupWizardStatus } from "@/lib/repositories/interfaces/user.repository";
 import { isOnboardingStep } from "@/lib/onboarding/steps";
 
 export type UpdateBudgetMonthStartDayResult =
@@ -34,6 +35,7 @@ export async function updateBudgetMonthStartDayAction(
   // budget months is the bug this replaced. The users column is left written
   // for one release so the migration stays reversible.
   await getHouseholdRepository().setBudgetMonthStartDay(normalized);
+  clearBudgetMonthStartDayMemo();
   await getHouseholdRepository().clearBudgetMonthNotice();
   await getUserRepository().updateBudgetMonthStartDay(userId, normalized);
   revalidatePath("/dashboard");
@@ -53,6 +55,10 @@ export async function updateSetupWizardStatusAction(
     return { success: false, error: "Unauthorized" };
   }
   setRequestContextFromSession(session);
+
+  if (!isSetupWizardStatus(status)) {
+    return { success: false, error: "Invalid onboarding status." };
+  }
 
   const userId = Number(session.user.id);
   const repo = getUserRepository();

@@ -55,4 +55,11 @@ export const MIGRATION_FILES: readonly string[] = [
   "0043_goals_as_categories_pg.sql",
   "0044_established_users_skip_onboarding_pg.sql",
   "0045_repair_negative_allocations_pg.sql",
+  "0046_hot_path_indexes_pg.sql",
+  "0047_category_semantic_key_pg.sql",
+  "0048_tenant_composite_fks_pg.sql",
+  "0049_ledger_typed_references_pg.sql",
+  "0050_domain_check_constraints_pg.sql",
+  "0051_ledger_reference_required_pg.sql",
+  "0052_feedback_pg.sql",
 ];

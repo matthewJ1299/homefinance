@@ -22,8 +22,10 @@ async function seedMinimal() {
   }
 
   await run(
-    `INSERT INTO households (name, ai_tier, approval_status, ai_feature_allowed, recon_feature_allowed)
-     VALUES (?, 'free', 'active', true, true)`,
+    // Entitlements live in household_features since migration 0030; the
+    // households.*_feature_allowed columns it superseded are read by nothing.
+    `INSERT INTO households (name, ai_tier, approval_status)
+     VALUES (?, 'free', 'active')`,
     [SEED_HOUSEHOLD_NAME]
   );
   const householdId = await lastInsertId();
@@ -42,7 +44,9 @@ async function seedMinimal() {
   for (const featureKey of FEATURE_KEYS) {
     await run(
       `INSERT INTO household_features (household_id, feature_key, enabled, granted_by_user_id, notes)
-       VALUES (?, ?, true, ?, 'seed-minimal')`,
+       VALUES (?, ?, true, ?, 'seed-minimal')
+       ON CONFLICT (household_id, feature_key)
+       DO UPDATE SET enabled = true`,
       [householdId, featureKey, mattId]
     );
   }

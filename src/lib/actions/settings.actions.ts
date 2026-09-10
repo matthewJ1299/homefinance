@@ -1,7 +1,6 @@
 "use server";
 
-import { auth } from "@/lib/auth";
-import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
+import { authedAction } from "@/lib/actions/_shared/authed-action";
 import {
   getSharedListItemRepository,
   getSharedListRepository,
@@ -18,25 +17,22 @@ export type SettingsListItemsPayload = {
 export async function loadSettingsListItemsAction(): Promise<
   { success: true; data: SettingsListItemsPayload } | { success: false; error: string }
 > {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { success: false, error: "Unauthorized" };
-  }
-  setRequestContextFromSession(session);
-
-  const userId = Number(session.user.id);
-  const lists = await getSharedListRepository().findAll();
-  const itemRepo = getSharedListItemRepository();
-  const itemsByListId: Record<number, SharedListItem[]> = {};
-  await Promise.all(
-    lists.map(async (list) => {
-      itemsByListId[list.id] = await itemRepo.findByListId(list.id);
-    })
+  return authedAction<{ success: true; data: SettingsListItemsPayload }>(
+    async ({ userId }) => {
+      const lists = await getSharedListRepository().findAll();
+      const itemRepo = getSharedListItemRepository();
+      const itemsByListId: Record<number, SharedListItem[]> = {};
+      await Promise.all(
+        lists.map(async (list) => {
+          itemsByListId[list.id] = await itemRepo.findByListId(list.id);
+        })
+      );
+      const notesByItemId = await notesByItemIdForUser(
+        userId,
+        Object.values(itemsByListId).flat()
+      );
+      return { success: true, data: { itemsByListId, notesByItemId } };
+    },
+    { onError: "Those lists didn't load. Try again." }
   );
-  const notesByItemId = await notesByItemIdForUser(
-    userId,
-    Object.values(itemsByListId).flat()
-  );
-
-  return { success: true, data: { itemsByListId, notesByItemId } };
 }

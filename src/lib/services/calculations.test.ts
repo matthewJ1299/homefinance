@@ -32,6 +32,8 @@ vi.mock("@/lib/repositories", () => ({
   getUserRepository: vi.fn().mockReturnValue({
     getBudgetMonthStartDay: vi.fn().mockResolvedValue(1),
     updateBudgetMonthStartDay: vi.fn().mockResolvedValue(undefined),
+    // Transfer display names, batched and tenant-scoped (was raw SQL in the service).
+    namesByIds: vi.fn().mockResolvedValue(new Map()),
   }),
   // The budget month start day is a household setting since migration 0042.
   getHouseholdRepository: vi.fn().mockReturnValue({
@@ -49,6 +51,8 @@ vi.mock("@/lib/repositories", () => ({
 
 vi.mock("@/lib/db", () => ({
   all: vi.fn().mockResolvedValue([]),
+  // getOverview no longer writes; materialiseAllocationsForMonth (openMonth only) does.
+  withTransaction: vi.fn(async (fn: () => Promise<unknown>) => fn()),
 }));
 
 describe("budget calculations", () => {

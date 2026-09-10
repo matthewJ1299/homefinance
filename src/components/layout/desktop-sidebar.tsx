@@ -7,6 +7,7 @@ import { signOut } from "next-auth/react";
 import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
 import { fullNavItems, groupNavItems, navItemsForFeatures } from "./nav-items";
 import { cn } from "@/lib/utils";
+import { FeedbackMenuItem } from "@/components/feedback/feedback-menu-item";
 import type { FeatureKey } from "@/lib/features/registry";
 
 const STORAGE_KEY = "sidebar:collapsed";
@@ -69,7 +70,7 @@ export function DesktopSidebar({
         </button>
       </div>
 
-      <nav className="flex flex-col gap-1 p-2 flex-1">
+      <nav aria-label="Primary" className="flex flex-col gap-1 p-2 flex-1">
         {groups.map((group) => (
           <div key={group.name} className="pb-2">
             {/* Headings would be noise at 64px wide, where only icons show. */}
@@ -103,6 +104,7 @@ export function DesktopSidebar({
       </nav>
 
       <div className="mt-auto p-2 border-t">
+        <FeedbackMenuItem collapsed={collapsed} />
         <button
           type="button"
           onClick={() => signOut({ callbackUrl: "/login" })}

@@ -9,7 +9,7 @@ import { toMinorUnits } from "@/lib/utils/currency";
 import type { CategoryWithActive } from "@/lib/types";
 import {
   ONBOARDING_DEFAULT_ACTIVE_NAMES,
-  ONBOARDING_HIDDEN_CATEGORY_NAMES,
+  isHiddenOnboardingCategory,
 } from "@/lib/onboarding/steps";
 import { toast } from "sonner";
 
@@ -46,7 +46,7 @@ export function OnboardingCategoriesStep(props: {
   // is driven by the mortgage itself. Asking someone to tick them as spending
   // areas invites them to turn off a category the app needs.
   const categories = useMemo(
-    () => allCategories.filter((c) => !ONBOARDING_HIDDEN_CATEGORY_NAMES.has(c.name)),
+    () => allCategories.filter((c) => !isHiddenOnboardingCategory(c)),
     [allCategories]
   );
   const [drafts, setDrafts] = useState<Record<number, CategoryDraft>>(() => {

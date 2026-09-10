@@ -127,6 +127,9 @@ export function CategoriesManage({ categories }: CategoriesManageProps) {
         rollover: true,
         targetMinor: null,
         targetDate: null,
+        // User-created categories are ordinary ones; the semantic keys belong to
+        // the seeded plumbing categories (Splits, Mortgage, Unaccounted).
+        semanticKey: null,
       },
     ]);
     startTransition(async () => {

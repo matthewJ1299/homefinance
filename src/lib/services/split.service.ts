@@ -13,7 +13,7 @@ import type { OwedLineItemRow } from "@/lib/repositories/interfaces/split-alloca
 import { budgetMonthKeyForUser } from "@/lib/utils/budget-month-for-user";
 import type { SplitBalance, SplitHistoryItem } from "@/lib/types";
 import { calculateSplitBalance, splitExpense } from "@/lib/services/finance/accounts";
-import { withTransaction } from "@/lib/db/postgres-client";
+import { withTransaction } from "@/lib/db";
 
 export type CreateSplitOptions =
   | { type: "equal" }
@@ -139,7 +139,7 @@ export class SplitService {
     /** Category the recipient's money lands in. Defaults to their most overspent. */
     targetCategoryId?: number
   ): Promise<void> {
-    const splitsCategory = await this.categoryRepo.findByName("Splits");
+    const splitsCategory = await this.categoryRepo.findBySemanticKey("splits");
     if (!splitsCategory) {
       throw new Error("Splits category not found. Run db:seed to create it.");
     }
@@ -304,9 +304,14 @@ export class SplitService {
     const expenses = await this.expenseRepo.findSplitExpenses(groupId);
     const settlements = await this.settlementRepo.findAllForUser(userId, groupId);
 
+    // One query for the whole page rather than one three-table join per row.
+    const allocationsByExpense = await this.allocationRepo.findByExpenseIds(
+      expenses.map((e) => e.id)
+    );
+
     const result: SplitHistoryItem[] = [];
     for (const exp of expenses) {
-      const allocations = await this.allocationRepo.findByExpenseId(exp.id);
+      const allocations = allocationsByExpense.get(exp.id) ?? [];
       result.push({
         type: "expense",
         expenseId: exp.id,

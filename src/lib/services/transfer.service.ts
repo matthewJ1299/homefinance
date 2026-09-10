@@ -1,3 +1,4 @@
+import { withTransaction } from "@/lib/db";
 import {
   getAccountRepository,
   getAccountTransactionRepository,
@@ -42,27 +43,35 @@ export class TransferService {
       throw new Error("Insufficient funds in source account");
     }
 
-    const { id: transferId } = await this.transferRepo.create({
-      fromAccountId: from.id,
-      toAccountId: to.id,
-      amount: input.amount,
-      note: input.note ?? null,
-    });
+    // The transfer row and BOTH ledger legs land together or not at all.
+    //
+    // Unwrapped, a failure between the two legs left the debit without the
+    // credit -- money simply gone from the household's total, with no screen
+    // able to say where. The reverse ordering invents it. This is the one place
+    // in the app where a partial write breaks conservation of money.
+    await withTransaction(async () => {
+      const { id: transferId } = await this.transferRepo.create({
+        fromAccountId: from.id,
+        toAccountId: to.id,
+        amount: input.amount,
+        note: input.note ?? null,
+      });
 
-    await this.txRepo.create({
-      accountId: from.id,
-      amount: -input.amount,
-      transactionType: "transfer_out",
-      referenceType: "transfer",
-      referenceId: transferId,
-    });
+      await this.txRepo.create({
+        accountId: from.id,
+        amount: -input.amount,
+        transactionType: "transfer_out",
+        referenceType: "transfer",
+        referenceId: transferId,
+      });
 
-    await this.txRepo.create({
-      accountId: to.id,
-      amount: input.amount,
-      transactionType: "transfer_in",
-      referenceType: "transfer",
-      referenceId: transferId,
+      await this.txRepo.create({
+        accountId: to.id,
+        amount: input.amount,
+        transactionType: "transfer_in",
+        referenceType: "transfer",
+        referenceId: transferId,
+      });
     });
   }
 }

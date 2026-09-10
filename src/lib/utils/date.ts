@@ -115,6 +115,27 @@ export function formatDisplayDate(isoDate: string): string {
   return format(new Date(isoDate + "T12:00:00"), "d MMM yyyy");
 }
 
+/**
+ * Display a stored timestamp in the household's zone.
+ *
+ * Africa/Johannesburg rather than the device clock, matching the rest of the
+ * app's user-facing dates: an admin reading feedback should see the time the
+ * person actually sent it, not a time shifted by wherever the reader is.
+ */
+export function formatDisplayDateTime(value: string | Date): string {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-ZA", {
+    timeZone: "Africa/Johannesburg",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d);
+}
+
 /** "25th", for stating a budget month window in words. */
 export function ordinalDay(day: number): string {
   const n = Math.max(1, Math.min(31, Math.round(day)));

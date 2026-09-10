@@ -15,7 +15,19 @@ export interface UserForAuth {
   isSuperAdmin: boolean;
 }
 
-export type SetupWizardStatus = "not_started" | "in_progress" | "dismissed" | "completed";
+export const SETUP_WIZARD_STATUSES = [
+  "not_started",
+  "in_progress",
+  "dismissed",
+  "completed",
+] as const;
+
+export type SetupWizardStatus = (typeof SETUP_WIZARD_STATUSES)[number];
+
+/** The union is erased at runtime; a server action is a public HTTP surface. */
+export function isSetupWizardStatus(value: unknown): value is SetupWizardStatus {
+  return typeof value === "string" && (SETUP_WIZARD_STATUSES as readonly string[]).includes(value);
+}
 
 export interface SetupWizardState {
   status: SetupWizardStatus;
@@ -36,6 +48,23 @@ export interface UserAuthState {
 
 export interface IUserRepository {
   findAll(): Promise<UserSummary[]>;
+  /** Display names for the given ids, scoped to the household. Missing ids are absent. */
+  namesByIds(userIds: number[]): Promise<Map<number, string>>;
+  /** When this admin last opened the feedback screen. Null means never. */
+  getFeedbackLastSeenAt(userId: number): Promise<string | null>;
+  /** Marks the feedback screen as read up to now, for this admin only. */
+  markFeedbackSeen(userId: number): Promise<void>;
+  /** Stored bcrypt hash, or null when the user is gone. */
+  getPasswordHash(userId: number): Promise<string | null>;
+  /**
+   * Replaces the stored hash. `mustChangePassword` true is an admin reset (the
+   * user is forced to set their own next sign-in); false is the user choosing.
+   */
+  setPasswordHash(
+    userId: number,
+    passwordHash: string,
+    options: { mustChangePassword: boolean }
+  ): Promise<void>;
   findAllExcept(userId: number): Promise<UserSummary[]>;
   findById(id: number): Promise<UserSummary | null>;
   findByEmailForAuth(email: string): Promise<UserForAuth | null>;

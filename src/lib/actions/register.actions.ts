@@ -15,5 +15,11 @@ export async function registerHouseholdAction(
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  return new RegistrationService().registerPendingHousehold(parsed.data);
+  try {
+    return await new RegistrationService().registerPendingHousehold(parsed.data);
+  } catch (err) {
+    // Public endpoint: never surface database text to an unauthenticated caller.
+    console.error("[register] failed:", err);
+    return { success: false, error: "We could not create that account. Try again." };
+  }
 }

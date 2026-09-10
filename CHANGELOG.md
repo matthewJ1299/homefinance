@@ -2,6 +2,178 @@
 
 ## [Unreleased]
 
+### Added — in-app feedback
+
+People can say what is wrong without leaving the screen it happened on, and a
+super-admin reads it in one place.
+
+- **"Send feedback" in the nav** (desktop sidebar and the mobile menu) opens a
+  modal with free text. A button rather than a route: navigating to a feedback
+  page would lose the screen the person wants to talk about, which is the one
+  thing the report needs.
+- **Failures offer to become a report.** A genuine failure shows a toast with a
+  **"Tell us"** action; taking it opens the same modal with the error text shown
+  read-only and "what were you trying to do" already filled in — asking someone
+  to remember what they just did is how you get "it broke".
+- **`/admin/feedback`** lists everything across every household, newest first,
+  with a **New** marker on what arrived since that admin last looked, and an
+  unread count on the Admin nav item. Per-admin: one super-admin reading the
+  list does not clear the badge for another. The count is read *before* the
+  marker moves, so the screen says "1 new" on the visit that clears it rather
+  than the visit after.
+- **Stored per report:** the text, the person and their household, what they
+  were attempting, the route they were on, the error that prompted it, and
+  whether it came from the menu or a failure — an error-raised report is a bug
+  report, a menu-raised one is usually a suggestion, and that is worth knowing
+  before reading.
+
+Migration `0052_feedback_pg.sql`, following the conventions added earlier in this
+release: a composite tenant foreign key on `(user_id, household_id)`, CHECK
+constraints on `source` and on non-empty body, and indexes for both read shapes.
+
+**Which failures offer to become a report.** `authedAction` now marks a failure
+`reportable` when it came from an exception rather than a rule the person broke.
+Validation ("Pick a day between 1 and 28") gets a plain toast; an unexpected
+failure gets the affordance. Deciding this on the server is the only place it is
+actually known — a call site cannot tell the two apart from `{ success: false }`.
+Crashes contained by an `ErrorBoundary` and uncaught promise rejections raise it
+automatically, so the coverage does not depend on remembering.
+
+**One thing worth knowing:** the toast is published a task late, because Sonner
+does not replay toasts created before its `<Toaster>` subscribes — an error
+caught during hydration fires in the same commit that mounts it, and the first
+version of this was silently dropping exactly the toasts it existed to show.
+
+### Fixed — the shell's hydration crash
+
+- **`useOfflineQueue` read `navigator.onLine` during render.** Guarded by
+  `typeof navigator !== "undefined"`, which is exactly the server/client branch
+  React's hydration error names: the server has no `navigator` so it rendered
+  `true` and `OfflineIndicator` returned `null`, while a client reporting `false`
+  rendered a span. One extra DOM node on the client failed hydration, tore down
+  the shell, and left React's Suspense reveal script looking for a marker that no
+  longer existed — surfacing as `Cannot read properties of null (reading
+  'parentNode')`. Both errors had this single cause. The initial state is now the
+  server-safe `true`, corrected by the effect that was already there.
+  Next's dev overlay pointed at `mobile-nav-menu.tsx`, which is the *next*
+  element after the missing node rather than the culprit.
+
+### Added — errors are contained instead of fatal
+
+- **`ErrorBoundary`** (`src/components/ui/error-boundary.tsx`) — a named,
+  logging React error boundary with an optional fallback (defaulting to nothing,
+  because replacing the header with an error card is worse than the header being
+  briefly absent).
+- **The shell's chrome is individually contained** — `Header`, `DesktopSidebar`,
+  `BottomNav`, `PushSubscriptionRepair` and the `AddSheet` each sit in their own
+  boundary. These render from the *layout*, above the page segment, so an
+  uncaught throw skipped `(app)/error.tsx` entirely and replaced the whole app
+  with the full-page `global-error` fallback. Verified by injecting a throw into
+  the `Header` server component: the header vanished and every other part of the
+  app kept working, with `[Header] crashed and was contained` in the console.
+
+### Added — the database now enforces its own rules
+
+Three structural migrations. Each was dry-run against real data first; two of the
+checks would have failed as originally written, and the validation is what caught
+them.
+
+- **Tenancy is a database guarantee** (`0048_tenant_composite_fks_pg.sql`) — every
+  tenant-scoped foreign key was two independent constraints: a pointer to a parent
+  row, and separately a `household_id`. Nothing stopped an expense in household A
+  referencing a category in household B; only `requireHouseholdId()` did, and one
+  query was found skipping it. **57 composite foreign keys** on
+  `(fk_column, household_id)` make the cross-tenant reference unrepresentable.
+  `ON DELETE SET NULL (col)` (Postgres 15+ column lists) so `household_id` is never
+  nulled. Excluded on purpose: `household_features.granted_by_user_id`, which points
+  at the granting super-admin and is legitimately cross-household — 56 rows would
+  have failed.
+- **The ledger's polymorphic pointer got real foreign keys**
+  (`0049_ledger_typed_references_pg.sql`, tightened by `0051`) — `reference_type` /
+  `reference_id` carried no FK, so the database could not cascade a delete and every
+  call site had to remember. It didn't: deleting a spend, deleting an income, and
+  editing either amount each desynced the account balance a different way. Typed
+  `expense_id` / `income_id` / `transfer_id` columns with `ON DELETE CASCADE` make
+  the invariant hold whether or not a call site remembers. Backfilled 135 / 21 / 30
+  rows, none orphaned; 5 untyped rows (opening balances, balance-check adjustments)
+  are legitimate and permitted.
+- **Domain constraints** (`0050_domain_check_constraints_pg.sql`) — **9 → 33 CHECK
+  constraints**. Thirteen TEXT columns carried a closed set of values with nothing
+  enforcing it. Each set is the *union* of what the code writes and what the rows
+  hold, because those differ: the code writes `notes.linked_type = 'shared_list_item'`
+  which no row has yet, and rows hold `recon_import_items.parse_type = 'debit'` which
+  the code no longer writes. A constraint built from either source alone would have
+  rejected valid writes. Also: ISO date/month formats, `budget_month_start_day`
+  between 1 and 28, positive transfer amounts, and a transfer's two accounts being
+  distinct.
+
+Date format checks use `[0-9]` rather than `\d`: `\d` matched **zero** of 147
+correctly-formatted rows on this server, so the constraint as first written would
+have rejected every row and failed the migration.
+
+### Fixed — the same ledger bug in three more places
+
+Found by tracing the money paths the original audit missed.
+
+- **`IncomeService` had the identical defect to `ExpenseService`** — `create` was
+  not atomic, and `delete` left the ledger credit behind, inflating the account
+  permanently.
+- **Neither expense nor income synced the ledger on edit** — correcting an amount
+  moved the row on screen and left the account on the old figure, so the balance
+  drifted by the difference on every correction. New
+  `updateAmountByReference` on the repository, called inside the update transaction.
+- **`transferBetweenAccounts` wrote three rows with no transaction** — a failure
+  between the debit and the credit destroys money outright. It is the one operation
+  where a partial write breaks conservation.
+- **`withTransaction` is now re-entrant** — `BudgetAiApplyService` wraps a loop that
+  calls `BudgetService.transfer`, which opened its own transaction: the inner writes
+  took a second pooled client, committed independently, and survived a rollback of
+  the outer. A nested call now joins the open transaction.
+- **The integration fixture never cleaned up `transfers`**, so any test creating one
+  broke teardown on `transfers_from_account_id_fkey` — the asymmetric cascade policy
+  (`account_transactions` cascades, `transfers` blocks) made real.
+
+### Fixed
+
+- **Deleting a spend left its ledger row, so account balances stayed wrong forever** — `ExpenseService.create` writes an `account_transactions` debit when a spend is filed against an account; nothing removed it, and the repository had no delete method at all. Because `reference_type`/`reference_id` is a polymorphic pointer with no foreign key, the database could not cascade it either. New `deleteByReference`, called from `ExpenseService.delete` inside the same transaction as the delete. To count existing orphans: `SELECT count(*), sum(amount) FROM account_transactions at WHERE at.reference_type = 'expense' AND NOT EXISTS (SELECT 1 FROM expenses e WHERE e.id = at.reference_id);`
+- **Account balances were strings wearing a `number` type** — `SUM()` over a `BIGINT` column returns `NUMERIC`, which node-pg hands back as a string. Home's cash-on-hand concatenated its accounts instead of adding them, available credit came out as `"50000-20000"`, and the delete button's `balance !== 0` guard never matched. `getBalance` now runs through `coerceBigInt`.
+- **Core mutations were not atomic** — `ExpenseService.create` was four sequential writes followed by three best-effort compensating deletes, each swallowed with `.catch(() => {})`, so a failed compensation left a half-written spend and said nothing. Creation, deletion, and the settlement delete path now run in `withTransaction`.
+- **`deleteBySplitGroupId` deleted one row** — `LIMIT 1`, which was only correct because the current model writes one expense per split UUID. Replaced with `findIdsBySplitGroupId` plus `ExpenseService.deleteBySplitGroup`, which removes every row in the group and each one's ledger entry.
+- **The cron endpoint was public when `CRON_SECRET` was unset** — `if (secret) { ...check... }` skipped the check entirely rather than refusing. It now returns 503.
+- **A database blip could kill the process** — `new Pool({ connectionString })` had no `error` listener, and node-pg emits `error` on the Pool when an idle client fails (a Postgres restart or failover). Added, along with `max`, `connectionTimeoutMillis`, `idleTimeoutMillis`, `statement_timeout` and optional SSL, all env-tunable.
+- **One repository query failed open** — `findOwedToPayerInPeriod` was the only method in the SQL layer that neither called `requireHouseholdId()` nor filtered `household_id`. `BudgetService.getUserNamesForTransfers` had the same shape in raw SQL; it moved to `UserRepository.namesByIds`, tenant-scoped.
+- **Every query logged its parameters to stdout** — expense notes, names, email addresses and amounts, unconditionally, on every page render. Gated by `DB_LOG` (`off` / `summary` / `verbose`); production defaults to `summary`, which never prints values.
+- **Half the server actions could throw** — ten of twenty action files had no `try`, so a repository error surfaced as an opaque Next.js error instead of a toast and skipped the optimistic rollback. New `authedAction` wrapper does auth, request context and the failure contract in one place, and keeps raw Postgres text out of the browser in production.
+- **`updateSetupWizardStatusAction` had no runtime check** — the TypeScript union is erased, and a server action is a public HTTP surface. Added `isSetupWizardStatus`.
+- **Two buttons shared one accessible name on Home** — the quick-add launcher and the bottom bar's centre button both announced "Add a spend". Both `<nav>` landmarks are now named, which also unblocked three E2E specs failing on a strict-mode locator violation.
+
+### Added
+
+- **Hot-path indexes** (`0046_hot_path_indexes_pg.sql`) — `expenses`, `income`, `split_allocations`, `split_settlements`, `calendar_events`, `shared_lists`, `shared_list_items`, `mortgage_payments`, `recurring_*`, `budget_transfers` and `users` had **zero** indexes beyond their primary keys, while every query leads with `household_id`. 22 indexes drawn from the actual predicates in `src/lib/repositories/sql/*`. Plain `CREATE INDEX`, because `push.ts` is transactional and `CONCURRENTLY` cannot run inside a transaction — the lock is milliseconds at current row counts and would not be later.
+- **`categories.semantic_key`** (`0047_category_semantic_key_pg.sql`) — behaviour was keyed off the display name (`category.name === "Splits"` routed a spend into settlement logic), so renaming a category silently disabled the feature with no error. `splits` / `mortgage` / `unaccounted` are now stable identities, backfilled from the names the code matched on, with a name fallback for rows the backfill cannot reach.
+- **`GET /api/health`** — unauthenticated readiness probe reporting whether the process can reach Postgres. 200 or 503, and nothing about the schema or the data.
+- **`global-error.tsx`** — the route-group boundaries cannot catch a failure in the root layout; that case previously fell through to Next's stock page.
+- **Advisory locks** (`src/lib/db/advisory-lock.ts`) — every replica runs the in-process scheduler, so `runDailySummary` sent N copies of the 9am summary from N containers (the per-event reminders were already protected by the `sent_reminders` unique index). Both jobs now take a try-lock per tick and the loser skips. `db:push` takes a blocking one, so containers starting together queue rather than race on DDL.
+- **Migration manifest drift test** — `MIGRATION_FILES` is the sole ordering authority and deliberately not numeric, so a forgotten entry meant the migration simply never ran and surfaced later as a missing column in production. Now a failing unit test.
+- **Ledger and atomicity integration tests** — `src/__tests__/integration/expense-ledger.integration.test.ts`, including a guard for `lastInsertId` inside a transaction.
+
+### Changed
+
+- **The budget read path no longer writes** — `getOverview` persisted allocation rows on every call, and it is called from Home, Budget, Goals and the AI service, so two concurrent page loads raced on the same rows. Materialising is now `openMonth`'s job, in one transaction. `openMonth` also stopped running a second full `getOverview` purely for that side effect.
+- **The budget month start day is resolved once per request** — it was re-queried five to eight times per render. Memoised on `RequestContext`, which covers RSC renders, route handlers, actions and background jobs alike.
+- **Split balances and history are one query each** — `findAllForBalance` ran two `SELECT name FROM users` per allocation row (1,001 queries for 500 allocations) on every Home render; `getSplitHistory` ran a three-table join per split expense. Account listings had the same shape via `getBalance` per account.
+- **Every INSERT is one round trip** — `RETURNING id` replaces the follow-up `SELECT lastval()`, which also drops a dependency on session-scoped sequence state.
+- **The AI rate limit counts `ai_analysis_runs`** — it was a module-level `Map`, so two replicas gave twice the allowance, a deploy reset every quota to zero, and entries were never evicted. It guards a metered paid API.
+- **bcrypt work factor 10 → 12**, in one shared constant. Existing hashes keep verifying; measured at ~210ms.
+- **Password SQL moved out of the service and the action** — `getPasswordHash` / `setPasswordHash` on `UserRepository`. `BudgetService` and `SplitService` now import `withTransaction` from `@/lib/db` rather than reaching into `postgres-client`.
+
+### Removed
+
+- **The retired goals model** — goals became categories with a target in `0043`, and the old model's ten `/api/goals/*` routes, five services, `credit-strategy.service`, and the dead `analyzeGoalsAndDebt` AI method were unreachable from the UI. The `goals` and `goal_contributions` **tables stay** (migrations here are additive); nothing reads them. The credit-payoff planning has no replacement — its pure maths survives in `finance/credit.ts`, `goals.ts` and `projections.ts`, test-covered and imported by nothing, so a debt-payoff view can be built on it. See [docs/goals.md](./docs/goals.md).
+- **Fifteen never-imported components** (~2,000 LOC), including `quick-add-form.tsx` (558), `goal-controls-section.tsx` (437) and `calendar-client.tsx` (395, shadowed by `calendar-client-custom.tsx`).
+- **Tracked build artefacts** — a JVM crash dump, `e2e-run.log` (121KB), `debug.log`, two scratch text files, and the legacy `client/` Vite output. `.gitignore` now covers `*.log`.
+- **Dead feature-flag columns are no longer written** — `households.ai_feature_allowed` / `recon_feature_allowed` were superseded by `household_features` in `0030` but three seed scripts kept writing them. The columns stay (additive-only); nothing reads or writes them now.
+
 ### Added
 
 - **Playwright E2E suite (headed by default)**: `e2e/` — auth/admin/onboarding plus finance mutations (expenses, income, accounts/transfers, splits/settle, mortgage extra payment, goals, budget/summary, lists, calendar, What I owe). Run `npm run test:e2e`. See [docs/e2e-playwright.md](./docs/e2e-playwright.md).

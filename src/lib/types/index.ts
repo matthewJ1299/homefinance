@@ -1,3 +1,4 @@
+import type { CategorySemanticKey } from "@/lib/categories/semantic-key";
 export type { Note } from "./note";
 export { NOTE_LINKED_TYPE_SHARED_LIST_ITEM } from "./note-linked-types";
 
@@ -38,6 +39,12 @@ export interface Category {
   targetMinor: number | null;
   /** yyyy-MM-dd the target should be reached by. */
   targetDate: string | null;
+  /**
+   * Stable identity for the categories the app behaves differently around
+   * (Splits, Mortgage, Unaccounted). Null for ordinary categories.
+   * See src/lib/categories/semantic-key.ts.
+   */
+  semanticKey: CategorySemanticKey | null;
 }
 
 export type CategoryWithActive = Category & { isActive: boolean };

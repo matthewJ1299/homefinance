@@ -64,7 +64,10 @@ import type { IHouseholdRepository } from "./interfaces/household.repository";
 import { HouseholdRepository } from "./sql/household.repository";
 import type { IHouseholdFeatureRepository } from "./interfaces/household-feature.repository";
 import { HouseholdFeatureRepository } from "./sql/household-feature.repository";
+import type { IFeedbackRepository } from "./interfaces/feedback.repository";
+import { FeedbackRepository } from "./sql/feedback.repository";
 
+let feedbackRepo: IFeedbackRepository | null = null;
 let categoryRepo: ICategoryRepository | null = null;
 let expenseRepo: IExpenseRepository | null = null;
 let incomeRepo: IIncomeRepository | null = null;
@@ -98,6 +101,11 @@ let aiAnalysisRunApplicationRepo: IAIAnalysisRunApplicationRepository | null = n
 let noteRepo: INoteRepository | null = null;
 let householdRepo: IHouseholdRepository | null = null;
 let householdFeatureRepo: IHouseholdFeatureRepository | null = null;
+
+export function getFeedbackRepository(): IFeedbackRepository {
+  if (!feedbackRepo) feedbackRepo = new FeedbackRepository();
+  return feedbackRepo;
+}
 
 export function getCategoryRepository(): ICategoryRepository {
   if (!categoryRepo) categoryRepo = new CategoryRepository();

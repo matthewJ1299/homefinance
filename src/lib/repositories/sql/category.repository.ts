@@ -1,6 +1,7 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
 import { requireHouseholdId } from "@/lib/db/request-context";
 import type { Category, CategoryWithActive } from "@/lib/types";
+import { SEMANTIC_KEY_DEFAULT_NAME, type CategorySemanticKey } from "@/lib/categories/semantic-key";
 import type { ICategoryRepository } from "../interfaces/category.repository";
 
 interface CategoryRow {
@@ -15,6 +16,7 @@ interface CategoryRow {
   rollover?: boolean;
   target_minor?: number | null;
   target_date?: string | null;
+  semantic_key?: string | null;
 }
 
 function toCategory(r: CategoryRow, includeIsActive = false): Category | CategoryWithActive {
@@ -29,6 +31,7 @@ function toCategory(r: CategoryRow, includeIsActive = false): Category | Categor
     rollover: r.rollover ?? true,
     targetMinor: r.target_minor ?? null,
     targetDate: r.target_date ?? null,
+    semanticKey: (r.semantic_key ?? null) as CategorySemanticKey | null,
   };
   if (includeIsActive && r.is_active !== undefined) {
     return { ...base, isActive: r.is_active === true || r.is_active === 1 };
@@ -40,7 +43,7 @@ export class CategoryRepository implements ICategoryRepository {
   async findAll(): Promise<Category[]> {
     const hid = requireHouseholdId();
     const rows = await all<CategoryRow>(
-      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount, rollover, target_minor, target_date FROM categories WHERE household_id = ? AND is_active = true ORDER BY cost_type DESC, sort_order, name",
+      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount, rollover, target_minor, target_date, semantic_key FROM categories WHERE household_id = ? AND is_active = true ORDER BY cost_type DESC, sort_order, name",
       [hid]
     );
     return rows.map((r) => toCategory(r) as Category);
@@ -49,7 +52,7 @@ export class CategoryRepository implements ICategoryRepository {
   async findAllIncludingInactive(): Promise<CategoryWithActive[]> {
     const hid = requireHouseholdId();
     const rows = await all<CategoryRow>(
-      "SELECT id, name, group_name, icon, sort_order, is_active, cost_type, default_amount, rollover, target_minor, target_date FROM categories WHERE household_id = ? ORDER BY is_active DESC NULLS LAST, cost_type DESC, sort_order, name",
+      "SELECT id, name, group_name, icon, sort_order, is_active, cost_type, default_amount, rollover, target_minor, target_date, semantic_key FROM categories WHERE household_id = ? ORDER BY is_active DESC NULLS LAST, cost_type DESC, sort_order, name",
       [hid]
     );
     return rows.map((r) => toCategory(r, true) as CategoryWithActive);
@@ -58,7 +61,7 @@ export class CategoryRepository implements ICategoryRepository {
   async findById(id: number): Promise<Category | null> {
     const hid = requireHouseholdId();
     const row = await get<CategoryRow>(
-      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount, rollover, target_minor, target_date FROM categories WHERE id = ? AND household_id = ?",
+      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount, rollover, target_minor, target_date, semantic_key FROM categories WHERE id = ? AND household_id = ?",
       [id, hid]
     );
     return row ? (toCategory(row) as Category) : null;
@@ -67,8 +70,30 @@ export class CategoryRepository implements ICategoryRepository {
   async findByName(name: string): Promise<Category | null> {
     const hid = requireHouseholdId();
     const row = await get<CategoryRow>(
-      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount, rollover, target_minor, target_date FROM categories WHERE name = ? AND household_id = ?",
+      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount, rollover, target_minor, target_date, semantic_key FROM categories WHERE name = ? AND household_id = ?",
       [name, hid]
+    );
+    return row ? (toCategory(row) as Category) : null;
+  }
+
+  /**
+   * The behavioural lookup. `findByName` still exists for user-facing search,
+   * but nothing that changes what the app DOES should use it -- see
+   * src/lib/categories/semantic-key.ts.
+   *
+   * Falls back to the backfill name when no row carries the key yet, so a
+   * database that has the column but not the row still resolves.
+   */
+  async findBySemanticKey(key: CategorySemanticKey): Promise<Category | null> {
+    const hid = requireHouseholdId();
+    const row = await get<CategoryRow>(
+      `SELECT id, name, group_name, icon, sort_order, cost_type, default_amount, rollover, target_minor, target_date, semantic_key
+         FROM categories
+        WHERE household_id = ?
+          AND (semantic_key = ? OR (semantic_key IS NULL AND lower(btrim(name)) = ?))
+        ORDER BY (semantic_key = ?) DESC NULLS LAST, id
+        LIMIT 1`,
+      [hid, key, SEMANTIC_KEY_DEFAULT_NAME[key].toLowerCase(), key]
     );
     return row ? (toCategory(row) as Category) : null;
   }
@@ -80,10 +105,11 @@ export class CategoryRepository implements ICategoryRepository {
     sortOrder?: number;
     costType?: "fixed" | "variable";
     defaultAmount?: number | null;
+    semanticKey?: CategorySemanticKey | null;
   }): Promise<Category> {
     const hid = requireHouseholdId();
     await run(
-      "INSERT INTO categories (name, group_name, icon, sort_order, cost_type, default_amount, household_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO categories (name, group_name, icon, sort_order, cost_type, default_amount, household_id, semantic_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       [
         data.name,
         data.groupName,
@@ -92,11 +118,12 @@ export class CategoryRepository implements ICategoryRepository {
         data.costType ?? "variable",
         data.defaultAmount ?? null,
         hid,
+        data.semanticKey ?? null,
       ]
     );
     const id = await lastInsertId();
     const row = (await get<CategoryRow>(
-      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount, rollover, target_minor, target_date FROM categories WHERE id = ? AND household_id = ?",
+      "SELECT id, name, group_name, icon, sort_order, cost_type, default_amount, rollover, target_minor, target_date, semantic_key FROM categories WHERE id = ? AND household_id = ?",
       [id, hid]
     ))!;
     return toCategory(row) as Category;

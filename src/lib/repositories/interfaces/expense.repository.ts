@@ -58,7 +58,8 @@ export interface IExpenseRepository {
   create(data: CreateExpenseInput): Promise<{ id: number }>;
   update(id: number, data: UpdateExpenseInput): Promise<void>;
   delete(id: number): Promise<void>;
-  deleteBySplitGroupId(splitGroupId: string): Promise<void>;
+  /** Ids of every expense in a split group, oldest first. */
+  findIdsBySplitGroupId(splitGroupId: string): Promise<number[]>;
   findSplitExpenses(groupId?: number): Promise<ExpenseWithDetails[]>;
   hasExpenseFromRecurring(recurringExpenseId: number, month: string): Promise<boolean>;
   /** Same calendar day and exact amount (minor units). Used for recon duplicate detection. */

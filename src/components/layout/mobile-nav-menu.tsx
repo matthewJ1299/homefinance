@@ -8,6 +8,7 @@ import { signOut } from "next-auth/react";
 import { Menu, X, LogOut } from "lucide-react";
 import { fullNavItems, navItemsForFeatures } from "./nav-items";
 import { cn } from "@/lib/utils";
+import { FeedbackMenuItem } from "@/components/feedback/feedback-menu-item";
 import type { FeatureKey } from "@/lib/features/registry";
 
 export function MobileNavMenu({
@@ -76,6 +77,7 @@ export function MobileNavMenu({
             })}
           </nav>
           <div className="p-2 border-t shrink-0">
+            <FeedbackMenuItem onOpened={close} />
             <button
               type="button"
               onClick={() => {

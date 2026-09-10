@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
+import { authedAction } from "@/lib/actions/_shared/authed-action";
 import { IncomeService } from "@/lib/services/income.service";
 import { getIncomeRepository, getSplitSettlementRepository } from "@/lib/repositories";
 import { createIncomeSchema, updateIncomeSchema } from "@/lib/validators/income.schema";
@@ -68,27 +69,24 @@ export async function addIncome(formData: {
   date: string;
   accountId?: number;
 }): Promise<IncomeActionResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { success: false, error: "Unauthorized" };
-  }
-  setRequestContextFromSession(session);
-  const kind = formData.incomeKind ?? (formData.type === "salary" ? "salary" : "other");
-  const parsed = createIncomeSchema.safeParse({
-    ...formData,
-    incomeKind: kind,
-    type: formData.type ?? legacyTypeForKind(kind),
-  });
-  if (!parsed.success) {
-    return { success: false, error: parsed.error.message };
-  }
-  const service = new IncomeService();
-  const { id } = await service.create(Number(session.user.id), parsed.data);
-  revalidatePath("/income");
-  revalidatePath("/dashboard");
-  revalidatePath("/budget");
-  revalidatePath("/reports");
-  return { success: true, id };
+  return authedAction<IncomeActionResult>(async ({ userId }) => {
+    const kind = formData.incomeKind ?? (formData.type === "salary" ? "salary" : "other");
+    const parsed = createIncomeSchema.safeParse({
+      ...formData,
+      incomeKind: kind,
+      type: formData.type ?? legacyTypeForKind(kind),
+    });
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.message };
+    }
+    const service = new IncomeService();
+    const { id } = await service.create(userId, parsed.data);
+    revalidatePath("/income");
+    revalidatePath("/dashboard");
+    revalidatePath("/budget");
+    revalidatePath("/reports");
+    return { success: true, id };
+  }, { onError: "That income didn't save. Try again." });
 }
 
 export async function updateIncome(
@@ -101,45 +99,37 @@ export async function updateIncome(
     accountId?: number;
   }
 ): Promise<IncomeActionResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { success: false, error: "Unauthorized" };
-  }
-  setRequestContextFromSession(session);
-  const parsed = updateIncomeSchema.safeParse(formData);
-  if (!parsed.success) {
-    return { success: false, error: parsed.error.message };
-  }
-  const userId = Number(session.user.id);
-  const check = await assertIncomeEditable(id, userId);
-  if ("error" in check) {
-    return { success: false, error: check.error };
-  }
-  const service = new IncomeService();
-  await service.update(id, userId, parsed.data);
-  revalidatePath("/income");
-  revalidatePath("/dashboard");
-  revalidatePath("/budget");
-  revalidatePath("/reports");
-  return { success: true };
+  return authedAction<IncomeActionResult>(async ({ userId }) => {
+    const parsed = updateIncomeSchema.safeParse(formData);
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.message };
+    }
+    const check = await assertIncomeEditable(id, userId);
+    if ("error" in check) {
+      return { success: false, error: check.error };
+    }
+    const service = new IncomeService();
+    await service.update(id, userId, parsed.data);
+    revalidatePath("/income");
+    revalidatePath("/dashboard");
+    revalidatePath("/budget");
+    revalidatePath("/reports");
+    return { success: true };
+  }, { onError: "That change didn't save. Try again." });
 }
 
 export async function deleteIncome(id: number): Promise<IncomeActionResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { success: false, error: "Unauthorized" };
-  }
-  setRequestContextFromSession(session);
-  const userId = Number(session.user.id);
-  const check = await assertIncomeEditable(id, userId);
-  if ("error" in check) {
-    return { success: false, error: check.error };
-  }
-  const service = new IncomeService();
-  await service.delete(id);
-  revalidatePath("/income");
-  revalidatePath("/dashboard");
-  revalidatePath("/budget");
-  revalidatePath("/reports");
-  return { success: true };
+  return authedAction<IncomeActionResult>(async ({ userId }) => {
+    const check = await assertIncomeEditable(id, userId);
+    if ("error" in check) {
+      return { success: false, error: check.error };
+    }
+    const service = new IncomeService();
+    await service.delete(id);
+    revalidatePath("/income");
+    revalidatePath("/dashboard");
+    revalidatePath("/budget");
+    revalidatePath("/reports");
+    return { success: true };
+  }, { onError: "That income wasn't removed. Try again." });
 }

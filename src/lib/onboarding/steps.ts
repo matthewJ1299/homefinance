@@ -37,8 +37,29 @@ export const ONBOARDING_STEP_DESCRIPTIONS: Record<OnboardingStep, string> = {
     "We spread your income across the categories you chose. Adjust any amount before you finish.",
 };
 
-/** Plumbing categories — hidden from the onboarding checklist. */
+/**
+ * Plumbing categories — hidden from the onboarding checklist.
+ *
+ * Matched on semantic key rather than name, so a household that renamed
+ * "Splits" does not suddenly find it offered as a spending area to tick.
+ */
+export const ONBOARDING_HIDDEN_SEMANTIC_KEYS: ReadonlySet<string> = new Set([
+  "splits",
+  "mortgage",
+]);
+
+/** Name fallback for rows the 0047 backfill has not reached. */
 export const ONBOARDING_HIDDEN_CATEGORY_NAMES = new Set(["Splits", "Mortgage"]);
+
+export function isHiddenOnboardingCategory(category: {
+  name: string;
+  semanticKey?: string | null;
+}): boolean {
+  if (category.semanticKey != null) {
+    return ONBOARDING_HIDDEN_SEMANTIC_KEYS.has(category.semanticKey);
+  }
+  return ONBOARDING_HIDDEN_CATEGORY_NAMES.has(category.name);
+}
 
 /** Common categories pre-selected for new households. */
 export const ONBOARDING_DEFAULT_ACTIVE_NAMES = new Set([

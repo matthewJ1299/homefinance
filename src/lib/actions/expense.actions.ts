@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
+import { withTransaction } from "@/lib/db";
 import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { BudgetService } from "@/lib/services/budget.service";
@@ -16,6 +17,7 @@ import {
   getSplitAllocationRepository,
   getExpenseParticipantRepository,
   getIncomeRepository,
+  getAccountTransactionRepository,
 } from "@/lib/repositories";
 import type { ExpenseWithDetails } from "@/lib/types";
 import {
@@ -27,6 +29,7 @@ import { createSplitExpenseSchema } from "@/lib/validators/split.schema";
 import { splitExpenseWithRatios } from "@/lib/services/finance/accounts";
 import { divideEqually, validateParticipantShares } from "@/lib/services/finance/participants";
 import { formatRand } from "@/lib/utils/currency";
+import { categoryHasSemanticKey } from "@/lib/categories/semantic-key";
 
 export type ExpenseActionResult =
   | {
@@ -126,7 +129,7 @@ export async function addExpense(formData: {
     return { success: false, error: "Invalid category. Please refresh the page." };
   }
 
-  const isSplitsSettlement = category.name === "Splits";
+  const isSplitsSettlement = categoryHasSemanticKey(category, "splits");
   if (isSplitsSettlement) {
     const splitService = new SplitService();
     const balance = await splitService.getBalance(userId);
@@ -189,7 +192,7 @@ export async function addExpense(formData: {
   const { id } = await service.create(userId, parsed.data);
 
   let warning: string | undefined;
-  if (category.name.toLowerCase().trim() === "mortgage") {
+  if (categoryHasSemanticKey(category, "mortgage")) {
     const mortgageService = new MortgageService();
     const recorded = await mortgageService.recordPaymentFromExpense(
       userId,
@@ -401,20 +404,26 @@ export async function deleteExpense(id: number): Promise<ExpenseActionResult> {
   if (expense.userId !== Number(session.user.id)) {
     return { success: false, error: "You can only delete your own expenses." };
   }
+  const service = new ExpenseService();
   if (expense.splitGroupId) {
-    await expenseRepo.deleteBySplitGroupId(expense.splitGroupId);
+    await service.deleteBySplitGroup(expense.splitGroupId);
   } else {
+    // A settlement spend also raised an income row for the recipient. All three
+    // rows describe one event, so they go together or not at all -- deleting the
+    // income and then failing on the settlement used to leave a settlement
+    // pointing at an income row that no longer exists.
     const settlementRepo = getSplitSettlementRepository();
     const settlement = await settlementRepo.findByExpenseId(id);
-    if (settlement) {
-      if (settlement.incomeId != null) {
-        const incomeRepo = getIncomeRepository();
-        await incomeRepo.delete(settlement.incomeId);
+    await withTransaction(async () => {
+      if (settlement) {
+        if (settlement.incomeId != null) {
+          await getIncomeRepository().delete(settlement.incomeId);
+        }
+        await settlementRepo.delete(settlement.id);
       }
-      await settlementRepo.delete(settlement.id);
-    }
-    const service = new ExpenseService();
-    await service.delete(id);
+      await getAccountTransactionRepository().deleteByReference("expense", id);
+      await expenseRepo.delete(id);
+    });
   }
   revalidatePath("/dashboard");
   revalidatePath("/expenses");
@@ -501,7 +510,7 @@ export async function addSplitExpense(formData: {
       splitExpenseGroupId: groupId ?? null,
       participants,
     });
-    if (categoryRow.name.toLowerCase().trim() === "mortgage") {
+    if (categoryHasSemanticKey(categoryRow, "mortgage")) {
       const mortgageService = new MortgageService();
       await mortgageService.recordPaymentFromExpense(
         userId,

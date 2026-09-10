@@ -1,16 +1,27 @@
 import { getBudgetRepository } from "@/lib/repositories";
 import { IncomeService } from "@/lib/services/income.service";
 import { ExpenseService } from "@/lib/services/expense.service";
-import { getCategoryRepository } from "@/lib/repositories";
+import { getCategoryRepository, getUserRepository } from "@/lib/repositories";
 import { prevMonth } from "@/lib/utils/date";
 import { getDefaultBudgetMonthForUser } from "@/lib/utils/budget-month-for-user";
-import { withTransaction } from "@/lib/db/postgres-client";
+import { withTransaction } from "@/lib/db";
 import type { Category } from "@/lib/types";
 import type { BudgetAllocationWithMonth } from "@/lib/repositories/interfaces/budget.repository";
 import { calculateBudgetOverviewArithmetic } from "@/lib/services/finance/accounts";
 
 /** Max months to look back when resolving carried-over allocations. */
 const CARRY_OVER_MONTHS = 12;
+
+/** `month` first, then the carry window behind it, newest to oldest. */
+function monthsBackFrom(month: string): string[] {
+  const months = [month];
+  let m = month;
+  for (let i = 0; i < CARRY_OVER_MONTHS; i++) {
+    m = prevMonth(m);
+    months.push(m);
+  }
+  return months;
+}
 
 export type { BudgetCategoryRow } from "@/lib/services/finance/accounts";
 import type { BudgetCategoryRow } from "@/lib/services/finance/accounts";
@@ -59,16 +70,12 @@ export class BudgetService {
     private budgetRepo = getBudgetRepository(),
     private incomeService = new IncomeService(),
     private expenseService = new ExpenseService(),
-    private categoryRepo = getCategoryRepository()
+    private categoryRepo = getCategoryRepository(),
+    private userRepo = getUserRepository()
   ) {}
 
   async getOverview(month: string, userId: number): Promise<BudgetOverviewResult> {
-    const monthsToLoad = [month];
-    let m = month;
-    for (let i = 0; i < CARRY_OVER_MONTHS; i++) {
-      m = prevMonth(m);
-      monthsToLoad.push(m);
-    }
+    const monthsToLoad = monthsBackFrom(month);
 
     const [incomeResult, expenseResult, allocationsForMonths, transfers, categories] =
       await Promise.all([
@@ -89,7 +96,11 @@ export class BudgetService {
       categories
     );
 
-    await this.persistMissingAllocationsForMonth(month, allocationMap, categories, userId);
+    // No write here. `getOverview` is called from Home, Budget, Goals and the AI
+    // service, so persisting allocation rows made every page render a mutation:
+    // two concurrent loads raced on the same rows, and a read that writes cannot
+    // be cached or served from a replica. Materialising is `openMonth`'s job --
+    // the one place that is already the write path.
     const monthState = await this.budgetRepo.getMonthOpenState(month, userId);
     const carriedInMap = await this.budgetRepo.getCarriedInForMonth(month, userId);
     const spentByCategory = expenseResult.totals.byCategory;
@@ -110,26 +121,19 @@ export class BudgetService {
     const unassigned = totalIncome - totalAssigned - carriedOverspend;
     const isBalanced = unassigned === 0;
 
-    const transferDisplays: BudgetTransferDisplay[] = await Promise.all(
-      transfers.map(async (t) => {
-        const fromCat = categoryMeta.get(t.fromCategoryId);
-        const toCat = categoryMeta.get(t.toCategoryId);
-        return {
-          id: t.id,
-          fromCategoryName: fromCat?.name ?? "?",
-          toCategoryName: toCat?.name ?? "?",
-          amount: t.amount,
-          userName: String(t.userId),
-          reason: t.reason,
-          createdAt: t.createdAt,
-        };
-      })
-    );
-
-    const userNames = await this.getUserNamesForTransfers(transfers.map((t) => t.userId));
-    transferDisplays.forEach((t, i) => {
-      t.userName = userNames[i] ?? String(transfers[i].userId);
-    });
+    // One batched, tenant-scoped lookup. This was a `Promise.all` over an async
+    // map with nothing awaited inside it, followed by a second pass that patched
+    // the names back in.
+    const userNames = await this.userRepo.namesByIds(transfers.map((t) => t.userId));
+    const transferDisplays: BudgetTransferDisplay[] = transfers.map((t) => ({
+      id: t.id,
+      fromCategoryName: categoryMeta.get(t.fromCategoryId)?.name ?? "?",
+      toCategoryName: categoryMeta.get(t.toCategoryId)?.name ?? "?",
+      amount: t.amount,
+      userName: userNames.get(t.userId) ?? String(t.userId),
+      reason: t.reason,
+      createdAt: t.createdAt,
+    }));
 
     return {
       month,
@@ -186,35 +190,48 @@ export class BudgetService {
     return result;
   }
 
-  /** Persist allocation rows for the current month where we have effective amount but no row yet. */
-  private async persistMissingAllocationsForMonth(
-    month: string,
-    allocationMap: Map<number, number>,
-    categories: Category[],
-    userId: number
-  ): Promise<void> {
-    const existing = await this.budgetRepo.getAllocationsForMonth(month, userId);
-    const existingCategoryIds = new Set(existing.map((a) => a.categoryId));
-    for (const cat of categories) {
-      const amount = allocationMap.get(cat.id) ?? 0;
-      if (amount > 0 && !existingCategoryIds.has(cat.id)) {
-        await this.budgetRepo.upsertAllocation(cat.id, month, amount, userId);
+  /**
+   * Writes the rows a month starts with: for each category, the effective
+   * assignment carried forward from the last month that had one (or the fixed
+   * default), where no row for this month exists yet.
+   *
+   * Called only from `openMonth`. It used to run inside `getOverview`, which
+   * meant every dashboard render wrote to the database.
+   *
+   * Loads only what the allocation map needs -- no income, no expenses, no
+   * transfers -- because `openMonth` previously ran a whole second `getOverview`
+   * purely for this side effect.
+   */
+  private async materialiseAllocationsForMonth(month: string, userId: number): Promise<void> {
+    const monthsToLoad = monthsBackFrom(month);
+    const [allocationsForMonths, categories] = await Promise.all([
+      this.budgetRepo.getAllocationsForMonths(monthsToLoad, userId),
+      this.categoryRepo.findAll(),
+    ]);
+    const allocationMap = this.resolveEffectiveAllocations(
+      month,
+      monthsToLoad,
+      allocationsForMonths,
+      categories
+    );
+
+    const existingCategoryIds = new Set(
+      allocationsForMonths.filter((a) => a.month === month).map((a) => a.categoryId)
+    );
+    const missing = categories
+      .map((cat) => ({ id: cat.id, amount: allocationMap.get(cat.id) ?? 0 }))
+      .filter((c) => c.amount > 0 && !existingCategoryIds.has(c.id));
+    if (missing.length === 0) return;
+
+    // One transaction: a month that starts half-assigned reads as money that
+    // vanished, and the next `openMonth` would carry that forward.
+    await withTransaction(async () => {
+      for (const c of missing) {
+        await this.budgetRepo.upsertAllocation(c.id, month, c.amount, userId);
       }
-    }
+    });
   }
 
-  private async getUserNamesForTransfers(userIds: number[]): Promise<string[]> {
-    const { all } = await import("@/lib/db");
-    const unique = [...new Set(userIds)];
-    if (unique.length === 0) return [];
-    const placeholders = unique.map(() => "?").join(",");
-    const rows = await all<{ id: number; name: string }>(
-      `SELECT id, name FROM users WHERE id IN (${placeholders})`,
-      unique
-    );
-    const map = new Map(rows.map((r) => [r.id, r.name]));
-    return userIds.map((id) => map.get(id) ?? "?");
-  }
 
   /**
    * Writes carry-in for `month` from the prior month's availables, once.
@@ -240,9 +257,8 @@ export class BudgetService {
     // resolveEffectiveAllocations stops at the first row it finds walking back
     // -- so a carry-in row written first reads as "assigned nothing this month"
     // and silently discards the template amount the month should have started
-    // with. Opening the overview persists those rows, and the ON CONFLICT in
-    // setCarriedIn then touches only carried_in_minor.
-    await this.getOverview(month, userId);
+    // with. The ON CONFLICT in setCarriedIn then touches only carried_in_minor.
+    await this.materialiseAllocationsForMonth(month, userId);
 
     let carriedOverspend = 0;
     const carryIn: Array<{ categoryId: number; amount: number }> = [];

@@ -15,15 +15,22 @@ import { formatEventLine } from "@/lib/utils/format-time";
  * Schedule the request for 9am daily in your timezone (e.g. cron: 0 9 * * * with TZ set).
  */
 export async function GET(request: NextRequest) {
+  // Fail closed. This endpoint pushes a notification to every user in every
+  // household, so a missing secret is a misconfiguration to report, not a
+  // reason to skip the check.
   const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const authHeader = request.headers.get("authorization");
-    const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-    const headerSecret = request.headers.get("x-cron-secret");
-    const provided = bearer ?? headerSecret ?? null;
-    if (provided !== secret) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!secret) {
+    return NextResponse.json(
+      { error: "Cron endpoint is not configured. Set CRON_SECRET." },
+      { status: 503 }
+    );
+  }
+  const authHeader = request.headers.get("authorization");
+  const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const headerSecret = request.headers.get("x-cron-secret");
+  const provided = bearer ?? headerSecret ?? null;
+  if (provided !== secret) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   if (!isNotificationConfigured()) {
