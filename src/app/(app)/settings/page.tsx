@@ -25,6 +25,7 @@ import { AccountsManage } from "@/components/accounts/accounts-manage";
 import { BudgetMonthRangeSettings } from "@/components/settings/budget-month-range-settings";
 import { HouseholdMembersPanel } from "@/components/household/household-members-panel";
 import { ExportTransactionsSettings } from "@/components/settings/export-transactions-settings";
+import { BudgetMaintenanceSettings } from "@/components/settings/budget-maintenance-settings";
 import { OnboardingLauncherCard } from "@/components/onboarding/onboarding-launcher-card";
 import { ProfileSettings } from "@/components/settings/profile-settings";
 import { SettingsSection } from "@/components/settings/settings-section";
@@ -137,6 +138,13 @@ export default async function SettingsPage() {
 
       <SettingsSection title="Data and export" description="Download your transactions.">
         <ExportTransactionsSettings />
+      </SettingsSection>
+
+      <SettingsSection
+        title="Budget maintenance"
+        description="Repair or reset your own envelope budget. Your expenses, income and balances are never affected."
+      >
+        <BudgetMaintenanceSettings />
       </SettingsSection>
     </div>
   );

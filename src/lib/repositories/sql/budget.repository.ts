@@ -155,4 +155,19 @@ export class BudgetRepository implements IBudgetRepository {
       ]
     );
   }
+
+  async deleteAllocationsForUser(userId: number): Promise<void> {
+    const hid = requireHouseholdId();
+    await run("DELETE FROM budgets WHERE user_id = ? AND household_id = ?", [userId, hid]);
+  }
+
+  async deleteMonthOpensForUser(userId: number): Promise<void> {
+    const hid = requireHouseholdId();
+    await run("DELETE FROM budget_month_opens WHERE user_id = ? AND household_id = ?", [userId, hid]);
+  }
+
+  async deleteTransfersForUser(userId: number): Promise<void> {
+    const hid = requireHouseholdId();
+    await run("DELETE FROM budget_transfers WHERE user_id = ? AND household_id = ?", [userId, hid]);
+  }
 }

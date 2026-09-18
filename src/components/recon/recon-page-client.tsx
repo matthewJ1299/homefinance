@@ -188,16 +188,10 @@ export function ReconPageClient() {
   const [debugPage, setDebugPage] = useState(1);
   const debugPageSize = 25;
 
-  const filteredSyncMessages = useMemo(() => {
-    if (!syncDebug?.messages.length) return [];
-    return syncDebug.messages.filter((m) =>
-      filterFetchedMailRow(m, debugBankSendersOnly, debugOutcomeFilter)
-    );
-  }, [syncDebug, debugBankSendersOnly, debugOutcomeFilter]);
-
-  useEffect(() => {
-    setDebugPage(1);
-  }, [debugBankSendersOnly, debugOutcomeFilter, syncDebug?.messages]);
+  // A fetched row you have since accepted or ignored is no longer work. Hide
+  // those by default so the list tracks what is left, not what the last sync
+  // saw. `filteredSyncMessages` is defined below, once the live pending set is.
+  const [hideHandled, setHideHandled] = useState(true);
   const [messageSyncMeta, setMessageSyncMeta] = useState<FetchedMailDebugRow | null>(null);
   const [messageDetail, setMessageDetail] = useState<ReconMailDetail | null>(null);
   const [bulkIntentByItemId, setBulkIntentByItemId] = useState<Record<number, ReconBulkIntent>>({});
@@ -255,6 +249,34 @@ export function ReconPageClient() {
     [categoriesQuery.data?.categories]
   );
   const { accounts, primaryAccountId } = accountsQuery.data ?? { accounts: [], primaryAccountId: null };
+
+  // Graph ids of everything still awaiting a decision. A fetched mail that was
+  // imported but is no longer here has been accepted or ignored since the sync.
+  const pendingGraphIds = useMemo(() => new Set(items.map((i) => i.graphMessageId)), [items]);
+  // Only trust "not pending" once we actually have the pending list; before the
+  // first load `pendingGraphIds` is empty and would hide every imported row.
+  const itemsLoaded = itemsQuery.isSuccess;
+  const isHandledFetchedRow = useCallback(
+    (m: FetchedMailDebugRow): boolean => {
+      if (!itemsLoaded) return false;
+      const wasImported =
+        m.outcome === "imported_pending_add" || m.outcome === "imported_pending_duplicate";
+      return wasImported && !pendingGraphIds.has(m.graphMessageId);
+    },
+    [itemsLoaded, pendingGraphIds]
+  );
+  const filteredSyncMessages = useMemo(() => {
+    if (!syncDebug?.messages.length) return [];
+    return syncDebug.messages.filter((m) => {
+      if (!filterFetchedMailRow(m, debugBankSendersOnly, debugOutcomeFilter)) return false;
+      if (hideHandled && isHandledFetchedRow(m)) return false;
+      return true;
+    });
+  }, [syncDebug, debugBankSendersOnly, debugOutcomeFilter, hideHandled, isHandledFetchedRow]);
+
+  useEffect(() => {
+    setDebugPage(1);
+  }, [debugBankSendersOnly, debugOutcomeFilter, hideHandled, syncDebug?.messages]);
 
   useEffect(() => {
     if (primaryAccountId != null && accountId === "") {
@@ -753,13 +775,14 @@ export function ReconPageClient() {
       {syncDebug ? (
         <CollapsibleSection
           title={`Fetched emails (${
-            debugBankSendersOnly || debugOutcomeFilter !== "all"
+            filteredSyncMessages.length !== syncDebug.messages.length
               ? `${filteredSyncMessages.length} of ${syncDebug.messages.length}${syncDebug.truncated ? "+" : ""}`
               : `${syncDebug.messages.length}${syncDebug.truncated ? "+" : ""}`
           })`}
         >
           <p className="text-xs text-muted-foreground mb-3">
             Highlighting: green = imported, amber = imported + duplicate, red = matched bank template but parse failed.
+            Rows you have since accepted or ignored are hidden by default and shown greyed when included.
             {syncDebug.truncated ? " (List is truncated.)" : ""}
           </p>
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end mb-3">
@@ -789,6 +812,15 @@ export function ReconPageClient() {
                 <option value="not_bank">Not bank</option>
               </select>
             </div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="h-4 w-4 shrink-0 rounded border-input"
+                checked={hideHandled}
+                onChange={(e) => setHideHandled(e.target.checked)}
+              />
+              <span>Hide handled (accepted or ignored since sync)</span>
+            </label>
           </div>
           {(() => {
             const total = filteredSyncMessages.length;
@@ -804,7 +836,9 @@ export function ReconPageClient() {
                   <p className="text-sm text-muted-foreground py-2">
                     {syncDebug.messages.length === 0
                       ? "No messages in this sync batch."
-                      : "No messages match the current filters."}
+                      : hideHandled
+                        ? "Nothing left to review — everything fetched has been handled or filtered out. Untick Hide handled to see it."
+                        : "No messages match the current filters."}
                   </p>
                 ) : (
                   <>
@@ -849,8 +883,10 @@ export function ReconPageClient() {
                         </thead>
                         <tbody>
                           {pageRows.map((m) => {
-                        const cls =
-                          m.outcome === "imported_pending_duplicate"
+                        const handled = isHandledFetchedRow(m);
+                        const cls = handled
+                          ? "opacity-60"
+                          : m.outcome === "imported_pending_duplicate"
                             ? "bg-warning-surface"
                             : m.outcome === "imported_pending_add"
                               ? "bg-success-surface"
@@ -891,7 +927,18 @@ export function ReconPageClient() {
                                 </span>
                               </button>
                             </td>
-                            <td className="py-2">{outcomeLabel}</td>
+                            <td className="py-2">
+                              {handled ? (
+                                <span className="inline-flex flex-wrap items-center gap-1.5">
+                                  <span className="text-muted-foreground line-through">{outcomeLabel}</span>
+                                  <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                                    Handled
+                                  </span>
+                                </span>
+                              ) : (
+                                outcomeLabel
+                              )}
+                            </td>
                           </tr>
                         );
                           })}

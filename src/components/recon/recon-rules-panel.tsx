@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ export function ReconRulesPanel({
   categories: RuleSheetCategory[];
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [pending, startTransition] = useTransition();
   const [rulesOpen, setRulesOpen] = useState(false);
   const [editing, setEditing] = useState<ReconRuleRow | null>(null);
@@ -65,6 +67,9 @@ export function ReconRulesPanel({
           ? `Sorted ${res.accepted}. ${res.failed} needed a closer look.`
           : `Sorted ${res.accepted} without you.`
       );
+      // The super-admin "Fetched emails" list keys "handled" off the live
+      // pending set, so accepting here must refresh it as Process marked does.
+      void queryClient.invalidateQueries({ queryKey: ["recon-items"] });
       router.refresh();
     });
   }

@@ -46,4 +46,10 @@ export interface IBudgetRepository {
     userId: number;
     reason?: string | null;
   }): Promise<void>;
+  /** Deletes every allocation + carry-in row for one user in the current household. */
+  deleteAllocationsForUser(userId: number): Promise<void>;
+  /** Deletes every month-open marker for one user in the current household. */
+  deleteMonthOpensForUser(userId: number): Promise<void>;
+  /** Deletes every budget transfer for one user in the current household. */
+  deleteTransfersForUser(userId: number): Promise<void>;
 }

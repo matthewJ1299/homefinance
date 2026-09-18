@@ -101,3 +101,35 @@ export async function coverOverspend(data: {
     return { success: true };
   }, { onError: "That cover didn't save. The overspend is unchanged." });
 }
+
+/**
+ * Re-opens any months the user skipped and rebuilds the carry-over chain.
+ * Non-destructive: `openMonthBacklog` only opens months that were never opened,
+ * oldest first, so nothing already correct is disturbed.
+ */
+export async function repairBudgetMonths(): Promise<
+  { success: true; openedCount: number } | { success: false; error: string }
+> {
+  return authedAction<{ success: true; openedCount: number }>(async ({ userId }) => {
+    const result = await new BudgetService().openMonthBacklog(userId);
+    for (const path of ["/budget", "/dashboard", "/welcome", "/goals"]) {
+      revalidatePath(path);
+    }
+    return { success: true, openedCount: result.opened.length };
+  }, { onError: "Repair didn't finish. Nothing was changed." });
+}
+
+/**
+ * Clears the signed-in user's entire envelope budget -- all assignments,
+ * carry-over and transfers, across every month. Expenses, income, accounts and
+ * categories are left untouched. Destructive and not reversible from the UI.
+ */
+export async function resetBudget(): Promise<BudgetActionResult> {
+  return authedAction<BudgetActionResult>(async ({ userId }) => {
+    await new BudgetService().resetBudget(userId);
+    for (const path of ["/budget", "/dashboard", "/welcome", "/goals"]) {
+      revalidatePath(path);
+    }
+    return { success: true };
+  }, { onError: "Your budget wasn't reset. Nothing was changed." });
+}

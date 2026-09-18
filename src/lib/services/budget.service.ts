@@ -388,6 +388,29 @@ export class BudgetService {
     await this.budgetRepo.upsertAllocation(categoryId, month, amount, userId);
   }
 
+  /**
+   * Clears the entire envelope layer for one user in the current household:
+   * every assignment and carry-in, every month-open marker, and every budget
+   * transfer, across all months.
+   *
+   * Deliberately does NOT touch expenses, income, accounts or categories -- this
+   * resets the budget the figures are computed *from*, not the financial history
+   * itself. After it runs the user starts assigning from an empty slate; a fixed
+   * category with a default template will re-fill only when a month is next
+   * opened, which is `materialiseAllocationsForMonth`'s existing behaviour.
+   *
+   * All three deletes run in one transaction: a half-cleared budget (transfers
+   * gone but assignments left, say) is itself a wonky state, and the next
+   * `openMonth` would carry it forward.
+   */
+  async resetBudget(userId: number): Promise<void> {
+    await withTransaction(async () => {
+      await this.budgetRepo.deleteTransfersForUser(userId);
+      await this.budgetRepo.deleteMonthOpensForUser(userId);
+      await this.budgetRepo.deleteAllocationsForUser(userId);
+    });
+  }
+
   /** Number of past months to use for historical spending weights. */
   private static readonly AUTO_ALLOCATE_HISTORY_MONTHS = 6;
 
