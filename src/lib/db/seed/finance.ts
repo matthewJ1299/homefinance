@@ -125,8 +125,8 @@ async function seedTransactionsAndIncome(ctx: SeedContext): Promise<void> {
       );
       const incomeId = await lastInsertId();
       await run(
-        "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note) VALUES (?, ?, 'income', 'income', ?, ?)",
-        [accountId, row.amount, incomeId, row.description]
+        "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note, income_id) VALUES (?, ?, 'income', 'income', ?, ?, ?)",
+        [accountId, row.amount, incomeId, row.description, incomeId]
       );
       incomeCount++;
     }
@@ -171,8 +171,8 @@ async function seedTransactionsAndIncome(ctx: SeedContext): Promise<void> {
           [householdId, expenseId, userId, amount]
         );
         await run(
-          "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note) VALUES (?, ?, 'expense', 'expense', ?, ?)",
-          [userAccounts.bankAccountId, -amount, expenseId, template.note]
+          "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note, expense_id) VALUES (?, ?, 'expense', 'expense', ?, ?, ?)",
+          [userAccounts.bankAccountId, -amount, expenseId, template.note, expenseId]
         );
         expenseCount++;
       }
@@ -241,8 +241,8 @@ async function seedSplitExpenses(ctx: SeedContext): Promise<void> {
     );
     const expenseId = await lastInsertId();
     await run(
-      "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note) VALUES (?, ?, 'expense', 'expense', ?, ?)",
-      [item.payerAccountId, -item.amount, expenseId, item.note]
+      "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note, expense_id) VALUES (?, ?, 'expense', 'expense', ?, ?, ?)",
+      [item.payerAccountId, -item.amount, expenseId, item.note, expenseId]
     );
 
     const shares = splitExpense({
@@ -305,12 +305,12 @@ async function seedGoals(ctx: SeedContext): Promise<void> {
       );
       const transferId = await lastInsertId();
       await run(
-        "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note) VALUES (?, ?, 'transfer_out', 'transfer', ?, 'Goal contribution')",
-        [userAccounts.bankAccountId, -5_000_00, transferId]
+        "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note, transfer_id) VALUES (?, ?, 'transfer_out', 'transfer', ?, 'Goal contribution', ?)",
+        [userAccounts.bankAccountId, -5_000_00, transferId, transferId]
       );
       await run(
-        "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note) VALUES (?, ?, 'transfer_in', 'transfer', ?, 'Goal contribution')",
-        [userAccounts.savingsAccountId, 5_000_00, transferId]
+        "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note, transfer_id) VALUES (?, ?, 'transfer_in', 'transfer', ?, 'Goal contribution', ?)",
+        [userAccounts.savingsAccountId, 5_000_00, transferId, transferId]
       );
       const toTxId = await lastInsertId();
       await run(
@@ -325,12 +325,12 @@ async function seedGoals(ctx: SeedContext): Promise<void> {
     );
     const payTransferId = await lastInsertId();
     await run(
-      "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note) VALUES (?, ?, 'transfer_out', 'transfer', ?, 'Credit payment')",
-      [userAccounts.bankAccountId, -2_000_00, payTransferId]
+      "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note, transfer_id) VALUES (?, ?, 'transfer_out', 'transfer', ?, 'Credit payment', ?)",
+      [userAccounts.bankAccountId, -2_000_00, payTransferId, payTransferId]
     );
     await run(
-      "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note) VALUES (?, ?, 'transfer_in', 'transfer', ?, 'Credit payment')",
-      [userAccounts.creditAccountId, 2_000_00, payTransferId]
+      "INSERT INTO account_transactions (account_id, amount, transaction_type, reference_type, reference_id, note, transfer_id) VALUES (?, ?, 'transfer_in', 'transfer', ?, 'Credit payment', ?)",
+      [userAccounts.creditAccountId, 2_000_00, payTransferId, payTransferId]
     );
     const creditPayTxId = await lastInsertId();
     await run(
