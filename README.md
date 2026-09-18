@@ -99,7 +99,7 @@ Plain-language summary of balance, monthly cost, payoff horizon, and each person
 
 - **Summary** — Per-user monthly snapshot (income, expenses, budget adherence) plus household trends.
 - **AI budget analysis (optional)** — Household entitlement (super-admin) plus server API keys. **Free** vs **Paid** tier on the household. **Analyze spending** on Home when enabled; full report at `/budget-ai-report`. See [docs/ai-budget-analysis.md](./docs/ai-budget-analysis.md) and [docs/feature-access.md](./docs/feature-access.md).
-- **Bank email reconciliation / Recon (optional)** — Outlook via Microsoft Graph when the household is entitled. Connect and sync from **Recon**; accept or ignore parsed rows manually. See [docs/recon.md](./docs/recon.md) and [Recon and Microsoft Graph (Outlook)](#recon-and-microsoft-graph-outlook).
+- **Bank email reconciliation / Recon (optional)** — Outlook via Microsoft Graph when the household is entitled. Connect and sync from **Recon**; accept or ignore parsed rows manually. **"Do this every time"** saves a personal merchant rule so later matching rows can be accepted in bulk. See [docs/recon.md](./docs/recon.md) and [Recon and Microsoft Graph (Outlook)](#recon-and-microsoft-graph-outlook).
 
 ## Setup
 

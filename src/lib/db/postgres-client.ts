@@ -36,13 +36,22 @@ function insertTargetTable(sql: string): string | null {
   return m ? m[1].toLowerCase() : null;
 }
 
+function isOnConflictDoNothing(sql: string): boolean {
+  return /\bON\s+CONFLICT\b/i.test(sql) && /\bDO\s+NOTHING\b/i.test(sql);
+}
+
 /**
- * Upserts already report nothing useful, keyless tables have no id to return,
- * and a caller that wrote its own RETURNING is handling the result itself.
+ * `ON CONFLICT DO NOTHING` is a no-op on conflict, so there is often no row
+ * and no id. `ON CONFLICT DO UPDATE` still has one -- that is a normal upsert,
+ * and `RETURNING id` is how Postgres reports it. Skipping every `ON CONFLICT`
+ * meant `lastInsertId()` threw after a successful `recon_rules` insert.
+ *
+ * Keyless tables have no id to return. A caller that wrote its own RETURNING
+ * is handling the result itself.
  */
 function shouldCaptureInsertId(sql: string): boolean {
   if (!isInsert(sql)) return false;
-  if (/\bON\s+CONFLICT\b/i.test(sql)) return false;
+  if (isOnConflictDoNothing(sql)) return false;
   if (/\bRETURNING\b/i.test(sql)) return false;
   const table = insertTargetTable(sql);
   return table != null && !KEYLESS_TABLES.has(table);

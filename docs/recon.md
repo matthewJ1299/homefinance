@@ -14,6 +14,7 @@ The **Outlook connection and mailbox sync** UI lives in `ReconGraphPanel` (`src/
 - **Splits**: When **Split 50/50** is selected on approval, accepted rows create a split expense through `SplitService.createSplit` (equal split; uses the default split group).
 - **Accounts**: Optional **default account** on the Recon page is used when you click **Accept and add** (links the new expense to that account).
 - **Categories**: **Vendor category mappings** (`vendor_category_mappings`) learn a merchant key → category from each **Accept and add**; future syncs pre-fill the suggested category.
+- **Merchant rules**: **"Do this every time"** (or the repeat toggle on the file-it sheet) writes a personal `recon_rules` row for that merchant. Later pending rows that match can be accepted in one go. See [Merchant rules](#merchant-rules).
 
 ## Pending list UX
 
@@ -31,6 +32,15 @@ The collapsible **Fetched emails** list (returned with debug data from sync) sup
 
 - **Bank sender addresses only (type A & B)**: When enabled, only rows whose **From** address contains a substring from `RECON_TYPE_A_FROM_SUBSTRINGS` or `RECON_TYPE_B_FROM_SUBSTRINGS` in `parse-type-a.ts` / `parse-type-b.ts` are shown. This filters by sender only (not subject); it helps focus on the same addresses the parsers use for “from”.
 - **Outcome**: **All**, **Imported** (pending add or duplicate), **Parse failed**, or **Not bank**. Pagination and counts apply to the filtered list; the section title shows `shown of total` when any filter is active.
+
+## Merchant rules
+
+Rules are **personal** (`owner_user_id`), not household-shared: only your mailbox is read, and only your rules apply to it.
+
+- **Write:** from a needs-add accept, **"Do this every time"** / the repeat toggle calls `createReconRule`. The unique key is `(household_id, owner_user_id, match_kind, match_value)` — saving again updates category and participants rather than inserting a duplicate.
+- **Match:** `merchant_exact` (what the UI writes) or `merchant_contains` (escape hatch for branch codes). A rule with no category is left for a person to decide. Overlaps: most-used rule wins, then exact beats contains.
+- **Apply:** **Accept all** on the matched group runs each row through `ReconService.acceptAdd` with an even split across the rule's `participant_user_ids` (not "everyone in the house"). `times_used` increments after the batch.
+- **Actions:** `createReconRule`, `deleteReconRule`, `acceptAllRuleMatched` in `src/lib/actions/recon-rule.actions.ts` (not REST). They return `{ success: false }` rather than throwing.
 
 ## Matching rule
 
@@ -72,4 +82,5 @@ See the main [README](../README.md) section **Recon and Microsoft Graph (Outlook
 ## Database
 
 - **Additive migration** `drizzle/0013_recon_pg.sql`: creates new tables only; does not delete existing app data.
+- **`drizzle/0039_recon_rules_pg.sql`**: personal merchant rules (`recon_rules`). Unique on `(household_id, owner_user_id, match_kind, match_value)`.
 - Apply with `npm run db:push` when deploying.

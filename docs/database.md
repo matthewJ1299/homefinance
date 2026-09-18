@@ -66,6 +66,16 @@ code alone would have rejected historical values that the code no longer writes.
 - **`0028_users_owed_to_me_enabled_pg.sql`**: `users.owed_to_me_enabled` (default false; set true for `users.id = 1`).
 - **Do not merge `multi-tenant-admin` onto this branch without renumbering.** That branch already used `0027`–`0029` for households / super-admin / setup wizard. This branch now uses `0027` for calendar reminders and `0028` for owed-to-me.
 
+## Insert IDs
+
+`run()` appends `RETURNING id` on INSERTs so `lastInsertId()` does not need `lastval()` or a dedicated session. That includes `ON CONFLICT … DO UPDATE` — an upsert still has a row, and that is how Postgres reports its id. It does **not** capture:
+
+- keyless tables (`household_features`, `schema_migrations`) — `RETURNING id` would be a syntax error
+- `ON CONFLICT … DO NOTHING` — a conflict returns no row
+- statements that already contain `RETURNING` — the caller is reading the result itself (`get`, not `run`)
+
+A repository that upserts and then calls `lastInsertId()` must use the `DO UPDATE` form. Skipping every `ON CONFLICT` made `recon_rules` create throw after a successful write.
+
 ## Related
 
 - Postgres client: [src/lib/db/postgres-client.ts](../src/lib/db/postgres-client.ts)

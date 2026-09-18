@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed — recon "Do this every time" crashed after the rule was already written
+
+Accepting a bank row and saving a merchant rule ran `INSERT recon_rules … ON CONFLICT DO UPDATE`, then asked `lastInsertId()` for the new id. The Postgres client treated every `ON CONFLICT` as having nothing to return, so it never attached `RETURNING id`, and `lastInsertId()` threw `No previous INSERT in this context`. The row was committed; the server action was not wrapped, so Next reported it as an unhandled error and bulk accept stopped. Upserts that update a row now return their id the same way a plain INSERT does. The recon-rule actions go through `authedAction`, so a later repository failure is a toast rather than a crash.
+
 ### Fixed — Coolify / standalone boot (`Cannot find module …/lib/db/index`)
 
 Production `instrumentation.ts` used `webpackIgnore` and a relative `./lib/db/index` import. Next compiles that file to `.next/server/instrumentation.js`, so Node looked for `/app/.next/server/lib/db/index`, which standalone never copies. The image printed Ready, then looped `Failed to prepare server`. Node boot work is now `src/instrumentation-node.ts`, loaded at runtime with `tsx` (`webpackIgnore` still keeps `pg` / `web-push` out of the Edge instrumentation compiler — bundling that graph is what fails the production build). The runner image copies `src/` and `tsconfig.json` so `@/*` resolves. Schema push in the entrypoint was already succeeding; this only unblocks the Next process.
