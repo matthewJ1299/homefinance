@@ -21,6 +21,11 @@ import {
   RECON_TYPE_B_FROM_SUBSTRINGS,
 } from "@/lib/services/recon/parsers";
 import { ReconGraphPanel } from "@/components/recon/recon-graph-panel";
+import {
+  ReconMailDetailDialog,
+  type ReconMailDetail,
+} from "@/components/recon/recon-mail-detail-dialog";
+import { flowFromStoredAmount, flowLabel } from "@/lib/services/recon/recon-flow";
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { ...init, headers: { "Content-Type": "application/json", ...init?.headers } });
@@ -95,7 +100,11 @@ function defaultExpenseNoteForReconItem(item: ReconPendingListItem): string {
 }
 
 function defaultAmountRandForItem(item: ReconPendingListItem): string {
-  return fromMinorUnits(item.amount).toFixed(2);
+  return fromMinorUnits(Math.abs(item.amount)).toFixed(2);
+}
+
+function defaultEntryKind(item: ReconPendingListItem): "expense" | "income" {
+  return flowFromStoredAmount(item.amount) === "in" ? "income" : "expense";
 }
 
 /** Parses ZAR text to minor units; rejects non-positive or invalid input. */
@@ -189,16 +198,8 @@ export function ReconPageClient() {
   useEffect(() => {
     setDebugPage(1);
   }, [debugBankSendersOnly, debugOutcomeFilter, syncDebug?.messages]);
-  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
-  const [messageLoading, setMessageLoading] = useState(false);
   const [messageSyncMeta, setMessageSyncMeta] = useState<FetchedMailDebugRow | null>(null);
-  const [messageDetail, setMessageDetail] = useState<null | {
-    id: string;
-    subject: string;
-    fromAddress: string;
-    receivedDateTime: string;
-    bodyContent: string;
-  }>(null);
+  const [messageDetail, setMessageDetail] = useState<ReconMailDetail | null>(null);
   const [bulkIntentByItemId, setBulkIntentByItemId] = useState<Record<number, ReconBulkIntent>>({});
   const [entryKindByItemId, setEntryKindByItemId] = useState<Record<number, "expense" | "income">>({});
   const [incomeTypeByItemId, setIncomeTypeByItemId] = useState<Record<number, "salary" | "ad_hoc">>({});
@@ -483,7 +484,7 @@ export function ReconPageClient() {
         ignored++;
         processedIds.push(item.id);
         processedDates.push(item.txnDate);
-        ignoredMinor += item.amount;
+        ignoredMinor += Math.abs(item.amount);
       }
       for (const item of toAccept) {
         if (item.status === "pending_duplicate") {
@@ -493,11 +494,11 @@ export function ReconPageClient() {
           duped++;
           processedIds.push(item.id);
           processedDates.push(item.txnDate);
-          duplicateMinor += item.amount;
+          duplicateMinor += Math.abs(item.amount);
           continue;
         }
         const postKind =
-          item.status === "pending_add" ? entryKindByItemId[item.id] ?? "expense" : "expense";
+          item.status === "pending_add" ? entryKindByItemId[item.id] ?? defaultEntryKind(item) : "expense";
         const expenseNote = noteByItemId[item.id] ?? defaultExpenseNoteForReconItem(item);
         const rawAmt = amountRandByItemId[item.id] ?? defaultAmountRandForItem(item);
         const parsedAmt = parseRandInputToMinor(rawAmt);
@@ -673,37 +674,18 @@ export function ReconPageClient() {
     incomeTypeByItemId,
   ]);
 
-  const openMessage = useCallback(async (row: FetchedMailDebugRow) => {
-    const meta: FetchedMailDebugRow = {
+  const openMessage = useCallback((row: FetchedMailDebugRow) => {
+    setMessageDetail(null);
+    setMessageSyncMeta({
       ...row,
       descriptionLine: row.descriptionLine ?? (row.bodyPreview?.trim() || row.subject?.trim() || "—"),
-    };
-    setMessageSyncMeta(meta);
-    setMessageDialogOpen(true);
-    setMessageLoading(true);
-    setMessageDetail(null);
-    try {
-      const data = await fetchJson<{ message: { id: string; subject: string; fromAddress: string; receivedDateTime: string; bodyContent: string } }>(
-        `/api/recon/messages/${encodeURIComponent(row.graphMessageId)}`
-      );
-      setMessageDetail(data.message);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to load email body.");
-      setMessageDetail({
-        id: row.graphMessageId,
-        subject: row.subject,
-        fromAddress: row.fromAddress,
-        receivedDateTime: row.receivedDateTime,
-        bodyContent: "",
-      });
-    } finally {
-      setMessageLoading(false);
-    }
+    });
   }, []);
 
-  const openMessageFromPendingItem = useCallback(async (item: ReconPendingListItem) => {
+  const openMessageFromPendingItem = useCallback((item: ReconPendingListItem) => {
     const descriptionLine = item.rawSubject?.trim() || item.rawBodyPreview?.trim() || "—";
-    const meta: FetchedMailDebugRow = {
+    setMessageDetail(null);
+    setMessageSyncMeta({
       graphMessageId: item.graphMessageId,
       receivedDateTime: "",
       fromAddress: "",
@@ -713,30 +695,7 @@ export function ReconPageClient() {
       outcome: item.status === "pending_duplicate" ? "imported_pending_duplicate" : "imported_pending_add",
       parseType: item.parseType,
       matchedExpenseCount: item.matchedExpenseIds?.length ?? undefined,
-    };
-    setMessageSyncMeta(meta);
-    setMessageDialogOpen(true);
-    setMessageLoading(true);
-    setMessageDetail(null);
-    try {
-      const data = await fetchJson<{ message: { id: string; subject: string; fromAddress: string; receivedDateTime: string; bodyContent: string } }>(
-        `/api/recon/messages/${encodeURIComponent(item.graphMessageId)}`
-      );
-      setMessageDetail(data.message);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to load email body.");
-      setMessageDetail({
-        id: item.graphMessageId,
-        subject: item.rawSubject ?? "",
-        fromAddress: "",
-        receivedDateTime: "",
-        bodyContent: item.rawBodyPreview
-          ? `${item.rawBodyPreview}\n\n(Unable to load full body from mailbox.)`
-          : "",
-      });
-    } finally {
-      setMessageLoading(false);
-    }
+    });
   }, []);
 
   const copyMessageDebugBundle = useCallback(async () => {
@@ -1005,7 +964,7 @@ export function ReconPageClient() {
                 {items.map((item) => {
                   const cat = effectiveCategory(item);
                   const postKind =
-                    item.status === "pending_add" ? entryKindByItemId[item.id] ?? "expense" : "expense";
+                    item.status === "pending_add" ? entryKindByItemId[item.id] ?? defaultEntryKind(item) : "expense";
                   const acc =
                     accountId === "" ? undefined : typeof accountId === "number" ? accountId : undefined;
                   const split = splitByItemId[item.id] ?? false;
@@ -1083,6 +1042,9 @@ export function ReconPageClient() {
                         </button>
                       </td>
                       <td className="py-3 pr-3 min-w-[7.5rem]">
+                        <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                          {flowLabel(flowFromStoredAmount(item.amount))}
+                        </p>
                         <label htmlFor={`recon-amt-${item.id}`} className="sr-only">
                           Amount (ZAR) for recon item {item.id}
                         </label>
@@ -1094,7 +1056,7 @@ export function ReconPageClient() {
                           className="w-full min-w-[6.5rem] rounded-md border border-input bg-background px-2 py-1.5 text-sm tabular-nums"
                           value={amountRand}
                           onChange={(e) => setAmountRand(item.id, e.target.value)}
-                          placeholder={fromMinorUnits(item.amount).toFixed(2)}
+                          placeholder={fromMinorUnits(Math.abs(item.amount)).toFixed(2)}
                           title="Amount in ZAR for the posted row (defaults from parsed bank amount)"
                         />
                       </td>
@@ -1280,109 +1242,62 @@ export function ReconPageClient() {
         )}
       </section>
 
-      <Dialog
-        open={messageDialogOpen}
+      <ReconMailDetailDialog
+        source={
+          messageSyncMeta
+            ? {
+                graphMessageId: messageSyncMeta.graphMessageId,
+                descriptionLine:
+                  messageSyncMeta.descriptionLine?.trim() ||
+                  messageSyncMeta.bodyPreview?.trim() ||
+                  messageSyncMeta.subject?.trim() ||
+                  "—",
+                fallbackSubject: messageSyncMeta.subject,
+                fallbackPreview: messageSyncMeta.bodyPreview,
+                fallbackFrom: messageSyncMeta.fromAddress,
+                fallbackReceived: messageSyncMeta.receivedDateTime,
+              }
+            : null
+        }
         onOpenChange={(open) => {
-          setMessageDialogOpen(open);
           if (!open) {
-            setMessageLoading(false);
             setMessageDetail(null);
             setMessageSyncMeta(null);
           }
         }}
-        className="max-w-3xl"
-      >
-        <DialogHeader>Fetched mail detail</DialogHeader>
-        {messageSyncMeta ? (
-          <div className="mb-3 rounded-md border border-border bg-muted/20 p-3 text-sm">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
-            <p className="whitespace-pre-wrap break-words">
-              {messageSyncMeta.descriptionLine?.trim() ||
-                messageSyncMeta.bodyPreview?.trim() ||
-                messageSyncMeta.subject?.trim() ||
-                "—"}
-            </p>
-          </div>
-        ) : null}
-        {messageSyncMeta?.outcome === "parse_failed" ? (
-          <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm space-y-2">
-            <p className="font-medium text-destructive">Parse failed</p>
-            <p className="text-muted-foreground">
-              Reasons:{" "}
-              {messageSyncMeta.parseFailedReasons?.length
-                ? messageSyncMeta.parseFailedReasons.join(", ")
-                : "unknown"}
-            </p>
-            {messageSyncMeta.parseType ? (
-              <p className="text-muted-foreground">Template attempted: {messageSyncMeta.parseType}</p>
-            ) : null}
-            {messageSyncMeta.parseAttempt ? (
-              <pre className="text-xs rounded-md border border-border bg-muted/40 p-2 overflow-auto">
-                {JSON.stringify(messageSyncMeta.parseAttempt, null, 2)}
-              </pre>
-            ) : null}
-          </div>
-        ) : null}
-        {messageLoading ? (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">Loading body from mailbox…</p>
-            {messageSyncMeta ? (
-              <div className="rounded-md border border-border p-3 space-y-1 text-sm">
-                <p>
-                  <span className="text-muted-foreground">From (email): </span>
-                  {messageSyncMeta.fromAddress || "—"}
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Subject: </span>
-                  {messageSyncMeta.subject || "—"}
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Received: </span>
-                  {messageSyncMeta.receivedDateTime || "—"}
-                </p>
-              </div>
-            ) : null}
-          </div>
-        ) : messageDetail ? (
-          <div className="space-y-3">
-            <div className="rounded-md border border-border p-3 space-y-1 text-sm">
-              <p>
-                <span className="text-muted-foreground">From (email): </span>
-                <span className="select-all">{messageDetail.fromAddress || "—"}</span>
+        onLoaded={setMessageDetail}
+        extraBeforeBody={
+          messageSyncMeta?.outcome === "parse_failed" ? (
+            <div className="mb-3 space-y-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
+              <p className="font-medium text-destructive">Parse failed</p>
+              <p className="text-muted-foreground">
+                Reasons:{" "}
+                {messageSyncMeta.parseFailedReasons?.length
+                  ? messageSyncMeta.parseFailedReasons.join(", ")
+                  : "unknown"}
               </p>
-              <p>
-                <span className="text-muted-foreground">Subject: </span>
-                <span className="select-all">{messageDetail.subject || "—"}</span>
-              </p>
-              <p>
-                <span className="text-muted-foreground">Received: </span>
-                <span className="select-all">{messageDetail.receivedDateTime || "—"}</span>
-              </p>
+              {messageSyncMeta.parseType ? (
+                <p className="text-muted-foreground">Template attempted: {messageSyncMeta.parseType}</p>
+              ) : null}
+              {messageSyncMeta.parseAttempt ? (
+                <pre className="overflow-auto rounded-md border border-border bg-muted/40 p-2 text-xs">
+                  {JSON.stringify(messageSyncMeta.parseAttempt, null, 2)}
+                </pre>
+              ) : null}
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">Body</p>
-              <pre className="whitespace-pre-wrap text-sm rounded-md border border-border bg-muted/30 p-3 max-h-[50vh] overflow-auto select-all">
-                {messageDetail.bodyContent || "—"}
-              </pre>
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">No data.</p>
-        )}
-        <DialogFooter>
+          ) : null
+        }
+        footerStart={
           <Button
             type="button"
             variant="secondary"
             onClick={() => void copyMessageDebugBundle()}
-            disabled={!messageSyncMeta || !messageDetail || messageLoading}
+            disabled={!messageSyncMeta || !messageDetail}
           >
             Copy debug text
           </Button>
-          <Button type="button" variant="secondary" onClick={() => setMessageDialogOpen(false)}>
-            Close
-          </Button>
-        </DialogFooter>
-      </Dialog>
+        }
+      />
 
       <Dialog
         open={processMarkedSummaryOpen}

@@ -12,7 +12,10 @@ import {
 } from "@/lib/repositories";
 import { divideEqually } from "@/lib/services/finance/participants";
 import { matchRules } from "@/lib/services/recon/match-rules";
+import { flowFromStoredAmount } from "@/lib/services/recon/recon-flow";
 import { ReconService } from "@/lib/services/recon/recon.service";
+import { ReconRuleService } from "@/lib/services/recon/recon-rule.service";
+import { reconRuleWriteSchema } from "@/lib/validators/recon-rule.schema";
 
 export type ReconRuleResult = { success: true } | { success: false; error: string };
 
@@ -40,24 +43,23 @@ export async function createReconRule(data: {
 }): Promise<ReconRuleResult> {
   return authedAction<{ success: true }>(
     async ({ userId }) => {
-      const value = data.matchValue.trim();
-      if (value === "") return { success: false, error: "A rule needs a merchant to match." };
-
+      if (data.categoryId == null) {
+        return { success: false, error: "Pick a category." };
+      }
       const roster = (await getUserRepository().findAll()).map((m) => m.id);
-      const members = new Set(roster);
       const participantUserIds = data.participantUserIds
         ?? (data.splitWithHousehold ? roster : [userId]);
-      if (participantUserIds.some((id) => !members.has(id))) {
-        return { success: false, error: "Someone is not in this household." };
-      }
-
-      await getReconRuleRepository().create({
-        ownerUserId: userId,
+      const parsed = reconRuleWriteSchema.safeParse({
         matchKind: data.matchKind,
-        matchValue: value,
+        matchValue: data.matchValue,
         categoryId: data.categoryId,
         participantUserIds,
       });
+      if (!parsed.success) {
+        return { success: false, error: parsed.error.issues[0]?.message ?? "That rule is not valid." };
+      }
+      const written = await new ReconRuleService().create(userId, parsed.data);
+      if (!written.ok) return { success: false, error: written.error };
       revalidatePath("/recon");
       return { success: true };
     },
@@ -65,10 +67,40 @@ export async function createReconRule(data: {
   );
 }
 
+export async function updateReconRule(
+  id: number,
+  data: {
+    matchKind: "merchant_exact" | "merchant_contains";
+    matchValue: string;
+    categoryId: number;
+    participantUserIds: number[];
+  }
+): Promise<ReconRuleResult> {
+  return authedAction<{ success: true }>(
+    async ({ userId }) => {
+      if (!Number.isInteger(id) || id < 1) {
+        return { success: false, error: "That rule is gone." };
+      }
+      const parsed = reconRuleWriteSchema.safeParse(data);
+      if (!parsed.success) {
+        return { success: false, error: parsed.error.issues[0]?.message ?? "That rule is not valid." };
+      }
+      const written = await new ReconRuleService().update(userId, id, parsed.data);
+      if (!written.ok) return { success: false, error: written.error };
+      revalidatePath("/recon");
+      return { success: true };
+    },
+    { onError: "The rule could not be saved." }
+  );
+}
+
 export async function deleteReconRule(id: number): Promise<ReconRuleResult> {
   return authedAction<{ success: true }>(
     async ({ userId }) => {
-      await getReconRuleRepository().delete(id, userId);
+      if (!Number.isInteger(id) || id < 1) {
+        return { success: false, error: "That rule is gone." };
+      }
+      await new ReconRuleService().delete(userId, id);
       revalidatePath("/recon");
       return { success: true };
     },
@@ -92,7 +124,11 @@ export async function acceptAllRuleMatched(): Promise<
         getReconRuleRepository().findByOwner(userId),
         getReconImportItemRepository().findPendingByUserId(userId),
       ]);
-      const { matched } = matchRules(pending, rules);
+      // Inflows never carry an expense rule -- the Recon page excludes them
+      // from matching, and a deposit that happens to share a vendor with a
+      // rule must not be bulk-filed as a spend of the same magnitude.
+      const outflows = pending.filter((p) => flowFromStoredAmount(p.amount) === "out");
+      const { matched } = matchRules(outflows, rules);
 
       const service = new ReconService();
       let accepted = 0;

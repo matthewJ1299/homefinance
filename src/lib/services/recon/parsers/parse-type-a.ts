@@ -1,5 +1,6 @@
 import type { ParsedBankEmail } from "./parsed-bank-email";
-import { parseDateToYyyyMmDd, parseMinorFromRandText } from "./parse-helpers";
+import { parseDateToYyyyMmDd, parseMinorFromRandText, inferReconFlow } from "./parse-helpers";
+import { amountToStore } from "../recon-flow";
 
 /** Sender address substrings for type A (ABSA NotifyMe). Used by matchers and Recon fetched-mail filters. */
 export const RECON_TYPE_A_FROM_SUBSTRINGS = ["notifyme@absa.co.za"] as const;
@@ -26,8 +27,11 @@ export function parseTypeA(body: string, subject: string): ParsedBankEmail | nul
   const reservedLine = combined.match(/reserved\s*:\s*([^\n\r]+)/i);
   const amountLine = combined.match(/amount\s*:\s*([^\n\r]+)/i);
   const amountChunk = reservedLine?.[1] ?? amountLine?.[1] ?? combined;
-  const amount = parseMinorFromRandText(amountChunk);
-  if (amount == null) return null;
+  const signed = parseMinorFromRandText(amountChunk);
+  if (signed == null) return null;
+  const amountLineSigned = amountLine?.[1] != null ? parseMinorFromRandText(amountLine[1]) : null;
+  const flow = inferReconFlow(combined, amountLineSigned ?? signed);
+  const amount = amountToStore(Math.abs(signed), flow);
   const date = parseDateToYyyyMmDd(combined);
   if (!date) return null;
   let vendor = "";

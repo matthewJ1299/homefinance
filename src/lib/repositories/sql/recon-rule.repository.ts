@@ -1,10 +1,12 @@
-import { all, run, lastInsertId } from "@/lib/db";
+import { all, get, run, lastInsertId } from "@/lib/db";
 import { requireHouseholdId } from "@/lib/db/request-context";
 import type {
   IReconRuleRepository,
   ReconRuleRow,
   CreateReconRuleInput,
   ReconRuleMatchKind,
+  ReconRuleWriteFields,
+  ReconRuleUpdateResult,
 } from "../interfaces/recon-rule.repository";
 
 interface Row {
@@ -31,6 +33,16 @@ function toRule(r: Row): ReconRuleRow {
     timesUsed: r.times_used,
     createdAt: r.created_at,
   };
+}
+
+function pgIntArray(ids: number[]): string {
+  // pg takes an int[] literal; the driver's param binding is typed for
+  // scalars, so the array is written in its text form.
+  return `{${ids.join(",")}}`;
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  return Boolean(err && typeof err === "object" && "code" in err && err.code === "23505");
 }
 
 export class ReconRuleRepository implements IReconRuleRepository {
@@ -61,12 +73,39 @@ export class ReconRuleRepository implements IReconRuleRepository {
         data.matchKind,
         data.matchValue,
         data.categoryId,
-        // pg takes an int[] literal; the driver's param binding is typed for
-        // scalars, so the array is written in its text form.
-        `{${data.participantUserIds.join(",")}}`,
+        pgIntArray(data.participantUserIds),
       ]
     );
     return { id: await lastInsertId() };
+  }
+
+  async update(
+    id: number,
+    ownerUserId: number,
+    data: ReconRuleWriteFields
+  ): Promise<ReconRuleUpdateResult> {
+    const hid = requireHouseholdId();
+    try {
+      const row = await get<{ id: number }>(
+        `UPDATE recon_rules
+            SET match_kind = ?, match_value = ?, category_id = ?, participant_user_ids = ?
+          WHERE id = ? AND household_id = ? AND owner_user_id = ?
+          RETURNING id`,
+        [
+          data.matchKind,
+          data.matchValue,
+          data.categoryId,
+          pgIntArray(data.participantUserIds),
+          id,
+          hid,
+          ownerUserId,
+        ]
+      );
+      return row?.id != null ? "ok" : "missing";
+    } catch (err) {
+      if (isUniqueViolation(err)) return "conflict";
+      throw err;
+    }
   }
 
   async delete(id: number, ownerUserId: number): Promise<void> {

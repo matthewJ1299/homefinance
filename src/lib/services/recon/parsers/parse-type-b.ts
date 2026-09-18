@@ -1,5 +1,6 @@
 import type { ParsedBankEmail } from "./parsed-bank-email";
-import { parseDateToYyyyMmDd, parseMinorFromRandText } from "./parse-helpers";
+import { parseDateToYyyyMmDd, parseMinorFromRandText, inferReconFlow } from "./parse-helpers";
+import { amountToStore } from "../recon-flow";
 
 /** Sender address substrings for type B (FNB inContact). Used by matchers and Recon fetched-mail filters. */
 export const RECON_TYPE_B_FROM_SUBSTRINGS = ["incontact@fnb.co.za"] as const;
@@ -22,8 +23,9 @@ export function matchesTypeB(fromAddress: string, subject: string): boolean {
  */
 export function parseTypeB(body: string, subject: string): ParsedBankEmail | null {
   const combined = `${subject}\n${body}`;
-  const amount = parseMinorFromRandText(combined);
-  if (amount == null) return null;
+  const signed = parseMinorFromRandText(combined);
+  if (signed == null) return null;
+  const amount = amountToStore(Math.abs(signed), inferReconFlow(combined, signed));
   const date = parseDateToYyyyMmDd(combined);
   if (!date) return null;
   let vendor = "";

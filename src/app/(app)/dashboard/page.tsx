@@ -14,6 +14,7 @@ import { CalendarService } from "@/lib/services/calendar.service";
 import { occurrenceCoversDate } from "@/lib/utils/calendar-occurrence";
 import { AccountService } from "@/lib/services/account.service";
 import { ExpenseService } from "@/lib/services/expense.service";
+import { IncomeService } from "@/lib/services/income.service";
 import { SplitService } from "@/lib/services/split.service";
 import { buildGoalRows, goalsBehind } from "@/lib/services/finance/goal-categories";
 import { formatBudgetMonthLabel } from "@/lib/utils/date";
@@ -103,15 +104,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const userRepo = getUserRepository();
   const expenseService = new ExpenseService();
+  const incomeService = new IncomeService();
   const accountService = new AccountService();
   const nextRangeEnd = format(addDays(new Date(), 30), "yyyy-MM-dd");
-
-  const mainAccountId = await accountService.getMainAccountId(userId);
 
   const [
     categories,
     otherUsers,
     expensePage,
+    incomeResult,
     balances,
     calendarOccurrences,
     budgetOverview,
@@ -120,13 +121,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   ] = await Promise.all([
     getCategoryRepository().findAll(),
     userRepo.findAllExcept(userId),
+    // The recent-transactions tile is a preview of the /expenses list it links
+    // to: the viewer's own rows plus rows on shared accounts, across every
+    // account. It used to be scoped to the main account, which hid every spend
+    // filed with "No account" or on another account.
     expenseService.getByMonthPaginated(
       month,
       1,
       DASHBOARD_TRANSACTIONS_EXPENSE_FETCH,
       userId,
-      mainAccountId ?? undefined
+      undefined,
+      true
     ),
+    incomeService.getByMonth(month, userId),
     new SplitService().getBalances(userId),
     new CalendarService().getByDateRange(today, nextRangeEnd, userId),
     new BudgetService().getOverview(month, userId),
@@ -257,9 +264,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         monthLabelPretty={monthLabelPretty}
         categories={categories}
         otherUserName={otherUserName}
-        primaryAccountId={mainAccountId}
         initialExpenses={expensePage.expenses}
-        incomeEntries={[]}
+        incomeEntries={incomeResult.entries}
         mergedTransactionsDisplayLimit={DASHBOARD_TRANSACTIONS_DISPLAY_LIMIT}
       />
 

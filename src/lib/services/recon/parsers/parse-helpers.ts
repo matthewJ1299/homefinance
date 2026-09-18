@@ -7,17 +7,51 @@ export function normalizeMerchantKey(vendor: string): string {
     .replace(/\s+/g, " ");
 }
 
-/** Parse South-African style currency text to minor units (cents). Uses absolute value (debits may be "-R55.00"). */
+/**
+ * Parse South-African style currency text to signed minor units.
+ *
+ * A leading minus (`-R55.00`, `R -55.00`) is a debit. Magnitude-only text is
+ * positive; callers that care about deposits vs purchases still run
+ * `inferReconFlow` on the surrounding subject/body.
+ */
 export function parseMinorFromRandText(text: string): number | null {
-  const m =
-    text.match(/-?\s*R\s*([\d\s.,]+)/i) ??
-    text.match(/ZAR\s*([\d\s.,]+)/i);
-  const raw = (m?.[1] ?? text).replace(/\s/g, "").trim();
-  if (!raw) return null;
-  const normalized = raw.includes(",") && !raw.includes(".") ? raw.replace(",", ".") : raw.replace(",", "");
+  const rand = text.match(/(-?)\s*R\s*(-?)\s*([\d\s.,]+)/i);
+  if (rand) {
+    const n = parseRandNumber(rand[3] ?? "");
+    if (n == null) return null;
+    const negative = rand[1] === "-" || rand[2] === "-";
+    return Math.round((negative ? -n : n) * 100);
+  }
+  const zar = text.match(/ZAR\s*(-?)\s*([\d\s.,]+)/i);
+  if (!zar) return null;
+  const n = parseRandNumber(zar[2] ?? "");
+  if (n == null) return null;
+  const negative = zar[1] === "-";
+  return Math.round((negative ? -n : n) * 100);
+}
+
+function parseRandNumber(raw: string): number | null {
+  const cleaned = raw.replace(/\s/g, "").trim();
+  if (!cleaned) return null;
+  const normalized = cleaned.includes(",") && !cleaned.includes(".")
+    ? cleaned.replace(",", ".")
+    : cleaned.replace(/,/g, "");
   const n = Number.parseFloat(normalized);
-  if (!Number.isFinite(n)) return null;
-  return Math.round(Math.abs(n) * 100);
+  return Number.isFinite(n) ? n : null;
+}
+
+const INFLOW_RE =
+  /\b(deposit(?:ed)?|credited|refund(?:ed)?|salary|paid\s+into|payment\s+received|received\s+from)\b/i;
+
+/**
+ * Debit vs credit when the figure itself is unsigned. A minus on the amount
+ * always wins. Otherwise inflow words (deposit, credited, salary) beat the
+ * default, which is Out — that is what almost every bank notification is.
+ */
+export function inferReconFlow(text: string, signedMinor: number | null): "out" | "in" {
+  if (signedMinor != null && signedMinor < 0) return "out";
+  if (INFLOW_RE.test(text)) return "in";
+  return "out";
 }
 
 /** Try ISO date, then DD/MM/YYYY, then DD-MM-YYYY. */

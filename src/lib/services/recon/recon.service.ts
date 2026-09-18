@@ -24,6 +24,7 @@ import {
   normalizeMerchantKey,
 } from "./parsers";
 import { parseDateToYyyyMmDd, parseMinorFromRandText } from "./parsers/parse-helpers";
+import { flowFromStoredAmount } from "./recon-flow";
 import type { ParsedBankEmail } from "./parsers/parsed-bank-email";
 import type { ReconMatchedExpenseSummary, ReconPendingListItem } from "@/lib/types/recon";
 
@@ -225,11 +226,16 @@ export class ReconService {
         continue;
       }
       const merchantKey = normalizeMerchantKey(parsed.vendor);
-      const matches = await this.expenseRepo.findByUserDateAndAmount(
-        userId,
-        parsed.date,
-        parsed.amountMinorUnits
-      );
+      // Inflows share a date+magnitude with spends all the time. Matching them
+      // against expenses would mark a salary as a duplicate of a purchase.
+      const matches =
+        flowFromStoredAmount(parsed.amountMinorUnits) === "in"
+          ? []
+          : await this.expenseRepo.findByUserDateAndAmount(
+              userId,
+              parsed.date,
+              Math.abs(parsed.amountMinorUnits)
+            );
       const matchedIds = matches.map((e) => e.id);
       const status =
         matchedIds.length > 0 ? ("pending_duplicate" as const) : ("pending_add" as const);
@@ -336,7 +342,10 @@ export class ReconService {
       Number.isInteger(amountMinorOverride) &&
       amountMinorOverride > 0
         ? amountMinorOverride
-        : item.amount;
+        : Math.abs(item.amount);
+    if (!Number.isInteger(amountMinor) || amountMinor <= 0) {
+      throw new Error("Amount must be positive.");
+    }
 
     if (entryKind === "income") {
       if (item.status === "pending_duplicate") {

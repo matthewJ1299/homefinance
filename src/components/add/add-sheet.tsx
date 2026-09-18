@@ -57,12 +57,14 @@ export interface AddSheetPrefill {
    * panel must not diverge between the two ways a spend gets filed.
    */
   onSubmit?: (values: {
-    categoryId: number;
+    categoryId: number | null;
     amountMinor: number;
     date: string;
     note: string | null;
     accountId?: number;
     participants: { userId: number; shareMinor: number }[];
+    tab: "spend" | "income";
+    incomeKind: IncomeKind;
   }) => Promise<{ ok: true } | { ok: false; error: string }>;
   /** Runs after a successful save. Used to clear a list's ticked items. */
   onSaved?: () => void | Promise<void>;
@@ -301,6 +303,41 @@ export function AddSheet({
   function save() {
     if (!canSave) return;
     startTransition(async () => {
+      // A caller that writes through its own path -- recon accept -- takes
+      // over here for both tabs. Income used to skip this and call addIncome,
+      // which filed a row that was not linked to the bank message.
+      if (prefill.onSubmit) {
+        if (tab === "spend") {
+          const valid = validateParticipantShares(amountMinor, participants, me.id);
+          if (!valid.ok) {
+            toast.error(valid.error);
+            return;
+          }
+        }
+        const out = await prefill.onSubmit({
+          categoryId: tab === "spend" ? categoryId : null,
+          amountMinor,
+          date,
+          note: note || null,
+          accountId,
+          participants,
+          tab,
+          incomeKind,
+        });
+        if (!out.ok) {
+          toast.error(out.error);
+          return;
+        }
+        toast.success(
+          tab === "income"
+            ? `Added ${formatRand(amountMinor)} in.`
+            : `Saved ${formatRand(myShare)} to ${category?.name ?? "your budget"}.`
+        );
+        await prefill.onSaved?.();
+        onOpenChange(false);
+        return;
+      }
+
       if (tab === "income") {
         const res = await addIncome({
           amount: amountMinor,
@@ -322,28 +359,6 @@ export function AddSheet({
       const valid = validateParticipantShares(amountMinor, participants, me.id);
       if (!valid.ok) {
         toast.error(valid.error);
-        return;
-      }
-
-      // A caller that writes through its own path -- the recon accept route --
-      // takes over here. Everything above this line is identical either way,
-      // which is the point of the override.
-      if (prefill.onSubmit) {
-        const out = await prefill.onSubmit({
-          categoryId: categoryId!,
-          amountMinor,
-          date,
-          note: note || null,
-          accountId,
-          participants,
-        });
-        if (!out.ok) {
-          toast.error(out.error);
-          return;
-        }
-        toast.success(`Saved ${formatRand(myShare)} to ${category?.name ?? "your budget"}.`);
-        await prefill.onSaved?.();
-        onOpenChange(false);
         return;
       }
 
@@ -729,12 +744,12 @@ export function AddSheet({
           {shareGap !== 0
             ? "Shares don't add up"
             : !canSave
-              ? (prefill.submitLabel ?? (tab === "income" ? "Save money in" : "Save spend"))
+              ? (prefill.submitLabel ?? (tab === "income" ? "Add money in" : "Spend"))
               : tab === "income"
-                ? `Save ${formatRand(amountMinor)} in`
+                ? `Add ${formatRand(amountMinor)} in`
                 : pickedIds.length > 1
-                  ? `${prefill.submitLabel ?? "Save"} · your share ${formatRand(myShare)}`
-                  : `${prefill.submitLabel ?? "Save"} ${formatRand(amountMinor)}`}
+                  ? `${prefill.submitLabel ?? "Spend"} · your share ${formatRand(myShare)}`
+                  : `${prefill.submitLabel ?? "Spend"} ${formatRand(amountMinor)}`}
         </button>
       </div>
     </Sheet>

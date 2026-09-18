@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Added — recon Out vs In, and the bank message on a decision row
+
+**Need a decision** treated every bank line as a spend and opened the Add sheet immediately, so you could not see the email and you could not tell a deposit from a purchase. A tap now opens the same **Fetched mail detail** dialog as the Description cell on the pending table (from, subject, received, full body). **File it** is on that dialog; it opens the Add sheet on **Spend** or **Income** according to the sign.
+
+Amounts are labelled **Out** or **In**, not only coloured. The parsers used to store an absolute value, so every historical row stays Out until you re-sync. New inflows (deposit / credited / salary, and similar) are stored negative. A minus on the amount line is still a debit (Out) — that is how ABSA writes purchases. Expense rules do not auto-place inflows, and inflows are not matched as expense duplicates. Filing still writes a positive amount into expenses or income.
+
+### Added — edit recon merchant rules
+
+**Your rules** was a list with only Remove. A rule you cannot correct is one you delete. Tapping a rule now opens a sheet for the three things it actually stores: how it matches (exact or contains), the merchant text, the category, and who shares the next matching spend. Contains is a first-class choice there — that is how "Woolworths Claremont 4471" becomes "woolworths" without SQL. Remove lives in the same sheet, behind a confirm, because it is not the default job of the list.
+
+Edit is an `UPDATE` of that row. If the new merchant+kind pair already belongs to another of your rules, it is refused rather than merged — `times_used` would otherwise mean two histories. Creating from **Do this every time** is still an upsert on the same pair, which is the right behaviour when you are re-teaching the same merchant from an accept.
+
+Writes go through `ReconRuleService` so the action is not doing roster and category checks itself.
+
 ### Fixed — recon "Do this every time" crashed after the rule was already written
 
 Accepting a bank row and saving a merchant rule ran `INSERT recon_rules … ON CONFLICT DO UPDATE`, then asked `lastInsertId()` for the new id. The Postgres client treated every `ON CONFLICT` as having nothing to return, so it never attached `RETURNING id`, and `lastInsertId()` threw `No previous INSERT in this context`. The row was committed; the server action was not wrapped, so Next reported it as an unhandled error and bulk accept stopped. Upserts that update a row now return their id the same way a plain INSERT does. The recon-rule actions go through `authedAction`, so a later repository failure is a toast rather than a crash.

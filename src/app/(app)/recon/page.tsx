@@ -1,19 +1,21 @@
 import { Suspense } from "react";
 import { auth } from "@/lib/auth";
 import { hasFeature } from "@/lib/features/access";
+import { ReconConnectionBar } from "@/components/recon/recon-connection-bar";
+import { ReconDecisionList, type DecisionRow } from "@/components/recon/recon-decision-list";
 import { ReconPageClient } from "@/components/recon/recon-page-client";
 import { ReconRulesPanel, type MatchedRowSummary } from "@/components/recon/recon-rules-panel";
+import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { FeatureUnavailable } from "@/components/ui/feature-unavailable";
 import {
+  getCategoryRepository,
+  getReconGraphConnectionRepository,
   getReconImportItemRepository,
   getReconRuleRepository,
   getUserRepository,
 } from "@/lib/repositories";
 import { matchRules } from "@/lib/services/recon/match-rules";
-import { ReconDecisionList, type DecisionRow } from "@/components/recon/recon-decision-list";
-import { getCategoryRepository, getReconGraphConnectionRepository } from "@/lib/repositories";
-import { ReconConnectionBar } from "@/components/recon/recon-connection-bar";
-import { CollapsibleSection } from "@/components/ui/collapsible-section";
+import { flowFromStoredAmount } from "@/lib/services/recon/recon-flow";
 import {
   budgetMonthStartDayForUser,
   getDefaultBudgetMonthForUser,
@@ -36,7 +38,7 @@ export default async function ReconPage() {
   const userId = Number(session?.user?.id ?? 0);
 
   const month = await getDefaultBudgetMonthForUser(userId);
-  const [rules, pending, members, arrivedThisMonth] = await Promise.all([
+  const [rules, pending, members, arrivedThisMonth, categories] = await Promise.all([
     getReconRuleRepository().findByOwner(userId),
     getReconImportItemRepository().findPendingByUserId(userId),
     getUserRepository().findAll(),
@@ -45,16 +47,22 @@ export default async function ReconPage() {
     budgetMonthStartDayForUser(userId).then((startDay) =>
       getReconImportItemRepository().countForMonth(userId, month, startDay)
     ),
+    getCategoryRepository().findAll(),
   ]);
   const connection = await getReconGraphConnectionRepository().findByUserId(userId);
   const nameById = new Map(members.map((m) => [m.id, m.name]));
-  const { matched, unmatched } = matchRules(pending, rules);
+  const outflows = pending.filter((item) => flowFromStoredAmount(item.amount) === "out");
+  const { matched, unmatched: unmatchedOut } = matchRules(outflows, rules);
+  const unmatchedOutIds = new Set(unmatchedOut.map((item) => item.id));
+  // Inflows never match an expense rule; they stay in the original pending
+  // order rather than being dumped at the end of the list.
+  const unmatched = pending.filter(
+    (item) => flowFromStoredAmount(item.amount) === "in" || unmatchedOutIds.has(item.id)
+  );
 
   // `unmatched` was computed and thrown away: these are the rows that actually
   // need a person, and they are now the page's decision list.
-  const categoryNameById = new Map(
-    (await getCategoryRepository().findAll()).map((c) => [c.id, c.name])
-  );
+  const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
   const decisionRows: DecisionRow[] = unmatched.map((item) => ({
     itemId: item.id,
     vendor: item.vendor,
@@ -66,6 +74,9 @@ export default async function ReconPage() {
       item.suggestedCategoryId != null
         ? (categoryNameById.get(item.suggestedCategoryId) ?? null)
         : null,
+    graphMessageId: item.graphMessageId,
+    rawSubject: item.rawSubject,
+    rawBodyPreview: item.rawBodyPreview,
   }));
 
   const matchedRows: MatchedRowSummary[] = matched.map(({ item, rule }) => ({
@@ -93,6 +104,13 @@ export default async function ReconPage() {
         rules={rules}
         totalThisMonth={arrivedThisMonth}
         unmatchedCount={unmatched.length}
+        currentUserId={userId}
+        members={members}
+        categories={categories.map((c) => ({
+          id: c.id,
+          name: c.name,
+          groupName: c.groupName,
+        }))}
       />
       {unmatched.length > 0 ? (
         <section className="space-y-2">

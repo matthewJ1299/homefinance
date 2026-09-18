@@ -6,10 +6,12 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SectionHeader } from "@/components/ui/section-header";
-import { formatRand } from "@/lib/utils/currency";
+import { ReconRuleSheet, type RuleSheetCategory } from "@/components/recon/recon-rule-sheet";
+import { ReconAmount } from "@/components/recon/recon-amount";
 import { formatDisplayDate } from "@/lib/utils/date";
-import { acceptAllRuleMatched, deleteReconRule } from "@/lib/actions/recon-rule.actions";
+import { acceptAllRuleMatched } from "@/lib/actions/recon-rule.actions";
 import type { ReconRuleRow } from "@/lib/repositories/interfaces/recon-rule.repository";
+import type { HouseholdMember } from "@/lib/types/household-member";
 
 export interface MatchedRowSummary {
   itemId: number;
@@ -32,16 +34,24 @@ export function ReconRulesPanel({
   rules,
   totalThisMonth,
   unmatchedCount,
+  currentUserId,
+  members,
+  categories,
 }: {
   matched: MatchedRowSummary[];
   rules: ReconRuleRow[];
   /** Rows that arrived this month, for the caught-up line. */
   totalThisMonth: number;
   unmatchedCount: number;
+  currentUserId: number;
+  members: HouseholdMember[];
+  categories: RuleSheetCategory[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [editing, setEditing] = useState<ReconRuleRow | null>(null);
+  const nameById = new Map(members.map((m) => [m.id, m.name]));
 
   function acceptAll() {
     startTransition(async () => {
@@ -84,7 +94,7 @@ export function ReconRulesPanel({
             {matched.map((m) => (
               <div
                 key={m.itemId}
-                className="flex items-baseline justify-between gap-3 border-b border-border/50 py-2.5 last:border-0"
+                className="flex items-center justify-between gap-3 border-b border-border/50 py-2.5 last:border-0"
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{m.vendor}</p>
@@ -97,7 +107,7 @@ export function ReconRulesPanel({
                     {formatDisplayDate(m.txnDate)}
                   </p>
                 </div>
-                <span className="shrink-0 text-sm tabular-nums">{formatRand(m.amountMinor)}</span>
+                <ReconAmount amountMinor={m.amountMinor} className="text-sm" />
               </div>
             ))}
           </Card>
@@ -133,44 +143,50 @@ export function ReconRulesPanel({
                 lands here.
               </p>
             ) : (
-              rules.map((r) => (
-                <div
-                  key={r.id}
-                  className="flex items-baseline justify-between gap-3 border-b border-border/50 py-2.5 last:border-0"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm">
-                      {r.matchKind === "merchant_exact" ? r.matchValue : `contains "${r.matchValue}"`}
-                      {" → "}
-                      {r.categoryName ?? "no category"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Used {r.timesUsed} time{r.timesUsed === 1 ? "" : "s"}
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    className="h-9 shrink-0 text-destructive"
-                    disabled={pending}
-                    onClick={() =>
-                      startTransition(async () => {
-                        const res = await deleteReconRule(r.id);
-                        if (!res.success) toast.error(res.error);
-                        else router.refresh();
-                      })
-                    }
+              rules.map((r) => {
+                const splitNames = r.participantUserIds
+                  .filter((id) => id !== currentUserId)
+                  .map((id) => nameById.get(id) ?? "Someone");
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => setEditing(r)}
+                    className="flex w-full items-baseline justify-between gap-3 border-b border-border/50 py-2.5 text-left last:border-0 cursor-pointer hover:bg-accent/40"
+                    aria-label={`Edit rule for ${r.matchValue}`}
                   >
-                    Remove
-                  </Button>
-                </div>
-              ))
+                    <div className="min-w-0">
+                      <p className="truncate text-sm">
+                        {r.matchKind === "merchant_exact"
+                          ? r.matchValue
+                          : `contains "${r.matchValue}"`}
+                        {" → "}
+                        {r.categoryName ?? "no category"}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {splitNames.length > 0 ? `Split with ${splitNames.join(", ")} · ` : ""}
+                        Used {r.timesUsed} time{r.timesUsed === 1 ? "" : "s"}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-xs font-medium text-primary">Edit</span>
+                  </button>
+                );
+              })
             )}
           </Card>
         ) : null}
       </div>
 
-      {/* The "Need a decision" list lives on the page now, next to its own
-          heading -- this was a header with nothing under it. */}
+      <ReconRuleSheet
+        rule={editing}
+        currentUserId={currentUserId}
+        members={members}
+        categories={categories}
+        onOpenChange={(open) => {
+          if (!open) setEditing(null);
+        }}
+        onSaved={() => router.refresh()}
+      />
     </div>
   );
 }

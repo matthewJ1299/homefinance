@@ -53,7 +53,12 @@ export class ExpenseService {
     page: number,
     pageSize: number,
     userId?: number,
-    accountId?: number
+    accountId?: number,
+    /**
+     * Adds rows on shared accounts, matching `getByMonth`. The transactions
+     * list wants it; budget totals do not. See `ownerClause`.
+     */
+    includeSharedAccounts = false
   ): Promise<{
     expenses: ExpenseWithDetails[];
     total: number;
@@ -62,7 +67,7 @@ export class ExpenseService {
     totalPages: number;
   }> {
     const period = userId != null ? await getBudgetPeriodForUserMonth(month, userId) : undefined;
-    const total = await this.repo.countByMonth(month, userId, accountId, period);
+    const total = await this.repo.countByMonth(month, userId, accountId, period, includeSharedAccounts);
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     const safePage = Math.min(Math.max(1, page), totalPages);
     const offset = (safePage - 1) * pageSize;
@@ -72,7 +77,8 @@ export class ExpenseService {
       offset,
       userId,
       accountId,
-      period
+      period,
+      includeSharedAccounts
     );
     return {
       expenses,

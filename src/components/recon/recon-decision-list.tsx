@@ -6,8 +6,14 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useAddSheet } from "@/components/add/add-sheet-context";
+import { ReconAmount } from "@/components/recon/recon-amount";
+import {
+  ReconMailDetailDialog,
+  type ReconMailSource,
+} from "@/components/recon/recon-mail-detail-dialog";
 import { createReconRule } from "@/lib/actions/recon-rule.actions";
-import { formatRand } from "@/lib/utils/currency";
+import { flowFromStoredAmount, magnitudeFromStoredAmount } from "@/lib/services/recon/recon-flow";
+import { legacyTypeForKind } from "@/lib/types/income-type";
 
 export interface DecisionRow {
   itemId: number;
@@ -17,6 +23,9 @@ export interface DecisionRow {
   txnDate: string;
   suggestedCategoryId: number | null;
   suggestedCategoryName: string | null;
+  graphMessageId: string;
+  rawSubject: string | null;
+  rawBodyPreview: string | null;
 }
 
 /**
@@ -43,18 +52,17 @@ function RepeatToggle({ onChange }: { onChange: (on: boolean) => void }) {
 }
 
 /**
- * The rows a rule could not place. This is the decision surface -- what used to
- * be a parser table with a category dropdown and a "split?" checkbox that meant
- * "everyone in the house, evenly".
+ * The rows a rule could not place. This is the decision surface.
  *
- * Each row opens the Add sheet, so the category pills, the participant picker
- * and the consequence panel are the same ones every other spend goes through.
+ * A tap opens the same fetched-mail dialog as the Description cell on the
+ * pending table — you read the bank message first. File it from there, into
+ * the Add sheet on the tab the sign implies (Out = spend, In = income).
  */
 export function ReconDecisionList({ rows }: { rows: DecisionRow[] }) {
   const addSheet = useAddSheet();
   const router = useRouter();
-  // Read inside `onSubmit`, which is created once per open.
   const repeatRef = useRef(false);
+  const [mail, setMail] = useState<DecisionRow | null>(null);
 
   if (rows.length === 0) {
     return (
@@ -65,45 +73,63 @@ export function ReconDecisionList({ rows }: { rows: DecisionRow[] }) {
     );
   }
 
-  function openRow(row: DecisionRow) {
+  function mailSource(row: DecisionRow): ReconMailSource {
+    const descriptionLine = row.rawSubject?.trim() || row.rawBodyPreview?.trim() || row.vendor;
+    return {
+      graphMessageId: row.graphMessageId,
+      descriptionLine,
+      fallbackSubject: row.rawSubject ?? "",
+      fallbackPreview: row.rawBodyPreview,
+    };
+  }
+
+  function fileRow(row: DecisionRow) {
     if (!addSheet) return;
+    const flow = flowFromStoredAmount(row.amountMinor);
+    const magnitude = magnitudeFromStoredAmount(row.amountMinor);
     repeatRef.current = false;
     addSheet.open({
       title: row.vendor,
       submitLabel: "File it",
-      // The parsers get the amount wrong often enough that it stays editable.
-      amountMinor: row.amountMinor,
+      tab: flow === "in" ? "income" : "spend",
+      amountMinor: magnitude,
       date: row.txnDate,
-      categoryId: row.suggestedCategoryId ?? undefined,
+      categoryId: flow === "out" ? (row.suggestedCategoryId ?? undefined) : undefined,
       note: `Recon: ${row.vendor}`,
-      extraControl: <RepeatToggle onChange={(on) => (repeatRef.current = on)} />,
+      extraControl: flow === "out" ? <RepeatToggle onChange={(on) => (repeatRef.current = on)} /> : undefined,
       onSubmit: async (values) => {
+        const asIncome = values.tab === "income";
+        if (!asIncome && values.categoryId == null) {
+          return { ok: false as const, error: "Pick a category" };
+        }
         const res = await fetch(`/api/recon/items/${row.itemId}/accept-add`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            categoryId: values.categoryId,
+            categoryId: asIncome ? undefined : values.categoryId,
             accountId: values.accountId ?? null,
             amount: values.amountMinor,
             note: values.note ?? undefined,
-            entryKind: "expense",
-            // The shares the sheet solved, not a boolean.
-            split: values.participants.length > 1 ? values.participants : undefined,
+            entryKind: asIncome ? "income" : "expense",
+            incomeType: asIncome ? legacyTypeForKind(values.incomeKind) : undefined,
+            split: asIncome
+              ? undefined
+              : values.participants.length > 1
+                ? values.participants
+                : undefined,
           }),
         });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           return { ok: false as const, error: body?.error ?? "Could not file it" };
         }
-        if (repeatRef.current) {
+        if (!asIncome && repeatRef.current && values.categoryId != null) {
           const made = await createReconRule({
             matchKind: "merchant_exact",
             matchValue: row.merchantKey || row.vendor,
             categoryId: values.categoryId,
             participantUserIds: values.participants.map((p) => p.userId),
           });
-          // The spend is already filed; a failed rule is worth saying but not
-          // worth failing the save over.
           if (!made.success) toast.error(`Filed, but the rule was not saved: ${made.error}`);
         }
         return { ok: true as const };
@@ -113,27 +139,46 @@ export function ReconDecisionList({ rows }: { rows: DecisionRow[] }) {
   }
 
   return (
-    <Card className="rounded-2xl px-3.5 py-0">
-      {rows.map((row) => (
-        <button
-          key={row.itemId}
-          type="button"
-          onClick={() => openRow(row)}
-          disabled={!addSheet}
-          className="flex w-full items-baseline justify-between gap-3 border-b border-border/50 py-3.5 text-left last:border-0 cursor-pointer disabled:cursor-not-allowed"
-        >
-          <span className="min-w-0">
-            <span className="block truncate text-[15px] font-medium">{row.vendor}</span>
-            <span className="mt-0.5 block text-xs text-muted-foreground">
-              {row.txnDate}
-              {row.suggestedCategoryName ? ` · maybe ${row.suggestedCategoryName}` : ""}
+    <>
+      <Card className="rounded-2xl px-3.5 py-0">
+        {rows.map((row) => (
+          <button
+            key={row.itemId}
+            type="button"
+            onClick={() => setMail(row)}
+            className="flex w-full items-center justify-between gap-3 border-b border-border/50 py-3.5 text-left last:border-0 cursor-pointer hover:bg-accent/40"
+            aria-label={`View bank message for ${row.vendor}`}
+          >
+            <span className="min-w-0">
+              <span className="block truncate text-[15px] font-medium">{row.vendor}</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                {row.txnDate}
+                {row.suggestedCategoryName ? ` · maybe ${row.suggestedCategoryName}` : ""}
+              </span>
             </span>
-          </span>
-          <span className="shrink-0 text-base font-semibold tabular-nums">
-            {formatRand(row.amountMinor)}
-          </span>
-        </button>
-      ))}
-    </Card>
+            <ReconAmount amountMinor={row.amountMinor} />
+          </button>
+        ))}
+      </Card>
+
+      <ReconMailDetailDialog
+        source={mail ? mailSource(mail) : null}
+        onOpenChange={(open) => {
+          if (!open) setMail(null);
+        }}
+        primaryAction={
+          mail && addSheet
+            ? {
+                label: "File it",
+                onClick: () => {
+                  const row = mail;
+                  setMail(null);
+                  window.setTimeout(() => fileRow(row), 0);
+                },
+              }
+            : undefined
+        }
+      />
+    </>
   );
 }
