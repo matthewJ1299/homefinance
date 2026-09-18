@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   output: "standalone",
   outputFileTracingRoot: process.cwd(),
-  serverExternalPackages: ["web-push", "node-cron"],
+  serverExternalPackages: ["web-push", "node-cron", "pg"],
   async redirects() {
     return [
       { source: "/categories", destination: "/settings", permanent: false },

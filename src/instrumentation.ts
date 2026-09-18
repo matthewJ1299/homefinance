@@ -1,7 +1,14 @@
 /**
  * Runs when the Next.js server starts (next dev / next start).
- * Initializes the database and starts the notification scheduler (daily 9am summary, per-event reminders).
- * If DATABASE_URL is missing, skips these steps so the dev server can boot; API and pages that touch the DB will still fail until Postgres is configured.
+ * Initializes the database and starts the notification scheduler.
+ *
+ * Node-only work is loaded through tsx at runtime (`webpackIgnore`) so the
+ * instrumentation Edge compiler never sees `pg` / `web-push`. A relative
+ * `import("./lib/db/index")` resolves against `.next/server/instrumentation.js`
+ * in standalone and is what Coolify logged as
+ * Cannot find module '/app/.next/server/lib/db/index'.
+ *
+ * Specifiers must be file:// URLs. A Windows path `D:\...` is read as protocol `d:`.
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
@@ -13,20 +20,13 @@ export async function register() {
     return;
   }
 
-  const dbModule =
-    process.env.NODE_ENV === "development"
-      ? await import("@/lib/db/index")
-      : await import(/* webpackIgnore: true */ "./lib/db/index");
-  const { initDb, startPersistLoop } = dbModule;
-  await initDb();
-  startPersistLoop(60_000);
-  const schedulerModule =
-    process.env.NODE_ENV === "development"
-      ? await import("@/lib/server/start-notification-scheduler")
-      : await import(/* webpackIgnore: true */ "./lib/server/start-notification-scheduler");
-  try {
-    await schedulerModule.startNotificationScheduler();
-  } catch (err) {
-    console.warn("[instrumentation] Notification scheduler failed to start:", err);
-  }
+  const [{ tsImport }, { pathToFileURL }, { join }] = await Promise.all([
+    import(/* webpackIgnore: true */ "tsx/esm/api"),
+    import(/* webpackIgnore: true */ "node:url"),
+    import(/* webpackIgnore: true */ "node:path"),
+  ]);
+
+  const entry = pathToFileURL(join(process.cwd(), "src/instrumentation-node.ts")).href;
+  const { registerNode } = await tsImport(entry, entry);
+  await registerNode();
 }

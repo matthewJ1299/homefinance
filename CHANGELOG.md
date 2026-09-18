@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed — Coolify / standalone boot (`Cannot find module …/lib/db/index`)
+
+Production `instrumentation.ts` used `webpackIgnore` and a relative `./lib/db/index` import. Next compiles that file to `.next/server/instrumentation.js`, so Node looked for `/app/.next/server/lib/db/index`, which standalone never copies. The image printed Ready, then looped `Failed to prepare server`. Node boot work is now `src/instrumentation-node.ts`, loaded at runtime with `tsx` (`webpackIgnore` still keeps `pg` / `web-push` out of the Edge instrumentation compiler — bundling that graph is what fails the production build). The runner image copies `src/` and `tsconfig.json` so `@/*` resolves. Schema push in the entrypoint was already succeeding; this only unblocks the Next process.
+
 ### Added — in-app feedback
 
 People can say what is wrong without leaving the screen it happened on, and a

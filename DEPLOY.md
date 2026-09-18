@@ -156,15 +156,19 @@ In the resource's settings, enable **Auto Deploy** so each push to `master` trig
 ### Dockerfile (multi-stage)
 
 - **Builder stage**: Installs npm dependencies, runs `next build` with `output: "standalone"` (from `next.config.ts`). This produces a minimal, self-contained server under `.next/standalone/`.
-- **Runner stage**: Copies standalone output, static assets, full `node_modules` (so `tsx` and db script dependencies are available), `package.json`, `src/lib/db`, and `drizzle/` for migrations. Schema is applied automatically on first start if the DB has no tables. You can run `npm run db:seed:users` or `npx tsx src/lib/db/seed.ts` inside the container depending on whether you need only users or full demo data (see **Running seed scripts on the server**). Installs `su-exec` for privilege dropping. Uses `docker-entrypoint.sh` as the entrypoint.
+- **Runner stage**: Copies standalone output, static assets, full `node_modules` (so `tsx` and db script dependencies are available), `package.json`, `tsconfig.json`, `src/` (migrations, seed, and the Node boot hook loaded via `tsx`), and `drizzle/` for migrations. Schema is applied automatically on first start if the DB has no tables. You can run `npm run db:seed:users` or `npx tsx src/lib/db/seed.ts` inside the container depending on whether you need only users or full demo data (see **Running seed scripts on the server**). Installs `su-exec` for privilege dropping. Uses `docker-entrypoint.sh` as the entrypoint.
 
 ### docker-entrypoint.sh
 
 Runs as root at startup to `chown /app/data` (fixing volume permissions when Coolify mounts a volume owned by root), then drops to the `nextjs` user via `su-exec` before starting the app.
 
-### Instrumentation (src/instrumentation.ts)
+### Instrumentation (`src/instrumentation.ts`)
 
-Next.js calls `register()` when the server starts. The app initializes the Postgres connection and in-process scheduler there.
+Next.js calls `register()` when the server starts. Node-only work (Postgres ping, persist loop, notification scheduler) lives in `src/instrumentation-node.ts` and is loaded at runtime with `tsx` (`webpackIgnore`) so the Edge instrumentation compiler never sees `pg` / `web-push`. The runner image must include `src/` and `tsconfig.json`.
+
+### Cannot find module `/app/.next/server/lib/db/index`
+
+The container logs `Ready`, then loops `Failed to prepare server` / `ERR_MODULE_NOT_FOUND` for that path. `docker-entrypoint.sh` already applied migrations; the Next process cannot load the boot hook. Do **not** roll the image back to `master` after that push — the database is already on the new schema. Redeploy a build that loads `src/instrumentation-node.ts` via `tsx` instead of a relative import under `.next/server/`.
 
 ---
 

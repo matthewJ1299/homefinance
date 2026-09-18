@@ -1,13 +1,11 @@
+import { NotificationScheduler } from "@/lib/services/notification-scheduler.service";
+
 /**
- * Starts the in-process notification scheduler without pulling web-push into the
- * Next.js instrumentation webpack graph (`webpackIgnore` on the dynamic import in
- * instrumentation.ts).
+ * Starts the in-process notification scheduler.
+ * Keep this module Node-only: it is loaded from instrumentation-node.ts, which
+ * instrumentation.ts imports only when NEXT_RUNTIME === "nodejs".
  */
 export async function startNotificationScheduler(): Promise<void> {
-  const mod =
-    process.env.NODE_ENV === "development"
-      ? await import("@/lib/services/notification-scheduler.service")
-      : await import("../services/notification-scheduler.service");
-  const scheduler = new mod.NotificationScheduler();
+  const scheduler = new NotificationScheduler();
   scheduler.start();
 }
