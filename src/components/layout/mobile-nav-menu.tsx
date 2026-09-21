@@ -6,21 +6,31 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { Menu, X, LogOut } from "lucide-react";
-import { fullNavItems, navItemsForFeatures } from "./nav-items";
+import { fullNavItems, navItemsForFeatures, navItemsForHomeMode } from "./nav-items";
 import { cn } from "@/lib/utils";
 import { FeedbackMenuItem } from "@/components/feedback/feedback-menu-item";
 import type { FeatureKey } from "@/lib/features/registry";
+import type { HomeMode } from "@/lib/features/home-mode";
 
 export function MobileNavMenu({
   featureKeys,
   isSuperAdmin,
+  homeMode,
 }: {
   featureKeys: FeatureKey[];
   isSuperAdmin: boolean;
+  homeMode: HomeMode;
 }) {
   const [open, setOpen] = useState(false);
   const featureSet = useMemo(() => new Set(featureKeys), [featureKeys]);
-  const menuItems = navItemsForFeatures(fullNavItems, featureSet, { includeAdmin: isSuperAdmin });
+  const menuItems = useMemo(
+    () =>
+      navItemsForHomeMode(
+        navItemsForFeatures(fullNavItems, featureSet, { includeAdmin: isSuperAdmin }),
+        homeMode
+      ),
+    [featureSet, isSuperAdmin, homeMode]
+  );
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
 

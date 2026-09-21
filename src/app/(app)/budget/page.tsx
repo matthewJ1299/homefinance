@@ -1,5 +1,7 @@
 import type { HouseholdMember } from "@/lib/types/household-member";
 import { auth } from "@/lib/auth";
+import { isTrackerMode } from "@/lib/features/access";
+import { BudgetingOffNotice } from "@/components/ui/budgeting-off-notice";
 import { BudgetService } from "@/lib/services/budget.service";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { getCategoryRepository, getUserRepository } from "@/lib/repositories";
@@ -18,6 +20,7 @@ interface BudgetPageProps {
 export default async function BudgetPage({ searchParams }: BudgetPageProps) {
   const session = await auth();
   if (!session?.user?.id) return null;
+  if (isTrackerMode()) return <BudgetingOffNotice title="Budget" />;
   const userId = Number(session.user.id);
   const { month: monthParam, cover } = await searchParams;
   const month = monthParam ?? (await getDefaultBudgetMonthForUser(userId));

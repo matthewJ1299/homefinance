@@ -62,4 +62,5 @@ export const MIGRATION_FILES: readonly string[] = [
   "0050_domain_check_constraints_pg.sql",
   "0051_ledger_reference_required_pg.sql",
   "0052_feedback_pg.sql",
+  "0053_user_home_mode_pg.sql",
 ];

@@ -2,6 +2,7 @@ import { cache } from "react";
 import { AsyncLocalStorage } from "async_hooks";
 import type pg from "pg";
 import type { FeatureKey } from "@/lib/features/registry";
+import type { HomeMode } from "@/lib/features/home-mode";
 
 export type HouseholdApprovalStatus = "pending" | "active" | "rejected";
 
@@ -24,6 +25,13 @@ export interface RequestContext {
   featureKeys?: readonly FeatureKey[];
   /** Admin-set AI provider tier for the household (`households.ai_tier`). */
   aiTier?: "free" | "paid";
+  /**
+   * Per-user view preference (`users.home_mode`): `budget` runs envelope
+   * budgeting, `tracker` hides the budget layer. Read fresh from the DB each
+   * request by `getAuthState`, like `featureKeys` -- never from the JWT, so a
+   * toggle takes effect on the next request. Absent means `budget`.
+   */
+  homeMode?: HomeMode;
   /** Self-registration approval gate; defaults to active when column is absent. */
   householdApprovalStatus?: HouseholdApprovalStatus;
   /** When true, user must change password before using the app. */
@@ -103,6 +111,7 @@ const IDENTITY_KEYS = [
   "isSuperAdmin",
   "featureKeys",
   "aiTier",
+  "homeMode",
   "householdApprovalStatus",
   "mustChangePassword",
   "budgetMonthStartDay",

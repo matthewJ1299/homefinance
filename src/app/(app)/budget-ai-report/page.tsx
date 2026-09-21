@@ -1,7 +1,8 @@
 import { BudgetAiReportPageClient } from "@/components/budget-ai/budget-ai-report-page-client";
 import { auth } from "@/lib/auth";
-import { hasFeature } from "@/lib/features/access";
+import { hasFeature, isTrackerMode } from "@/lib/features/access";
 import { FeatureUnavailable } from "@/components/ui/feature-unavailable";
+import { BudgetingOffNotice } from "@/components/ui/budgeting-off-notice";
 import {
   getAIAnalysisRunApplicationRepository,
   getAIAnalysisRunMessageRepository,
@@ -19,6 +20,7 @@ type BudgetAiReportPageProps = {
 
 export default async function BudgetAiReportPage({ searchParams }: BudgetAiReportPageProps) {
   const session = await auth();
+  if (isTrackerMode()) return <BudgetingOffNotice title="Budget AI report" />;
   if (!hasFeature("ai_budget_analysis")) {
     return <FeatureUnavailable feature="ai_budget_analysis" />;
   }

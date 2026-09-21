@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
-import { hasFeature } from "@/lib/features/access";
+import { hasFeature, isTrackerMode } from "@/lib/features/access";
 import { FeatureUnavailable } from "@/components/ui/feature-unavailable";
+import { BudgetingOffNotice } from "@/components/ui/budgeting-off-notice";
 import { BudgetService } from "@/lib/services/budget.service";
 import { getCategoryRepository } from "@/lib/repositories";
 import { getDefaultBudgetMonthForUser } from "@/lib/utils/budget-month-for-user";
@@ -17,6 +18,7 @@ import { GoalCategoryList } from "@/components/goals/goal-category-list";
 export default async function GoalsPage() {
   const session = await auth();
   if (!session?.user?.id) return null;
+  if (isTrackerMode()) return <BudgetingOffNotice title="Goals" />;
   if (!hasFeature("goals")) {
     return <FeatureUnavailable feature="goals" />;
   }

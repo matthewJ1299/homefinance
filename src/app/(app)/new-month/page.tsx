@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { isTrackerMode } from "@/lib/features/access";
 import { BudgetService } from "@/lib/services/budget.service";
 import { budgetMonthStartDayForUser } from "@/lib/utils/budget-month-for-user";
 import { formatBudgetMonthLabel } from "@/lib/utils/date";
@@ -13,6 +14,8 @@ import { MonthOpenCard } from "@/components/budget/month-open-card";
 export default async function NewMonthPage() {
   const session = await auth();
   if (!session?.user?.id) return null;
+  // A tracker user never opens months; the flow has no destination for them.
+  if (isTrackerMode()) redirect("/dashboard");
   const userId = Number(session.user.id);
 
   const service = new BudgetService();

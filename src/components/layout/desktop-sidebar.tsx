@@ -5,23 +5,38 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
-import { fullNavItems, groupNavItems, navItemsForFeatures } from "./nav-items";
+import {
+  fullNavItems,
+  groupNavItems,
+  navItemsForFeatures,
+  navItemsForHomeMode,
+} from "./nav-items";
 import { cn } from "@/lib/utils";
 import { FeedbackMenuItem } from "@/components/feedback/feedback-menu-item";
 import type { FeatureKey } from "@/lib/features/registry";
+import type { HomeMode } from "@/lib/features/home-mode";
 
 const STORAGE_KEY = "sidebar:collapsed";
 
 export function DesktopSidebar({
   featureKeys,
   isSuperAdmin,
+  homeMode,
 }: {
   featureKeys: FeatureKey[];
   isSuperAdmin: boolean;
+  homeMode: HomeMode;
 }) {
   const pathname = usePathname();
   const featureSet = useMemo(() => new Set(featureKeys), [featureKeys]);
-  const items = navItemsForFeatures(fullNavItems, featureSet, { includeAdmin: isSuperAdmin });
+  const items = useMemo(
+    () =>
+      navItemsForHomeMode(
+        navItemsForFeatures(fullNavItems, featureSet, { includeAdmin: isSuperAdmin }),
+        homeMode
+      ),
+    [featureSet, isSuperAdmin, homeMode]
+  );
   const groups = useMemo(() => groupNavItems(items), [items]);
 
   const [collapsed, setCollapsed] = useState(false);

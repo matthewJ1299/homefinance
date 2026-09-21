@@ -1,4 +1,5 @@
 import type { FeatureKey } from "@/lib/features/registry";
+import type { HomeMode } from "@/lib/features/home-mode";
 import type { HouseholdApprovalStatus } from "@/lib/db/request-context";
 
 export interface UserSummary {
@@ -44,6 +45,8 @@ export interface UserAuthState {
   aiTier: "free" | "paid";
   householdApprovalStatus: HouseholdApprovalStatus;
   mustChangePassword: boolean;
+  /** Per-user view preference (`users.home_mode`); `budget` when unset. */
+  homeMode: HomeMode;
 }
 
 export interface IUserRepository {
@@ -88,6 +91,9 @@ export interface IUserRepository {
   /** Day of month (1-28) when the budget period starts; period ends the day before the next period. Default 1 = calendar month. */
   getBudgetMonthStartDay(userId: number): Promise<number>;
   updateBudgetMonthStartDay(userId: number, day: number): Promise<void>;
+  /** Per-user view preference; `budget` when unset or the column is missing. */
+  getHomeMode(userId: number): Promise<HomeMode>;
+  setHomeMode(userId: number, mode: HomeMode): Promise<void>;
   /** Dashboard default spending account; null if none set or no accounts. */
   getPrimaryAccountId(userId: number): Promise<number | null>;
   setPrimaryAccountId(userId: number, accountId: number | null): Promise<void>;

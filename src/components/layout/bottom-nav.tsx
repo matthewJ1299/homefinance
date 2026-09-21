@@ -3,11 +3,9 @@
 import Link from "next/link";
 import { BottomNavAddButton } from "./bottom-nav-add-button";
 import { usePathname } from "next/navigation";
-import { bottomNavItemsMobile, type NavItem } from "./nav-items";
+import { bottomNavItemsFor, type NavItem } from "./nav-items";
+import type { HomeMode } from "@/lib/features/home-mode";
 import { cn } from "@/lib/utils";
-
-const mobileLeftItems = bottomNavItemsMobile.slice(0, 2);
-const mobileRightItems = bottomNavItemsMobile.slice(2, 4);
 
 function NavLinks({
   items,
@@ -44,9 +42,19 @@ function NavLinks({
   );
 }
 
-export function BottomNav({ hasAddSheet = false }: { hasAddSheet?: boolean }) {
+export function BottomNav({
+  hasAddSheet = false,
+  homeMode,
+}: {
+  hasAddSheet?: boolean;
+  homeMode: HomeMode;
+}) {
   const pathname = usePathname();
   const addActive = pathname === "/add" || pathname.startsWith("/add/");
+
+  const items = bottomNavItemsFor(homeMode);
+  const mobileLeftItems = items.slice(0, 2);
+  const mobileRightItems = items.slice(2, 4);
 
   return (
     <nav

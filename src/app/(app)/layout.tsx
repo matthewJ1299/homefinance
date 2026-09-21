@@ -73,6 +73,8 @@ export default async function AppLayout({
 
   const featureKeys = session.user.featureKeys ?? [];
 
+  const homeMode = session.user.homeMode ?? "budget";
+
 
 
   const budgetMonthStartDay = await budgetMonthStartDayForUser(userId);
@@ -105,7 +107,12 @@ export default async function AppLayout({
 
     <BudgetMonthStartDayProvider value={budgetMonthStartDay}>
 
-      <AppShell featureKeys={featureKeys} isSuperAdmin={isSuperAdmin} addSheetData={addSheetData}>
+      <AppShell
+        featureKeys={featureKeys}
+        isSuperAdmin={isSuperAdmin}
+        homeMode={homeMode}
+        addSheetData={addSheetData}
+      >
 
         {children}
 

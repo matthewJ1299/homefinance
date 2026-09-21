@@ -2,6 +2,7 @@ import { all, get, run, lastInsertId } from "@/lib/db";
 import { requireHouseholdId } from "@/lib/db/request-context";
 import { normalizeBudgetMonthStartDay } from "@/lib/utils/date";
 import { toFeatureKeys } from "@/lib/features/registry";
+import { toHomeMode, type HomeMode } from "@/lib/features/home-mode";
 import type { HouseholdApprovalStatus } from "@/lib/db/request-context";
 import type { UserSummary, UserForAuth, UserAuthState } from "../interfaces/user.repository";
 import type { IUserRepository } from "../interfaces/user.repository";
@@ -183,10 +184,12 @@ export class UserRepository implements IUserRepository {
         ai_tier: string | null;
         approval_status: string | null;
         feature_keys: string[] | null;
+        home_mode: string | null;
       }>(
         `SELECT u.household_id,
                 u.is_super_admin,
                 u.must_change_password,
+                u.home_mode,
                 COALESCE(h.ai_tier, 'free') AS ai_tier,
                 COALESCE(h.approval_status, 'active') AS approval_status,
                 COALESCE(
@@ -213,6 +216,7 @@ export class UserRepository implements IUserRepository {
         aiTier: row.ai_tier === "paid" ? "paid" : "free",
         householdApprovalStatus,
         mustChangePassword: row.must_change_password === true,
+        homeMode: toHomeMode(row.home_mode),
       };
     } catch (err) {
       if (err && typeof err === "object" && "code" in err) {
@@ -230,6 +234,7 @@ export class UserRepository implements IUserRepository {
             aiTier: "free",
             householdApprovalStatus: "active",
             mustChangePassword: false,
+            homeMode: "budget",
           };
         }
       }
@@ -276,6 +281,26 @@ export class UserRepository implements IUserRepository {
   async updateBudgetMonthStartDay(userId: number, day: number): Promise<void> {
     const normalized = normalizeBudgetMonthStartDay(day);
     await run("UPDATE users SET budget_month_start_day = ? WHERE id = ?", [normalized, userId]);
+  }
+
+  async getHomeMode(userId: number): Promise<HomeMode> {
+    try {
+      const row = await get<{ home_mode: string | null }>(
+        "SELECT home_mode FROM users WHERE id = ?",
+        [userId]
+      );
+      return toHomeMode(row?.home_mode);
+    } catch (err) {
+      // Older DBs won't have the column until migration 0053 is applied.
+      if (err && typeof err === "object" && "code" in err && err.code === "42703") {
+        return "budget";
+      }
+      throw err;
+    }
+  }
+
+  async setHomeMode(userId: number, mode: HomeMode): Promise<void> {
+    await run("UPDATE users SET home_mode = ? WHERE id = ?", [mode, userId]);
   }
 
   async getPrimaryAccountId(userId: number): Promise<number | null> {

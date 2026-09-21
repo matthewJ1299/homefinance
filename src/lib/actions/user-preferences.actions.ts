@@ -8,8 +8,13 @@ import { normalizeBudgetMonthStartDay } from "@/lib/utils/date";
 import { clearBudgetMonthStartDayMemo } from "@/lib/db/request-context";
 import { isSetupWizardStatus, type SetupWizardStatus } from "@/lib/repositories/interfaces/user.repository";
 import { isOnboardingStep } from "@/lib/onboarding/steps";
+import { isHomeMode, type HomeMode } from "@/lib/features/home-mode";
 
 export type UpdateBudgetMonthStartDayResult =
+  | { success: true }
+  | { success: false; error: string };
+
+export type UpdateHomeModeResult =
   | { success: true }
   | { success: false; error: string };
 
@@ -44,6 +49,40 @@ export async function updateBudgetMonthStartDayAction(
   revalidatePath("/income");
   revalidatePath("/reports");
   revalidatePath("/settings");
+  return { success: true };
+}
+
+/**
+ * Switch the current user between envelope budgeting and plain tracking. A
+ * per-user preference (never touches the household or the partner's view) and
+ * non-destructive -- the budget rows stay and reappear on switching back.
+ */
+export async function updateHomeModeAction(mode: HomeMode): Promise<UpdateHomeModeResult> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, error: "Unauthorized" };
+  }
+  setRequestContextFromSession(session);
+
+  if (!isHomeMode(mode)) {
+    return { success: false, error: "Invalid home mode." };
+  }
+
+  const userId = Number(session.user.id);
+  try {
+    await getUserRepository().setHomeMode(userId, mode);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to update home mode.";
+    return { success: false, error: message };
+  }
+
+  // The nav lives in the shared app layout, and these budget-cluster pages guard
+  // on the mode, so revalidate all of them.
+  revalidatePath("/dashboard");
+  revalidatePath("/settings");
+  revalidatePath("/budget");
+  revalidatePath("/goals");
+  revalidatePath("/budget-ai-report");
   return { success: true };
 }
 

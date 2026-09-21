@@ -19,6 +19,7 @@ export function setRequestContextFromSession(session: Session | null): void {
     isSuperAdmin: session.user.isSuperAdmin === true,
     featureKeys: session.user.featureKeys,
     aiTier: session.user.aiTier ?? "free",
+    homeMode: session.user.homeMode ?? "budget",
     householdApprovalStatus: session.user.householdApprovalStatus ?? "active",
     mustChangePassword: session.user.mustChangePassword === true,
   });

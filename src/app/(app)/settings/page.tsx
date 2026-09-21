@@ -21,6 +21,7 @@ import { RecurringExpenseManage } from "@/components/recurring-expenses/recurrin
 import { SharedListsManage } from "@/components/shared-lists/shared-lists-manage";
 import { PushNotificationsSettings } from "@/components/push/push-notifications-settings";
 import { DashboardTilesSettings } from "@/components/settings/dashboard-tiles-settings";
+import { HomeModeSettings } from "@/components/settings/home-mode-settings";
 import { AccountsManage } from "@/components/accounts/accounts-manage";
 import { BudgetMonthRangeSettings } from "@/components/settings/budget-month-range-settings";
 import { HouseholdMembersPanel } from "@/components/household/household-members-panel";
@@ -70,7 +71,8 @@ export default async function SettingsPage() {
         <OnboardingLauncherCard />
       </SettingsSection>
 
-      <SettingsSection title="Preferences" description="Notifications and dashboard layout.">
+      <SettingsSection title="Preferences" description="Budgeting, notifications, and dashboard layout.">
+        <HomeModeSettings currentMode={session.user.homeMode ?? "budget"} />
         <PushNotificationsSettings />
         <DashboardTilesSettings />
       </SettingsSection>

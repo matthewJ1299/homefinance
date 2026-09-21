@@ -145,6 +145,8 @@ export async function isMigrationAlreadyApplied(
       // Data-only, and idempotent by its own WHERE clause: once the negative
       // rows are gone it matches nothing. Let it apply rather than seed it.
       return false;
+    case "0053_user_home_mode_pg.sql":
+      return columnExists(query, "users", "home_mode");
     default:
       return false;
   }

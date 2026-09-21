@@ -1,5 +1,6 @@
 import { getRequestContext } from "@/lib/db/request-context";
 import { FEATURES, type FeatureKey } from "./registry";
+import { DEFAULT_HOME_MODE, type HomeMode } from "./home-mode";
 
 /**
  * Household feature entitlements for the current request.
@@ -43,4 +44,19 @@ export function requireFeature(key: FeatureKey): void {
   if (!hasFeature(key)) {
     throw new FeatureNotEntitledError(key);
   }
+}
+
+/**
+ * The current user's home mode, resolved for this request by `getAuthState`.
+ * Fails safe to `budget` when there is no request context (unauthenticated
+ * caller, or a background job that did not bind it) -- nothing accidentally
+ * hides a user's budget.
+ */
+export function getHomeMode(): HomeMode {
+  return getRequestContext()?.homeMode ?? DEFAULT_HOME_MODE;
+}
+
+/** True when the user has switched budgeting off (plain spend tracker). */
+export function isTrackerMode(): boolean {
+  return getHomeMode() === "tracker";
 }

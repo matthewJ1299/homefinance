@@ -48,6 +48,7 @@ async function bindContextFromSession(session: Session | null): Promise<void> {
       session.user.isSuperAdmin = authState?.isSuperAdmin === true;
       session.user.featureKeys = authState?.featureKeys ?? [];
       session.user.aiTier = authState?.aiTier ?? "free";
+      session.user.homeMode = authState?.homeMode ?? "budget";
       session.user.householdApprovalStatus = authState?.householdApprovalStatus ?? "active";
       session.user.mustChangePassword = authState?.mustChangePassword === true;
     } catch {
@@ -59,6 +60,7 @@ async function bindContextFromSession(session: Session | null): Promise<void> {
       session.user.isSuperAdmin = false;
       session.user.featureKeys = [];
       session.user.aiTier = "free";
+      session.user.homeMode = "budget";
       session.user.householdApprovalStatus = "active";
       session.user.mustChangePassword = false;
     }

@@ -1,5 +1,6 @@
 import "next-auth";
 import type { FeatureKey } from "@/lib/features/registry";
+import type { HomeMode } from "@/lib/features/home-mode";
 
 declare module "next-auth" {
   interface User {
@@ -21,6 +22,8 @@ declare module "next-auth" {
       /** Refreshed from DB each request; not stored on JWT. */
       featureKeys?: FeatureKey[];
       aiTier?: "free" | "paid";
+      /** Per-user view preference; refreshed from DB each request, not on JWT. */
+      homeMode?: HomeMode;
       householdApprovalStatus?: "pending" | "active" | "rejected";
       mustChangePassword?: boolean;
     };

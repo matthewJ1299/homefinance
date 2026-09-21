@@ -7,16 +7,24 @@ import { PushSubscriptionRepair } from "@/components/push/push-subscription-repa
 import { AddSheetProvider } from "@/components/add/add-sheet-context";
 import type { AddSheetData } from "@/components/add/load-add-sheet-data";
 import type { FeatureKey } from "@/lib/features/registry";
+import type { HomeMode } from "@/lib/features/home-mode";
 
 interface AppShellProps {
   children: React.ReactNode;
   featureKeys: FeatureKey[];
   isSuperAdmin: boolean;
+  homeMode: HomeMode;
   /** Null while the household has no budget yet; the centre button then routes. */
   addSheetData: AddSheetData | null;
 }
 
-export function AppShell({ children, featureKeys, isSuperAdmin, addSheetData }: AppShellProps) {
+export function AppShell({
+  children,
+  featureKeys,
+  isSuperAdmin,
+  homeMode,
+  addSheetData,
+}: AppShellProps) {
   return (
     <AddSheetProvider data={addSheetData}>
     <FeedbackProvider>
@@ -31,11 +39,11 @@ export function AppShell({ children, featureKeys, isSuperAdmin, addSheetData }: 
         <PushSubscriptionRepair />
       </ErrorBoundary>
       <ErrorBoundary name="Header">
-        <Header featureKeys={featureKeys} isSuperAdmin={isSuperAdmin} />
+        <Header featureKeys={featureKeys} isSuperAdmin={isSuperAdmin} homeMode={homeMode} />
       </ErrorBoundary>
       <div className="flex flex-1">
         <ErrorBoundary name="DesktopSidebar">
-          <DesktopSidebar featureKeys={featureKeys} isSuperAdmin={isSuperAdmin} />
+          <DesktopSidebar featureKeys={featureKeys} isSuperAdmin={isSuperAdmin} homeMode={homeMode} />
         </ErrorBoundary>
         <main className="flex-1 min-w-0 pb-24 md:pb-8">
           <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 md:max-w-none md:mx-0 md:px-8">
@@ -44,7 +52,7 @@ export function AppShell({ children, featureKeys, isSuperAdmin, addSheetData }: 
         </main>
       </div>
       <ErrorBoundary name="BottomNav">
-        <BottomNav hasAddSheet={addSheetData != null} />
+        <BottomNav hasAddSheet={addSheetData != null} homeMode={homeMode} />
       </ErrorBoundary>
     </div>
     </FeedbackProvider>

@@ -18,6 +18,7 @@ import {
   Shield,
 } from "lucide-react";
 import { NAV_HREF_FEATURE, type FeatureKey } from "@/lib/features/registry";
+import type { HomeMode } from "@/lib/features/home-mode";
 
 export interface NavItem {
   href: string;
@@ -25,13 +26,26 @@ export interface NavItem {
   icon: LucideIcon;
 }
 
-/** Mobile bottom bar: Home, Calendar, [center Add], Lists, Budget */
+/** Mobile bottom bar (budget mode): Home, Calendar, [center Add], Lists, Budget */
 export const bottomNavItemsMobile: NavItem[] = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/lists", label: "Lists", icon: ListTodo },
   { href: "/budget", label: "Budget", icon: PiggyBank },
 ];
+
+/** Tracker mode has no Budget page, so that slot becomes Accounts. */
+const bottomNavItemsTracker: NavItem[] = [
+  { href: "/dashboard", label: "Home", icon: LayoutDashboard },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/lists", label: "Lists", icon: ListTodo },
+  { href: "/accounts", label: "Accounts", icon: CreditCard },
+];
+
+/** The mobile bottom bar for a user's home mode. */
+export function bottomNavItemsFor(homeMode: HomeMode): NavItem[] {
+  return homeMode === "tracker" ? bottomNavItemsTracker : bottomNavItemsMobile;
+}
 
 /** Desktop sidebar and mobile hamburger: all pages in one list */
 export const fullNavItems: NavItem[] = [
@@ -85,6 +99,23 @@ export function groupNavItems(items: NavItem[]): Array<{ name: string; items: Na
 
 /** Admin portal link — shown only to super-admins. */
 export const adminNavItem: NavItem = { href: "/admin", label: "Admin", icon: Shield };
+
+/**
+ * Nav hrefs that belong to the budget layer and are hidden in tracker mode.
+ * Goals is a view of the budget and Budget AI report analyses it, so both go
+ * dark alongside the Budget page itself when a user switches budgeting off.
+ */
+export const BUDGET_MODE_HREFS: ReadonlySet<string> = new Set([
+  "/budget",
+  "/budget-ai-report",
+  "/goals",
+]);
+
+/** Drop budget-only nav items when the user runs in tracker mode. */
+export function navItemsForHomeMode(items: NavItem[], homeMode: HomeMode): NavItem[] {
+  if (homeMode !== "tracker") return items;
+  return items.filter((item) => !BUDGET_MODE_HREFS.has(item.href));
+}
 
 /** Filter nav items by household entitlements (catalogue-driven). */
 export function navItemsForFeatures(

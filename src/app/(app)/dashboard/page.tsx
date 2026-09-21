@@ -28,9 +28,11 @@ import { AiAnalysisButton } from "@/components/dashboard/ai-analysis-button";
 import { WhenDashboardTileEnabled } from "@/components/dashboard/when-dashboard-tile-enabled";
 import { HomeGreetingBar } from "@/components/dashboard/home-greeting-bar";
 import { EnvelopeHeroSection } from "@/components/dashboard/envelope-hero-section";
+import { TrackerHero } from "@/components/dashboard/tracker-hero";
 import { NeedsYouStream } from "@/components/dashboard/needs-you-stream";
 import { buildNeedsYou } from "@/components/dashboard/needs-you-list";
 import { CategoryRemaining } from "@/components/dashboard/category-remaining";
+import { CategorySpend } from "@/components/dashboard/category-spend";
 import { DashboardExpensesClient } from "@/components/dashboard/dashboard-expenses-client";
 import { SetupProgressBanner } from "@/components/onboarding/setup-progress-banner";
 import { BudgetMonthNotice } from "@/components/dashboard/budget-month-notice";
@@ -73,6 +75,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const session = await auth();
   if (!session?.user?.id) return null;
   const userId = Number(session.user.id);
+  // Budgeting is per-user and can be switched off (tracker mode). When off, Home
+  // drops the envelope layer: no month-open gate, a cash/owed hero, and spend by
+  // category instead of remaining. See src/lib/features/home-mode.ts.
+  const isTracker = (session.user.homeMode ?? "budget") === "tracker";
   const { month: monthParam } = await searchParams;
   const month = monthParam ?? (await getDefaultBudgetMonthForUser(userId));
   const today = format(new Date(), "yyyy-MM-dd");
@@ -97,7 +103,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   // named the page we came FROM, so /new-month failed its own exemption test
   // and redirected to itself forever. Home is where the design says this fires
   // anyway, and a page redirecting away has no such problem.
-  if (monthParam == null) {
+  if (monthParam == null && !isTracker) {
     const monthPending = await new BudgetService().needsMonthOpen(userId);
     if (monthPending) redirect("/new-month");
   }
@@ -153,24 +159,32 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     .sort((a, b) => b.available - a.available)[0];
 
   const owedToYou = balances.reduce((s, b) => s + Math.max(0, b.net), 0);
+  const owedByNames = balances.filter((b) => b.net > 0).map((b) => b.userName);
   const cashOnHand = accountsResult.accounts.reduce((s, a) => s + a.balance, 0);
+  const accountsCount = accountsResult.accounts.length;
   // Only the negative case is a row: your share of a shared shop has already
   // left the envelope, so cash sitting *above* the envelopes is not news.
   const cashShortfall = Math.max(0, budgetOverview.envelopeLeft - cashOnHand);
 
   const todayOccurrences = calendarOccurrences.filter((o) => occurrenceCoversDate(o, today));
 
+  // Tracker mode omits every budget-derived row (overspend, unassigned, cash
+  // shortfall, goals behind); the non-budget rows -- owed, today's events, open
+  // tasks -- stay. buildNeedsYou is untouched: we just feed it empties.
   const needsYou = buildNeedsYou({
-    overspentCategories: overspent.map((c) => ({
-      categoryId: c.categoryId,
-      categoryName: c.categoryName,
-      available: c.available,
-    })),
-    spareCategory: spare
-      ? { categoryName: spare.categoryName, available: spare.available }
-      : undefined,
-    unassigned: budgetOverview.unassigned,
-    carriedOverspend: budgetOverview.carriedOverspend,
+    overspentCategories: isTracker
+      ? []
+      : overspent.map((c) => ({
+          categoryId: c.categoryId,
+          categoryName: c.categoryName,
+          available: c.available,
+        })),
+    spareCategory:
+      isTracker || !spare
+        ? undefined
+        : { categoryName: spare.categoryName, available: spare.available },
+    unassigned: isTracker ? 0 : budgetOverview.unassigned,
+    carriedOverspend: isTracker ? 0 : budgetOverview.carriedOverspend,
     owedToYou: balances.map((b) => ({ userName: b.userName, net: b.net })),
     todayEvents: todayOccurrences.map((o) => ({
       id: o.eventId,
@@ -184,23 +198,25 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     uncheckedAccounts: [],
     // Derived from the same figures /goals shows, not from a separate table.
     // Two sources for one number is how they end up disagreeing.
-    goalsBehind: goalsBehind(
-      buildGoalRows(
-        budgetOverview.categories.map((c) => {
-          const meta = categories.find((x) => x.id === c.categoryId);
-          return {
-            categoryId: c.categoryId,
-            categoryName: c.categoryName,
-            available: c.available,
-            assigned: c.assigned,
-            targetMinor: meta?.targetMinor ?? null,
-            targetDate: meta?.targetDate ?? null,
-          };
-        }),
-        month
-      )
-    ),
-    cashShortfall,
+    goalsBehind: isTracker
+      ? []
+      : goalsBehind(
+          buildGoalRows(
+            budgetOverview.categories.map((c) => {
+              const meta = categories.find((x) => x.id === c.categoryId);
+              return {
+                categoryId: c.categoryId,
+                categoryName: c.categoryName,
+                available: c.available,
+                assigned: c.assigned,
+                targetMinor: meta?.targetMinor ?? null,
+                targetDate: meta?.targetDate ?? null,
+              };
+            }),
+            month
+          )
+        ),
+    cashShortfall: isTracker ? 0 : cashShortfall,
   });
 
   const daysLeft = Math.max(
@@ -212,7 +228,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     <div className="p-3 sm:p-4 space-y-5 sm:space-y-6 pb-24 md:pb-6">
       <SetupProgressBanner status={setup.status} storedStep={setup.step} />
 
-      {household?.budgetMonthNoticePending ? (
+      {household?.budgetMonthNoticePending && !isTracker ? (
         <BudgetMonthNotice startDay={household.budgetMonthStartDay} />
       ) : null}
 
@@ -224,39 +240,58 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         nowIso={new Date().toISOString()}
       />
 
-      <EnvelopeHeroSection
-        envelopeLeft={budgetOverview.envelopeLeft}
-        envelopeTotal={budgetOverview.envelopeTotal}
-        spent={budgetOverview.totalExpenses}
-        daysLeft={daysLeft}
-        periodLabel={monthLabelPretty}
-        elapsedPct={elapsedPctFor(period, today)}
-        figures={{
-          totalAssigned: budgetOverview.totalAssigned,
-          totalCarriedIn: budgetOverview.categories.reduce((s, c) => s + c.carriedIn, 0),
-          envelopeTotal: budgetOverview.envelopeTotal,
-          spent: budgetOverview.totalExpenses,
-          envelopeLeft: budgetOverview.envelopeLeft,
-          owedToYou,
-          unassigned: budgetOverview.unassigned,
-          owedByNames: balances.filter((b) => b.net > 0).map((b) => b.userName),
-        }}
-      />
+      {isTracker ? (
+        <TrackerHero
+          cashOnHand={cashOnHand}
+          accountsCount={accountsCount}
+          owedToYou={owedToYou}
+          owedByNames={owedByNames}
+        />
+      ) : (
+        <EnvelopeHeroSection
+          envelopeLeft={budgetOverview.envelopeLeft}
+          envelopeTotal={budgetOverview.envelopeTotal}
+          spent={budgetOverview.totalExpenses}
+          daysLeft={daysLeft}
+          periodLabel={monthLabelPretty}
+          elapsedPct={elapsedPctFor(period, today)}
+          figures={{
+            totalAssigned: budgetOverview.totalAssigned,
+            totalCarriedIn: budgetOverview.categories.reduce((s, c) => s + c.carriedIn, 0),
+            envelopeTotal: budgetOverview.envelopeTotal,
+            spent: budgetOverview.totalExpenses,
+            envelopeLeft: budgetOverview.envelopeLeft,
+            owedToYou,
+            unassigned: budgetOverview.unassigned,
+            owedByNames,
+          }}
+        />
+      )}
 
       <NeedsYouStream items={needsYou} />
 
-      <CategoryRemaining
-        categories={budgetOverview.categories.map((c) => ({
-          categoryId: c.categoryId,
-          categoryName: c.categoryName,
-          available: c.available,
-          assigned: c.assigned,
-          carriedIn: c.carriedIn,
-          spent: c.spent,
-          rollover: c.rollover,
-          groupName: c.groupName,
-        }))}
-      />
+      {isTracker ? (
+        <CategorySpend
+          categories={budgetOverview.categories.map((c) => ({
+            categoryId: c.categoryId,
+            categoryName: c.categoryName,
+            spent: c.spent,
+          }))}
+        />
+      ) : (
+        <CategoryRemaining
+          categories={budgetOverview.categories.map((c) => ({
+            categoryId: c.categoryId,
+            categoryName: c.categoryName,
+            available: c.available,
+            assigned: c.assigned,
+            carriedIn: c.carriedIn,
+            spent: c.spent,
+            rollover: c.rollover,
+            groupName: c.groupName,
+          }))}
+        />
+      )}
 
       <DashboardExpensesClient
         userId={userId}
@@ -269,9 +304,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         mergedTransactionsDisplayLimit={DASHBOARD_TRANSACTIONS_DISPLAY_LIMIT}
       />
 
-      <WhenDashboardTileEnabled tile="aiAnalysis">
-        <AiAnalysisButton month={month} enabled={resolveAiInteractiveEnabled()} />
-      </WhenDashboardTileEnabled>
+      {!isTracker ? (
+        <WhenDashboardTileEnabled tile="aiAnalysis">
+          <AiAnalysisButton month={month} enabled={resolveAiInteractiveEnabled()} />
+        </WhenDashboardTileEnabled>
+      ) : null}
     </div>
   );
 }

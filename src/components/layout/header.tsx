@@ -4,13 +4,15 @@ import { OfflineIndicator } from "./offline-indicator";
 import { ThemeToggle } from "./theme-toggle";
 import { MobileNavMenu } from "./mobile-nav-menu";
 import type { FeatureKey } from "@/lib/features/registry";
+import type { HomeMode } from "@/lib/features/home-mode";
 
 interface HeaderProps {
   featureKeys: FeatureKey[];
   isSuperAdmin: boolean;
+  homeMode: HomeMode;
 }
 
-export async function Header({ featureKeys, isSuperAdmin }: HeaderProps) {
+export async function Header({ featureKeys, isSuperAdmin, homeMode }: HeaderProps) {
   const session = await auth();
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
@@ -27,7 +29,7 @@ export async function Header({ featureKeys, isSuperAdmin }: HeaderProps) {
           </span>
           <ThemeToggle />
           <OfflineIndicator />
-          <MobileNavMenu featureKeys={featureKeys} isSuperAdmin={isSuperAdmin} />
+          <MobileNavMenu featureKeys={featureKeys} isSuperAdmin={isSuperAdmin} homeMode={homeMode} />
         </div>
       </div>
     </header>
