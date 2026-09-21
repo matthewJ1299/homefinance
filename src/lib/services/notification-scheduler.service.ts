@@ -1,14 +1,27 @@
 import cron from "node-cron";
-import { format, addDays } from "date-fns";
+import { addDays, format, parseISO } from "date-fns";
 import { CalendarService } from "@/lib/services/calendar.service";
 import { getHouseholdRepository, getSentReminderRepository, getUserRepository } from "@/lib/repositories";
 import { runWithHouseholdFeatures } from "@/lib/features/run-with-household-features";
 import { formatEventLine } from "@/lib/utils/format-time";
-import { computeReminderInstant, REMINDER_LOOKAHEAD_DAYS } from "@/lib/utils/reminder-time";
+import {
+  computeReminderDueInstant,
+  eventStartInstant,
+  REMINDER_LOOKAHEAD_DAYS,
+  shouldSendReminderNow,
+} from "@/lib/utils/reminder-time";
+import { APP_TIME_ZONE, nowInAppTz } from "@/lib/utils/app-timezone";
 import { withTryAdvisoryLock } from "@/lib/db/advisory-lock";
 
 const DEFAULT_DAILY_HOUR = 9;
-const TIMEZONE = process.env.TZ ?? "UTC";
+
+/**
+ * Reminders due before this instant belong to the previous exact-minute matcher
+ * and must not be replayed by the instant-based catch-up the first time it runs.
+ * Anything due at or after it catches up normally -- fires late if a tick was
+ * missed -- until its event starts. See `shouldSendReminderNow`.
+ */
+const REMINDER_CATCHUP_FLOOR = new Date("2026-09-21T00:00:00+02:00");
 
 function getDailyHour(): number {
   const h = process.env.DAILY_NOTIFICATION_HOUR;
@@ -43,7 +56,7 @@ async function runDailySummary(): Promise<void> {
 
 async function runDailySummaryInner(): Promise<void> {
   try {
-    const today = format(new Date(), "yyyy-MM-dd");
+    const today = nowInAppTz().date;
     const householdIds = await getHouseholdRepository().listAllHouseholdIds();
     for (const householdId of householdIds) {
       try {
@@ -78,9 +91,11 @@ async function sendDailySummaryForHousehold(today: string): Promise<void> {
 }
 
 /**
- * Every minute: find event-occurrence reminders whose send instant is "now" and push them
- * (once per event/occurrence/reminder). The lookahead window must cover the largest
- * supported reminder offset so week-ahead reminders are found.
+ * Every minute: find event-occurrence reminders that are due (their send instant has
+ * arrived and the event has not yet started) and push them, once per
+ * event/occurrence/reminder. Matching is on absolute instants in the app's zone, so a
+ * missed tick still fires late rather than being skipped forever. The lookahead window
+ * must cover the largest supported reminder offset so week-ahead reminders are found.
  *
  * Iterates households and binds tenant request context per household, because the calendar,
  * sent-reminder, and push repositories all call `requireHouseholdId()` and fail closed
@@ -98,14 +113,15 @@ async function runPerEventReminders(): Promise<void> {
 async function runPerEventRemindersInner(): Promise<void> {
   try {
     const now = new Date();
-    const todayStr = format(now, "yyyy-MM-dd");
-    const endStr = format(addDays(now, REMINDER_LOOKAHEAD_DAYS), "yyyy-MM-dd");
-    const minuteStr = format(now, "HH:mm");
+    // The scan window is in SAST dates so "today" matches how events are stored
+    // and read everywhere else; the fire decision below is on absolute instants.
+    const todayStr = nowInAppTz(now).date;
+    const endStr = format(addDays(parseISO(todayStr), REMINDER_LOOKAHEAD_DAYS), "yyyy-MM-dd");
     const householdIds = await getHouseholdRepository().listAllHouseholdIds();
     for (const householdId of householdIds) {
       try {
         await runWithHouseholdFeatures(householdId, () =>
-          sendPerEventRemindersForHousehold(todayStr, endStr, minuteStr)
+          sendPerEventRemindersForHousehold(todayStr, endStr, now)
         );
       } catch (err) {
         console.error(
@@ -122,7 +138,7 @@ async function runPerEventRemindersInner(): Promise<void> {
 async function sendPerEventRemindersForHousehold(
   todayStr: string,
   endStr: string,
-  minuteStr: string
+  now: Date
 ): Promise<void> {
   const calendarService = new CalendarService();
   const sentReminderRepo = getSentReminderRepository();
@@ -130,14 +146,27 @@ async function sendPerEventRemindersForHousehold(
   const notificationService = new NotificationService();
   const occurrences = await calendarService.getAllOccurrencesInRange(todayStr, endStr);
   for (const occ of occurrences) {
+    const startInstant = eventStartInstant(occ.date, occ.time);
     for (const reminder of occ.reminders) {
-      const instant = computeReminderInstant({
+      const dueInstant = computeReminderDueInstant({
         eventDate: occ.date,
         eventTime: occ.time,
         offsetMinutes: reminder.offsetMinutes,
         sendTime: reminder.sendTime,
       });
-      if (!instant || instant.date !== todayStr || instant.time !== minuteStr) continue;
+      // Cheap in-memory gate before the per-reminder DB round-trip: due, not yet
+      // past the event start, and not pre-cutover history.
+      if (
+        !shouldSendReminderNow({
+          dueInstant,
+          eventStartInstant: startInstant,
+          now,
+          alreadySent: false,
+          notBefore: REMINDER_CATCHUP_FLOOR,
+        })
+      ) {
+        continue;
+      }
       const alreadySent = await sentReminderRepo.hasBeenSent(occ.eventId, occ.date, reminder.id);
       if (alreadySent) continue;
       const title = "HomeFinance";
@@ -169,12 +198,12 @@ export class NotificationScheduler {
     this.dailyTask = cron.schedule(
       dailyCron,
       () => void runDailySummary(),
-      { timezone: TIMEZONE }
+      { timezone: APP_TIME_ZONE }
     );
     this.reminderTask = cron.schedule(
       "* * * * *",
       () => void runPerEventReminders(),
-      { timezone: TIMEZONE }
+      { timezone: APP_TIME_ZONE }
     );
   }
 

@@ -1,4 +1,5 @@
 import { format, parseISO, subDays, subMinutes } from "date-fns";
+import { appWallClockToInstant } from "./app-timezone";
 
 /**
  * How many days ahead the reminder scheduler scans for event occurrences.
@@ -89,4 +90,50 @@ export function computeReminderInstant(input: {
   } catch {
     return null;
   }
+}
+
+/**
+ * The absolute instant a reminder should fire, or null when it can't be placed
+ * on the clock (a sub-day offset on an event with no time). `computeReminderInstant`
+ * gives the wall-clock; this pins it to the app's zone so it can be compared to
+ * `Date.now()` regardless of the server's process timezone.
+ */
+export function computeReminderDueInstant(input: {
+  eventDate: string;
+  eventTime: string | null;
+  offsetMinutes: number;
+  sendTime: string | null;
+}): Date | null {
+  const wall = computeReminderInstant(input);
+  if (!wall) return null;
+  return appWallClockToInstant(wall.date, wall.time);
+}
+
+/** The instant an event begins; an all-day event (no time) begins at local midnight. */
+export function eventStartInstant(eventDate: string, eventTime: string | null): Date {
+  const time = eventTime && eventTime.trim() ? eventTime : "00:00";
+  return appWallClockToInstant(eventDate, time);
+}
+
+/**
+ * Whether a reminder should be pushed on this tick. It becomes eligible once its
+ * due instant has arrived and stays eligible until the event itself starts --
+ * after the event has started it is too late to be a reminder. `notBefore` is a
+ * floor for catch-up: a reminder due before it is treated as history and skipped,
+ * which is what stops the switch to instant-based matching from replaying old
+ * reminders on first deploy. Duplicate suppression is the caller's `sent_reminders`
+ * check; this only answers "now?".
+ */
+export function shouldSendReminderNow(input: {
+  dueInstant: Date | null;
+  eventStartInstant: Date;
+  now: Date;
+  alreadySent: boolean;
+  notBefore?: Date;
+}): boolean {
+  if (input.alreadySent || input.dueInstant == null) return false;
+  const due = input.dueInstant.getTime();
+  if (input.notBefore && due < input.notBefore.getTime()) return false;
+  const now = input.now.getTime();
+  return due <= now && now <= input.eventStartInstant.getTime();
 }
