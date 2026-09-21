@@ -8,6 +8,8 @@ import { withTransaction } from "@/lib/db";
 import type { Category } from "@/lib/types";
 import type { BudgetAllocationWithMonth } from "@/lib/repositories/interfaces/budget.repository";
 import { calculateBudgetOverviewArithmetic } from "@/lib/services/finance/accounts";
+import { computeSpreadIncrements } from "@/lib/services/finance/spread";
+import { incomeKindLabel } from "@/lib/types/income-type";
 
 /** Max months to look back when resolving carried-over allocations. */
 const CARRY_OVER_MONTHS = 12;
@@ -36,6 +38,41 @@ export interface BudgetTransferDisplay {
   createdAt: string;
 }
 
+/** One line of the "where did this money come from" breakdown -- the signed-in
+ *  user's own income, itemised so the headline figure can be traced. */
+export interface BudgetIncomeBreakdownEntry {
+  id: number;
+  /** The user's own label, or the kind ("Salary", "Bonus"...) when they gave none. */
+  label: string;
+  /** The kind label, shown as the entry's type. */
+  kindLabel: string;
+  amount: number;
+  date: string;
+}
+
+export interface BudgetIncomeBreakdown {
+  total: number;
+  entries: BudgetIncomeBreakdownEntry[];
+}
+
+/** One category's share of a "Spread it for me" run, for the preview and the write. */
+export interface SpreadPlanItem {
+  categoryId: number;
+  categoryName: string;
+  currentAssigned: number;
+  increment: number;
+  newAssigned: number;
+}
+
+export interface SpreadPlan {
+  month: string;
+  /** The unassigned remainder being distributed. */
+  total: number;
+  /** True when weights came from real spending history, false when split evenly. */
+  weightedByHistory: boolean;
+  items: SpreadPlanItem[];
+}
+
 export interface BudgetOverviewResult {
   month: string;
   totalIncome: number;
@@ -52,6 +89,11 @@ export interface BudgetOverviewResult {
   carriedOverspend: number;
   /** income - assigned - carriedOverspend. Money with no job. */
   unassigned: number;
+  /** The signed-in user's own income feeding `unassigned`, itemised. Sums to `totalIncome`. */
+  incomeBreakdown: BudgetIncomeBreakdown;
+  /** Positive leftover that rolled into envelopes from last month. Context only --
+   *  it is NOT part of `unassigned` (that money already has a job). */
+  rolledIntoEnvelopes: number;
   /** Whether this month has been opened (carry-in written). */
   isOpened: boolean;
   /** @deprecated alias for `unassigned`. */
@@ -121,6 +163,24 @@ export class BudgetService {
     const unassigned = totalIncome - totalAssigned - carriedOverspend;
     const isBalanced = unassigned === 0;
 
+    // Itemise the money feeding `unassigned` so the headline can be traced. The
+    // entries are the signed-in user's own income (getByMonth is user-scoped),
+    // and their sum is `totalIncome` by construction, so the statement reconciles.
+    const incomeBreakdown: BudgetIncomeBreakdown = {
+      total: totalIncome,
+      entries: incomeResult.entries.map((e) => ({
+        id: e.id,
+        label: e.description?.trim() || incomeKindLabel(e.incomeKind),
+        kindLabel: incomeKindLabel(e.incomeKind),
+        amount: e.amount,
+        date: e.date,
+      })),
+    };
+    // Positive leftovers that rolled into their envelopes last month. Shown as
+    // context beside the figure, never added into it -- that money has a job.
+    let rolledIntoEnvelopes = 0;
+    for (const v of carriedInMap.values()) if (v > 0) rolledIntoEnvelopes += v;
+
     // One batched, tenant-scoped lookup. This was a `Promise.all` over an async
     // map with nothing awaited inside it, followed by a second pass that patched
     // the names back in.
@@ -146,6 +206,8 @@ export class BudgetService {
       overspentTotal,
       carriedOverspend,
       unassigned,
+      incomeBreakdown,
+      rolledIntoEnvelopes,
       isOpened: monthState != null,
       toBeAllocated: unassigned,
       unallocated: unassigned,
@@ -415,28 +477,29 @@ export class BudgetService {
   private static readonly AUTO_ALLOCATE_HISTORY_MONTHS = 6;
 
   /**
-   * Distributes the unallocated remainder across categories that already have an allocation.
-   * If historical spending data exists, uses those proportions; otherwise splits evenly.
+   * The plan a "Spread it for me" run would apply, without writing anything.
+   * Distributes the unassigned remainder across categories that already have an
+   * allocation, weighted by the last few months of spending (even split when
+   * there is no history). Returns null when there is nothing to spread. Powers
+   * the preview; `autoAllocate` recomputes and writes on confirm.
    */
-  async autoAllocate(month: string, userId: number): Promise<
-    | { success: true; updated: number }
-    | { success: false; error: string }
-  > {
+  async computeSpreadPlan(month: string, userId: number): Promise<SpreadPlan | null> {
     const overview = await this.getOverview(month, userId);
+    return this.planSpread(overview, month, userId);
+  }
+
+  private async planSpread(
+    overview: BudgetOverviewResult,
+    month: string,
+    userId: number
+  ): Promise<SpreadPlan | null> {
     const remainder = overview.unassigned;
-    if (remainder <= 0) {
-      return { success: true, updated: 0 };
-    }
+    if (remainder <= 0) return null;
 
     const categoriesWithAllocation = overview.categories.filter((c) => c.assigned > 0);
     const recipients =
-      categoriesWithAllocation.length > 0
-        ? categoriesWithAllocation
-        : overview.categories;
-
-    if (recipients.length === 0) {
-      return { success: false, error: "No categories to allocate to" };
-    }
+      categoriesWithAllocation.length > 0 ? categoriesWithAllocation : overview.categories;
+    if (recipients.length === 0) return null;
 
     const historicalMonths: string[] = [];
     let m = month;
@@ -448,44 +511,47 @@ export class BudgetService {
       historicalMonths,
       userId
     );
-    const totalHistorical = recipients.reduce(
-      (sum, c) => sum + (historicalByCategory[c.categoryId] ?? 0),
-      0
+
+    const { increments, weightedByHistory } = computeSpreadIncrements(
+      recipients.map((c) => c.categoryId),
+      historicalByCategory,
+      remainder
     );
 
-    const weights: { categoryId: number; weight: number }[] = recipients.map((c) => {
-      const w =
-        totalHistorical > 0
-          ? (historicalByCategory[c.categoryId] ?? 0) / totalHistorical
-          : 1 / recipients.length;
-      return { categoryId: c.categoryId, weight: w };
+    const byId = new Map(recipients.map((c) => [c.categoryId, c]));
+    const items: SpreadPlanItem[] = increments.map(({ categoryId, increment }) => {
+      const row = byId.get(categoryId)!;
+      return {
+        categoryId,
+        categoryName: row.categoryName,
+        currentAssigned: row.assigned,
+        increment,
+        newAssigned: row.assigned + increment,
+      };
     });
+    return { month, total: remainder, weightedByHistory, items };
+  }
 
-    const increments = new Map<number, number>();
-    let distributed = 0;
-    const ordered = [...weights].sort((a, b) => b.weight - a.weight);
-    for (const { categoryId, weight } of ordered) {
-      const raw = weight * remainder;
-      const inc = Math.floor(raw);
-      increments.set(categoryId, inc);
-      distributed += inc;
-    }
-    let leftover = remainder - distributed;
-    for (const { categoryId } of ordered) {
-      if (leftover <= 0) break;
-      increments.set(categoryId, (increments.get(categoryId) ?? 0) + 1);
-      leftover -= 1;
-    }
-
-    for (const cat of overview.categories) {
-      const inc = increments.get(cat.categoryId) ?? 0;
-      if (inc > 0) {
-        const newAmount = cat.assigned + inc;
-        await this.budgetRepo.upsertAllocation(cat.categoryId, month, newAmount, userId);
+  /**
+   * Applies a spread: recomputes the plan (so the write reflects the live state,
+   * not a stale preview) and writes it in one transaction. A half-applied spread
+   * would leave the remainder wrong and the next run would spread a figure that
+   * no longer matches the envelopes.
+   */
+  async autoAllocate(month: string, userId: number): Promise<
+    | { success: true; updated: number }
+    | { success: false; error: string }
+  > {
+    const overview = await this.getOverview(month, userId);
+    if (overview.unassigned <= 0) return { success: true, updated: 0 };
+    const plan = await this.planSpread(overview, month, userId);
+    if (!plan) return { success: false, error: "No categories to allocate to" };
+    await withTransaction(async () => {
+      for (const item of plan.items) {
+        await this.budgetRepo.upsertAllocation(item.categoryId, month, item.newAssigned, userId);
       }
-    }
-
-    return { success: true, updated: increments.size };
+    });
+    return { success: true, updated: plan.items.length };
   }
 
   async transfer(data: {

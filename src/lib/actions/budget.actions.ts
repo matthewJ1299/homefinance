@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { authedAction } from "@/lib/actions/_shared/authed-action";
 import { BudgetService } from "@/lib/services/budget.service";
+import type { SpreadPlan } from "@/lib/services/budget.service";
 import { allocateSchema, transferSchema } from "@/lib/validators/budget.schema";
 import { isValidMonth } from "@/lib/utils/date";
 
@@ -22,6 +23,22 @@ export async function setBudgetAllocation(
     revalidatePath("/budget");
     return { success: true };
   }, { onError: "That amount didn't save. Try again." });
+}
+
+/**
+ * The plan a "Spread it for me" would apply, for the confirm preview. Read-only,
+ * so no revalidation. `plan` is null when there is nothing to spread.
+ */
+export async function previewSpreadBudget(month: string): Promise<
+  | { success: true; plan: SpreadPlan | null }
+  | { success: false; error: string }
+> {
+  return authedAction<{ success: true; plan: SpreadPlan | null }>(async ({ userId }) => {
+    const parsed = allocateSchema.pick({ month: true }).safeParse({ month });
+    if (!parsed.success) return { success: false, error: parsed.error.message };
+    const plan = await new BudgetService().computeSpreadPlan(parsed.data.month, userId);
+    return { success: true, plan };
+  }, { onError: "Couldn't work out the spread. Nothing was changed." });
 }
 
 export async function autoAllocateBudget(month: string): Promise<

@@ -49,6 +49,9 @@ export function OnboardingBudgetStep(props: {
           unassigned={unassigned}
           carriedOverspend={overview.carriedOverspend}
           overspentTotal={overview.overspentTotal}
+          totalAssigned={overview.totalAssigned}
+          incomeBreakdown={overview.incomeBreakdown}
+          rolledIntoEnvelopes={overview.rolledIntoEnvelopes}
           pending={isPending}
           onSpread={() =>
             startTransition(async () => {

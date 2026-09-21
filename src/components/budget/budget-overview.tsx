@@ -9,10 +9,11 @@ import { UnassignedHeadline } from "./unassigned-headline";
 import { BudgetCategoryRow } from "./budget-category-row";
 import { BudgetCategorySheet } from "./budget-category-sheet";
 import { TransferDialog } from "./transfer-dialog";
-import { autoAllocateBudget } from "@/lib/actions/budget.actions";
+import { SpreadPreviewSheet } from "./spread-preview-sheet";
+import { autoAllocateBudget, previewSpreadBudget } from "@/lib/actions/budget.actions";
 import { Card } from "@/components/ui/card";
 import { RecentExpensesCard } from "@/components/dashboard/recent-expenses-card";
-import type { BudgetOverviewResult } from "@/lib/services/budget.service";
+import type { BudgetOverviewResult, SpreadPlan } from "@/lib/services/budget.service";
 import type { Category, ExpenseWithDetails } from "@/lib/types";
 
 interface BudgetOverviewProps {
@@ -46,6 +47,8 @@ export function BudgetOverview({
     categoryName: string;
     overspentAmount: number;
   } | null>(null);
+  const [spreadPlan, setSpreadPlan] = useState<SpreadPlan | null>(null);
+  const [spreadOpen, setSpreadOpen] = useState(false);
 
   // Grouped, so the eye finds the flexible categories without reading every
   // row. The existing drag order is preserved inside each group.
@@ -65,10 +68,28 @@ export function BudgetOverview({
     .filter((c) => c.available < 0)
     .sort((a, b) => a.available - b.available)[0];
 
-  function spreadItForMe() {
+  function openSpreadPreview() {
+    startTransition(async () => {
+      const result = await previewSpreadBudget(data.month);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      if (!result.plan || result.plan.items.length === 0) {
+        toast("Nothing to spread right now.");
+        return;
+      }
+      setSpreadPlan(result.plan);
+      setSpreadOpen(true);
+    });
+  }
+
+  function confirmSpread() {
     startTransition(async () => {
       const result = await autoAllocateBudget(data.month);
       if (result.success) {
+        setSpreadOpen(false);
+        setSpreadPlan(null);
         toast.success("Spread across your categories.");
         router.refresh();
       } else {
@@ -83,8 +104,11 @@ export function BudgetOverview({
         unassigned={data.unassigned}
         carriedOverspend={data.carriedOverspend}
         overspentTotal={data.overspentTotal}
+        totalAssigned={data.totalAssigned}
+        incomeBreakdown={data.incomeBreakdown}
+        rolledIntoEnvelopes={data.rolledIntoEnvelopes}
         pending={isPending}
-        onSpread={spreadItForMe}
+        onSpread={openSpreadPreview}
         onCover={() => {
           if (!mostOverspent) return;
           setTransferTarget({
@@ -180,6 +204,17 @@ export function BudgetOverview({
           month={data.month}
         />
       )}
+
+      <SpreadPreviewSheet
+        open={spreadOpen}
+        onOpenChange={(open) => {
+          setSpreadOpen(open);
+          if (!open) setSpreadPlan(null);
+        }}
+        plan={spreadPlan}
+        pending={isPending}
+        onConfirm={confirmSpread}
+      />
     </div>
   );
 }
