@@ -4,7 +4,7 @@ import type { LucideIcon } from "lucide-react";
 
 export type RowTone = "bad" | "warn" | "good" | "neutral";
 
-const tone: Record<RowTone, { card: string; icon: string; action: string }> = {
+export const ROW_TONE: Record<RowTone, { card: string; icon: string; action: string }> = {
   bad: {
     card: "border-destructive/35 bg-destructive/[0.06]",
     icon: "bg-destructive/15 text-destructive",
@@ -49,7 +49,7 @@ export function NeedsYouRow({
   href,
   rowTone = "neutral",
 }: NeedsYouRowProps) {
-  const t = tone[rowTone];
+  const t = ROW_TONE[rowTone];
   return (
     <div className={cn("flex items-center gap-3 rounded-xl border p-3", t.card)}>
       <span

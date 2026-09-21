@@ -3,6 +3,17 @@ import type { RowTone } from "./needs-you-row";
 import type { NeedsYouIconKey } from "./needs-you-icons";
 import type { DashboardTileKey } from "./when-dashboard-tile-enabled";
 
+/** The feature a row belongs to. When one floods the stream, its rows collapse
+ *  into a single summary row -- except calendar, which stays individual so a
+ *  time-sensitive event is never buried. */
+export type NeedsYouGroup =
+  | "budget"
+  | "goals"
+  | "calendar"
+  | "splits"
+  | "lists"
+  | "accounts";
+
 export interface NeedsYouItem {
   key: string;
   priority: number;
@@ -13,6 +24,7 @@ export interface NeedsYouItem {
   detail: string;
   actionLabel: string;
   href: string;
+  group: NeedsYouGroup;
   /** Which Settings toggle governs this kind, if any. */
   tile?: DashboardTileKey;
 }
@@ -43,6 +55,7 @@ export function buildNeedsYou(input: {
     items.push({
       key: `overspend-${c.categoryId}`,
       priority: 10,
+      group: "budget",
       icon: "alert",
       tone: "bad",
       title: `${c.categoryName} is ${formatRand(Math.abs(c.available))} over`,
@@ -60,6 +73,7 @@ export function buildNeedsYou(input: {
     items.push({
       key: "cash-short",
       priority: 15,
+      group: "budget",
       icon: "bank",
       tone: "bad",
       title: `Your accounts are ${formatRand(input.cashShortfall)} short of this`,
@@ -74,6 +88,7 @@ export function buildNeedsYou(input: {
     items.push({
       key: "unassigned",
       priority: 20,
+      group: "budget",
       icon: "wallet",
       tone: over ? "bad" : "warn",
       title: over
@@ -92,6 +107,7 @@ export function buildNeedsYou(input: {
     items.push({
       key: `event-${e.id}`,
       priority: 30,
+      group: "calendar",
       icon: "calendar",
       tone: "neutral",
       title: e.time ? `${e.title} at ${e.time}` : e.title,
@@ -107,6 +123,7 @@ export function buildNeedsYou(input: {
     items.push({
       key: `owed-${p.userName}`,
       priority: 40,
+      group: "splits",
       icon: "split",
       tone: "neutral",
       title: `${p.userName} owes you ${formatRand(p.net)}`,
@@ -121,6 +138,7 @@ export function buildNeedsYou(input: {
     items.push({
       key: "tasks",
       priority: 50,
+      group: "lists",
       icon: "list",
       tone: "neutral",
       title: `${input.openTasks.count} open on ${input.openTasks.listName}`,
@@ -137,6 +155,7 @@ export function buildNeedsYou(input: {
     items.push({
       key: `check-${a.name}`,
       priority: 60,
+      group: "accounts",
       icon: "bank",
       tone: "neutral",
       title: `${a.name} hasn't been checked`,
@@ -150,6 +169,7 @@ export function buildNeedsYou(input: {
     items.push({
       key: `goal-${g.name}`,
       priority: 70,
+      group: "goals",
       icon: "goal",
       tone: "warn",
       title: `${g.name} is ${formatRand(g.shortfall)} behind`,
