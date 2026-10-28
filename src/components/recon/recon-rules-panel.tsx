@@ -10,7 +10,7 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { ReconRuleSheet, type RuleSheetCategory } from "@/components/recon/recon-rule-sheet";
 import { ReconAmount } from "@/components/recon/recon-amount";
 import { formatDisplayDate } from "@/lib/utils/date";
-import { acceptAllRuleMatched } from "@/lib/actions/recon-rule.actions";
+import { acceptAllRuleMatched, ignoreAllRuleMatched } from "@/lib/actions/recon-rule.actions";
 import type { ReconRuleRow } from "@/lib/repositories/interfaces/recon-rule.repository";
 import type { HouseholdMember } from "@/lib/types/household-member";
 
@@ -23,6 +23,13 @@ export interface MatchedRowSummary {
   participantNames: string[];
 }
 
+export interface IgnoreRowSummary {
+  itemId: number;
+  vendor: string;
+  amountMinor: number;
+  txnDate: string;
+}
+
 /**
  * The rule-matched group and the rules behind it.
  *
@@ -32,6 +39,7 @@ export interface MatchedRowSummary {
  */
 export function ReconRulesPanel({
   matched,
+  ignored,
   rules,
   totalThisMonth,
   unmatchedCount,
@@ -40,6 +48,7 @@ export function ReconRulesPanel({
   categories,
 }: {
   matched: MatchedRowSummary[];
+  ignored: IgnoreRowSummary[];
   rules: ReconRuleRow[];
   /** Rows that arrived this month, for the caught-up line. */
   totalThisMonth: number;
@@ -51,6 +60,7 @@ export function ReconRulesPanel({
   const router = useRouter();
   const queryClient = useQueryClient();
   const [pending, startTransition] = useTransition();
+  const [ignorePending, startIgnoreTransition] = useTransition();
   const [rulesOpen, setRulesOpen] = useState(false);
   const [editing, setEditing] = useState<ReconRuleRow | null>(null);
   const nameById = new Map(members.map((m) => [m.id, m.name]));
@@ -69,6 +79,23 @@ export function ReconRulesPanel({
       );
       // The super-admin "Fetched emails" list keys "handled" off the live
       // pending set, so accepting here must refresh it as Process marked does.
+      void queryClient.invalidateQueries({ queryKey: ["recon-items"] });
+      router.refresh();
+    });
+  }
+
+  function ignoreAll() {
+    startIgnoreTransition(async () => {
+      const res = await ignoreAllRuleMatched();
+      if (!res.success) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success(
+        res.failed > 0
+          ? `Ignored ${res.ignored}. ${res.failed} could not be ignored.`
+          : `Ignored ${res.ignored}.`
+      );
       void queryClient.invalidateQueries({ queryKey: ["recon-items"] });
       router.refresh();
     });
@@ -110,6 +137,42 @@ export function ReconRulesPanel({
                       : ""}
                     {" · "}
                     {formatDisplayDate(m.txnDate)}
+                  </p>
+                </div>
+                <ReconAmount amountMinor={m.amountMinor} className="text-sm" />
+              </div>
+            ))}
+          </Card>
+        </section>
+      ) : null}
+
+      {ignored.length > 0 ? (
+        <section className="space-y-2">
+          <SectionHeader
+            title={`${ignored.length} your rules will ignore`}
+            action={
+              <Button
+                onClick={ignoreAll}
+                disabled={ignorePending}
+                variant="secondary"
+                className="h-9 rounded-full px-3.5 text-xs"
+              >
+                {ignorePending ? "Ignoring…" : "Ignore all"}
+              </Button>
+            }
+          />
+          {/* Muted on purpose: these are leaving, not asking for attention.
+              Nothing is ignored until you confirm with Ignore all. */}
+          <Card className="rounded-2xl px-3.5 py-1.5 opacity-75">
+            {ignored.map((m) => (
+              <div
+                key={m.itemId}
+                className="flex items-center justify-between gap-3 border-b border-border/50 py-2.5 last:border-0"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{m.vendor}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    Ignore · {formatDisplayDate(m.txnDate)}
                   </p>
                 </div>
                 <ReconAmount amountMinor={m.amountMinor} className="text-sm" />
@@ -166,10 +229,12 @@ export function ReconRulesPanel({
                           ? r.matchValue
                           : `contains "${r.matchValue}"`}
                         {" → "}
-                        {r.categoryName ?? "no category"}
+                        {r.action === "ignore" ? "ignore" : (r.categoryName ?? "no category")}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
-                        {splitNames.length > 0 ? `Split with ${splitNames.join(", ")} · ` : ""}
+                        {r.action === "file" && splitNames.length > 0
+                          ? `Split with ${splitNames.join(", ")} · `
+                          : ""}
                         Used {r.timesUsed} time{r.timesUsed === 1 ? "" : "s"}
                       </p>
                     </div>

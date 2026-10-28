@@ -160,6 +160,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const owedToYou = balances.reduce((s, b) => s + Math.max(0, b.net), 0);
   const owedByNames = balances.filter((b) => b.net > 0).map((b) => b.userName);
+  // Signed overall position for the tracker hero tile: positive means others owe
+  // you on net, negative means you owe. `owedToYou` above stays the gross
+  // others-owe-you figure the envelope hero and breakdown sheet already show.
+  const owedNet = balances.reduce((s, b) => s + b.net, 0);
+  const youOweNames = balances.filter((b) => b.net < 0).map((b) => b.userName);
   const cashOnHand = accountsResult.accounts.reduce((s, a) => s + a.balance, 0);
   const accountsCount = accountsResult.accounts.length;
   // Only the negative case is a row: your share of a shared shop has already
@@ -244,8 +249,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <TrackerHero
           cashOnHand={cashOnHand}
           accountsCount={accountsCount}
-          owedToYou={owedToYou}
+          owedNet={owedNet}
           owedByNames={owedByNames}
+          owedToNames={youOweNames}
         />
       ) : (
         <EnvelopeHeroSection

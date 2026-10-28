@@ -24,16 +24,16 @@ export function ReconConnectionBar({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"new" | "older" | null>(null);
 
-  function sync() {
-    setBusy(true);
+  function sync(mode: "new" | "older") {
+    setBusy(mode);
     void (async () => {
       try {
         const res = await fetch("/api/recon/sync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
+          body: JSON.stringify({ mode }),
         });
         const body = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -41,14 +41,22 @@ export function ReconConnectionBar({
           return;
         }
         const found = Number(body?.imported ?? 0);
-        toast.success(
-          found > 0
-            ? `${found} new transaction${found === 1 ? "" : "s"} from your bank.`
-            : "Nothing new since last time."
-        );
+        if (mode === "older") {
+          toast.success(
+            found > 0
+              ? `Found ${found} more transaction${found === 1 ? "" : "s"} further back.`
+              : "No older transactions we hadn’t already seen."
+          );
+        } else {
+          toast.success(
+            found > 0
+              ? `${found} new transaction${found === 1 ? "" : "s"} from your bank.`
+              : "Nothing new since last time."
+          );
+        }
         startTransition(() => router.refresh());
       } finally {
-        setBusy(false);
+        setBusy(null);
       }
     })();
   }
@@ -84,14 +92,26 @@ export function ReconConnectionBar({
             : "Not checked yet"}
         </p>
       </div>
-      <Button
-        type="button"
-        onClick={sync}
-        disabled={busy || pending}
-        className="h-11 shrink-0 rounded-xl"
-      >
-        {busy ? "Checking…" : "Check for new transactions"}
-      </Button>
+      <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
+        <Button
+          type="button"
+          onClick={() => sync("new")}
+          disabled={busy != null || pending}
+          className="h-11 rounded-xl"
+        >
+          {busy === "new" ? "Checking…" : "Check for new transactions"}
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => sync("older")}
+          disabled={busy != null || pending}
+          className="h-11 rounded-xl"
+          title="Scan further back in your mailbox for older bank transactions"
+        >
+          {busy === "older" ? "Fetching…" : "Fetch older"}
+        </Button>
+      </div>
     </Card>
   );
 }

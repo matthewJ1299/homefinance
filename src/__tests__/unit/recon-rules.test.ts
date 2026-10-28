@@ -8,6 +8,7 @@ function rule(over: Partial<ReconRuleRow> = {}): ReconRuleRow {
     ownerUserId: 1,
     matchKind: "merchant_exact",
     matchValue: "checkers",
+    action: "file",
     categoryId: 10,
     categoryName: "Groceries",
     participantUserIds: [1, 2],
@@ -71,5 +72,30 @@ describe("recon rule matching", () => {
     const seldom = rule({ id: 1, matchKind: "merchant_contains", matchValue: "che", categoryId: 10, timesUsed: 0 });
     const often = rule({ id: 2, matchKind: "merchant_contains", matchValue: "check", categoryId: 20, timesUsed: 9 });
     expect(matchRules([item(1, "checkers")], [seldom, often]).matched[0].rule.id).toBe(2);
+  });
+
+  it("routes ignore-rule matches to ignoreMatched, not matched", () => {
+    const ignore = rule({ action: "ignore", categoryId: null, categoryName: null });
+    const { matched, ignoreMatched, unmatched } = matchRules(
+      [item(1, "checkers"), item(2, "dis-chem")],
+      [ignore]
+    );
+    expect(matched).toHaveLength(0);
+    expect(ignoreMatched.map((m) => m.item.id)).toEqual([1]);
+    expect(unmatched.map((u) => u.id)).toEqual([2]);
+  });
+
+  it("an ignore rule needs no category to be actionable", () => {
+    const ignore = rule({ action: "ignore", categoryId: null });
+    const { ignoreMatched } = matchRules([item(1, "checkers")], [ignore]);
+    expect(ignoreMatched).toHaveLength(1);
+  });
+
+  it("the most-used rule wins even across actions", () => {
+    const file = rule({ id: 1, action: "file", categoryId: 10, timesUsed: 0 });
+    const ignore = rule({ id: 2, action: "ignore", categoryId: null, timesUsed: 5 });
+    const a = matchRules([item(1, "checkers")], [file, ignore]);
+    expect(a.ignoreMatched.map((m) => m.item.id)).toEqual([1]);
+    expect(a.matched).toHaveLength(0);
   });
 });

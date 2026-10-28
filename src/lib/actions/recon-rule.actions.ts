@@ -35,7 +35,9 @@ export async function listReconRules(): Promise<ReconRuleRow[]> {
 export async function createReconRule(data: {
   matchKind: "merchant_exact" | "merchant_contains";
   matchValue: string;
-  categoryId: number | null;
+  /** 'file' (default) places the row; 'ignore' drops it. */
+  action?: "file" | "ignore";
+  categoryId?: number | null;
   /** Explicit list. Omit and pass `splitWithHousehold` to have the server fill it. */
   participantUserIds?: number[];
   /** "Everyone", resolved server-side so the caller need not know the roster. */
@@ -43,16 +45,20 @@ export async function createReconRule(data: {
 }): Promise<ReconRuleResult> {
   return authedAction<{ success: true }>(
     async ({ userId }) => {
-      if (data.categoryId == null) {
+      const action = data.action ?? "file";
+      if (action === "file" && data.categoryId == null) {
         return { success: false, error: "Pick a category." };
       }
       const roster = (await getUserRepository().findAll()).map((m) => m.id);
-      const participantUserIds = data.participantUserIds
-        ?? (data.splitWithHousehold ? roster : [userId]);
+      const participantUserIds =
+        action === "ignore"
+          ? []
+          : (data.participantUserIds ?? (data.splitWithHousehold ? roster : [userId]));
       const parsed = reconRuleWriteSchema.safeParse({
         matchKind: data.matchKind,
         matchValue: data.matchValue,
-        categoryId: data.categoryId,
+        action,
+        categoryId: action === "ignore" ? null : data.categoryId,
         participantUserIds,
       });
       if (!parsed.success) {
@@ -72,7 +78,8 @@ export async function updateReconRule(
   data: {
     matchKind: "merchant_exact" | "merchant_contains";
     matchValue: string;
-    categoryId: number;
+    action: "file" | "ignore";
+    categoryId: number | null;
     participantUserIds: number[];
   }
 ): Promise<ReconRuleResult> {
@@ -81,7 +88,13 @@ export async function updateReconRule(
       if (!Number.isInteger(id) || id < 1) {
         return { success: false, error: "That rule is gone." };
       }
-      const parsed = reconRuleWriteSchema.safeParse(data);
+      const parsed = reconRuleWriteSchema.safeParse({
+        matchKind: data.matchKind,
+        matchValue: data.matchValue,
+        action: data.action,
+        categoryId: data.action === "ignore" ? null : data.categoryId,
+        participantUserIds: data.action === "ignore" ? [] : data.participantUserIds,
+      });
       if (!parsed.success) {
         return { success: false, error: parsed.error.issues[0]?.message ?? "That rule is not valid." };
       }
@@ -166,5 +179,46 @@ export async function acceptAllRuleMatched(): Promise<
       return { success: true, accepted, failed };
     },
     { onError: "Those matching rows could not be accepted." }
+  );
+}
+
+/**
+ * Ignores every pending row an ignore rule matches, in one go.
+ *
+ * Unlike file rules, ignore rules apply to inflows as well as outflows -- a
+ * recurring deposit notification is as ignorable as a spend -- so this matches
+ * over the whole pending set, not just outflows.
+ */
+export async function ignoreAllRuleMatched(): Promise<
+  { success: true; ignored: number; failed: number } | { success: false; error: string }
+> {
+  return authedAction<{ success: true; ignored: number; failed: number }>(
+    async ({ userId }) => {
+      const [rules, pending] = await Promise.all([
+        getReconRuleRepository().findByOwner(userId),
+        getReconImportItemRepository().findPendingByUserId(userId),
+      ]);
+      const ignoreRules = rules.filter((r) => r.action === "ignore");
+      const { ignoreMatched } = matchRules(pending, ignoreRules);
+
+      const service = new ReconService();
+      let ignored = 0;
+      let failed = 0;
+      const usedRuleIds = new Set<number>();
+      for (const { item, rule } of ignoreMatched) {
+        try {
+          await service.ignore(userId, item.id);
+          ignored += 1;
+          usedRuleIds.add(rule.id);
+        } catch {
+          failed += 1;
+        }
+      }
+      await getReconRuleRepository().incrementTimesUsed([...usedRuleIds]);
+
+      revalidatePath("/recon");
+      return { success: true, ignored, failed };
+    },
+    { onError: "Those matching rows could not be ignored." }
   );
 }

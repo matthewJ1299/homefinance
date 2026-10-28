@@ -15,6 +15,7 @@ The **Outlook connection and mailbox sync** UI lives in `ReconGraphPanel` (`src/
 - **Accounts**: Optional **default account** on the Recon page is used when you click **Accept and add** (links the new expense to that account).
 - **Categories**: **Vendor category mappings** (`vendor_category_mappings`) learn a merchant key → category from each **Accept and add**; future syncs pre-fill the suggested category.
 - **Merchant rules**: **"Do this every time"** (or the repeat toggle on the file-it sheet) writes a personal `recon_rules` row for that merchant. Later pending rows that match can be accepted in one go. Tap a rule under **Your rules** to change match, category, or who splits. See [Merchant rules](#merchant-rules).
+- **Ignore rules**: a rule's `action` is **`file`** (the default: place the row with a category/split) or **`ignore`** (drop the row). **"Ignore every time"** on a Need-a-decision row's mail dialog writes an ignore rule. Ignore rules carry no category and apply to **inflows as well as outflows**. Matching rows surface in a muted **"N your rules will ignore"** group with an **Ignore all** button — nothing is ignored until you confirm.
 
 ## Need a decision
 
@@ -52,8 +53,9 @@ Rules are **personal** (`owner_user_id`), not household-shared: only your mailbo
 - **Edit:** tap a row under **Your rules**. The sheet is match kind (exact / contains), merchant text, category, and who splits. Contains is how you generalise a branch-coded name. The owner is always in the split; everyone else is a toggle. Save is an `UPDATE` of that row. Pointing it at a merchant you already have a rule for is an error, not a merge.
 - **Remove:** from the same sheet, after confirm. Already-filed spends stay.
 - **Match:** `merchant_exact` or `merchant_contains`. A contains needle shorter than two characters after normalisation is rejected. A rule with no category is left for a person to decide. Overlaps: most-used rule wins, then exact beats contains, then longer needle.
-- **Apply:** **Accept all** on the matched group runs each row through `ReconService.acceptAdd` with an even split across the rule's `participant_user_ids` (not "everyone in the house"). `times_used` increments after the batch.
-- **Actions:** `createReconRule`, `updateReconRule`, `deleteReconRule`, `acceptAllRuleMatched` in `src/lib/actions/recon-rule.actions.ts` (not REST). Domain rules live in `ReconRuleService`. They return `{ success: false }` rather than throwing.
+- **Apply:** **Accept all** on the matched group runs each row through `ReconService.acceptAdd` with an even split across the rule's `participant_user_ids` (not "everyone in the house"). `times_used` increments after the batch. **Ignore all** runs each ignore-matched row through `ReconService.ignore`.
+- **Ignore rules:** `action = 'ignore'` rules have a null `category_id` and an empty participant list. `matchRules` returns them separately as `ignoreMatched` (file rules stay in `matched`); a file rule with no category yet is still left to a person. Create from **"Ignore every time"**; edit/remove in the same **Your rules** sheet, which hides category/split for an ignore rule.
+- **Actions:** `createReconRule` (takes `action?: 'file' | 'ignore'`), `updateReconRule`, `deleteReconRule`, `acceptAllRuleMatched`, `ignoreAllRuleMatched` in `src/lib/actions/recon-rule.actions.ts` (not REST). Domain rules live in `ReconRuleService`. They return `{ success: false }` rather than throwing.
 
 ## Matching rule
 
@@ -88,7 +90,7 @@ See the main [README](../README.md) section **Recon and Microsoft Graph (Outlook
 | GET | `/api/recon/graph/callback` | OAuth callback (stores encrypted refresh token) |
 | GET | `/api/recon/graph/status` | When Recon is off: `{ reconEnabled: false, connected: false, msAccountEmail: null, lastSyncedAt: null }`. When on: `{ reconEnabled: true, connected, msAccountEmail, lastSyncedAt }` |
 | POST | `/api/recon/graph/disconnect` | Remove stored connection |
-| POST | `/api/recon/sync` | Fetch mail + upsert `recon_import_items` (optional body `{ since?: "YYYY-MM-DD", top?: number, skip?: number }`; `skip` is Graph `$skip` for paging older messages) |
+| POST | `/api/recon/sync` | Fetch mail + upsert `recon_import_items`. Connection-bar form: `{ mode: "new" }` pages **everything since `last_synced_at`** (auto-follows Graph `nextLink`, not just the recent 40), `{ mode: "older" }` deep-scans further back to backfill history. Super-admin console form: `{ since?: "YYYY-MM-DD", top?: number, skip?: number }` (`skip` is Graph `$skip` for paging older messages) |
 | GET | `/api/recon/items` | When Recon off: `{ reconEnabled: false, items: [] }`. When on: each item includes `matchedExpenses` (category, amount, note, date for each id in `matchedExpenseIds`) when present |
 | POST | `/api/recon/items/[id]/accept-duplicate` | Mark duplicate resolved (no new expense) |
 | POST | `/api/recon/items/[id]/accept-add` | Body: optional `entryKind` (`expense` default, or `income`); `categoryId` required for expense; `accountId` optional; `split` not allowed for income; optional `note`, `amount` (minor units); for income optional `incomeType` (`salary` or `ad_hoc`, default `ad_hoc`). Creates an expense (optionally split) or income via `IncomeService.create`. Response includes `expenseId` and/or `incomeId` as applicable. |
@@ -98,4 +100,5 @@ See the main [README](../README.md) section **Recon and Microsoft Graph (Outlook
 
 - **Additive migration** `drizzle/0013_recon_pg.sql`: creates new tables only; does not delete existing app data.
 - **`drizzle/0039_recon_rules_pg.sql`**: personal merchant rules (`recon_rules`). Unique on `(household_id, owner_user_id, match_kind, match_value)`.
+- **`drizzle/0054_recon_rule_action_pg.sql`**: adds `recon_rules.action` (`'file'` default / `'ignore'`), with a CHECK constraint.
 - Apply with `npm run db:push` when deploying.

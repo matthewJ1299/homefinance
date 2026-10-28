@@ -4,6 +4,7 @@ import type {
   IReconRuleRepository,
   ReconRuleRow,
   CreateReconRuleInput,
+  ReconRuleAction,
   ReconRuleMatchKind,
   ReconRuleWriteFields,
   ReconRuleUpdateResult,
@@ -14,6 +15,7 @@ interface Row {
   owner_user_id: number;
   match_kind: string;
   match_value: string;
+  action: string | null;
   category_id: number | null;
   category_name: string | null;
   participant_user_ids: number[] | null;
@@ -27,6 +29,7 @@ function toRule(r: Row): ReconRuleRow {
     ownerUserId: r.owner_user_id,
     matchKind: r.match_kind as ReconRuleMatchKind,
     matchValue: r.match_value,
+    action: (r.action ?? "file") as ReconRuleAction,
     categoryId: r.category_id,
     categoryName: r.category_name,
     participantUserIds: r.participant_user_ids ?? [],
@@ -49,7 +52,7 @@ export class ReconRuleRepository implements IReconRuleRepository {
   async findByOwner(ownerUserId: number): Promise<ReconRuleRow[]> {
     const hid = requireHouseholdId();
     const rows = await all<Row>(
-      `SELECT r.id, r.owner_user_id, r.match_kind, r.match_value, r.category_id,
+      `SELECT r.id, r.owner_user_id, r.match_kind, r.match_value, r.action, r.category_id,
               c.name AS category_name, r.participant_user_ids, r.times_used, r.created_at
        FROM recon_rules r
        LEFT JOIN categories c ON c.id = r.category_id AND c.household_id = r.household_id
@@ -63,15 +66,16 @@ export class ReconRuleRepository implements IReconRuleRepository {
   async create(data: CreateReconRuleInput): Promise<{ id: number }> {
     const hid = requireHouseholdId();
     await run(
-      `INSERT INTO recon_rules (household_id, owner_user_id, match_kind, match_value, category_id, participant_user_ids)
-       VALUES (?, ?, ?, ?, ?, ?)
+      `INSERT INTO recon_rules (household_id, owner_user_id, match_kind, match_value, action, category_id, participant_user_ids)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT (household_id, owner_user_id, match_kind, match_value)
-       DO UPDATE SET category_id = excluded.category_id, participant_user_ids = excluded.participant_user_ids`,
+       DO UPDATE SET action = excluded.action, category_id = excluded.category_id, participant_user_ids = excluded.participant_user_ids`,
       [
         hid,
         data.ownerUserId,
         data.matchKind,
         data.matchValue,
+        data.action,
         data.categoryId,
         pgIntArray(data.participantUserIds),
       ]
@@ -88,12 +92,13 @@ export class ReconRuleRepository implements IReconRuleRepository {
     try {
       const row = await get<{ id: number }>(
         `UPDATE recon_rules
-            SET match_kind = ?, match_value = ?, category_id = ?, participant_user_ids = ?
+            SET match_kind = ?, match_value = ?, action = ?, category_id = ?, participant_user_ids = ?
           WHERE id = ? AND household_id = ? AND owner_user_id = ?
           RETURNING id`,
         [
           data.matchKind,
           data.matchValue,
+          data.action,
           data.categoryId,
           pgIntArray(data.participantUserIds),
           id,

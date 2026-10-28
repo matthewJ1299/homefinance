@@ -67,16 +67,18 @@ export function ReconRuleSheet({
   const me = members.find((m) => m.id === currentUserId);
   const others = members.filter((m) => m.id !== currentUserId);
   const roster = me ? [me, ...others] : members;
-  const canSave = categoryId !== "" && matchValue.trim() !== "" && !pending;
+  const isIgnore = rule?.action === "ignore";
+  const canSave = matchValue.trim() !== "" && !pending && (isIgnore || categoryId !== "");
 
   function save() {
-    if (rule == null || categoryId === "" || pending) return;
+    if (rule == null || pending || (!isIgnore && categoryId === "")) return;
     startTransition(async () => {
       const res = await updateReconRule(rule.id, {
         matchKind,
         matchValue,
-        categoryId,
-        participantUserIds: pickedIds,
+        action: rule.action,
+        categoryId: isIgnore || categoryId === "" ? null : categoryId,
+        participantUserIds: isIgnore ? [] : pickedIds,
       });
       if (!res.success) {
         toast.error(res.error);
@@ -163,25 +165,32 @@ export function ReconRuleSheet({
           />
         </div>
 
-        <SelectField
-          id="recon-rule-category"
-          label="Category"
-          value={categoryId === "" ? "" : String(categoryId)}
-          onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : "")}
-        >
-          <option value="">Pick a category</option>
-          {grouped.map((group) => (
-            <optgroup key={group.name} label={group.name}>
-              {group.categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </SelectField>
+        {isIgnore ? (
+          <p className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+            This rule ignores matching transactions. Nothing is filed, and no category or split
+            applies.
+          </p>
+        ) : (
+          <SelectField
+            id="recon-rule-category"
+            label="Category"
+            value={categoryId === "" ? "" : String(categoryId)}
+            onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : "")}
+          >
+            <option value="">Pick a category</option>
+            {grouped.map((group) => (
+              <optgroup key={group.name} label={group.name}>
+                {group.categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </SelectField>
+        )}
 
-        {others.length > 0 ? (
+        {!isIgnore && others.length > 0 ? (
           <div>
             <p className="pb-1.5 text-xs font-medium text-muted-foreground">Who&rsquo;s in on this</p>
             <div className="flex flex-wrap gap-1">

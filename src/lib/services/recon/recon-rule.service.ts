@@ -4,12 +4,22 @@ import {
   getUserRepository,
 } from "@/lib/repositories";
 import type {
+  ReconRuleAction,
   ReconRuleWriteFields,
   ReconRuleMatchKind,
 } from "@/lib/repositories/interfaces/recon-rule.repository";
 import { normalizeMerchantKey } from "@/lib/services/recon/parsers/parse-helpers";
 
 export type RuleWriteResult = { ok: true } | { ok: false; error: string };
+
+export interface ReconRuleInput {
+  matchKind: ReconRuleMatchKind;
+  matchValue: string;
+  action: ReconRuleAction;
+  /** Required for file rules; ignored for ignore rules. */
+  categoryId: number | null;
+  participantUserIds: number[];
+}
 
 /**
  * Personal merchant rules: what to match, which category, who splits.
@@ -25,15 +35,7 @@ export class ReconRuleService {
     private categories = getCategoryRepository()
   ) {}
 
-  async create(
-    userId: number,
-    input: {
-      matchKind: ReconRuleMatchKind;
-      matchValue: string;
-      categoryId: number;
-      participantUserIds: number[];
-    }
-  ): Promise<RuleWriteResult> {
+  async create(userId: number, input: ReconRuleInput): Promise<RuleWriteResult> {
     const prepared = await this.prepareWrite(userId, input);
     if (!prepared.ok) return prepared;
     await this.rules.create({ ownerUserId: userId, ...prepared.data });
@@ -43,12 +45,7 @@ export class ReconRuleService {
   async update(
     userId: number,
     id: number,
-    input: {
-      matchKind: ReconRuleMatchKind;
-      matchValue: string;
-      categoryId: number;
-      participantUserIds: number[];
-    }
+    input: ReconRuleInput
   ): Promise<RuleWriteResult> {
     const prepared = await this.prepareWrite(userId, input);
     if (!prepared.ok) return prepared;
@@ -72,12 +69,7 @@ export class ReconRuleService {
    */
   private async prepareWrite(
     userId: number,
-    input: {
-      matchKind: ReconRuleMatchKind;
-      matchValue: string;
-      categoryId: number;
-      participantUserIds: number[];
-    }
+    input: ReconRuleInput
   ): Promise<{ ok: true; data: ReconRuleWriteFields } | { ok: false; error: string }> {
     const matchValue = normalizeMerchantKey(input.matchValue);
     if (matchValue === "") {
@@ -87,6 +79,22 @@ export class ReconRuleService {
       return { ok: false, error: "A contains rule needs at least two characters." };
     }
 
+    // An ignore rule just drops the row -- no category, and the split roster is
+    // meaningless, so it is stored empty.
+    if (input.action === "ignore") {
+      return {
+        ok: true,
+        data: {
+          matchKind: input.matchKind,
+          matchValue,
+          action: "ignore",
+          categoryId: null,
+          participantUserIds: [],
+        },
+      };
+    }
+
+    if (input.categoryId == null) return { ok: false, error: "Pick a category." };
     const category = await this.categories.findById(input.categoryId);
     if (!category) return { ok: false, error: "Pick a category." };
 
@@ -102,6 +110,7 @@ export class ReconRuleService {
       data: {
         matchKind: input.matchKind,
         matchValue,
+        action: "file",
         categoryId: category.id,
         participantUserIds,
       },

@@ -147,6 +147,8 @@ export async function isMigrationAlreadyApplied(
       return false;
     case "0053_user_home_mode_pg.sql":
       return columnExists(query, "users", "home_mode");
+    case "0054_recon_rule_action_pg.sql":
+      return columnExists(query, "recon_rules", "action");
     default:
       return false;
   }

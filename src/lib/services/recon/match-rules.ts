@@ -30,9 +30,17 @@ export function ruleMatches(rule: ReconRuleRow, item: MatchableItem): boolean {
   return rule.matchKind === "merchant_exact" ? key === needle : key.includes(needle);
 }
 
+/** A rule can act on a row only once it is complete: a file rule needs a
+ * category, an ignore rule needs nothing more than its match. */
+function ruleIsActionable(rule: ReconRuleRow): boolean {
+  return rule.action === "ignore" || rule.categoryId != null;
+}
+
 /**
  * Splits rows into the ones a rule has already decided and the ones that still
- * need a person.
+ * need a person. Rules come in two kinds: `matched` are file rules that will
+ * place the row, `ignoreMatched` are ignore rules that will drop it. A file
+ * rule with no category yet is not actionable and leaves its row for a person.
  *
  * The most-used rule wins a tie, then the most specific: an exact match beats a
  * contains, and a longer needle beats a shorter one. Without a deterministic
@@ -42,7 +50,7 @@ export function ruleMatches(rule: ReconRuleRow, item: MatchableItem): boolean {
 export function matchRules<T extends MatchableItem>(
   items: T[],
   rules: ReconRuleRow[]
-): { matched: RuleMatch<T>[]; unmatched: T[] } {
+): { matched: RuleMatch<T>[]; ignoreMatched: RuleMatch<T>[]; unmatched: T[] } {
   const ordered = [...rules].sort((a, b) => {
     if (b.timesUsed !== a.timesUsed) return b.timesUsed - a.timesUsed;
     if (a.matchKind !== b.matchKind) return a.matchKind === "merchant_exact" ? -1 : 1;
@@ -51,11 +59,17 @@ export function matchRules<T extends MatchableItem>(
   });
 
   const matched: RuleMatch<T>[] = [];
+  const ignoreMatched: RuleMatch<T>[] = [];
   const unmatched: T[] = [];
   for (const item of items) {
-    const rule = ordered.find((r) => ruleMatches(r, item));
-    if (rule && rule.categoryId != null) matched.push({ item, rule });
-    else unmatched.push(item);
+    const rule = ordered.find((r) => ruleMatches(r, item) && ruleIsActionable(r));
+    if (!rule) {
+      unmatched.push(item);
+    } else if (rule.action === "ignore") {
+      ignoreMatched.push({ item, rule });
+    } else {
+      matched.push({ item, rule });
+    }
   }
-  return { matched, unmatched };
+  return { matched, ignoreMatched, unmatched };
 }

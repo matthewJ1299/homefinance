@@ -63,6 +63,28 @@ export function ReconDecisionList({ rows }: { rows: DecisionRow[] }) {
   const router = useRouter();
   const repeatRef = useRef(false);
   const [mail, setMail] = useState<DecisionRow | null>(null);
+  const [ignoringRule, setIgnoringRule] = useState(false);
+
+  async function ignoreEveryTime(row: DecisionRow) {
+    if (ignoringRule) return;
+    setIgnoringRule(true);
+    try {
+      const res = await createReconRule({
+        matchKind: "merchant_exact",
+        matchValue: row.merchantKey || row.vendor,
+        action: "ignore",
+      });
+      if (!res.success) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success(`Transactions from ${row.vendor} will be set to ignore from now on.`);
+      setMail(null);
+      router.refresh();
+    } finally {
+      setIgnoringRule(false);
+    }
+  }
 
   if (rows.length === 0) {
     return (
@@ -175,6 +197,15 @@ export function ReconDecisionList({ rows }: { rows: DecisionRow[] }) {
                   setMail(null);
                   window.setTimeout(() => fileRow(row), 0);
                 },
+              }
+            : undefined
+        }
+        secondaryAction={
+          mail
+            ? {
+                label: ignoringRule ? "Saving…" : "Ignore every time",
+                onClick: () => void ignoreEveryTime(mail),
+                disabled: ignoringRule,
               }
             : undefined
         }

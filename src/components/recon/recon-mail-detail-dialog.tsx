@@ -32,6 +32,7 @@ export function ReconMailDetailDialog({
   extraBeforeBody,
   footerStart,
   primaryAction,
+  secondaryAction,
   onLoaded,
 }: {
   source: ReconMailSource | null;
@@ -39,6 +40,7 @@ export function ReconMailDetailDialog({
   extraBeforeBody?: ReactNode;
   footerStart?: ReactNode;
   primaryAction?: { label: string; onClick: () => void };
+  secondaryAction?: { label: string; onClick: () => void; disabled?: boolean };
   onLoaded?: (detail: ReconMailDetail | null) => void;
 }) {
   const open = source != null;
@@ -156,6 +158,16 @@ export function ReconMailDetailDialog({
       )}
       <DialogFooter>
         {footerStart}
+        {secondaryAction ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={secondaryAction.onClick}
+            disabled={loading || secondaryAction.disabled}
+          >
+            {secondaryAction.label}
+          </Button>
+        ) : null}
         {primaryAction ? (
           <Button type="button" onClick={primaryAction.onClick} disabled={loading}>
             {primaryAction.label}

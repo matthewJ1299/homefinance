@@ -14,7 +14,23 @@ export async function POST(request: Request) {
   if (blocked) return blocked;
   const userId = Number(session.user.id);
   try {
-    const body = (await request.json().catch(() => ({}))) as { since?: string; debug?: boolean; top?: number; skip?: number };
+    const body = (await request.json().catch(() => ({}))) as {
+      since?: string;
+      debug?: boolean;
+      top?: number;
+      skip?: number;
+      mode?: string;
+    };
+    const service = new ReconService();
+
+    // The connection bar's one-click syncs. `new` pages everything since the
+    // last check; `older` backfills further into the mailbox.
+    if (body.mode === "new" || body.mode === "older") {
+      const result = await service.syncNewOrOlder(userId, body.mode);
+      return NextResponse.json(result);
+    }
+
+    // The super-admin parser console's explicit since/top/skip controls.
     const since = typeof body.since === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.since) ? body.since : undefined;
     const debug = body.debug === true;
     const topRaw = typeof body.top === "number" ? body.top : Number.NaN;
@@ -22,7 +38,6 @@ export async function POST(request: Request) {
     const safeTop = top != null && top > 0 ? Math.min(top, 1000) : undefined;
     const skipRaw = typeof body.skip === "number" ? body.skip : Number.NaN;
     const skip = Number.isFinite(skipRaw) ? Math.max(0, Math.min(Math.floor(skipRaw), 10_000)) : undefined;
-    const service = new ReconService();
     const result = await service.syncFromGraph(userId, since, debug, safeTop, skip);
     return NextResponse.json(result);
   } catch (e) {

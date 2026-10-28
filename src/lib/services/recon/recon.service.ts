@@ -279,6 +279,37 @@ export class ReconService {
       : { imported, scanned, skip: safeSkip };
   }
 
+  /**
+   * The two one-click syncs the connection bar offers.
+   *
+   * - `new`: everything received since the last check. `fetchMessagesSince`
+   *   already follows Graph's nextLink, so a single call pages through all of
+   *   it rather than stopping at the most recent 40 the bare button used to.
+   *   First run (never synced) falls back to a deeper recent window.
+   * - `older`: a deep backfill scan further back in the mailbox, for history
+   *   that predates the recent window. Re-scanning is safe -- upsert dedupes by
+   *   message id and ignored/accepted rows keep their status.
+   */
+  async syncNewOrOlder(
+    userId: number,
+    mode: "new" | "older"
+  ): Promise<{ imported: number; scanned: number; skip: number }> {
+    const NEW_MAX = 1000;
+    const FIRST_RUN_MAX = 200;
+    const OLDER_MAX = 500;
+    if (mode === "older") {
+      return this.syncFromGraph(userId, undefined, false, OLDER_MAX);
+    }
+    const { lastSyncedAt } = await this.isGraphConnected(userId);
+    if (!lastSyncedAt) {
+      return this.syncFromGraph(userId, undefined, false, FIRST_RUN_MAX);
+    }
+    // Date portion is a safe lower bound: it may re-include the last day's
+    // already-seen mail, which the upsert dedupes.
+    const since = new Date(lastSyncedAt).toISOString().slice(0, 10);
+    return this.syncFromGraph(userId, since, false, NEW_MAX);
+  }
+
   async getGraphMessageBody(
     userId: number,
     graphMessageId: string

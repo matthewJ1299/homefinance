@@ -1,10 +1,15 @@
 export type ReconRuleMatchKind = "merchant_exact" | "merchant_contains";
 
+/** What a rule does with a matching transaction. */
+export type ReconRuleAction = "file" | "ignore";
+
 export interface ReconRuleRow {
   id: number;
   ownerUserId: number;
   matchKind: ReconRuleMatchKind;
   matchValue: string;
+  /** 'file' places the transaction (needs a category); 'ignore' marks it ignored. */
+  action: ReconRuleAction;
   categoryId: number | null;
   categoryName: string | null;
   participantUserIds: number[];
@@ -15,7 +20,9 @@ export interface ReconRuleRow {
 export interface ReconRuleWriteFields {
   matchKind: ReconRuleMatchKind;
   matchValue: string;
-  categoryId: number;
+  action: ReconRuleAction;
+  /** Null for ignore rules; required for file rules (enforced in the service). */
+  categoryId: number | null;
   participantUserIds: number[];
 }
 

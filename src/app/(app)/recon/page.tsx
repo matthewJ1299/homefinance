@@ -4,7 +4,11 @@ import { hasFeature } from "@/lib/features/access";
 import { ReconConnectionBar } from "@/components/recon/recon-connection-bar";
 import { ReconDecisionList, type DecisionRow } from "@/components/recon/recon-decision-list";
 import { ReconPageClient } from "@/components/recon/recon-page-client";
-import { ReconRulesPanel, type MatchedRowSummary } from "@/components/recon/recon-rules-panel";
+import {
+  ReconRulesPanel,
+  type MatchedRowSummary,
+  type IgnoreRowSummary,
+} from "@/components/recon/recon-rules-panel";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { FeatureUnavailable } from "@/components/ui/feature-unavailable";
 import {
@@ -52,13 +56,22 @@ export default async function ReconPage() {
   const connection = await getReconGraphConnectionRepository().findByUserId(userId);
   const nameById = new Map(members.map((m) => [m.id, m.name]));
   const outflows = pending.filter((item) => flowFromStoredAmount(item.amount) === "out");
-  const { matched, unmatched: unmatchedOut } = matchRules(outflows, rules);
-  const unmatchedOutIds = new Set(unmatchedOut.map((item) => item.id));
-  // Inflows never match an expense rule; they stay in the original pending
-  // order rather than being dumped at the end of the list.
-  const unmatched = pending.filter(
-    (item) => flowFromStoredAmount(item.amount) === "in" || unmatchedOutIds.has(item.id)
+  const inflows = pending.filter((item) => flowFromStoredAmount(item.amount) === "in");
+  const { matched, ignoreMatched: ignoreOut } = matchRules(outflows, rules);
+  // File rules never touch inflows, but ignore rules do -- a recurring deposit
+  // notification is as ignorable as a spend.
+  const { ignoreMatched: ignoreIn } = matchRules(
+    inflows,
+    rules.filter((r) => r.action === "ignore")
   );
+  const ignoreMatched = [...ignoreOut, ...ignoreIn];
+  // Whatever a rule placed or will ignore is handled; the rest, in their
+  // original pending order, is what needs a person.
+  const handledIds = new Set([
+    ...matched.map((m) => m.item.id),
+    ...ignoreMatched.map((m) => m.item.id),
+  ]);
+  const unmatched = pending.filter((item) => !handledIds.has(item.id));
 
   // `unmatched` was computed and thrown away: these are the rows that actually
   // need a person, and they are now the page's decision list.
@@ -90,6 +103,13 @@ export default async function ReconPage() {
       .map((id) => nameById.get(id) ?? "Someone"),
   }));
 
+  const ignoreRows: IgnoreRowSummary[] = ignoreMatched.map(({ item }) => ({
+    itemId: item.id,
+    vendor: item.vendor,
+    amountMinor: item.amount,
+    txnDate: item.txnDate,
+  }));
+
   return (
     <div className="p-4 max-w-5xl mx-auto min-w-0 space-y-5">
       {/* "Recon" is what the developer called it. */}
@@ -101,6 +121,7 @@ export default async function ReconPage() {
       />
       <ReconRulesPanel
         matched={matchedRows}
+        ignored={ignoreRows}
         rules={rules}
         totalThisMonth={arrivedThisMonth}
         unmatchedCount={unmatched.length}
