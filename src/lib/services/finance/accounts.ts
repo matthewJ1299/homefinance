@@ -21,8 +21,17 @@ export interface BudgetCategoryRow {
   categoryName: string;
   groupName: string;
   costType: "fixed" | "variable";
-  allocated: number;
+  /** Assigned this month. */
+  assigned: number;
+  /** Leftover carried in from the prior month. Zero unless the month was opened. */
+  carriedIn: number;
   spent: number;
+  /** assigned + carriedIn - spent. The number the user thinks of as "left". */
+  available: number;
+  rollover: boolean;
+  /** @deprecated alias for `assigned`, kept until the budget UI lands. */
+  allocated: number;
+  /** @deprecated alias for `available`. */
   remaining: number;
   isOverspent: boolean;
   spentByUser: Record<number, number>;
@@ -31,54 +40,96 @@ export interface BudgetCategoryRow {
 export function calculateBudgetOverviewArithmetic(input: {
   totalIncome: number;
   totalExpenses: number;
-  categories: Array<{ id: number; name: string; groupName: string; costType?: "fixed" | "variable" }>;
+  categories: Array<{
+    id: number;
+    name: string;
+    groupName: string;
+    costType?: "fixed" | "variable";
+    rollover?: boolean;
+  }>;
   allocationMap: Map<number, number>;
+  carriedInMap: Map<number, number>;
   expenses: Array<{ userId: number; categoryId: number; amount: number }>;
   spentByCategory: Record<number, number>;
 }): {
   balance: number;
-  totalAllocated: number;
+  totalAssigned: number;
+  /** Sum of (assigned + carriedIn) -- the denominator on Home's pace bar. */
+  envelopeTotal: number;
+  /** Sum of available -- the Home hero figure. */
+  envelopeLeft: number;
+  /** Positive sum of negative availables. */
+  overspentTotal: number;
   categoryRows: BudgetCategoryRow[];
   unallocated: number;
   isBalanced: boolean;
+  /** @deprecated alias for `totalAssigned`. */
+  totalAllocated: number;
 } {
   const balance = input.totalIncome - input.totalExpenses;
 
-  let totalAllocated = 0;
-  const categoryRows: BudgetCategoryRow[] = input.categories.map((cat) => {
-    const allocated = input.allocationMap.get(cat.id) ?? 0;
-    const spent = input.spentByCategory[cat.id] ?? 0;
+  let totalAssigned = 0;
+  let envelopeTotal = 0;
+  let envelopeLeft = 0;
+  let overspentTotal = 0;
 
-    totalAllocated += allocated;
-    const remaining = allocated - spent;
-    const spentByUser: Record<number, number> = {};
-    for (const e of input.expenses) {
-      if (e.categoryId !== cat.id) continue;
-      spentByUser[e.userId] = (spentByUser[e.userId] ?? 0) + e.amount;
-    }
+  // One pass over expenses instead of one pass per category: this was
+  // O(categories x expenses), and a month with 11 categories and 200 expenses
+  // walked 2 200 rows to reach 200.
+  const spentByUserByCategory = new Map<number, Record<number, number>>();
+  for (const e of input.expenses) {
+    const bucket = spentByUserByCategory.get(e.categoryId) ?? {};
+    bucket[e.userId] = (bucket[e.userId] ?? 0) + e.amount;
+    spentByUserByCategory.set(e.categoryId, bucket);
+  }
+
+  const categoryRows: BudgetCategoryRow[] = input.categories.map((cat) => {
+    const assigned = input.allocationMap.get(cat.id) ?? 0;
+    const carriedIn = input.carriedInMap.get(cat.id) ?? 0;
+    const spent = input.spentByCategory[cat.id] ?? 0;
+    const available = assigned + carriedIn - spent;
+
+    totalAssigned += assigned;
+    envelopeTotal += assigned + carriedIn;
+    envelopeLeft += available;
+    if (available < 0) overspentTotal += -available;
 
     return {
       categoryId: cat.id,
       categoryName: cat.name,
       groupName: cat.groupName,
       costType: cat.costType ?? "variable",
-      allocated,
+      assigned,
+      carriedIn,
       spent,
-      remaining,
-      isOverspent: remaining < 0,
-      spentByUser,
+      available,
+      rollover: cat.rollover ?? true,
+      allocated: assigned,
+      remaining: available,
+      isOverspent: available < 0,
+      spentByUser: spentByUserByCategory.get(cat.id) ?? {},
     };
   });
 
-  const unallocated = input.totalIncome - totalAllocated;
+  const unallocated = input.totalIncome - totalAssigned;
   const isBalanced = unallocated === 0;
 
-  return { balance, totalAllocated, categoryRows, unallocated, isBalanced };
+  return {
+    balance,
+    totalAssigned,
+    envelopeTotal,
+    envelopeLeft,
+    overspentTotal,
+    categoryRows,
+    unallocated,
+    isBalanced,
+    totalAllocated: totalAssigned,
+  };
 }
 
 export interface BudgetAdherenceRow {
   categoryName: string;
-  allocated: number;
+  assigned: number;
   spent: number;
   adherencePct: number;
 }
@@ -116,7 +167,7 @@ export function calculateMonthlySnapshotArithmetic(input: {
     const spent = input.spentByCategory[categoryId] ?? 0;
     const categoryName = input.categoryIdToName.get(categoryId) ?? "?";
     const adherencePct = allocated > 0 ? (spent / allocated) * 100 : 0;
-    return { categoryName, allocated, spent, adherencePct };
+    return { categoryName, assigned: allocated, spent, adherencePct };
   });
 
   const incomeByUser: Record<number, number> = {};

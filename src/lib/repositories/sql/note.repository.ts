@@ -1,4 +1,5 @@
 import { all, get, lastInsertId, run } from "@/lib/db";
+import { requireHouseholdId } from "@/lib/db/request-context";
 import type { Note } from "@/lib/types/note";
 import type {
   CreateNoteInput,
@@ -30,20 +31,22 @@ function toNote(row: NoteRow): Note {
 
 export class NoteRepository implements INoteRepository {
   async create(ownerUserId: number, input: CreateNoteInput): Promise<{ id: number }> {
+    const hid = requireHouseholdId();
     await run(
-      `INSERT INTO notes (owner_user_id, linked_type, linked_id, body)
-       VALUES (?, ?, ?, ?)`,
-      [ownerUserId, input.linkedType, input.linkedId, input.body]
+      `INSERT INTO notes (owner_user_id, linked_type, linked_id, body, household_id)
+       VALUES (?, ?, ?, ?, ?)`,
+      [ownerUserId, input.linkedType, input.linkedId, input.body, hid]
     );
     return { id: await lastInsertId() };
   }
 
   async findById(id: number, ownerUserId: number): Promise<Note | null> {
+    const hid = requireHouseholdId();
     const row = await get<NoteRow>(
       `SELECT id, owner_user_id, linked_type, linked_id, body, created_at, updated_at
        FROM notes
-       WHERE id = ? AND owner_user_id = ?`,
-      [id, ownerUserId]
+       WHERE id = ? AND owner_user_id = ? AND household_id = ?`,
+      [id, ownerUserId, hid]
     );
     return row ? toNote(row) : null;
   }
@@ -53,12 +56,13 @@ export class NoteRepository implements INoteRepository {
     linkedType: string,
     linkedId: number
   ): Promise<Note[]> {
+    const hid = requireHouseholdId();
     const rows = await all<NoteRow>(
       `SELECT id, owner_user_id, linked_type, linked_id, body, created_at, updated_at
        FROM notes
-       WHERE owner_user_id = ? AND linked_type = ? AND linked_id = ?
+       WHERE owner_user_id = ? AND linked_type = ? AND linked_id = ? AND household_id = ?
        ORDER BY created_at ASC, id ASC`,
-      [ownerUserId, linkedType, linkedId]
+      [ownerUserId, linkedType, linkedId, hid]
     );
     return rows.map(toNote);
   }
@@ -68,15 +72,16 @@ export class NoteRepository implements INoteRepository {
     linkedType: string,
     linkedIds: number[]
   ): Promise<Map<number, Note[]>> {
+    const hid = requireHouseholdId();
     const byId = new Map<number, Note[]>();
     if (linkedIds.length === 0) return byId;
     const placeholders = linkedIds.map(() => "?").join(", ");
     const rows = await all<NoteRow>(
       `SELECT id, owner_user_id, linked_type, linked_id, body, created_at, updated_at
        FROM notes
-       WHERE owner_user_id = ? AND linked_type = ? AND linked_id IN (${placeholders})
+       WHERE owner_user_id = ? AND linked_type = ? AND household_id = ? AND linked_id IN (${placeholders})
        ORDER BY linked_id ASC, created_at ASC, id ASC`,
-      [ownerUserId, linkedType, ...linkedIds]
+      [ownerUserId, linkedType, hid, ...linkedIds]
     );
     for (const row of rows) {
       const note = toNote(row);
@@ -98,16 +103,22 @@ export class NoteRepository implements INoteRepository {
 
     if (updates.length === 0) return;
 
+    const hid = requireHouseholdId();
     updates.push("updated_at = NOW()");
-    params.push(id, ownerUserId);
+    params.push(id, ownerUserId, hid);
     await run(
-      `UPDATE notes SET ${updates.join(", ")} WHERE id = ? AND owner_user_id = ?`,
+      `UPDATE notes SET ${updates.join(", ")} WHERE id = ? AND owner_user_id = ? AND household_id = ?`,
       params
     );
   }
 
   async delete(id: number, ownerUserId: number): Promise<void> {
-    await run("DELETE FROM notes WHERE id = ? AND owner_user_id = ?", [id, ownerUserId]);
+    const hid = requireHouseholdId();
+    await run("DELETE FROM notes WHERE id = ? AND owner_user_id = ? AND household_id = ?", [
+      id,
+      ownerUserId,
+      hid,
+    ]);
   }
 
   async deleteAllForOwnerAndTarget(
@@ -115,25 +126,29 @@ export class NoteRepository implements INoteRepository {
     linkedType: string,
     linkedId: number
   ): Promise<void> {
+    const hid = requireHouseholdId();
     await run(
-      "DELETE FROM notes WHERE owner_user_id = ? AND linked_type = ? AND linked_id = ?",
-      [ownerUserId, linkedType, linkedId]
+      "DELETE FROM notes WHERE owner_user_id = ? AND linked_type = ? AND linked_id = ? AND household_id = ?",
+      [ownerUserId, linkedType, linkedId, hid]
     );
   }
 
   async deleteAllForLinkedTarget(linkedType: string, linkedId: number): Promise<void> {
-    await run("DELETE FROM notes WHERE linked_type = ? AND linked_id = ?", [
+    const hid = requireHouseholdId();
+    await run("DELETE FROM notes WHERE linked_type = ? AND linked_id = ? AND household_id = ?", [
       linkedType,
       linkedId,
+      hid,
     ]);
   }
 
   async deleteAllForLinkedTargets(linkedType: string, linkedIds: number[]): Promise<void> {
     if (linkedIds.length === 0) return;
+    const hid = requireHouseholdId();
     const placeholders = linkedIds.map(() => "?").join(", ");
     await run(
-      `DELETE FROM notes WHERE linked_type = ? AND linked_id IN (${placeholders})`,
-      [linkedType, ...linkedIds]
+      `DELETE FROM notes WHERE household_id = ? AND linked_type = ? AND linked_id IN (${placeholders})`,
+      [hid, linkedType, ...linkedIds]
     );
   }
 }

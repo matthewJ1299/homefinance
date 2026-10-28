@@ -16,6 +16,13 @@ async function columnExists(query: QueryFn, table: string, column: string): Prom
   return r.rows.length > 0;
 }
 
+async function constraintExists(query: QueryFn, table: string, name: string): Promise<boolean> {
+  const r = await query(
+    `SELECT 1 FROM information_schema.table_constraints WHERE table_schema = 'public' AND table_name = '${table}' AND constraint_name = '${name}'`
+  );
+  return r.rows.length > 0;
+}
+
 /**
  * Returns true when the DB already reflects this migration (for ledger seeding on upgrade).
  */
@@ -82,6 +89,66 @@ export async function isMigrationAlreadyApplied(
       return tableExists(query, "calendar_event_reminders");
     case "0028_users_owed_to_me_enabled_pg.sql":
       return columnExists(query, "users", "owed_to_me_enabled");
+    case "0027_households_pg.sql":
+      // Late-stage marker: the final statement adds household_id to schedule snapshots.
+      return (
+        (await tableExists(query, "households")) &&
+        (await columnExists(query, "mortgage_schedule_snapshots", "household_id"))
+      );
+    case "0028_super_admin_and_household_feature_policy_pg.sql":
+      return columnExists(query, "users", "is_super_admin");
+    case "0029_users_setup_wizard_state_pg.sql":
+      return columnExists(query, "users", "setup_wizard_status");
+    case "0030_household_features_pg.sql":
+      // Late-stage marker: households.ai_tier is added after the table and all backfills.
+      return (
+        (await tableExists(query, "household_features")) &&
+        (await columnExists(query, "households", "ai_tier"))
+      );
+    case "0031_user_password_management_pg.sql":
+      return columnExists(query, "users", "must_change_password");
+    case "0032_household_approval_pg.sql":
+      return columnExists(query, "households", "approval_status");
+    case "0033_budgets_per_user_pg.sql":
+      return constraintExists(query, "budgets", "budgets_household_category_month_user_key");
+    case "0034_expense_participants_pg.sql":
+      return tableExists(query, "expense_participants");
+    case "0035_category_rollover_pg.sql":
+      // Late-stage marker: budget_month_opens is created after both column adds.
+      return tableExists(query, "budget_month_opens");
+    case "0036_account_sharing_pg.sql":
+      return columnExists(query, "accounts", "is_shared");
+    case "0037_income_types_pg.sql":
+      return columnExists(query, "income", "income_type");
+    case "0038_mortgage_plan_pg.sql":
+      // Late-stage marker: mortgage_targets is created after mortgage_deposits.
+      return tableExists(query, "mortgage_targets");
+    case "0039_recon_rules_pg.sql":
+      return tableExists(query, "recon_rules");
+    case "0040_shared_list_category_pg.sql":
+      return columnExists(query, "shared_lists", "category_id");
+    case "0041_calendar_event_cost_pg.sql":
+      // Late-stage marker: logged_expense_id is the last of the three adds.
+      return columnExists(query, "calendar_events", "logged_expense_id");
+    case "0042_household_budget_month_pg.sql":
+      // Late-stage marker: the notice flag is added after the backfill.
+      return columnExists(query, "households", "budget_month_notice_pending");
+    case "0043_goals_as_categories_pg.sql":
+      // Late-stage marker: target_date is added after target_minor.
+      return columnExists(query, "categories", "target_date");
+    case "0044_established_users_skip_onboarding_pg.sql":
+      // Data-only: it adds no schema, so detection cannot see whether it ran.
+      // Re-running it is harmless -- it only ever moves a user who still reads
+      // as not_started -- so let it apply rather than seed it as done.
+      return false;
+    case "0045_repair_negative_allocations_pg.sql":
+      // Data-only, and idempotent by its own WHERE clause: once the negative
+      // rows are gone it matches nothing. Let it apply rather than seed it.
+      return false;
+    case "0053_user_home_mode_pg.sql":
+      return columnExists(query, "users", "home_mode");
+    case "0054_recon_rule_action_pg.sql":
+      return columnExists(query, "recon_rules", "action");
     default:
       return false;
   }

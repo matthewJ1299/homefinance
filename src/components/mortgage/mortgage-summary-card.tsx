@@ -3,14 +3,20 @@ import { formatRand } from "@/lib/utils/currency";
 interface MortgageSummaryCardProps {
   monthlyBasePayment: number;
   monthlyTopUp: number;
-  monthlyPaymentUserA: number;
-  monthlyPaymentUserB: number;
-  targetEquityUserAPct: number;
+  /** This month's payment per person. */
+  monthlyPaymentByUserId: Record<number, number>;
   projectedPayoffDate: string;
   equitySummary: {
-    userA: { name: string; deposit: number; totalPayments: number; equityPct: number };
-    userB: { name: string; deposit: number; totalPayments: number; equityPct: number };
+    people: Array<{
+      userId: number;
+      name: string;
+      deposit: number;
+      totalPayments: number;
+      equityPct: number;
+    }>;
   };
+  /** Who is reading. Both columns used to be captioned "Your share of the home". */
+  meUserId: number;
   currentBalance?: number;
   /** If provided, "months saved" is shown when payoff is earlier than original term. */
   projectedMonths?: number;
@@ -22,11 +28,10 @@ interface MortgageSummaryCardProps {
 export function MortgageSummaryCard({
   monthlyBasePayment,
   monthlyTopUp,
-  monthlyPaymentUserA,
-  monthlyPaymentUserB,
-  targetEquityUserAPct,
+  monthlyPaymentByUserId,
   projectedPayoffDate,
   equitySummary,
+  meUserId,
   currentBalance,
   projectedMonths,
   originalTermMonths,
@@ -77,27 +82,26 @@ export function MortgageSummaryCard({
         )}
       </div>
       <div className="flex gap-4 pt-2 border-t">
-        <div className="flex-1">
-          <p className="text-xs text-muted-foreground">{equitySummary.userA.name}</p>
-          <p className="font-medium">{Math.round(equitySummary.userA.equityPct * 100)}%</p>
-          <p className="text-muted-foreground text-xs">Your share of the home</p>
-        </div>
-        <div className="flex-1">
-          <p className="text-xs text-muted-foreground">{equitySummary.userB.name}</p>
-          <p className="font-medium">{Math.round(equitySummary.userB.equityPct * 100)}%</p>
-          <p className="text-muted-foreground text-xs">Your share of the home</p>
-        </div>
+        {equitySummary.people.map((person) => (
+          <div key={person.userId} className="flex-1">
+            <p className="text-xs text-muted-foreground">{person.name}</p>
+            <p className="font-medium">{Math.round(person.equityPct * 100)}%</p>
+            <p className="text-muted-foreground text-xs">
+              {person.userId === meUserId ? "Your" : `${person.name}’s`} share of the home
+            </p>
+          </div>
+        ))}
       </div>
       <div className="pt-2 border-t text-sm">
         <p className="text-muted-foreground text-xs mb-1">To keep ownership fair (so you each end up with the share you agreed):</p>
-        <p className="pl-0">
-          <span className="text-muted-foreground">{equitySummary.userA.name}: </span>
-          <span className="font-medium">{formatRand(monthlyPaymentUserA)}</span>
-        </p>
-        <p className="pl-0">
-          <span className="text-muted-foreground">{equitySummary.userB.name}: </span>
-          <span className="font-medium">{formatRand(monthlyPaymentUserB)}</span>
-        </p>
+        {equitySummary.people.map((person) => (
+          <p key={person.userId} className="pl-0">
+            <span className="text-muted-foreground">{person.name}: </span>
+            <span className="font-medium">
+              {formatRand(monthlyPaymentByUserId[person.userId] ?? 0)}
+            </span>
+          </p>
+        ))}
       </div>
     </div>
   );

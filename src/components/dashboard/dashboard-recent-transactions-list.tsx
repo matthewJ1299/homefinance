@@ -55,7 +55,7 @@ export function DashboardRecentTransactionsList({
                   className="py-3 flex items-center justify-between gap-3 text-sm"
                 >
                   <div className="min-w-0">
-                    <span className="font-medium text-emerald-700 dark:text-emerald-400">Income</span>
+                    <span className="font-medium text-success">Income</span>
                     {row.income.description ? (
                       <span className="text-muted-foreground block truncate">{row.income.description}</span>
                     ) : null}

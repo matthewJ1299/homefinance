@@ -9,6 +9,15 @@ export const createExpenseSchema = z.object({
   accountId: optionalCoercedAccountId,
 });
 
+export const participantShareSchema = z.object({
+  userId: z.number().int().positive(),
+  shareMinor: z.number().int().min(0),
+});
+
+export const createExpenseWithParticipantsSchema = createExpenseSchema.extend({
+  participants: z.array(participantShareSchema).min(1).max(20),
+});
+
 const splitTypeSchema = z.enum(["equal", "full", "exact"]);
 
 export const updateExpenseSchema = z
@@ -21,6 +30,11 @@ export const updateExpenseSchema = z
     splitType: splitTypeSchema.optional(),
     myShareCents: z.number().int().min(0).optional(),
     otherShareCents: z.number().int().min(0).optional(),
+    /**
+     * Explicit shares. Supersedes splitType/otherShareCents, and is the only
+     * form that can express an uneven split across more than two people.
+     */
+    participants: z.array(participantShareSchema).min(1).max(20).optional(),
   })
   .refine(
     (data) => {
@@ -34,4 +48,5 @@ export const updateExpenseSchema = z
   );
 
 export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;
+export type CreateExpenseWithParticipantsInput = z.infer<typeof createExpenseWithParticipantsSchema>;
 export type UpdateExpenseInput = z.infer<typeof updateExpenseSchema>;

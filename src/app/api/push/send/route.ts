@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { setRequestContext } from "@/lib/db/request-context";
+import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { getPushSubscriptionRepository } from "@/lib/repositories";
 import { NotificationService, isNotificationConfigured } from "@/lib/services/notification.service";
 
@@ -13,10 +13,7 @@ export async function POST(request: NextRequest) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  setRequestContext({
-    userId: session.user.id,
-    userName: session.user.name ?? undefined,
-  });
+  setRequestContextFromSession(session);
 
   if (!isNotificationConfigured()) {
     return NextResponse.json(
@@ -50,7 +47,14 @@ export async function POST(request: NextRequest) {
   }
 
   const notificationService = new NotificationService();
-  const result = await notificationService.sendToUser(userId, { title, body, url });
+  // The manual test endpoint: it exists to prove a device can be reached, so
+  // it sends as a reminder rather than being suppressed by the beta gate.
+  const result = await notificationService.sendToUser(userId, {
+    title,
+    body,
+    url,
+    kind: "reminder",
+  });
 
   if (result.badJwtToken) {
     const pub = (process.env.VAPID_PUBLIC_KEY ?? "").trim();

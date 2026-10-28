@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { setRequestContext } from "@/lib/db/request-context";
+import { withTransaction } from "@/lib/db";
+import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { BudgetService } from "@/lib/services/budget.service";
 import { SplitService } from "@/lib/services/split.service";
@@ -14,17 +15,88 @@ import {
   getUserRepository,
   getSplitSettlementRepository,
   getSplitAllocationRepository,
+  getExpenseParticipantRepository,
   getIncomeRepository,
+  getAccountTransactionRepository,
 } from "@/lib/repositories";
 import type { ExpenseWithDetails } from "@/lib/types";
-import { createExpenseSchema, updateExpenseSchema } from "@/lib/validators/expense.schema";
+import {
+  createExpenseSchema,
+  updateExpenseSchema,
+  createExpenseWithParticipantsSchema,
+} from "@/lib/validators/expense.schema";
 import { createSplitExpenseSchema } from "@/lib/validators/split.schema";
-import { splitExpense } from "@/lib/services/finance/accounts";
+import { splitExpenseWithRatios } from "@/lib/services/finance/accounts";
+import { divideEqually, validateParticipantShares } from "@/lib/services/finance/participants";
 import { formatRand } from "@/lib/utils/currency";
+import { categoryHasSemanticKey } from "@/lib/categories/semantic-key";
 
 export type ExpenseActionResult =
-  | { success: true; id?: number; warning?: string; budgetRemaining?: number; categoryName?: string; isOverspent?: boolean }
+  | {
+      success: true;
+      id?: number;
+      warning?: string;
+      /** What is left in the category after this spend. Negative when over. */
+      budgetRemaining?: number;
+      categoryName?: string;
+      isOverspent?: boolean;
+      /** The saver's own share, which is what hit their envelope. */
+      myShare?: number;
+    }
   | { success: false; error: string };
+
+/**
+ * The Add sheet's save path. One action for solo and shared spends: the caller
+ * always sends participants, and a solo spend is simply a one-person list.
+ * Returns what the spend did to the category so the toast can say it.
+ */
+export async function addExpenseWithParticipants(formData: {
+  categoryId: number;
+  amount: number;
+  note?: string | null;
+  date: string;
+  accountId?: number;
+  participants: { userId: number; shareMinor: number }[];
+}): Promise<ExpenseActionResult> {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+  setRequestContextFromSession(session);
+  const userId = Number(session.user.id);
+
+  const parsed = createExpenseWithParticipantsSchema.safeParse(formData);
+  if (!parsed.success) return { success: false, error: parsed.error.message };
+
+  const valid = validateParticipantShares(parsed.data.amount, parsed.data.participants, userId);
+  if (!valid.ok) return { success: false, error: valid.error };
+
+  const members = await getUserRepository().findAll();
+  const memberIds = new Set(members.map((m) => m.id));
+  if (parsed.data.participants.some((p) => !memberIds.has(p.userId))) {
+    return { success: false, error: "Someone is not in this household." };
+  }
+
+  const service = new ExpenseService();
+  const { id } = await service.create(userId, parsed.data);
+
+  const myShare = parsed.data.participants.find((p) => p.userId === userId)!.shareMinor;
+  const overview = await new BudgetService().getOverview(
+    await budgetMonthKeyForUser(userId, parsed.data.date), userId
+  );
+  const row = overview.categories.find((c) => c.categoryId === parsed.data.categoryId);
+
+  for (const path of ["/dashboard", "/expenses", "/budget", "/splits", "/what-i-owe"]) {
+    revalidatePath(path);
+  }
+
+  return {
+    success: true,
+    id,
+    myShare,
+    budgetRemaining: row?.available,
+    categoryName: row?.categoryName,
+    isOverspent: (row?.available ?? 0) < 0,
+  };
+}
 
 export async function addExpense(formData: {
   categoryId: number;
@@ -32,12 +104,14 @@ export async function addExpense(formData: {
   note?: string | null;
   date: string;
   accountId?: number;
+  /** Who to settle with, when the category is Splits and more than one person is owed. */
+  settleWithUserId?: number;
 }): Promise<ExpenseActionResult> {
   const session = await auth();
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const userId = Number(session.user.id);
   const parsed = createExpenseSchema.safeParse(formData);
   if (!parsed.success) {
@@ -55,17 +129,24 @@ export async function addExpense(formData: {
     return { success: false, error: "Invalid category. Please refresh the page." };
   }
 
-  const isSplitsSettlement = category.name === "Splits";
+  const isSplitsSettlement = categoryHasSemanticKey(category, "splits");
   if (isSplitsSettlement) {
     const splitService = new SplitService();
     const balance = await splitService.getBalance(userId);
-    const otherUsers = await userRepo.findAllExcept(userId);
-    if (otherUsers.length === 0) {
-      return { success: false, error: "No other user to settle with." };
+    // Who am I settling with? Explicit when given; otherwise the only person I
+    // owe. Ambiguity is an error, not a guess: taking the first of the list
+    // silently paid the wrong housemate in a household of three.
+    const owed = balance.perUser.filter((u) => u.iOwe > 0);
+    const recipientId = formData.settleWithUserId
+      ?? (owed.length === 1 ? owed[0].userId : null);
+    if (recipientId == null) {
+      return owed.length === 0
+        ? { success: false, error: "You do not owe anything to settle." }
+        : { success: false, error: "Choose who you are settling with." };
     }
-    const recipient = otherUsers[0];
-    const perUser = balance.perUser.find((u) => u.userId === recipient.id);
-    const iOwe = perUser?.iOwe ?? 0;
+    const recipient = await userRepo.findById(recipientId);
+    if (!recipient) return { success: false, error: "Person not found." };
+    const iOwe = balance.perUser.find((u) => u.userId === recipientId)?.iOwe ?? 0;
     if (iOwe <= 0) {
       return { success: false, error: "You do not owe anything to settle." };
     }
@@ -89,7 +170,8 @@ export async function addExpense(formData: {
         parsed.data.amount,
         parsed.data.date,
         payer.name,
-        recipient.name
+        recipient.name,
+        recipient.id
       );
     } catch (err) {
       await service.delete(id);
@@ -110,7 +192,7 @@ export async function addExpense(formData: {
   const { id } = await service.create(userId, parsed.data);
 
   let warning: string | undefined;
-  if (category.name.toLowerCase().trim() === "mortgage") {
+  if (categoryHasSemanticKey(category, "mortgage")) {
     const mortgageService = new MortgageService();
     const recorded = await mortgageService.recordPaymentFromExpense(
       userId,
@@ -157,7 +239,7 @@ export async function getExpenseForEdit(expenseId: number): Promise<GetExpenseFo
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const expenseRepo = getExpenseRepository();
   const expense = await expenseRepo.findById(expenseId);
   if (!expense) {
@@ -195,7 +277,7 @@ export async function updateExpense(
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const parsed = updateExpenseSchema.safeParse(formData);
   if (!parsed.success) {
     return { success: false, error: parsed.error.message };
@@ -233,47 +315,72 @@ export async function updateExpense(
     isSplit && (parsed.data.splitType != null || parsed.data.amount != null);
   if (shouldUpdateAllocations) {
     const allocationRepo = getSplitAllocationRepository();
-    const userRepo = getUserRepository();
-    const otherUsers = await userRepo.findAllExcept(expense.userId);
-    const otherUser = otherUsers[0];
-    if (!otherUser) {
+    const participantRepo = getExpenseParticipantRepository();
+    const totalCents = parsed.data.amount ?? expense.amount;
+    const payerId = expense.paidByUserId ?? expense.userId;
+
+    // Who was in on it is recorded on the expense. Reading it back beats asking
+    // the household who else exists -- that is what got the wrong housemate
+    // charged when there were three.
+    const existing = await participantRepo.findByExpenseId(id);
+    let roster = existing.map((p) => p.userId);
+    if (roster.length === 0) {
+      // Pre-backfill row: reconstruct from the debt ledger.
+      const allocations = await allocationRepo.findByExpenseId(id);
+      roster = [payerId, ...allocations.map((a) => a.userId)];
+    }
+    const coParticipants = roster.filter((u) => u !== payerId);
+    if (coParticipants.length === 0) {
       revalidatePath("/dashboard");
       revalidatePath("/expenses");
       revalidatePath("/splits");
       return { success: true };
     }
-    const totalCents = parsed.data.amount ?? expense.amount;
-    let amountOwed: number;
-    if (parsed.data.splitType != null) {
-      switch (parsed.data.splitType) {
-        case "equal": {
-          const shares = splitExpense({
-            amount: totalCents,
-            users: ["payer", "other"],
-          });
-          amountOwed = shares.other ?? Math.floor(totalCents / 2);
-          break;
-        }
-        case "full":
-          amountOwed = totalCents;
-          break;
-        case "exact":
-          amountOwed = parsed.data.otherShareCents ?? 0;
-          break;
-        default:
-          amountOwed = Math.floor(totalCents / 2);
+
+    let shares: Record<number, number>;
+    if (parsed.data.participants?.length) {
+      // An explicit list is the user's own arithmetic; honour it and let
+      // validation below say so if it does not add up.
+      roster = parsed.data.participants.map((p) => p.userId);
+      shares = Object.fromEntries(
+        parsed.data.participants.map((p) => [p.userId, p.shareMinor])
+      );
+    } else if (parsed.data.splitType === "full") {
+      const theirs = divideEqually(totalCents, coParticipants);
+      shares = { [payerId]: 0, ...theirs };
+    } else if (parsed.data.splitType === "exact") {
+      if (coParticipants.length !== 1) {
+        return { success: false, error: "Set each person's share individually when more than two people are in on it." };
       }
+      const otherShare = parsed.data.otherShareCents ?? 0;
+      shares = { [payerId]: totalCents - otherShare, [coParticipants[0]]: otherShare };
+    } else if (parsed.data.splitType === "equal") {
+      shares = divideEqually(totalCents, roster);
     } else {
-      const currentAllocations = await allocationRepo.findByExpenseId(id);
-      const currentOtherShare = currentAllocations.reduce((s, a) => s + a.amount, 0);
-      amountOwed =
-        expense.amount > 0
-          ? Math.round((totalCents * currentOtherShare) / expense.amount)
-          : Math.floor(totalCents / 2);
+      // Amount changed with the split untouched: hold the existing proportions
+      // and let the ratio helper place the remainder so the shares still sum.
+      const weights: Record<string, number> = {};
+      for (const u of roster) {
+        weights[String(u)] =
+          existing.find((p) => p.userId === u)?.shareMinor
+          ?? (u === payerId ? Math.max(0, expense.amount) : 0);
+      }
+      const anyWeight = Object.values(weights).some((w) => w > 0);
+      const scaled = anyWeight
+        ? splitExpenseWithRatios({ amount: totalCents, splits: weights })
+        : Object.fromEntries(Object.entries(divideEqually(totalCents, roster)).map(([k, v]) => [k, v]));
+      shares = Object.fromEntries(Object.entries(scaled).map(([k, v]) => [Number(k), v]));
     }
+
+    const participants = roster.map((u) => ({ userId: u, shareMinor: shares[u] ?? 0 }));
+    const valid = validateParticipantShares(totalCents, participants, payerId);
+    if (!valid.ok) return { success: false, error: valid.error };
+
+    await participantRepo.replaceForExpense(id, participants);
     await allocationRepo.deleteByExpenseId(id);
-    if (amountOwed > 0) {
-      await allocationRepo.create(id, otherUser.id, amountOwed);
+    for (const p of participants) {
+      if (p.userId === payerId || p.shareMinor <= 0) continue;
+      await allocationRepo.create(id, p.userId, p.shareMinor);
     }
   }
 
@@ -288,7 +395,7 @@ export async function deleteExpense(id: number): Promise<ExpenseActionResult> {
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const expenseRepo = getExpenseRepository();
   const expense = await expenseRepo.findById(id);
   if (!expense) {
@@ -297,20 +404,26 @@ export async function deleteExpense(id: number): Promise<ExpenseActionResult> {
   if (expense.userId !== Number(session.user.id)) {
     return { success: false, error: "You can only delete your own expenses." };
   }
+  const service = new ExpenseService();
   if (expense.splitGroupId) {
-    await expenseRepo.deleteBySplitGroupId(expense.splitGroupId);
+    await service.deleteBySplitGroup(expense.splitGroupId);
   } else {
+    // A settlement spend also raised an income row for the recipient. All three
+    // rows describe one event, so they go together or not at all -- deleting the
+    // income and then failing on the settlement used to leave a settlement
+    // pointing at an income row that no longer exists.
     const settlementRepo = getSplitSettlementRepository();
     const settlement = await settlementRepo.findByExpenseId(id);
-    if (settlement) {
-      if (settlement.incomeId != null) {
-        const incomeRepo = getIncomeRepository();
-        await incomeRepo.delete(settlement.incomeId);
+    await withTransaction(async () => {
+      if (settlement) {
+        if (settlement.incomeId != null) {
+          await getIncomeRepository().delete(settlement.incomeId);
+        }
+        await settlementRepo.delete(settlement.id);
       }
-      await settlementRepo.delete(settlement.id);
-    }
-    const service = new ExpenseService();
-    await service.delete(id);
+      await getAccountTransactionRepository().deleteByReference("expense", id);
+      await expenseRepo.delete(id);
+    });
   }
   revalidatePath("/dashboard");
   revalidatePath("/expenses");
@@ -335,7 +448,7 @@ export async function addSplitExpense(formData: {
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const parsed = createSplitExpenseSchema.safeParse(formData);
   if (!parsed.success) {
     return { success: false, error: parsed.error.message };
@@ -351,31 +464,53 @@ export async function addSplitExpense(formData: {
   if (!categoryRow) {
     return { success: false, error: "Invalid category. Please refresh the page." };
   }
-  const splitService = new SplitService();
   try {
-    const options =
-      parsed.data.splitType === "exact"
-        ? {
-            type: "exact" as const,
-            myShareCents: parsed.data.myShareCents!,
-            otherShareCents: parsed.data.otherShareCents!,
-          }
-        : parsed.data.splitType === "full"
-          ? { type: "full" as const }
-          : { type: "equal" as const };
+    const total = parsed.data.totalAmountCents;
+    const others = (await userRepo.findAllExcept(userId)).map((u) => u.id);
+    const picked = parsed.data.participantUserIds
+      ?? [userId, ...others];   // no explicit pick means everyone
+    const otherPicked = picked.filter((id) => id !== userId);
+    if (otherPicked.length === 0) {
+      return { success: false, error: "Pick at least one other person to share this with." };
+    }
+
+    let participants: { userId: number; shareMinor: number }[];
+    if (parsed.data.splitType === "exact") {
+      // `exact` is a two-person control: one "other share" box. Phase 4's nudge
+      // control replaces it for larger households, so refuse rather than guess.
+      if (otherPicked.length !== 1) {
+        return { success: false, error: "Set each person's share individually when more than two people are in on it." };
+      }
+      participants = [
+        { userId, shareMinor: parsed.data.myShareCents ?? total - (parsed.data.otherShareCents ?? 0) },
+        { userId: otherPicked[0], shareMinor: parsed.data.otherShareCents ?? 0 },
+      ];
+    } else if (parsed.data.splitType === "full") {
+      const theirs = divideEqually(total, otherPicked);
+      participants = [
+        { userId, shareMinor: 0 },
+        ...otherPicked.map((id) => ({ userId: id, shareMinor: theirs[id] ?? 0 })),
+      ];
+    } else {
+      const even = divideEqually(total, picked);
+      participants = picked.map((id) => ({ userId: id, shareMinor: even[id] ?? 0 }));
+    }
+
+    const valid = validateParticipantShares(total, participants, userId);
+    if (!valid.ok) return { success: false, error: valid.error };
+
     const groupId =
       parsed.data.groupId != null && parsed.data.groupId > 0 ? parsed.data.groupId : undefined;
-    const { id } = await splitService.createSplit(
-      userId,
-      parsed.data.totalAmountCents,
-      parsed.data.categoryId,
-      parsed.data.note ?? null,
-      parsed.data.date,
-      options,
-      groupId,
-      parsed.data.accountId
-    );
-    if (categoryRow.name.toLowerCase().trim() === "mortgage") {
+    const { id } = await new ExpenseService().create(userId, {
+      categoryId: parsed.data.categoryId,
+      amount: total,
+      note: parsed.data.note ?? null,
+      date: parsed.data.date,
+      accountId: parsed.data.accountId ?? null,
+      splitExpenseGroupId: groupId ?? null,
+      participants,
+    });
+    if (categoryHasSemanticKey(categoryRow, "mortgage")) {
       const mortgageService = new MortgageService();
       await mortgageService.recordPaymentFromExpense(
         userId,
@@ -401,6 +536,7 @@ export async function addSplitExpense(formData: {
           title: "HomeFinance",
           body: `${userName} added a split expense${note} (R${amountRands})`,
           url: "/splits",
+          kind: "split",
         });
       }
     } catch {

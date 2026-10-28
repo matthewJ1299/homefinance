@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { setRequestContext } from "@/lib/db/request-context";
+import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { getSplitGroupRepository } from "@/lib/repositories";
 import {
   createSplitGroupSchema,
@@ -20,7 +20,7 @@ export async function createSplitGroup(formData: {
 }): Promise<SplitGroupActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const parsed = createSplitGroupSchema.safeParse(formData);
   if (!parsed.success) return { success: false, error: parsed.error.message };
   const repo = getSplitGroupRepository();
@@ -46,7 +46,7 @@ export async function updateSplitGroup(
 ): Promise<SplitGroupActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const parsed = updateSplitGroupSchema.safeParse(formData);
   if (!parsed.success) return { success: false, error: parsed.error.message };
   const updates = parsed.data;
@@ -74,7 +74,7 @@ export async function reorderSplitGroup(
 ): Promise<SplitGroupActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const repo = getSplitGroupRepository();
   const list = await repo.findAll();
   const index = list.findIndex((g) => g.id === id);
@@ -100,7 +100,7 @@ export async function reorderSplitGroup(
 export async function deleteSplitGroup(id: number): Promise<SplitGroupActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const repo = getSplitGroupRepository();
   const exists = await repo.findById(id);
   if (!exists) return { success: false, error: "Split group not found" };

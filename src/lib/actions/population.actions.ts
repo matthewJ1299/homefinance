@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { setRequestContext } from "@/lib/db/request-context";
+import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { PopulationService } from "@/lib/services/population.service";
 
 export type PopulateMonthActionResult =
@@ -12,7 +12,7 @@ export type PopulateMonthActionResult =
 export async function populateMonth(month: string): Promise<PopulateMonthActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const userId = Number(session.user.id);
   const service = new PopulationService();
   try {

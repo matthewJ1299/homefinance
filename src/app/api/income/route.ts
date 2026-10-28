@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { IncomeService } from "@/lib/services/income.service";
 import { createIncomeSchema } from "@/lib/validators/income.schema";
 import { getDefaultBudgetMonthForUser } from "@/lib/utils/budget-month-for-user";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
+  setRequestContextFromSession(session);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -19,6 +21,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const session = await auth();
+  setRequestContextFromSession(session);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

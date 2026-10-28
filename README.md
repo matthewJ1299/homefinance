@@ -12,6 +12,32 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 
 - **Themes** — Shared CSS variables in `src/app/globals.css` feed Tailwind semantic colours for **light** and **dark** (cool light surfaces and blue accents; dark mode uses tinted navy cards instead of pure black). Use the header theme toggle (`next-themes`).
 
+### Multi-household tenancy
+
+- Each user belongs to **exactly one household**. Domain data (categories, transactions, budgets, goals, lists, calendar, Recon, AI runs, etc.) is scoped by **`household_id`** so independent families do not see each other’s data in a shared database.
+- **Onboarding**: register at **`/register`** to create a pending household (super-admin approves from **`/admin/houses/[id]`**), or a super-admin provisions from **`/admin`**. Password rules and forced change: [docs/passwords.md](./docs/passwords.md). For local dev use **`npm run db:seed`** for a full demo household, or **`npm run db:push && npm run db:seed:users`** for login users only. Details: [docs/multi-household.md](./docs/multi-household.md).
+- **Existing installs**: run **`npm run db:push`** to apply `drizzle/0027_households_pg.sql` via the migration ledger; the migration is idempotent and safe to retry if an older deploy stopped mid-run around `calendar_categories`. Legacy installs are backfilled into a single default household unless you already split data across households. Users should **sign out and sign in** once so the session/JWT includes `householdId`.
+
+### Admin portal (global super-admin)
+
+- The admin portal lives under **`/admin`** and is only accessible to users with **`users.is_super_admin = true`**. The app sidebar shows an **Admin** link when you are a super-admin.
+- **Houses** — create households, view member counts and entitlement chips, open a detail screen to rename, approve pending registrations, and edit feature checkboxes plus AI tier (`free` / `paid`).
+- **Users** — create users, reset passwords (one-time temp password), search/filter, move between households, toggle super-admin. Feature access is per household, not per user.
+- **Features** — catalogue view with how many households have each sellable feature and whether this server is configured for it.
+- **Queries** — allowlisted read-only operational counts (loaded server-side on `/admin/queries`).
+- **Setup**: run **`npm run db:push`** for migrations through `0032_household_approval_pg.sql`. Grant super-admin with `UPDATE users SET is_super_admin = true WHERE email = 'you@example.com';`
+- See [docs/feature-access.md](./docs/feature-access.md) for the entitlement model.
+
+### Setup guide (onboarding)
+
+- New users with `setup_wizard_status = not_started` are sent to **`/welcome`** — a full-page, skippable five-step flow: accounts, payday, income, categories, and first budget allocation.
+- Progress is resumable via **`users.setup_wizard_step`** (migration `0031`). Incomplete setups show a **`SetupProgressBanner`** on the dashboard.
+- Re-run from **Settings** > **Setup guide**. See [docs/onboarding.md](./docs/onboarding.md).
+
+### Setup wizard (legacy modal)
+
+- The modal wizard was removed; persistence columns on `users` are shared with the new flow. See [docs/setup-wizard.md](./docs/setup-wizard.md).
+
 ### Money in and out
 
 - **Income** — Record salary and one-off income per month. The dashboard shows only **your** income for the selected budget month.
@@ -20,10 +46,13 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 
 ### Budget
 
-- **Per-user budgets** — Each person has their own income, category allocations, and in-month transfers. Drag categories on the Budget page to reorder them everywhere (including pickers).
-- **Allocations** — If a month has no amount for a category, the last saved allocation is reused. New months pre-fill carry-over and fixed-category defaults.
-- **Unallocated income** — The header explains whether you still have cash to assign, are fully allocated, or are over-allocated, including rollover from prior overspending. **Auto-allocate** spreads leftovers using your current category amounts, recent spending if available, or an even split.
-- **Budget and spending** — After you save an expense, a toast shows remaining budget for that category or an over-budget warning with a link. Pickers can show per-category remaining when data exists; the dashboard flags any overspent category.
+- **Per-user budgets** — Each person has their own income, category assignments, and in-month transfers. Budgets are genuinely private: the uniqueness on `budgets` includes `user_id`, so two members' amounts for the same category never collide. Drag categories on the Budget page to reorder them everywhere (including pickers).
+- **Assigned amounts** — If a month has no amount for a category, the last saved amount is reused as a template. New months also pre-fill fixed-category defaults.
+- **What's left in a category** — `available = assigned + carried in − spent`. This is the figure the app means by "left".
+- **Leftovers stay put** — When a month is opened, whatever was left in a category carries into the *same* category as `carried_in_minor`. It is written once, at open, and never recomputed on read, so a closed month cannot change retroactively. A category with **rollover** off starts each month clean.
+- **Overspends come off next month** — A category that ends negative does *not* carry the shortfall. It starts the new month clean at its assigned amount, and the total overspend is deducted once from the new month's unassigned money, where it is visible and can be assigned against. Covering the overspend at month end instead means there is nothing left to deduct.
+- **Not given a job yet** — `income − assigned − carried overspend`. **Spread it for me** distributes it using your current category amounts, recent spending if available, or an even split.
+- **Budget and spending** — After you save an expense, a toast shows what is left in that category or an over-budget warning with a link. Pickers can show per-category available when data exists; the dashboard flags any overspent category.
 - **Budget transfers** — Move allocated amounts between categories in the same month.
 - **Budget month** — Under **Settings**, pick which calendar day (1–28) each budget period starts (e.g. align with payday). Totals use transaction dates inside that window.
 
@@ -37,7 +66,7 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 
 - **Split groups** — Separate “who owes whom” per context (e.g. home vs. trip). New split expenses default to a **Default** group unless you choose another.
 - **Splits page** — Per-group summary and history; **Settle** applies to the active group. You can also settle with a **Splits** category expense (default group) from the dashboard.
-- **What I owe (`/what-i-owe`)** — Statement of what you owe the other person (default), or what they owe you (toggle). Split **balance** is net since the last full settlement (expand for line items and the offsetting side) plus this month’s mortgage share. Off by default except `users.id = 1`; enable under **Settings**. `/owed-to-me` redirects here.
+- **`/what-i-owe`** — Statement of what you owe the other person (default), or what they owe you (toggle). Split **balance** is net since the last full settlement (expand for line items and the offsetting side) plus this month’s mortgage share. Gated by household entitlement to the `what_i_owe` feature; contact an administrator to enable. `/owed-to-me` redirects here.
 
 ### Goals (savings and debt intent)
 
@@ -48,11 +77,12 @@ Grouped by area. Deeper behaviour for goals, AI, Recon, and access control is in
 ### Household coordination
 
 - **Calendar** — Month grid and day views, multi-day spans, recurrence, **multiple reminders** per event (offset + optional send time), color categories (separate from budget categories), shared vs. personal events, priorities, and notes. On narrow screens, swipe the month grid to change months. Push follows shared vs. personal rules. See [docs/calendar.md](./docs/calendar.md).
-- **Lists** — Shared household lists and personal lists; **My lists** overview; detail at `/lists/[id]` with check-off, quantity, **per-user optional notes** (one-line subtitle; expand for read-only preview, then tap to edit; `http`/`www` links open in a new tab), **drag the grip** to prioritise (open vs. completed sections keep their own order; persisted), and **Delete all completed**. Manage lists under **Settings** > **Lists**.
+- **Lists** — Shared household lists and personal lists; **My lists** overview; detail at `/lists/[id]` with check-off, quantity, **per-user optional notes**, drag-to-reorder, and **Delete all completed**. Manage under **Settings** > **Household data** > **Lists** (items load when you first expand that section).
+- **Settings** — Grouped into **Profile**, **Preferences**, **Household data**, and **Data & export**. See [docs/onboarding.md](./docs/onboarding.md) for the setup guide under Profile.
 
 ### Home dashboard and navigation
 
-- **Dashboard** — Month income with inline quick add (**Salary** or **Other income**), **Recent transactions** (newest income and expenses, optionally filtered to the primary account), tasks/events/budget shortcuts, upcoming calendar, quick-add expense (same category UX as **`/add`**). Greeting and header date use **Africa/Johannesburg (UTC+2)**, not the device clock. Under **Settings** > **Dashboard tiles**, the list tile is named **Recent transactions** (migrates from the old “Recent expenses” toggle in local storage).
+- **Dashboard** — Month income with inline quick add (**Salary** or **Other income**), **Recent transactions** (newest income and expenses, optionally filtered to the primary account), tasks/events/budget shortcuts, upcoming calendar, quick-add expense (same category UX as **`/add`**). Greeting and header date use **Africa/Johannesburg (UTC+2)**, not the device clock. Under **Settings** > **Preferences** > **Dashboard tiles**, toggle only tiles that are actually wired on the dashboard (quick add, calendar, split balance, budget warning, AI button, transactions, income).
 - **Create hub (`/add`)** — Mobile center **Add** and desktop sidebar: new list item, event, or expense; quick line for tasks; expense shorthand such as `120 groceries` pre-fills amount and note. After save: expense → Dashboard; task → that list; event → Calendar.
 - **Mobile** — Bottom bar: Home, Calendar, Add (center), Lists, Budget. Desktop uses a left sidebar (collapsible). The header menu mirrors the desktop sidebar, including **Recon**, **Budget AI report**, and **What I owe** when those are enabled for your account.
 
@@ -68,18 +98,21 @@ Plain-language summary of balance, monthly cost, payoff horizon, and each person
 ### Summary and optional intelligence
 
 - **Summary** — Per-user monthly snapshot (income, expenses, budget adherence) plus household trends.
-- **AI budget analysis (optional)** — Off by default; needs server-side allow **and** **Settings** > **AI analysis**. **Free** vs **Paid** (paid prefers OpenAI with Gemini fallback). **Analyze spending** uses roll-ups; **Include all transactions** sends full detail; optional **Extra AI context** lets you append plain-language budget notes to the request. Structured output on `/budget-ai-report`; runs stored and rate-limited. On the report page you can **apply selected** budget suggestions (confirm first; audited) and **ask follow-up questions** (saved chat per report). See [docs/ai-budget-analysis.md](./docs/ai-budget-analysis.md) and [docs/feature-access.md](./docs/feature-access.md).
-- **Bank email reconciliation / Recon (optional)** — Outlook via Microsoft Graph: parse bank-notification mail, surface likely duplicates, accept or ignore manually (including bulk). Gated by allow flag plus Settings. See [docs/recon.md](./docs/recon.md) and [Recon and Microsoft Graph (Outlook)](#recon-and-microsoft-graph-outlook).
+- **AI budget analysis (optional)** — Household entitlement (super-admin) plus server API keys. **Free** vs **Paid** tier on the household. **Analyze spending** on Home when enabled; full report at `/budget-ai-report`. See [docs/ai-budget-analysis.md](./docs/ai-budget-analysis.md) and [docs/feature-access.md](./docs/feature-access.md).
+- **Bank email reconciliation / Recon (optional)** — Outlook via Microsoft Graph when the household is entitled. Connect and sync from **Recon**; accept or ignore parsed rows manually. Amounts show **Out** vs **In**. Tapping a **Need a decision** row opens the bank email, then **File it**. **"Do this every time"** saves a personal merchant rule so later matching rows can be accepted in bulk; tap a rule under **Your rules** to change how it matches, the category, or who splits. See [docs/recon.md](./docs/recon.md) and [Recon and Microsoft Graph (Outlook)](#recon-and-microsoft-graph-outlook).
 
 ## Setup
 
 1. Install dependencies: `npm install`
 2. Configure **environment variables** (see [Environment variables](#environment-variables)). For local development use **`.env.local`** (Next.js loads it automatically). **Minimum for real use:** `DATABASE_URL`, `AUTH_SECRET`, and `NEXTAUTH_URL` (public app URL, no trailing slash). If `DATABASE_URL` is missing, the app still starts but logs a warning and skips DB-backed startup hooks; routes that hit the database will fail until Postgres is configured.
-3. Create the database and seed: `npm run db:fresh` (recreates the DB from scratch, then seeds), or:
-   - Reset and create tables: `npm run db:reset` (drops/recreates DB, runs schema push, then seeds minimal categories and users).
-   - Seed: `npm run db:seed` (clears all data, then inserts users, categories, 3 months of income/expenses, and sample split expenses).
+3. Create the database and seed: `npm run db:fresh` (recreates the DB from scratch, then seeds full demo data), or:
+   - Reset and create tables only: `npm run db:reset` (drops/recreates DB and runs schema push; no users or demo data are inserted).
+   - Seed only the two login users: `npm run db:seed:users` (creates or updates Matt and Sydney in **Jordaan household**, with all features enabled).
+   - Minimal setup seed: `npm run db:seed:minimal` (assumes an empty DB and seeds one household, default categories, split group, calendar categories, and two users).
+   - Full demo seed: `npm run db:seed` (clears all data, then seeds one fully populated Jordaan household).
+   - **Add more households/users**: sign in as super-admin at `/admin`, or use public **`/register`** (creates a pending household until approved). Grant super-admin with `UPDATE users SET is_super_admin = true WHERE email = '…';`.
 
-**Local Postgres with Docker:** Run `docker compose up --build`, then in the app container run push and seed (see [DEPLOY.md](./DEPLOY.md)).
+**Local Postgres with Docker:** Run `docker compose up --build` to start Postgres and the production app image on the internal Compose network (deploy parity), then in the app container run push and seed (see [DEPLOY.md](./DEPLOY.md)).
 
 **Docker Compose Watch (local dev):** Use the `watch` profile so the stack runs the dev image (`Dockerfile.dev`) with file sync and targeted rebuilds instead of the production `app` service:
 
@@ -90,6 +123,7 @@ docker compose --profile watch up db app-dev --watch
 - Starts Postgres and **app-dev** on [http://localhost:3000](http://localhost:3000) with `next dev` (Turbopack).
 - Edits under `src/`, `public/`, and `drizzle/` sync into the container; changes to `next.config.ts`, `postcss.config.mjs`, `server.js`, or `tsconfig.json` sync and restart the dev process; `package.json` / `package-lock.json` changes trigger an image rebuild.
 - Do not run `app` and **app-dev** together (both use port 3000). Default `docker compose up --build` still uses the production **app** image for parity with deploys.
+- The production `app` service intentionally does **not** publish a host port, which avoids `3000` conflicts when multiple deployments run on the same Docker host behind a reverse proxy (for example Coolify/Traefik).
 
 ## Environment variables
 
@@ -133,7 +167,7 @@ Use **`.env.local`** locally, or your host’s secret/env UI in production. Do n
 | `OPENAI_API_KEY` | For paid OpenAI path | Preferred when user selects **Paid AI** and quota allows. |
 | `OPENAI_MODEL` | No | OpenAI model id (app defaults to a small mini model if unset). |
 
-Users still need `ai_feature_allowed` and Settings toggles; see [docs/feature-access.md](./docs/feature-access.md).
+Households need the **AI budget analysis** entitlement (and server API keys). See [docs/feature-access.md](./docs/feature-access.md).
 
 ### Recon / Microsoft Graph (optional)
 
@@ -149,10 +183,11 @@ Users still need `ai_feature_allowed` and Settings toggles; see [docs/feature-ac
 
 Redirect URI in Azure must be `{NEXTAUTH_URL}/api/recon/graph/callback`.
 
-### Seed scripts (`db:seed`, `db:fresh`, `seed-categories`)
+### Seed scripts (`db:seed:users`, `db:seed:minimal`, `db:seed`, `db:fresh`)
 
 | Variable | Required | Description |
 |----------|----------|-------------|
+| `SEED_HOUSEHOLD_NAME` | No | Demo household name (default `Jordaan household`). |
 | `SEED_USER_PASSWORD` | No | Password for both seeded users (default `ChangeMe123!`). |
 | `SEED_USER1_EMAIL` | No | First user email (default `matt@homefinance.local`). |
 | `SEED_USER2_EMAIL` | No | Second user email (default `sydney@homefinance.local`). |
@@ -185,7 +220,7 @@ Recon-related env vars are listed under [Recon / Microsoft Graph (optional)](#re
 ### How authentication works
 
 1. You sign in to Home Finance with **email + password** (existing credentials).
-2. Under **Settings**, enable **Bank email reconciliation (Recon)** so the **Recon** page appears in the menu.
+2. Your household must have the **Recon** entitlement (super-admin sets this in `/admin/houses/[id]`).
 3. Open **Recon** and choose **Connect Outlook** (or visit `/api/recon/graph/connect` while logged in). The app redirects to Microsoft’s login page.
 4. You sign in with your Microsoft account (e.g. `matthew.j@live.com`) and **consent** to Mail.Read.
 5. Microsoft redirects back to `/api/recon/graph/callback` with an authorization code. The server exchanges it for tokens, stores an **encrypted refresh token** per user, and redirects you to `/recon`.
@@ -198,6 +233,7 @@ If you see redirects to `https://0.0.0.0:3000/...` in production, your reverse p
 ## Database migrations and existing data
 
 - **`npm run db:push`** (used on deploy and in Docker entrypoint) runs **additive** migrations only, tracked in a `schema_migrations` ledger. On first run against an existing database, the ledger is **seeded** from schema detection so migrations are not re-applied. It does **not** `DROP` tables or wipe rows. See [docs/database.md](./docs/database.md).
+- **Multi-household** (`drizzle/0027_households_pg.sql`): adds `households`, `users.household_id`, and `household_id` on tenant-owned tables (including **categories**), with backfill for existing rows. For legacy single-household installs, the migration keeps shared lookup data in one default household instead of cloning per user. The migration is idempotent, so a partially applied run resumes cleanly on the next `db:push`. After deploy, users should **re-authenticate** so `householdId` is present on the session. See [docs/multi-household.md](./docs/multi-household.md).
 - **Destructive operations** (only when you explicitly want to reset): `npm run db:reset` drops and recreates the public schema (**requires `ALLOW_DB_RESET=1`**); `npm run db:seed` clears application data; `npm run db:fresh` combines reset + seed. Do not use those on production databases you care about.
 
 ## Database ERD
@@ -211,14 +247,26 @@ The diagram below reflects the **PostgreSQL** schema built from numbered migrati
 - `notes.linked_type` and `notes.linked_id` form a **polymorphic** pointer for user-authored notes on arbitrary domain rows (type keys are app-defined; no FK to targets). See `getNoteRepository()` / `INoteRepository`.
 - **Shared list items**: optional notes use `linked_type = 'shared_list_item'` (`NOTE_LINKED_TYPE_SHARED_LIST_ITEM`) and `linked_id = shared_list_items.id`. There is no column on the item row; zero or many note rows per item are allowed. `notes.owner_user_id` scopes who wrote the note. Deleting a list, an item, or completed items removes attached notes via the list repositories.
 - `expenses.split_group_id` is a legacy text field; split grouping also uses `split_expense_group_id` → `split_groups`.
+- **Tenant column**: Migration `drizzle/0027_households_pg.sql` adds **`household_id`** (FK to `households`) to most domain tables. The diagram lists it on `users`, `categories`, and `split_groups`; other tables follow the same pattern. Child tables without their own `household_id` (`account_transactions`, `shared_list_items`, `sent_reminders`, `mortgage_rate_periods`, `ai_analysis_run_messages`/`_applications`) are isolated by joining their parent.
 
 ```mermaid
 erDiagram
+  households {
+    serial id PK
+    text name
+    text approval_status
+    text ai_tier
+    int budget_month_start_day
+    boolean budget_month_notice_pending
+    timestamptz created_at
+  }
+
   users {
     serial id PK
     text name
     text email UK
     text password_hash
+    bigint household_id FK
     timestamptz created_at
     int budget_month_start_day
     bigint primary_account_id FK
@@ -232,19 +280,22 @@ erDiagram
 
   categories {
     serial id PK
-    text name UK
+    bigint household_id FK
+    text name
     text group_name
     text icon
     int sort_order
     boolean is_active
     text cost_type
     int default_amount
+    boolean rollover
     timestamptz created_at
   }
 
   split_groups {
     serial id PK
-    text name UK
+    bigint household_id FK
+    text name
     boolean is_default
     int sort_order
     timestamptz created_at
@@ -256,8 +307,18 @@ erDiagram
     int category_id FK
     text month
     int allocated_amount
+    int carried_in_minor
     timestamptz created_at
     timestamptz updated_at
+  }
+
+  budget_month_opens {
+    serial id PK
+    bigint household_id FK
+    int user_id FK
+    text month
+    int overspend_carried_minor
+    timestamptz opened_at
   }
 
   budget_transfers {
@@ -293,6 +354,7 @@ erDiagram
     int user_id FK
     int amount
     text type
+    text income_type
     text description
     text date
     text month
@@ -328,6 +390,27 @@ erDiagram
     int amount
   }
 
+  expense_participants {
+    serial id PK
+    bigint household_id FK
+    int expense_id FK
+    int user_id FK
+    int share_minor
+    timestamptz created_at
+  }
+
+  recon_rules {
+    serial id PK
+    bigint household_id FK
+    int owner_user_id FK
+    text match_kind
+    text match_value
+    int category_id FK
+    int_array participant_user_ids
+    int times_used
+    timestamptz created_at
+  }
+
   split_settlements {
     serial id PK
     int payer_user_id FK
@@ -359,6 +442,22 @@ erDiagram
     int initial_deposit
     double base_split_pct
     int monthly_cap
+  }
+
+  mortgage_deposits {
+    serial id PK
+    bigint household_id FK
+    int mortgage_id FK
+    int user_id FK
+    bigint amount_minor
+  }
+
+  mortgage_targets {
+    serial id PK
+    bigint household_id FK
+    int mortgage_id FK
+    int user_id FK
+    int target_share_bp
   }
 
   mortgage_payments {
@@ -406,6 +505,9 @@ erDiagram
     text time
     text end_time
     text notes
+    int expected_cost_minor
+    int expense_category_id FK
+    int logged_expense_id FK
     text recurrence_type
     int recurrence_day_of_month
     timestamptz created_at
@@ -435,6 +537,7 @@ erDiagram
     serial id PK
     text name
     int sort_order
+    int category_id FK
     timestamptz created_at
   }
 
@@ -463,6 +566,7 @@ erDiagram
     text type
     bigint owner_user_id FK
     bigint credit_limit
+    boolean is_shared
     timestamptz created_at
   }
 
@@ -573,7 +677,15 @@ erDiagram
     timestamptz updated_at
   }
 
+  households ||--o{ users : members
+  households ||--o{ categories : tenant_categories
+  households ||--o{ split_groups : tenant_split_groups
+
   users ||--o{ budgets : owns
+  users ||--o{ budget_month_opens : opens
+  users ||--o{ expense_participants : "is in on"
+  expenses ||--o{ expense_participants : "divided among"
+  users ||--o{ recon_rules : owns
   users ||--o{ expenses : records
   users ||--o{ income : records
   users ||--o{ budget_transfers : owns
@@ -596,6 +708,7 @@ erDiagram
   users ||--o{ notes : owns_notes
 
   categories ||--o{ budgets : line
+  categories ||--o{ shared_lists : tags
   categories ||--o{ expenses : classifies
   categories ||--o{ budget_transfers : from_cat
   categories ||--o{ budget_transfers : to_cat
@@ -637,16 +750,18 @@ erDiagram
   expenses }o--|| recurring_expenses : logical_recurring_no_fk
 ```
 
+`recon_import_items.amount` is signed: positive is Out (expense), negative is In (income). See [docs/recon.md](./docs/recon.md).
+
 ## Seed data
 
-Seed always creates:
+Full seed (`npm run db:seed` / `db:fresh`) creates **one** demo household — **Jordaan household** — with Matt (super-admin) and Sydney so tenancy matches a shared-home product demo. The household gets default **categories**, **Default** split group, all five **`household_features`**, `ai_tier` free, and `approval_status` active. Optional env: `SEED_HOUSEHOLD_NAME`, `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD`, names; see [Seed scripts](#seed-scripts-dbseedusers-dbseedminimal-dbseed-dbfresh). Module layout: `src/lib/db/seed/wipe.ts`, `household.ts`, `finance.ts`, `mortgage.ts`, `calendar.ts`, `lists.ts`, `recon.ts`, `ai.ts` (orchestrated by `src/lib/db/seed.ts`).
 
-- Two users (optional env: `SEED_USER1_EMAIL`, `SEED_USER2_EMAIL`, `SEED_USER_PASSWORD`, names; see [Seed scripts](#seed-scripts-dbseed-dbfresh-seed-categories) above).
-- Default categories (fixed/variable and default amounts where applicable).
-- **3 months** of income and expenses for **both users**: current month and the two previous months. Income includes monthly salary per user plus ad-hoc entries; expenses are spread across categories and both users.
-- **Per-user budget allocations** for the same 3 months: each user gets allocation rows for the main categories (groceries, transport, utilities, savings, etc.) and one sample **budget transfer** (savings to groceries) so the Budget page shows meaningful data for each user.
-- **Split expenses** (current month): e.g. groceries split equally, dinner split equally, and a full-amount-owed utility expense, so the Splits page shows who owes whom. A **Splits** category is included for settlement expenses.
-- **Goals**: Sample savings and credit goals per user, with example goal contributions, credit payment, and a manual interest entry (all linked to the account ledger).
+- Two users, each tied to a **different** household (no cross-household rows).
+- Default categories per household (fixed/variable and default amounts where applicable).
+- **3 months** of income and expenses **per user**, scoped to that user’s household.
+- **Per-user budget allocations** for the same 3 months and a sample **budget transfer** per user where applicable.
+- **Split expenses** only **within** each household (e.g. equal splits between members of the same household). A **Splits** category exists per household for settlement-style lines.
+- **Goals**, accounts, and mortgage: sample data for both users in the shared household (see `src/lib/db/seed/`).
 
 Amounts use the same integer format as the app (e.g. cents). To start with an empty transaction history, you would need to change the seed script or clear income/expenses after seeding.
 
@@ -678,6 +793,7 @@ See [DEPLOY.md](./DEPLOY.md) for deploying to a VPS with Coolify (Docker + Traef
 
 - **Unit tests (offline)**: `npm run test:unit` — no database required. The production **Docker build** runs this before `next build`, so Coolify deploys fail if unit tests fail.
 - **Integration tests**: `npm run test:integration` — requires `DATABASE_URL` and a seeded DB (`npm run db:fresh`). See `src/__tests__/integration/` (API/DB smoke tests and **mortgage interest recalc** through `MortgageService` + Postgres).
+- **Playwright E2E (headed by default)**: `npm run test:e2e` — opens Chromium so you can watch auth, admin, onboarding, feature gates, isolation, and core screens. Needs a seeded DB. Details: [docs/e2e-playwright.md](./docs/e2e-playwright.md). Manual checklist: [docs/test-plan-multi-tenant-admin.md](./docs/test-plan-multi-tenant-admin.md).
 - **Watch mode**: `npm run test:watch`
 - Coverage includes currency, date utils, mortgage engine, split/settlement balance math, credit edge cases, finance service parity checks in `src/tests/`, and high-volume **drift** tests in `src/tests/transaction-drift.test.ts` (long mortgage schedules, hundreds of split/settlement cycles, 10k ledger postings).
 - **Design**: Pure logic in `src/lib/services/finance/*`; services use repository interfaces for testability. See [docs/design-system.md](./docs/design-system.md) and [docs/push-notifications.md](./docs/push-notifications.md).
@@ -688,12 +804,16 @@ See [DEPLOY.md](./DEPLOY.md) for deploying to a VPS with Coolify (Docker + Traef
 - `npm run build` / `npm run start` – Production build and start
 - `npm run db:push` – Apply pending migrations (ledger-backed; safe on production). See [docs/database.md](./docs/database.md).
 - `npm run db:reset` – Recreate DB from scratch (requires `ALLOW_DB_RESET=1`). Then run push (and optionally seed).
-- `npm run db:seed` – Clear all data, then seed users, categories, 3 months of income/expenses, and sample split expenses
+- `npm run db:seed:users` – Create or update only the two env-driven login users and create households for them if needed
+- `npm run db:seed:minimal` – Seed an empty DB with one household, two users, default categories, and default split group
+- `npm run db:seed` – Clear all data, then seed one fully populated Jordaan household (finance, splits, calendar, lists, recon queue, AI sample, mortgage, goals, recurring)
 - `npm run db:fresh` – Reset DB then seed (recreate from scratch and seed in one go)
 - `npm run generate-pwa-icons` – Generate PWA icons into `public/icons/` (requires `sharp`). Run once or when changing app icon.
 - `npm run generate-vapid-keys` – Print VAPID key pair for Web Push. Add the two lines to your env (e.g. `.env.local`) so push notifications work.
 - `npm run test` / `npm run test:unit` – Run offline unit tests (Vitest)
 - `npm run test:integration` – Run DB integration tests (requires `DATABASE_URL`)
+- `npm run test:e2e` – Playwright E2E (headed Chromium; see [docs/e2e-playwright.md](./docs/e2e-playwright.md))
+- `npm run test:e2e:ui` / `npm run test:e2e:debug` – Playwright UI / inspector
 - `npm run test:watch` – Run unit tests in watch mode
 - `npm run start:server` – Start the custom Node server (initDb + persist loop); use for cPanel. See DEPLOY.md.
 

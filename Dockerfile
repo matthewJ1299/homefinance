@@ -45,9 +45,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Production node_modules only (devDeps pruned in builder) + tsx/db scripts
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 
-# package.json and db scripts for running seed/migrations on server (e.g. docker exec ... npx tsx src/lib/db/seed.ts)
+# package.json, source, and tsconfig so entrypoint migrations and the
+# instrumentation boot hook can load TypeScript via tsx (`@/*` paths).
 COPY --from=builder /app/package.json ./package.json
-COPY --from=builder --chown=nextjs:nodejs /app/src/lib/db ./src/lib/db
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
+COPY --from=builder --chown=nextjs:nodejs /app/src ./src
 
 # Schema migration (app applies it on first run if DB has no tables)
 COPY --from=builder /app/drizzle ./drizzle

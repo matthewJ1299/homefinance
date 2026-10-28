@@ -8,9 +8,23 @@ import { NextRequest } from "next/server";
 
 const HAS_DB = Boolean(process.env.DATABASE_URL);
 
+// The route handlers bind tenant context from the session, so the mock has to
+// carry a household and its entitlements. Without them every tenant-scoped
+// query throws "Missing household context" and every gated route answers 403 --
+// which is what this suite had been doing since households landed.
 vi.mock("@/lib/auth", () => ({
   auth: vi.fn().mockResolvedValue({
-    user: { id: "1", name: "Test User" },
+    user: {
+      id: "1",
+      name: "Test User",
+      // Replaced in beforeAll with the seeded user's real household.
+      householdId: "0",
+      featureKeys: ["ai_budget_analysis", "recon", "what_i_owe", "mortgage", "goals"],
+      aiTier: "free",
+      householdApprovalStatus: "active",
+      isSuperAdmin: false,
+      mustChangePassword: false,
+    },
   }),
 }));
 
@@ -18,10 +32,51 @@ describe.runIf(HAS_DB)("API and DB integration", () => {
   const createdExpenseIds: number[] = [];
   const createdIncomeIds: number[] = [];
   const createdBudgetSnapshots: { userId: number; categoryId: number; month: string; amount: number }[] = [];
+  let householdId = 0;
+  let seedUserId = 0;
+  let seedCategoryId = 0;
 
   beforeAll(async () => {
-    const { initDb } = await import("@/lib/db");
+    const { initDb, get } = await import("@/lib/db");
     await initDb();
+
+    // Ids are not stable across reseeds -- `db:seed` deletes rows but leaves the
+    // sequences where they are, so the seeded user is only id 1 immediately
+    // after a schema drop. Look the seeded household up by the email the seed
+    // does guarantee, and take a category from it, rather than hardcoding ids
+    // that a second reseed silently invalidates.
+    const row = await get<{ id: number; household_id: number }>(
+      `SELECT id, household_id FROM users
+       WHERE email = 'matt@homefinance.local' AND household_id IS NOT NULL
+       ORDER BY id LIMIT 1`
+    );
+    if (row?.household_id == null) {
+      throw new Error("No seeded user with a household. Run npm run db:fresh.");
+    }
+    seedUserId = Number(row.id);
+    householdId = Number(row.household_id);
+
+    const cat = await get<{ id: number }>(
+      "SELECT id FROM categories WHERE household_id = $1 ORDER BY id LIMIT 1",
+      [householdId]
+    );
+    if (cat?.id == null) {
+      throw new Error("Seeded household has no categories. Run npm run db:fresh.");
+    }
+    seedCategoryId = Number(cat.id);
+    const { auth } = await import("@/lib/auth");
+    vi.mocked(auth).mockResolvedValue({
+      user: {
+        id: String(seedUserId),
+        name: "Test User",
+        householdId: String(row.household_id),
+        featureKeys: ["ai_budget_analysis", "recon", "what_i_owe", "mortgage", "goals"],
+        aiTier: "free",
+        householdApprovalStatus: "active",
+        isSuperAdmin: false,
+        mustChangePassword: false,
+      },
+    } as never);
   });
 
   afterEach(async () => {
@@ -52,8 +107,8 @@ describe.runIf(HAS_DB)("API and DB integration", () => {
   describe("GET /api/categories", () => {
     it("returns categories", async () => {
       const { GET } = await import("@/app/api/categories/route");
-      const req = new NextRequest("http://localhost/api/categories");
-      const res = await GET(req);
+      // This handler takes no request argument.
+      const res = await GET();
       expect(res.status).toBe(200);
       const data = await res.json();
       expect(data).toHaveProperty("categories");
@@ -97,7 +152,7 @@ describe.runIf(HAS_DB)("API and DB integration", () => {
       const req = new NextRequest("http://localhost/api/expenses", {
         method: "POST",
         body: JSON.stringify({
-          categoryId: 1,
+          categoryId: seedCategoryId,
           amount: 5000,
           date: "2024-03-15",
           note: "Integration test",
@@ -183,8 +238,8 @@ describe.runIf(HAS_DB)("API and DB integration", () => {
     it("sets allocation and returns overview", async () => {
       const { getBudgetRepository } = await import("@/lib/repositories");
       const repo = getBudgetRepository();
-      const before = await repo.getAllocationsForMonth("2024-04", 1);
-      const catId = 1;
+      const before = await repo.getAllocationsForMonth("2024-04", seedUserId);
+      const catId = seedCategoryId;
 
       const { POST } = await import("@/app/api/budget/allocate/route");
       const req = new NextRequest("http://localhost/api/budget/allocate", {
@@ -197,15 +252,14 @@ describe.runIf(HAS_DB)("API and DB integration", () => {
       expect(data.month).toBe("2024-04");
 
       const prev = before.find((a) => a.categoryId === catId);
-      createdBudgetSnapshots.push({ userId: 1, categoryId: catId, month: "2024-04", amount: prev?.allocatedAmount ?? 0 });
+      createdBudgetSnapshots.push({ userId: seedUserId, categoryId: catId, month: "2024-04", amount: prev?.allocatedAmount ?? 0 });
     });
   });
 
   describe("GET /api/mortgage/config", () => {
     it("returns config or 404", async () => {
       const { GET } = await import("@/app/api/mortgage/config/route");
-      const req = new NextRequest("http://localhost/api/mortgage/config");
-      const res = await GET(req);
+      const res = await GET();
       expect([200, 404]).toContain(res.status);
       if (res.status === 200) {
         const data = await res.json();
@@ -217,8 +271,7 @@ describe.runIf(HAS_DB)("API and DB integration", () => {
   describe("GET /api/mortgage/schedule", () => {
     it("returns schedule or 404", async () => {
       const { GET } = await import("@/app/api/mortgage/schedule/route");
-      const req = new NextRequest("http://localhost/api/mortgage/schedule");
-      const res = await GET(req);
+      const res = await GET();
       expect([200, 404]).toContain(res.status);
     });
   });
@@ -226,22 +279,21 @@ describe.runIf(HAS_DB)("API and DB integration", () => {
   describe("GET /api/mortgage/equity", () => {
     it("returns equity or 404", async () => {
       const { GET } = await import("@/app/api/mortgage/equity/route");
-      const req = new NextRequest("http://localhost/api/mortgage/equity");
-      const res = await GET(req);
+      const res = await GET();
       expect([200, 404]).toContain(res.status);
     });
   });
 
   describe("Unauthorized", () => {
     it("returns 401 when auth is missing", async () => {
-      vi.mocked(await import("@/lib/auth")).auth.mockResolvedValueOnce(null);
+      vi.mocked(await import("@/lib/auth")).auth.mockResolvedValueOnce(null as never);
       const { GET } = await import("@/app/api/categories/route");
-      const req = new NextRequest("http://localhost/api/categories");
-      const res = await GET(req);
+      // This handler takes no request argument.
+      const res = await GET();
       expect(res.status).toBe(401);
       vi.mocked(await import("@/lib/auth")).auth.mockResolvedValue({
-        user: { id: "1", name: "Test User" },
-      });
+        user: { id: String(seedUserId), name: "Test User", householdId: String(householdId) },
+      } as never);
     });
   });
 });

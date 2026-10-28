@@ -29,6 +29,8 @@ export interface OwedLineItemRow {
 export interface ISplitAllocationRepository {
   create(expenseId: number, userId: number, amount: number): Promise<{ id: number }>;
   findByExpenseId(expenseId: number): Promise<SplitAllocationWithUser[]>;
+  /** Allocations for many expenses at once, keyed by expense id. */
+  findByExpenseIds(expenseIds: number[]): Promise<Map<number, SplitAllocationWithUser[]>>;
   findAllForBalance(groupId?: number): Promise<SplitAllocationBalanceRow[]>;
   /**
    * Split expenses paid by `payerUserId` where `debtorUserId` was allocated a share,

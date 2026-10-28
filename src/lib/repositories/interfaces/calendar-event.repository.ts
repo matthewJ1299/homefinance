@@ -32,6 +32,11 @@ export interface CalendarEvent {
   categoryColor: string | null;
   isShared: boolean;
   priority: number;
+  /** What this is expected to cost, so Home and the day view can say so. */
+  expectedCostMinor: number | null;
+  expenseCategoryId: number | null;
+  /** Set once logged, so "Log it" cannot fire twice. */
+  loggedExpenseId: number | null;
 }
 
 export interface CreateCalendarEventInput {

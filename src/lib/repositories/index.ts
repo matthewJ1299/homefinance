@@ -3,12 +3,16 @@ import { ExpenseRepository } from "./sql/expense.repository";
 import { IncomeRepository } from "./sql/income.repository";
 import { UserRepository } from "./sql/user.repository";
 import { SplitAllocationRepository } from "./sql/split-allocation.repository";
+import { ExpenseParticipantRepository } from "./sql/expense-participant.repository";
+import { ReconRuleRepository } from "./sql/recon-rule.repository";
 import { SplitSettlementRepository } from "./sql/split-settlement.repository";
 import type { ICategoryRepository } from "./interfaces/category.repository";
 import type { IExpenseRepository } from "./interfaces/expense.repository";
 import type { IIncomeRepository } from "./interfaces/income.repository";
 import type { IUserRepository } from "./interfaces/user.repository";
 import type { ISplitAllocationRepository } from "./interfaces/split-allocation.repository";
+import type { IExpenseParticipantRepository } from "./interfaces/expense-participant.repository";
+import type { IReconRuleRepository } from "./interfaces/recon-rule.repository";
 import type { ISplitSettlementRepository } from "./interfaces/split-settlement.repository";
 import type { ISplitGroupRepository } from "./interfaces/split-group.repository";
 import type { IRecurringIncomeRepository } from "./interfaces/recurring-income.repository";
@@ -56,12 +60,21 @@ import type { IAIAnalysisRunApplicationRepository } from "./interfaces/ai-analys
 import { AIAnalysisRunApplicationRepository } from "./sql/ai-analysis-run-application.repository";
 import type { INoteRepository } from "./interfaces/note.repository";
 import { NoteRepository } from "./sql/note.repository";
+import type { IHouseholdRepository } from "./interfaces/household.repository";
+import { HouseholdRepository } from "./sql/household.repository";
+import type { IHouseholdFeatureRepository } from "./interfaces/household-feature.repository";
+import { HouseholdFeatureRepository } from "./sql/household-feature.repository";
+import type { IFeedbackRepository } from "./interfaces/feedback.repository";
+import { FeedbackRepository } from "./sql/feedback.repository";
 
+let feedbackRepo: IFeedbackRepository | null = null;
 let categoryRepo: ICategoryRepository | null = null;
 let expenseRepo: IExpenseRepository | null = null;
 let incomeRepo: IIncomeRepository | null = null;
 let userRepo: IUserRepository | null = null;
 let splitAllocationRepo: ISplitAllocationRepository | null = null;
+let expenseParticipantRepo: IExpenseParticipantRepository | null = null;
+let reconRuleRepo: IReconRuleRepository | null = null;
 let splitSettlementRepo: ISplitSettlementRepository | null = null;
 let splitGroupRepo: ISplitGroupRepository | null = null;
 let recurringIncomeRepo: IRecurringIncomeRepository | null = null;
@@ -86,6 +99,13 @@ let aiAnalysisRunRepo: IAIAnalysisRunRepository | null = null;
 let aiAnalysisRunMessageRepo: IAIAnalysisRunMessageRepository | null = null;
 let aiAnalysisRunApplicationRepo: IAIAnalysisRunApplicationRepository | null = null;
 let noteRepo: INoteRepository | null = null;
+let householdRepo: IHouseholdRepository | null = null;
+let householdFeatureRepo: IHouseholdFeatureRepository | null = null;
+
+export function getFeedbackRepository(): IFeedbackRepository {
+  if (!feedbackRepo) feedbackRepo = new FeedbackRepository();
+  return feedbackRepo;
+}
 
 export function getCategoryRepository(): ICategoryRepository {
   if (!categoryRepo) categoryRepo = new CategoryRepository();
@@ -105,6 +125,16 @@ export function getIncomeRepository(): IIncomeRepository {
 export function getUserRepository(): IUserRepository {
   if (!userRepo) userRepo = new UserRepository();
   return userRepo;
+}
+
+export function getReconRuleRepository(): IReconRuleRepository {
+  if (!reconRuleRepo) reconRuleRepo = new ReconRuleRepository();
+  return reconRuleRepo;
+}
+
+export function getExpenseParticipantRepository(): IExpenseParticipantRepository {
+  if (!expenseParticipantRepo) expenseParticipantRepo = new ExpenseParticipantRepository();
+  return expenseParticipantRepo;
 }
 
 export function getSplitAllocationRepository(): ISplitAllocationRepository {
@@ -232,5 +262,15 @@ export function getAIAnalysisRunApplicationRepository(): IAIAnalysisRunApplicati
 export function getNoteRepository(): INoteRepository {
   if (!noteRepo) noteRepo = new NoteRepository();
   return noteRepo;
+}
+
+export function getHouseholdRepository(): IHouseholdRepository {
+  if (!householdRepo) householdRepo = new HouseholdRepository();
+  return householdRepo;
+}
+
+export function getHouseholdFeatureRepository(): IHouseholdFeatureRepository {
+  if (!householdFeatureRepo) householdFeatureRepo = new HouseholdFeatureRepository();
+  return householdFeatureRepo;
 }
 

@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { auth } from "@/lib/auth";
-import { setRequestContext } from "@/lib/db/request-context";
-import { getUserRepository } from "@/lib/repositories";
+import { authedAction } from "@/lib/actions/_shared/authed-action";
+import { hasFeature, featureDeniedMessage } from "@/lib/features/access";
+import { resolveAiInteractiveEnabled, getHouseholdAiTier } from "@/lib/services/feature-access.service";
 import { AIService } from "@/lib/services/ai.service";
 import { BudgetAiApplyService } from "@/lib/services/budget-ai-apply.service";
 import { checkRateLimit, recordCall } from "@/lib/services/ai-rate-limiter";
@@ -20,23 +20,17 @@ export async function applyBudgetAiSuggestions(
   | { success: true; appliedCount: number; applicationIds: number[]; errors: string[] }
   | { success: false; error: string; errors?: string[] }
 > {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { success: false, error: "Unauthorized" };
+  return authedAction<{
+    success: true;
+    appliedCount: number;
+    applicationIds: number[];
+    errors: string[];
+  }>(async ({ userId }) => {
+  if (!hasFeature("ai_budget_analysis")) {
+    return { success: false, error: featureDeniedMessage("ai_budget_analysis") };
   }
-  const userId = Number(session.user.id);
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
-
-  const userRepo = getUserRepository();
-  const [aiFeatureAllowed, aiEnabled] = await Promise.all([
-    userRepo.getAiFeatureAllowed(userId),
-    userRepo.getAiEnabled(userId),
-  ]);
-  if (!aiFeatureAllowed) {
-    return { success: false, error: "AI analysis is not enabled for your account." };
-  }
-  if (!aiEnabled) {
-    return { success: false, error: "AI is disabled. Enable it under Settings." };
+  if (!resolveAiInteractiveEnabled()) {
+    return { success: false, error: "AI is not configured on this server for your household tier." };
   }
 
   const moveIndexes = options.moveIndexes ?? [];
@@ -72,6 +66,7 @@ export async function applyBudgetAiSuggestions(
     applicationIds: result.applicationIds,
     errors: result.errors,
   };
+  }, { onError: "Those changes were not applied. Your budget is unchanged." });
 }
 
 export async function replyToBudgetAiReport(
@@ -81,26 +76,20 @@ export async function replyToBudgetAiReport(
   | { success: true; reply: string; userMessageId: number; assistantMessageId: number }
   | { success: false; error: string; userMessageId?: number }
 > {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { success: false, error: "Unauthorized" };
+  return authedAction<{
+    success: true;
+    reply: string;
+    userMessageId: number;
+    assistantMessageId: number;
+  }>(async ({ userId }) => {
+  if (!hasFeature("ai_budget_analysis")) {
+    return { success: false, error: featureDeniedMessage("ai_budget_analysis") };
   }
-  const userId = Number(session.user.id);
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
-
-  const userRepo = getUserRepository();
-  const [aiFeatureAllowed, aiEnabled] = await Promise.all([
-    userRepo.getAiFeatureAllowed(userId),
-    userRepo.getAiEnabled(userId),
-  ]);
-  if (!aiFeatureAllowed) {
-    return { success: false, error: "AI analysis is not enabled for your account." };
-  }
-  if (!aiEnabled) {
-    return { success: false, error: "AI is disabled. Enable it under Settings." };
+  if (!resolveAiInteractiveEnabled()) {
+    return { success: false, error: "AI is not configured on this server for your household tier." };
   }
 
-  const { allowed, retryAfterMs } = checkRateLimit(userId);
+  const { allowed, retryAfterMs } = await checkRateLimit(userId);
   if (!allowed) {
     const retryMin = retryAfterMs != null ? Math.ceil(retryAfterMs / 60000) : 0;
     return {
@@ -112,12 +101,13 @@ export async function replyToBudgetAiReport(
     };
   }
 
-  const usePaid = await userRepo.getAiUsePaid(userId);
+  const tier = getHouseholdAiTier();
   const service = new AIService();
-  const result = await service.replyToBudgetReport(runId, userId, message, usePaid ? "paid" : "free");
+  const result = await service.replyToBudgetReport(runId, userId, message, tier);
   if (result.success) {
     recordCall(userId);
     revalidatePath("/budget-ai-report");
   }
   return result;
+  }, { onError: "That reply didn't send. Try again." });
 }

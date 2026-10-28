@@ -3,10 +3,12 @@ import {
   getReconGraphConnectionRepository,
   getReconImportItemRepository,
   getVendorCategoryMappingRepository,
+  getUserRepository,
 } from "@/lib/repositories";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { IncomeService } from "@/lib/services/income.service";
 import { SplitService } from "@/lib/services/split.service";
+import { divideEqually, validateParticipantShares } from "@/lib/services/finance/participants";
 import type { IncomeType } from "@/lib/types";
 import { encryptString, decryptString } from "./token-crypto";
 import {
@@ -22,6 +24,7 @@ import {
   normalizeMerchantKey,
 } from "./parsers";
 import { parseDateToYyyyMmDd, parseMinorFromRandText } from "./parsers/parse-helpers";
+import { flowFromStoredAmount } from "./recon-flow";
 import type { ParsedBankEmail } from "./parsers/parsed-bank-email";
 import type { ReconMatchedExpenseSummary, ReconPendingListItem } from "@/lib/types/recon";
 
@@ -95,7 +98,8 @@ export class ReconService {
     private expenseRepo = getExpenseRepository(),
     private expenseService = new ExpenseService(),
     private incomeService = new IncomeService(),
-    private splitService = new SplitService()
+    private splitService = new SplitService(),
+    private userRepo = getUserRepository()
   ) {}
 
   async saveInitialGraphTokens(userId: number, code: string, pkceVerifier: string): Promise<void> {
@@ -222,11 +226,16 @@ export class ReconService {
         continue;
       }
       const merchantKey = normalizeMerchantKey(parsed.vendor);
-      const matches = await this.expenseRepo.findByUserDateAndAmount(
-        userId,
-        parsed.date,
-        parsed.amountMinorUnits
-      );
+      // Inflows share a date+magnitude with spends all the time. Matching them
+      // against expenses would mark a salary as a duplicate of a purchase.
+      const matches =
+        flowFromStoredAmount(parsed.amountMinorUnits) === "in"
+          ? []
+          : await this.expenseRepo.findByUserDateAndAmount(
+              userId,
+              parsed.date,
+              Math.abs(parsed.amountMinorUnits)
+            );
       const matchedIds = matches.map((e) => e.id);
       const status =
         matchedIds.length > 0 ? ("pending_duplicate" as const) : ("pending_add" as const);
@@ -270,6 +279,37 @@ export class ReconService {
       : { imported, scanned, skip: safeSkip };
   }
 
+  /**
+   * The two one-click syncs the connection bar offers.
+   *
+   * - `new`: everything received since the last check. `fetchMessagesSince`
+   *   already follows Graph's nextLink, so a single call pages through all of
+   *   it rather than stopping at the most recent 40 the bare button used to.
+   *   First run (never synced) falls back to a deeper recent window.
+   * - `older`: a deep backfill scan further back in the mailbox, for history
+   *   that predates the recent window. Re-scanning is safe -- upsert dedupes by
+   *   message id and ignored/accepted rows keep their status.
+   */
+  async syncNewOrOlder(
+    userId: number,
+    mode: "new" | "older"
+  ): Promise<{ imported: number; scanned: number; skip: number }> {
+    const NEW_MAX = 1000;
+    const FIRST_RUN_MAX = 200;
+    const OLDER_MAX = 500;
+    if (mode === "older") {
+      return this.syncFromGraph(userId, undefined, false, OLDER_MAX);
+    }
+    const { lastSyncedAt } = await this.isGraphConnected(userId);
+    if (!lastSyncedAt) {
+      return this.syncFromGraph(userId, undefined, false, FIRST_RUN_MAX);
+    }
+    // Date portion is a safe lower bound: it may re-include the last day's
+    // already-seen mail, which the upsert dedupes.
+    const since = new Date(lastSyncedAt).toISOString().slice(0, 10);
+    return this.syncFromGraph(userId, since, false, NEW_MAX);
+  }
+
   async getGraphMessageBody(
     userId: number,
     graphMessageId: string
@@ -308,7 +348,8 @@ export class ReconService {
     itemId: number,
     categoryId: number | undefined,
     accountId?: number | null,
-    split?: boolean,
+    /** Explicit shares, summing to the amount. `true` still means "everyone, evenly". */
+    split?: boolean | { userId: number; shareMinor: number }[],
     noteOverride?: string,
     amountMinorOverride?: number,
     entryKind: "expense" | "income" = "expense",
@@ -332,7 +373,10 @@ export class ReconService {
       Number.isInteger(amountMinorOverride) &&
       amountMinorOverride > 0
         ? amountMinorOverride
-        : item.amount;
+        : Math.abs(item.amount);
+    if (!Number.isInteger(amountMinor) || amountMinor <= 0) {
+      throw new Error("Amount must be positive.");
+    }
 
     if (entryKind === "income") {
       if (item.status === "pending_duplicate") {
@@ -356,24 +400,33 @@ export class ReconService {
       throw new Error("Category is required for expenses");
     }
 
-    const { id } = split
-      ? await this.splitService.createSplit(
-          userId,
-          amountMinor,
-          categoryId,
-          note,
-          item.txnDate,
-          { type: "equal" },
-          undefined,
-          accountId ?? undefined
-        )
-      : await this.expenseService.create(userId, {
-          categoryId,
-          amount: amountMinor,
-          note,
-          date: item.txnDate,
-          accountId: accountId ?? null,
-        });
+    // Accepted rows go through the same expense path as manual entry, so
+    // participants and rollover behave identically either way.
+    let participants: { userId: number; shareMinor: number }[] | undefined;
+    if (Array.isArray(split)) {
+      // The sheet solved these. Validate rather than trust: the same rule the
+      // Add sheet enforces, in the one other place a split can be written.
+      const check = validateParticipantShares(amountMinor, split);
+      if (!check.ok) throw new Error(check.error);
+      participants = split;
+    } else if (split === true) {
+      // "Everyone in the house, evenly" -- the pre-Phase-3 behaviour, kept so
+      // the existing table and rule-driven accepts do not change meaning.
+      const picked = [userId, ...(await this.userRepo.findAllExcept(userId)).map((u) => u.id)];
+      if (picked.length < 2) {
+        throw new Error("No one else in this household to share with.");
+      }
+      const even = divideEqually(amountMinor, picked);
+      participants = picked.map((id) => ({ userId: id, shareMinor: even[id] ?? 0 }));
+    }
+    const { id } = await this.expenseService.create(userId, {
+      categoryId,
+      amount: amountMinor,
+      note,
+      date: item.txnDate,
+      accountId: accountId ?? null,
+      participants,
+    });
     await this.vendorMapRepo.upsertIncrement(userId, item.merchantKeyNormalized, categoryId);
     await this.importRepo.updateStatusById(itemId, userId, "accepted_add");
     return { expenseId: id };

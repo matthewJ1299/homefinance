@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { format } from "date-fns";
 import { CalendarService } from "@/lib/services/calendar.service";
 import { NotificationService, isNotificationConfigured } from "@/lib/services/notification.service";
-import { getUserRepository } from "@/lib/repositories";
+import { getHouseholdRepository, getUserRepository } from "@/lib/repositories";
+import { setRequestContext } from "@/lib/db/request-context";
 import { formatEventLine } from "@/lib/utils/format-time";
 
 /**
@@ -14,15 +15,22 @@ import { formatEventLine } from "@/lib/utils/format-time";
  * Schedule the request for 9am daily in your timezone (e.g. cron: 0 9 * * * with TZ set).
  */
 export async function GET(request: NextRequest) {
+  // Fail closed. This endpoint pushes a notification to every user in every
+  // household, so a missing secret is a misconfiguration to report, not a
+  // reason to skip the check.
   const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const authHeader = request.headers.get("authorization");
-    const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-    const headerSecret = request.headers.get("x-cron-secret");
-    const provided = bearer ?? headerSecret ?? null;
-    if (provided !== secret) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!secret) {
+    return NextResponse.json(
+      { error: "Cron endpoint is not configured. Set CRON_SECRET." },
+      { status: 503 }
+    );
+  }
+  const authHeader = request.headers.get("authorization");
+  const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const headerSecret = request.headers.get("x-cron-secret");
+  const provided = bearer ?? headerSecret ?? null;
+  if (provided !== secret) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   if (!isNotificationConfigured()) {
@@ -34,27 +42,36 @@ export async function GET(request: NextRequest) {
 
   const today = format(new Date(), "yyyy-MM-dd");
   const calendarService = new CalendarService();
-  const userRepo = getUserRepository();
-  const users = await userRepo.findAll();
   const notificationService = new NotificationService();
 
   let sent = 0;
   let failed = 0;
   let usersNotified = 0;
 
-  for (const user of users) {
-    const occurrences = await calendarService.getByDateRange(today, today, user.id);
-    if (occurrences.length === 0) continue;
-    usersNotified++;
-    const title = "HomeFinance";
-    const body =
-      occurrences.length === 1
-        ? `You have an upcoming event: ${formatEventLine(occurrences[0].name, occurrences[0].time)}.`
-        : `You have upcoming events: ${occurrences.map((o) => formatEventLine(o.name, o.time)).join("; ")}.`;
-    const url = "/calendar";
-    const r = await notificationService.sendToUser(user.id, { title, body, url }, { ttl: 86400 });
-    sent += r.sent;
-    failed += r.failed;
+  // Iterate households and bind tenant request context per household so the
+  // calendar/push repositories (which require household scope) resolve correctly.
+  const householdIds = await getHouseholdRepository().listAllHouseholdIds();
+  for (const householdId of householdIds) {
+    setRequestContext({ householdId });
+    const users = await getUserRepository().findAll();
+    for (const user of users) {
+      const occurrences = await calendarService.getByDateRange(today, today, user.id);
+      if (occurrences.length === 0) continue;
+      usersNotified++;
+      const title = "HomeFinance";
+      const body =
+        occurrences.length === 1
+          ? `You have an upcoming event: ${formatEventLine(occurrences[0].name, occurrences[0].time)}.`
+          : `You have upcoming events: ${occurrences.map((o) => formatEventLine(o.name, o.time)).join("; ")}.`;
+      const url = "/calendar";
+      const r = await notificationService.sendToUser(
+        user.id,
+        { title, body, url, kind: "reminder" },
+        { ttl: 86400 }
+      );
+      sent += r.sent;
+      failed += r.failed;
+    }
   }
 
   if (usersNotified === 0) {

@@ -1,8 +1,14 @@
-import type { MortgageParams, AmortisationRow, ScheduleResult } from "@/lib/types/mortgage.types";
+import type {
+  MortgageParams,
+  MortgagePerson,
+  AmortisationRow,
+  ScheduleResult,
+} from "@/lib/types/mortgage.types";
+import { primaryPerson } from "@/lib/types/mortgage.types";
 import type { MortgageRateSchedule } from "@/lib/services/finance/mortgage-rate-periods";
 import {
   calculateBasePaymentForMonth,
-  calculateUserBBaseForPayment,
+  baseForUser,
   hasRateChangeAtMonth,
   resolveMonthlyRateForMonth,
 } from "@/lib/services/finance/mortgage-rate-periods";
@@ -20,9 +26,77 @@ export function standardMonthlyPayment(
   return Math.round(M);
 }
 
+/** Everyone except the person carrying the remainder, in the order given. */
+function secondaries(people: MortgagePerson[]): MortgagePerson[] {
+  const primary = primaryPerson(people);
+  return people.filter((p) => p.userId !== primary.userId);
+}
+
+/** Each secondary's own share of `M`, capped. The primary takes what is left. */
+function basesFor(people: MortgagePerson[], M: number): Record<number, number> {
+  const out: Record<number, number> = {};
+  for (const p of secondaries(people)) {
+    out[p.userId] = baseForUser(M, p.baseSplitPct, p.monthlyCap);
+  }
+  return out;
+}
+
+function depositsTotal(people: MortgagePerson[]): number {
+  return people.reduce((sum, p) => sum + p.deposit, 0);
+}
+
+function zeroTotals(people: MortgagePerson[]): Record<number, number> {
+  const out: Record<number, number> = {};
+  for (const p of people) out[p.userId] = 0;
+  return out;
+}
+
+/**
+ * Splits one month's payment across everyone.
+ *
+ * Secondaries take their base, in order, limited by what is left; the primary
+ * takes the remainder. With two people this is exactly the old
+ * `userBPay = min(base, total)` / `userAPay = total - userBPay`.
+ */
+function splitPayment(
+  people: MortgagePerson[],
+  bases: Record<number, number>,
+  totalPayment: number
+): Record<number, number> {
+  const primary = primaryPerson(people);
+  const out: Record<number, number> = {};
+  let remaining = totalPayment;
+  for (const p of secondaries(people)) {
+    const pay = Math.min(bases[p.userId] ?? 0, remaining);
+    out[p.userId] = pay;
+    remaining -= pay;
+  }
+  out[primary.userId] = remaining;
+  return out;
+}
+
+/** Share of everything put in so far, per person. Equal shares before anything is paid. */
+function equityShares(
+  people: MortgagePerson[],
+  totals: Record<number, number>
+): Record<number, number> {
+  const totalContrib =
+    depositsTotal(people) + people.reduce((sum, p) => sum + (totals[p.userId] ?? 0), 0);
+  const out: Record<number, number> = {};
+  for (const p of people) {
+    out[p.userId] =
+      totalContrib > 0 ? (p.deposit + (totals[p.userId] ?? 0)) / totalContrib : 1 / people.length;
+  }
+  return out;
+}
+
+/** The primary's share, which is what the top-up solves for. */
+function primaryEquity(people: MortgagePerson[], totals: Record<number, number>): number {
+  return equityShares(people, totals)[primaryPerson(people).userId];
+}
+
 interface SimulationResult {
-  userATotalPayments: number;
-  userBTotalPayments: number;
+  totalPaymentsByUserId: Record<number, number>;
   schedule: AmortisationRow[];
   months: number;
 }
@@ -30,19 +104,19 @@ interface SimulationResult {
 export function simulateSchedule(
   params: MortgageParams,
   M: number,
-  userBBase: number,
+  bases: Record<number, number>,
   topUp: number,
   startDate: string,
   getExtraPayment?: (monthNumber: number) => number,
   rateSchedule?: MortgageRateSchedule
 ): SimulationResult {
+  const people = params.people;
   let balance = params.loanAmount;
-  let userATotalPayments = 0;
-  let userBTotalPayments = 0;
+  const totals = zeroTotals(people);
   const schedule: AmortisationRow[] = [];
   let month = 0;
   let currentM = M;
-  let currentUserBBase = userBBase;
+  let currentBases = bases;
   const totalTermMonths = params.termMonths;
   const [startYear, startMonth] = startDate.slice(0, 7).split("-").map(Number);
   let currentDate = new Date(startYear, startMonth - 1, 1);
@@ -54,21 +128,14 @@ export function simulateSchedule(
       ? resolveMonthlyRateForMonth(month, rateSchedule)
       : params.monthlyRate;
 
-    if (
-      rateSchedule &&
-      (month === 1 || hasRateChangeAtMonth(month, rateSchedule))
-    ) {
+    if (rateSchedule && (month === 1 || hasRateChangeAtMonth(month, rateSchedule))) {
       currentM = calculateBasePaymentForMonth({
         monthNumber: month,
         openingBalance,
         totalTermMonths,
         rateSchedule,
       });
-      currentUserBBase = calculateUserBBaseForPayment(
-        currentM,
-        params.userB.baseSplitPct,
-        params.userB.monthlyCap
-      );
+      currentBases = basesFor(people, currentM);
     }
 
     const interest = Math.round(openingBalance * monthlyRate);
@@ -79,20 +146,12 @@ export function simulateSchedule(
       totalPayment = balance + interest;
     }
 
-    let userBPay = Math.min(currentUserBBase, totalPayment);
-    const userAPay = totalPayment - userBPay;
+    const paymentByUserId = splitPayment(people, currentBases, totalPayment);
 
     const principal = totalPayment - interest;
     balance = openingBalance - principal;
 
-    userATotalPayments += userAPay;
-    userBTotalPayments += userBPay;
-
-    const totalContrib =
-      params.userA.deposit +
-      params.userB.deposit +
-      userATotalPayments +
-      userBTotalPayments;
+    for (const p of people) totals[p.userId] += paymentByUserId[p.userId] ?? 0;
 
     schedule.push({
       month,
@@ -101,16 +160,8 @@ export function simulateSchedule(
       interest,
       principal,
       totalPayment,
-      userAPayment: userAPay,
-      userBPayment: userBPay,
-      userACumulativeEquityPct:
-        totalContrib > 0
-          ? (params.userA.deposit + userATotalPayments) / totalContrib
-          : 0.5,
-      userBCumulativeEquityPct:
-        totalContrib > 0
-          ? (params.userB.deposit + userBTotalPayments) / totalContrib
-          : 0.5,
+      paymentByUserId,
+      equityPctByUserId: equityShares(people, totals),
       closingBalance: Math.max(0, Math.round(balance)),
     });
 
@@ -118,51 +169,27 @@ export function simulateSchedule(
     if (month > params.termMonths * 2) break;
   }
 
-  return {
-    userATotalPayments,
-    userBTotalPayments,
-    schedule,
-    months: month,
-  };
+  return { totalPaymentsByUserId: totals, schedule, months: month };
 }
 
 export function calculateTopUp(
   params: MortgageParams,
   startDate: string,
-  targetEquityUserA: number = 0.5,
+  targetEquityPrimary: number = 0.5,
   rateSchedule?: MortgageRateSchedule
 ): number {
   const M = standardMonthlyPayment(
     params.loanAmount,
-    rateSchedule
-      ? resolveMonthlyRateForMonth(1, rateSchedule)
-      : params.monthlyRate,
+    rateSchedule ? resolveMonthlyRateForMonth(1, rateSchedule) : params.monthlyRate,
     params.termMonths
   );
-  const userBBase = Math.min(
-    Math.round(params.userB.baseSplitPct * M),
-    params.userB.monthlyCap ?? Infinity
-  );
+  const bases = basesFor(params.people, M);
 
-  const resultAtZero = simulateSchedule(
-    params,
-    M,
-    userBBase,
-    0,
-    startDate,
-    undefined,
-    rateSchedule
-  );
-  const totalContribZero =
-    params.userA.deposit +
-    params.userB.deposit +
-    resultAtZero.userATotalPayments +
-    resultAtZero.userBTotalPayments;
-  const userAEquityAtZero =
-    totalContribZero > 0
-      ? (params.userA.deposit + resultAtZero.userATotalPayments) / totalContribZero
-      : 0.5;
-  if (userAEquityAtZero >= targetEquityUserA - 0.001) {
+  const resultAtZero = simulateSchedule(params, M, bases, 0, startDate, undefined, rateSchedule);
+  if (
+    primaryEquity(params.people, resultAtZero.totalPaymentsByUserId) >=
+    targetEquityPrimary - 0.001
+  ) {
     return 0;
   }
 
@@ -171,26 +198,8 @@ export function calculateTopUp(
 
   for (let i = 0; i < 100; i++) {
     const T = Math.round((lo + hi) / 2);
-    const result = simulateSchedule(
-      params,
-      M,
-      userBBase,
-      T,
-      startDate,
-      undefined,
-      rateSchedule
-    );
-    const totalContrib =
-      params.userA.deposit +
-      params.userB.deposit +
-      result.userATotalPayments +
-      result.userBTotalPayments;
-    const userAEquity =
-      totalContrib > 0
-        ? (params.userA.deposit + result.userATotalPayments) / totalContrib
-        : 0.5;
-
-    if (userAEquity < targetEquityUserA) {
+    const result = simulateSchedule(params, M, bases, T, startDate, undefined, rateSchedule);
+    if (primaryEquity(params.people, result.totalPaymentsByUserId) < targetEquityPrimary) {
       lo = T;
     } else {
       hi = T;
@@ -204,7 +213,7 @@ export function calculateTopUp(
 export function generateSchedule(
   params: MortgageParams,
   startDate: string,
-  targetEquityUserA: number = 0.5,
+  targetEquityPrimary: number = 0.5,
   rateSchedule?: MortgageRateSchedule
 ): ScheduleResult {
   const M = rateSchedule
@@ -214,40 +223,13 @@ export function generateSchedule(
         totalTermMonths: params.termMonths,
         rateSchedule,
       })
-    : standardMonthlyPayment(
-        params.loanAmount,
-        params.monthlyRate,
-        params.termMonths
-      );
-  const userBBase = calculateUserBBaseForPayment(
-    M,
-    params.userB.baseSplitPct,
-    params.userB.monthlyCap
-  );
-  const topUp = calculateTopUp(params, startDate, targetEquityUserA, rateSchedule);
-  const result = simulateSchedule(
-    params,
-    M,
-    userBBase,
-    topUp,
-    startDate,
-    undefined,
-    rateSchedule
-  );
+    : standardMonthlyPayment(params.loanAmount, params.monthlyRate, params.termMonths);
+  const bases = basesFor(params.people, M);
+  const topUp = calculateTopUp(params, startDate, targetEquityPrimary, rateSchedule);
+  const result = simulateSchedule(params, M, bases, topUp, startDate, undefined, rateSchedule);
 
-  const totalContrib =
-    params.userA.deposit +
-    params.userB.deposit +
-    result.userATotalPayments +
-    result.userBTotalPayments;
-  const userAFinal =
-    totalContrib > 0
-      ? (params.userA.deposit + result.userATotalPayments) / totalContrib
-      : 0.5;
-  const userBFinal =
-    totalContrib > 0
-      ? (params.userB.deposit + result.userBTotalPayments) / totalContrib
-      : 0.5;
+  const finalEquity = equityShares(params.people, result.totalPaymentsByUserId);
+  const primaryFinal = finalEquity[primaryPerson(params.people).userId];
 
   const lastRow = result.schedule[result.schedule.length - 1];
   const payoffDate = lastRow ? lastRow.date : startDate;
@@ -258,9 +240,8 @@ export function generateSchedule(
     projectedMonths: result.months,
     projectedPayoffDate: payoffDate,
     schedule: result.schedule,
-    convergenceAchieved: Math.abs(userAFinal - targetEquityUserA) < 0.01,
-    userAFinalEquityPct: userAFinal,
-    userBFinalEquityPct: userBFinal,
+    convergenceAchieved: Math.abs(primaryFinal - targetEquityPrimary) < 0.01,
+    finalEquityPctByUserId: finalEquity,
     currentBalance: params.loanAmount,
   };
 }
@@ -269,21 +250,11 @@ export function checkConvergenceFeasibility(
   params: MortgageParams,
   startDate: string
 ): { feasible: boolean; bestAchievablePct: number } {
-  const M = standardMonthlyPayment(
-    params.loanAmount,
-    params.monthlyRate,
-    params.termMonths
-  );
-  const result = simulateSchedule(params, M, 0, M * 3, startDate);
-  const totalContrib =
-    params.userA.deposit +
-    params.userB.deposit +
-    result.userATotalPayments +
-    result.userBTotalPayments;
-  const bestPct =
-    totalContrib > 0
-      ? (params.userA.deposit + result.userATotalPayments) / totalContrib
-      : 0.5;
+  const M = standardMonthlyPayment(params.loanAmount, params.monthlyRate, params.termMonths);
+  // Every secondary's base at zero: the primary pays everything, which is the
+  // most equity they can possibly reach.
+  const result = simulateSchedule(params, M, {}, M * 3, startDate);
+  const bestPct = primaryEquity(params.people, result.totalPaymentsByUserId);
   return { feasible: bestPct >= 0.5, bestAchievablePct: bestPct };
 }
 
@@ -293,10 +264,10 @@ export interface ProjectFromBalanceOptions {
   startMonth: number;
   startDate: string;
   M: number;
-  userBBase: number;
+  bases: Record<number, number>;
   topUp: number;
-  initialUserATotal: number;
-  initialUserBTotal: number;
+  /** Payments already made, per person, before `startMonth`. */
+  initialTotals: Record<number, number>;
   getExtraPayment?: (monthNumber: number) => number;
   maxMonths?: number;
   /** Original loan term; required when rateSchedule is set. */
@@ -308,31 +279,32 @@ export interface ProjectFromBalanceOptions {
  * Projects the amortisation schedule from a given balance and month onward.
  * Used when past months are taken from actual payments; only future months are simulated.
  */
-export function projectScheduleFromBalance(
-  options: ProjectFromBalanceOptions
-): { schedule: AmortisationRow[]; userATotalPayments: number; userBTotalPayments: number; months: number } {
+export function projectScheduleFromBalance(options: ProjectFromBalanceOptions): {
+  schedule: AmortisationRow[];
+  totalPaymentsByUserId: Record<number, number>;
+  months: number;
+} {
   const {
     params,
     startBalance,
     startMonth,
     startDate,
     M,
-    userBBase,
+    bases,
     topUp,
-    initialUserATotal,
-    initialUserBTotal,
+    initialTotals,
     getExtraPayment,
     maxMonths = params.termMonths * 2,
     totalTermMonths = params.termMonths,
     rateSchedule,
   } = options;
 
+  const people = params.people;
   let balance = startBalance;
-  let userATotalPayments = initialUserATotal;
-  let userBTotalPayments = initialUserBTotal;
+  const totals = { ...zeroTotals(people), ...initialTotals };
   const schedule: AmortisationRow[] = [];
   let currentM = M;
-  let currentUserBBase = userBBase;
+  let currentBases = bases;
   const [startYear, startMonthNum] = startDate.slice(0, 7).split("-").map(Number);
   let currentDate = new Date(startYear, startMonthNum - 1, 1);
   currentDate = addMonths(currentDate, startMonth - 1);
@@ -346,21 +318,14 @@ export function projectScheduleFromBalance(
       ? resolveMonthlyRateForMonth(month, rateSchedule)
       : params.monthlyRate;
 
-    if (
-      rateSchedule &&
-      (month === startMonth || hasRateChangeAtMonth(month, rateSchedule))
-    ) {
+    if (rateSchedule && (month === startMonth || hasRateChangeAtMonth(month, rateSchedule))) {
       currentM = calculateBasePaymentForMonth({
         monthNumber: month,
         openingBalance,
         totalTermMonths,
         rateSchedule,
       });
-      currentUserBBase = calculateUserBBaseForPayment(
-        currentM,
-        params.userB.baseSplitPct,
-        params.userB.monthlyCap
-      );
+      currentBases = basesFor(people, currentM);
     }
 
     const interest = Math.round(openingBalance * monthlyRate);
@@ -371,20 +336,12 @@ export function projectScheduleFromBalance(
       totalPayment = balance + interest;
     }
 
-    let userBPay = Math.min(currentUserBBase, totalPayment);
-    const userAPay = totalPayment - userBPay;
+    const paymentByUserId = splitPayment(people, currentBases, totalPayment);
 
     const principal = totalPayment - interest;
     balance = openingBalance - principal;
 
-    userATotalPayments += userAPay;
-    userBTotalPayments += userBPay;
-
-    const totalContrib =
-      params.userA.deposit +
-      params.userB.deposit +
-      userATotalPayments +
-      userBTotalPayments;
+    for (const p of people) totals[p.userId] += paymentByUserId[p.userId] ?? 0;
 
     schedule.push({
       month,
@@ -393,26 +350,13 @@ export function projectScheduleFromBalance(
       interest,
       principal,
       totalPayment,
-      userAPayment: userAPay,
-      userBPayment: userBPay,
-      userACumulativeEquityPct:
-        totalContrib > 0
-          ? (params.userA.deposit + userATotalPayments) / totalContrib
-          : 0.5,
-      userBCumulativeEquityPct:
-        totalContrib > 0
-          ? (params.userB.deposit + userBTotalPayments) / totalContrib
-          : 0.5,
+      paymentByUserId,
+      equityPctByUserId: equityShares(people, totals),
       closingBalance: Math.max(0, Math.round(balance)),
     });
 
     currentDate = addMonths(currentDate, 1);
   }
 
-  return {
-    schedule,
-    userATotalPayments,
-    userBTotalPayments,
-    months: month,
-  };
+  return { schedule, totalPaymentsByUserId: totals, months: month };
 }

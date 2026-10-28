@@ -1,4 +1,5 @@
 import { all, get } from "@/lib/db";
+import { requireHouseholdId } from "@/lib/db/request-context";
 import type {
   AIAnalysisRunMessageRow,
   AIAnalysisRunMessageRole,
@@ -7,6 +8,7 @@ import type {
 
 export class AIAnalysisRunMessageRepository implements IAIAnalysisRunMessageRepository {
   async listByRun(userId: number, runId: number): Promise<AIAnalysisRunMessageRow[]> {
+    const hid = requireHouseholdId();
     const rows = await all<{
       id: string | number;
       run_id: string | number;
@@ -15,8 +17,12 @@ export class AIAnalysisRunMessageRepository implements IAIAnalysisRunMessageRepo
       content: string;
       created_at: string;
     }>(
-      "SELECT id, run_id, user_id, role, content, created_at FROM ai_analysis_run_messages WHERE user_id = ? AND run_id = ? ORDER BY created_at ASC",
-      [userId, runId]
+      `SELECT m.id, m.run_id, m.user_id, m.role, m.content, m.created_at
+       FROM ai_analysis_run_messages m
+       INNER JOIN ai_analysis_runs ar ON ar.id = m.run_id
+       WHERE ar.household_id = ? AND m.user_id = ? AND m.run_id = ?
+       ORDER BY m.created_at ASC`,
+      [hid, userId, runId]
     );
     return rows.map((r) => ({
       id: Number(r.id),
@@ -42,9 +48,10 @@ export class AIAnalysisRunMessageRepository implements IAIAnalysisRunMessageRepo
   }
 
   async runBelongsToUser(userId: number, runId: number): Promise<boolean> {
+    const hid = requireHouseholdId();
     const row = await get<{ id: string | number }>(
-      "SELECT id FROM ai_analysis_runs WHERE user_id = ? AND id = ?",
-      [userId, runId]
+      "SELECT id FROM ai_analysis_runs WHERE user_id = ? AND id = ? AND household_id = ?",
+      [userId, runId, hid]
     );
     return row != null;
   }

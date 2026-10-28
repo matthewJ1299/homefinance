@@ -116,6 +116,33 @@ function PillSection({
   );
 }
 
+/**
+ * One request per page, shared by every picker on it.
+ *
+ * Transactions and Home render an edit dialog per row, each with its own
+ * picker, so a page with thirty spends on it fired thirty identical requests at
+ * once -- enough to keep the page from ever going network-idle.
+ */
+let usageCountsPromise: Promise<Record<number, number> | null> | null = null;
+
+function loadUsageCounts(): Promise<Record<number, number> | null> {
+  usageCountsPromise ??= fetch("/api/expenses/category-usage")
+    .then((r) => (r.ok ? r.json() : null))
+    .then((data: unknown) => {
+      if (!data || typeof data !== "object") return null;
+      const counts = (data as { counts?: unknown }).counts;
+      return counts && typeof counts === "object"
+        ? (counts as Record<number, number>)
+        : null;
+    })
+    .catch(() => {
+      // A failed lookup should not be cached: the next picker can try again.
+      usageCountsPromise = null;
+      return null;
+    });
+  return usageCountsPromise;
+}
+
 export function CategoryPicker({
   categories,
   value,
@@ -129,19 +156,9 @@ export function CategoryPicker({
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/expenses/category-usage")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: unknown) => {
-        if (cancelled) return;
-        if (!data || typeof data !== "object") return;
-        const maybeCounts = (data as { counts?: unknown }).counts;
-        if (maybeCounts && typeof maybeCounts === "object") {
-          setUsageCounts(maybeCounts as Record<number, number>);
-        }
-      })
-      .catch(() => {
-        // ignore
-      });
+    loadUsageCounts().then((counts) => {
+      if (!cancelled && counts) setUsageCounts(counts);
+    });
     return () => {
       cancelled = true;
     };

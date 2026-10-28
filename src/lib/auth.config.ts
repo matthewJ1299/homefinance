@@ -3,35 +3,89 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { getUserRepository } from "@/lib/repositories";
 
+function normalizeHouseholdId(value: unknown): string | undefined {
+  if (value == null || value === "") return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? String(n) : undefined;
+}
+
+const PUBLIC_AUTH_PATHS = new Set(["/login", "/register"]);
+
+const APP_PREFIXES = [
+  "/dashboard",
+  "/calendar",
+  "/lists",
+  "/budget",
+  "/expenses",
+  "/income",
+  "/recon",
+  "/splits",
+  "/what-i-owe",
+  "/budget-ai-report",
+  "/accounts",
+  "/mortgage",
+  "/goals",
+  "/summary",
+  "/reports",
+  "/how-this-works",
+  "/new-month",
+  "/settings",
+  "/add",
+  "/pending-approval",
+  "/welcome",
+  "/change-password",
+];
+
+function isAppRoute(pathname: string): boolean {
+  return APP_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
 export const authConfig: NextAuthConfig = {
   pages: {
     signIn: "/login",
   },
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
-      const isLoggedIn = !!auth?.user;
-      const isOnApp = nextUrl.pathname.startsWith("/dashboard") ||
-        nextUrl.pathname.startsWith("/expenses") ||
-        nextUrl.pathname.startsWith("/income") ||
-        nextUrl.pathname.startsWith("/budget") ||
-        nextUrl.pathname.startsWith("/mortgage") ||
-        nextUrl.pathname.startsWith("/summary") ||
-        nextUrl.pathname.startsWith("/categories") ||
-        nextUrl.pathname.startsWith("/recon");
-      if (isOnApp && !isLoggedIn) {
-        return false;
+      const pathname = nextUrl.pathname;
+      const isLoggedIn = !!auth?.user?.id;
+
+      if (!isLoggedIn) {
+        if (PUBLIC_AUTH_PATHS.has(pathname)) return true;
+        if (isAppRoute(pathname) || pathname.startsWith("/admin")) return false;
+        return true;
       }
-      if (auth?.user && nextUrl.pathname === "/login") {
+
+      if (pathname === "/login" || pathname === "/register") {
         return Response.redirect(new URL("/dashboard", nextUrl));
       }
+
       return true;
     },
-    jwt({ token, user }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.email = user.email;
         token.name = user.name;
+        const normalizedHouseholdId =
+          "householdId" in user ? normalizeHouseholdId(user.householdId) : undefined;
+        if (normalizedHouseholdId !== undefined) {
+          token.householdId = normalizedHouseholdId;
+        }
+        if ("isSuperAdmin" in user && user.isSuperAdmin != null) {
+          token.isSuperAdmin = user.isSuperAdmin === true;
+        }
       }
+      if (normalizeHouseholdId(token.householdId) == null && token.id != null) {
+        const userId = Number(token.id);
+        if (Number.isFinite(userId)) {
+          try {
+            token.householdId = normalizeHouseholdId(await getUserRepository().getHouseholdId(userId));
+          } catch {
+            // Leave token unchanged; auth() will remain unauthorized for tenant-scoped data.
+          }
+        }
+      }
+      token.householdId = normalizeHouseholdId(token.householdId);
       return token;
     },
     session({ session, token }) {
@@ -39,6 +93,15 @@ export const authConfig: NextAuthConfig = {
         session.user.id = String(token.id);
         session.user.email = token.email as string;
         session.user.name = token.name as string;
+        const normalizedHouseholdId = normalizeHouseholdId(token.householdId);
+        if (normalizedHouseholdId !== undefined) {
+          session.user.householdId = normalizedHouseholdId;
+        } else {
+          delete session.user.householdId;
+        }
+        if (token.isSuperAdmin != null) {
+          session.user.isSuperAdmin = token.isSuperAdmin === true;
+        }
       }
       return session;
     },
@@ -64,6 +127,8 @@ export const authConfig: NextAuthConfig = {
           id: String(user.id),
           email: user.email,
           name: user.name,
+          householdId: normalizeHouseholdId(user.householdId),
+          isSuperAdmin: user.isSuperAdmin,
         };
       },
     }),

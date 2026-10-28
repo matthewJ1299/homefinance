@@ -7,17 +7,12 @@ import type { AmortisationRow } from "@/lib/types/mortgage.types";
 
 interface AmortisationTableProps {
   schedule: AmortisationRow[];
-  userAName: string;
-  userBName: string;
+  /** Everyone on the bond, in the order their columns should appear. */
+  people: Array<{ userId: number; name: string }>;
   currentMonth?: number;
 }
 
-export function AmortisationTable({
-  schedule,
-  userAName,
-  userBName,
-  currentMonth,
-}: AmortisationTableProps) {
+export function AmortisationTable({ schedule, people, currentMonth }: AmortisationTableProps) {
   const [open, setOpen] = useState(false);
   return (
     <div className="space-y-2">
@@ -42,10 +37,18 @@ export function AmortisationTable({
               <th className="text-right p-2">Opening</th>
               <th className="text-right p-2">Interest</th>
               <th className="text-right p-2">Principal</th>
-              <th className="text-right p-2">{userAName}</th>
-              <th className="text-right p-2">{userBName}</th>
-              <th className="text-right p-2">A %</th>
-              <th className="text-right p-2">B %</th>
+              {/* A column per person rather than two named A and B, so a third
+                  person on the bond is not silently missing from the table. */}
+              {people.map((p) => (
+                <th key={`pay-${p.userId}`} className="text-right p-2">
+                  {p.name}
+                </th>
+              ))}
+              {people.map((p) => (
+                <th key={`pct-${p.userId}`} className="text-right p-2">
+                  {p.name} %
+                </th>
+              ))}
               <th className="text-right p-2">Closing</th>
             </tr>
           </thead>
@@ -59,10 +62,16 @@ export function AmortisationTable({
                   <td className="p-2 text-right">{formatRand(row.openingBalance)}</td>
                   <td className="p-2 text-right">{formatRand(row.interest)}</td>
                   <td className="p-2 text-right">{formatRand(row.principal)}</td>
-                  <td className="p-2 text-right">{formatRand(row.userAPayment)}</td>
-                  <td className="p-2 text-right">{formatRand(row.userBPayment)}</td>
-                  <td className="p-2 text-right">{Math.round(row.userACumulativeEquityPct * 100)}%</td>
-                  <td className="p-2 text-right">{Math.round(row.userBCumulativeEquityPct * 100)}%</td>
+                  {people.map((p) => (
+                    <td key={`pay-${p.userId}`} className="p-2 text-right">
+                      {formatRand(row.paymentByUserId[p.userId] ?? 0)}
+                    </td>
+                  ))}
+                  {people.map((p) => (
+                    <td key={`pct-${p.userId}`} className="p-2 text-right">
+                      {Math.round((row.equityPctByUserId[p.userId] ?? 0) * 100)}%
+                    </td>
+                  ))}
                   <td className="p-2 text-right">{formatRand(row.closingBalance)}</td>
                 </tr>
               );

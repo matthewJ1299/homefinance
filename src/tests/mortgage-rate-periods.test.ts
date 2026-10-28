@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { simulateSchedule } from "@/lib/services/mortgage-calculator";
 import type { MortgageParams } from "@/lib/types/mortgage.types";
+
+/** A is the primary (largest base split), B the other. Ids, not positions. */
+const A = 1;
+const B = 2;
 import {
   calculateBasePaymentForMonth,
   resolveAnnualRateForMonth,
@@ -12,8 +16,10 @@ const params: MortgageParams = {
   monthlyRate: 0.1 / 12,
   termMonths: 120,
   propertyValue: 1_200_000_00,
-  userA: { deposit: 100_000_00, baseSplitPct: 0.5, monthlyCap: null },
-  userB: { deposit: 100_000_00, baseSplitPct: 0.5, monthlyCap: null },
+  people: [
+    { userId: A, deposit: 100_000_00, baseSplitPct: 0.5, monthlyCap: null },
+    { userId: B, deposit: 100_000_00, baseSplitPct: 0.5, monthlyCap: null },
+  ],
 };
 
 const rateSchedule: MortgageRateSchedule = {
@@ -32,7 +38,7 @@ describe("mortgage rate periods", () => {
     const { schedule } = simulateSchedule(
       params,
       0,
-      0,
+      {},
       0,
       "2024-01",
       undefined,
@@ -51,7 +57,7 @@ describe("mortgage rate periods", () => {
     const { schedule } = simulateSchedule(
       params,
       0,
-      0,
+      {},
       0,
       "2024-01",
       undefined,

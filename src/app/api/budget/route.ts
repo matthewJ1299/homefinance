@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { BudgetService } from "@/lib/services/budget.service";
 import { getDefaultBudgetMonthForUser } from "@/lib/utils/budget-month-for-user";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
+  setRequestContextFromSession(session);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

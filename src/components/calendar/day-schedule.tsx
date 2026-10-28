@@ -3,6 +3,8 @@
 import { format, parseISO } from "date-fns";
 import { MapPin, User, Users } from "lucide-react";
 import { formatTime24 } from "@/lib/utils/format-time";
+import { formatRand } from "@/lib/utils/currency";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { CalendarEventOccurrence } from "@/lib/services/calendar.service";
 import { occurrenceSegmentEnd } from "@/lib/utils/calendar-occurrence";
 
@@ -15,22 +17,26 @@ const PRIORITY_LABELS: Record<number, string> = {
 
 function priorityClass(p: number): string {
   if (p >= 4) return "bg-destructive/20 text-destructive";
-  if (p === 3) return "bg-orange-500/15 text-orange-600 dark:text-orange-400";
+  if (p === 3) return "bg-warning-surface text-warning";
   return "bg-muted text-muted-foreground";
 }
 
 export function DaySchedule({
   occurrences,
   onSelectOccurrence,
+  onLogCost,
 }: {
   occurrences: CalendarEventOccurrence[];
   onSelectOccurrence?: (occurrence: CalendarEventOccurrence) => void;
+  /** Opens the Add sheet prefilled from the event's expected cost. */
+  onLogCost?: (occurrence: CalendarEventOccurrence) => void;
 }) {
   if (occurrences.length === 0) {
     return (
-      <div className="rounded-2xl border border-border/60 bg-muted/15 p-5 text-sm text-muted-foreground text-center">
-        No events for this day.
-      </div>
+      <EmptyState
+        title="Nothing on"
+        message="No events for this day. Tap a date to add one."
+      />
     );
   }
 
@@ -105,6 +111,39 @@ export function DaySchedule({
                     <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
                       <MapPin className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
                       <span className="truncate">{o.location}</span>
+                    </p>
+                  ) : null}
+                  {/* An expected cost is a spend waiting to happen; logging it
+                      from here beats remembering it later. loggedExpenseId is
+                      what stops this firing twice. */}
+                  {o.expectedCostMinor != null ? (
+                    <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span>
+                        Expected {formatRand(o.expectedCostMinor)}
+                        {o.categoryName ? ` · ${o.categoryName}` : ""}
+                      </span>
+                      {o.loggedExpenseId != null ? (
+                        <span className="font-semibold text-success">Logged</span>
+                      ) : onLogCost ? (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            onLogCost(o);
+                          }}
+                          onKeyDown={(ev) => {
+                            if (ev.key === "Enter" || ev.key === " ") {
+                              ev.stopPropagation();
+                              ev.preventDefault();
+                              onLogCost(o);
+                            }
+                          }}
+                          className="cursor-pointer font-semibold text-primary"
+                        >
+                          Log it
+                        </span>
+                      ) : null}
                     </p>
                   ) : null}
                 </div>

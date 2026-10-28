@@ -61,8 +61,25 @@ describe.runIf(HAS_DB)("Mortgage interest recalc (integration)", () => {
   let monthlyRate: number;
 
   beforeAll(async () => {
-    const { initDb } = await import("@/lib/db");
+    const { initDb, get } = await import("@/lib/db");
     await initDb();
+
+    // Repositories are tenant-scoped, so this suite has to stand in a
+    // household the way a request would. enterWith persists for the rest of
+    // this file's execution context, which is what the tests below run in.
+    const row = await get<{ id: number; household_id: number }>(
+      "SELECT id, household_id FROM users WHERE household_id IS NOT NULL ORDER BY id LIMIT 1"
+    );
+    if (row?.household_id == null) {
+      throw new Error("No seeded household. Run npm run db:fresh before integration tests.");
+    }
+    const { setRequestContext } = await import("@/lib/db/request-context");
+    setRequestContext({
+      userId: String(row.id),
+      userName: "Integration",
+      householdId: Number(row.household_id),
+    });
+
     service = new MortgageService();
     backup = await snapshotMortgage();
     if (!backup) {

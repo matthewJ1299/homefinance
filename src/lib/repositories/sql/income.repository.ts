@@ -1,5 +1,7 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
+import { requireHouseholdId } from "@/lib/db/request-context";
 import { coerceBigIntOrNull } from "@/lib/db/coerce-bigint";
+import { isIncomeKind, type IncomeKind } from "@/lib/types/income-type";
 import type { BudgetMonthPeriod } from "@/lib/types/budget-month";
 import type { IncomeEntry } from "../interfaces/income.repository";
 import type {
@@ -9,10 +11,11 @@ import type {
 } from "../interfaces/income.repository";
 
 const SELECT_INCOME_ENTRY = `
-  SELECT i.id, i.user_id AS "userId", u.name AS "userName", i.amount, i.type, i.description, i.date,
+  SELECT i.id, i.user_id AS "userId", u.name AS "userName", i.amount, i.type,
+         i.income_type AS "incomeKind", i.description, i.date,
          i.month AS "month", i.account_id AS "accountId", i.created_at AS "createdAt"
   FROM income i
-  INNER JOIN users u ON i.user_id = u.id
+  INNER JOIN users u ON i.user_id = u.id AND u.household_id = i.household_id
 `;
 
 interface IncomeEntryRow {
@@ -21,6 +24,7 @@ interface IncomeEntryRow {
   userName: string;
   amount: number;
   type: string;
+  incomeKind: string | null;
   description: string | null;
   date: string;
   month: string;
@@ -35,6 +39,11 @@ function toIncomeEntry(r: IncomeEntryRow): IncomeEntry {
     userName: r.userName,
     amount: r.amount,
     type: r.type as "salary" | "ad_hoc",
+    // Pre-0037 rows can still be null in flight; fall back the same way the
+    // migration's backfill did.
+    incomeKind: isIncomeKind(r.incomeKind ?? "")
+      ? (r.incomeKind as IncomeKind)
+      : r.type === "salary" ? "salary" : "other",
     description: r.description,
     date: r.date,
     month: r.month,
@@ -50,8 +59,9 @@ export class IncomeRepository implements IIncomeRepository {
     accountId?: number,
     period?: BudgetMonthPeriod
   ): Promise<IncomeEntry[]> {
-    let sql = `${SELECT_INCOME_ENTRY} WHERE `;
-    const params: (string | number)[] = [];
+    const hid = requireHouseholdId();
+    let sql = `${SELECT_INCOME_ENTRY} WHERE i.household_id = ? AND `;
+    const params: (string | number)[] = [hid];
     if (period) {
       sql += "i.date >= ? AND i.date <= ?";
       params.push(period.start, period.end);
@@ -73,23 +83,31 @@ export class IncomeRepository implements IIncomeRepository {
   }
 
   async findById(id: number): Promise<IncomeEntry | null> {
-    const row = await get<IncomeEntryRow>(`${SELECT_INCOME_ENTRY} WHERE i.id = ?`, [id]);
+    const hid = requireHouseholdId();
+    const row = await get<IncomeEntryRow>(
+      `${SELECT_INCOME_ENTRY} WHERE i.id = ? AND i.household_id = ?`,
+      [id, hid]
+    );
     return row ? toIncomeEntry(row) : null;
   }
 
   async findAllByUserId(userId: number): Promise<IncomeEntry[]> {
-    const sql = `${SELECT_INCOME_ENTRY} WHERE i.user_id = ? ORDER BY i.date ASC, i.created_at ASC, i.id ASC`;
-    const rows = await all<IncomeEntryRow>(sql, [userId]);
+    const hid = requireHouseholdId();
+    const sql = `${SELECT_INCOME_ENTRY} WHERE i.household_id = ? AND i.user_id = ? ORDER BY i.date ASC, i.created_at ASC, i.id ASC`;
+    const rows = await all<IncomeEntryRow>(sql, [hid, userId]);
     return rows.map(toIncomeEntry);
   }
 
   async create(data: CreateIncomeInput): Promise<{ id: number }> {
+    const hid = requireHouseholdId();
     await run(
-      "INSERT INTO income (user_id, amount, type, description, date, month, recurring_income_id, account_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO income (user_id, household_id, amount, type, income_type, description, date, month, recurring_income_id, account_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [
         data.userId,
+        hid,
         data.amount,
         data.type,
+        data.incomeKind ?? (data.type === "salary" ? "salary" : "other"),
         data.description ?? null,
         data.date,
         data.month,
@@ -101,9 +119,10 @@ export class IncomeRepository implements IIncomeRepository {
   }
 
   async hasIncomeFromRecurring(recurringIncomeId: number, month: string): Promise<boolean> {
+    const hid = requireHouseholdId();
     const row = await get<{ id: number }>(
-      "SELECT id FROM income WHERE recurring_income_id = ? AND month = ? LIMIT 1",
-      [recurringIncomeId, month]
+      "SELECT id FROM income WHERE household_id = ? AND recurring_income_id = ? AND month = ? LIMIT 1",
+      [hid, recurringIncomeId, month]
     );
     return !!row;
   }
@@ -119,6 +138,10 @@ export class IncomeRepository implements IIncomeRepository {
       updates.push("type = ?");
       params.push(data.type);
     }
+    if (data.incomeKind != null) {
+      updates.push("income_type = ?");
+      params.push(data.incomeKind);
+    }
     if (data.description !== undefined) {
       updates.push("description = ?");
       params.push(data.description);
@@ -132,11 +155,13 @@ export class IncomeRepository implements IIncomeRepository {
       params.push(data.month);
     }
     if (updates.length === 0) return;
-    params.push(id);
-    await run(`UPDATE income SET ${updates.join(", ")} WHERE id = ?`, params);
+    const hid = requireHouseholdId();
+    params.push(id, hid);
+    await run(`UPDATE income SET ${updates.join(", ")} WHERE id = ? AND household_id = ?`, params);
   }
 
   async delete(id: number): Promise<void> {
-    await run("DELETE FROM income WHERE id = ?", [id]);
+    const hid = requireHouseholdId();
+    await run("DELETE FROM income WHERE id = ? AND household_id = ?", [id, hid]);
   }
 }

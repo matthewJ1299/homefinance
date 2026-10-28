@@ -5,21 +5,29 @@ import { addDays, format, isSameMonth, startOfMonth, startOfWeek } from "date-fn
 import type { CalendarEventOccurrence } from "@/lib/services/calendar.service";
 import { occurrenceCoversDate, occurrenceSegmentEnd } from "@/lib/utils/calendar-occurrence";
 import { cn } from "@/lib/utils";
+import { AvatarCircle } from "@/components/ui/avatar-circle";
 
 const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-function uniqueDotColors(occurrences: CalendarEventOccurrence[]): string[] {
-  const colors: string[] = [];
+/**
+ * Whose day it is, at a glance.
+ *
+ * Initials rather than colour dots: a dot says "something is on", which the
+ * cell already implies. A name says who, which is the question a shared
+ * calendar actually gets asked. Category colour stays as the secondary cue.
+ */
+function uniqueAttendees(occurrences: CalendarEventOccurrence[]): string[] {
+  const names: string[] = [];
   const seen = new Set<string>();
   for (const o of occurrences) {
-    const c = o.categoryColor?.trim();
-    if (c && !seen.has(c)) {
-      seen.add(c);
-      colors.push(c);
+    const name = o.createdByName?.trim();
+    if (name && !seen.has(name)) {
+      seen.add(name);
+      names.push(name);
     }
-    if (colors.length >= 3) break;
+    if (names.length >= 3) break;
   }
-  return colors;
+  return names;
 }
 
 function isSingleDayOccurrence(o: CalendarEventOccurrence): boolean {
@@ -153,7 +161,7 @@ export function MonthGrid({
                   const isSelected = dateStr === selectedDate;
                   const isToday = dateStr === todayDate;
                   const dayEvents = singlesByDate.get(dateStr) ?? [];
-                  const dotColors = uniqueDotColors(dayEvents);
+                  const attendees = uniqueAttendees(dayEvents);
                   const coveredByMulti = occurrences.some(
                     (o) => !isSingleDayOccurrence(o) && occurrenceCoversDate(o, dateStr)
                   );
@@ -182,16 +190,12 @@ export function MonthGrid({
                       >
                         {format(d, "d")}
                       </span>
-                      <div className="mt-0.5 flex h-1.5 items-center justify-center gap-0.5">
-                        {!coveredByMulti && dotColors.length === 0 && dayEvents.length > 0 ? (
+                      <div className="mt-0.5 flex h-[17px] items-center justify-center gap-0.5">
+                        {!coveredByMulti && attendees.length === 0 && dayEvents.length > 0 ? (
                           <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
                         ) : !coveredByMulti ? (
-                          dotColors.map((color, i) => (
-                            <span
-                              key={`${dateStr}-dot-${i}`}
-                              className="h-1.5 w-1.5 shrink-0 rounded-full"
-                              style={{ backgroundColor: color }}
-                            />
+                          attendees.map((name) => (
+                            <AvatarCircle key={`${dateStr}-${name}`} name={name} size={17} />
                           ))
                         ) : null}
                       </div>

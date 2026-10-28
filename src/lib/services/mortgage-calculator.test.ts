@@ -9,13 +9,19 @@ import {
 } from "./mortgage-calculator";
 import type { MortgageParams } from "@/lib/types/mortgage.types";
 
+/** A is the primary (largest base split), B the other. Ids, not positions. */
+const A = 1;
+const B = 2;
+
 const baseParams: MortgageParams = {
   loanAmount: 1_000_000,
   monthlyRate: 0.01,
   termMonths: 240,
   propertyValue: 1_200_000,
-  userA: { deposit: 200_000, baseSplitPct: 0.5, monthlyCap: null },
-  userB: { deposit: 100_000, baseSplitPct: 0.5, monthlyCap: null },
+  people: [
+    { userId: A, deposit: 200_000, baseSplitPct: 0.5, monthlyCap: null },
+    { userId: B, deposit: 100_000, baseSplitPct: 0.5, monthlyCap: null },
+  ],
 };
 
 describe("mortgage-calculator", () => {
@@ -52,7 +58,7 @@ describe("mortgage-calculator", () => {
       const result = simulateSchedule(
         baseParams,
         M,
-        Math.round(0.5 * M),
+        { [B]: Math.round(0.5 * M) },
         0,
         "2024-01"
       );
@@ -76,7 +82,7 @@ describe("mortgage-calculator", () => {
       const result = simulateSchedule(
         baseParams,
         M,
-        Math.round(0.5 * M),
+        { [B]: Math.round(0.5 * M) },
         0,
         "2024-01"
       );
@@ -91,16 +97,16 @@ describe("mortgage-calculator", () => {
       }
     });
 
-    it("userAPayment + userBPayment = totalPayment", () => {
+    it("every person's payment sums to totalPayment", () => {
       const M = standardMonthlyPayment(
         baseParams.loanAmount,
         baseParams.monthlyRate,
         baseParams.termMonths
       );
       const userBBase = Math.round(0.5 * M);
-      const result = simulateSchedule(baseParams, M, userBBase, 0, "2024-01");
+      const result = simulateSchedule(baseParams, M, { [B]: userBBase }, 0, "2024-01");
       for (const row of result.schedule) {
-        expect(row.userAPayment + row.userBPayment).toBe(row.totalPayment);
+        expect(row.paymentByUserId[A] + row.paymentByUserId[B]).toBe(row.totalPayment);
       }
     });
 
@@ -113,7 +119,7 @@ describe("mortgage-calculator", () => {
       const result = simulateSchedule(
         baseParams,
         M,
-        Math.round(0.5 * M),
+        { [B]: Math.round(0.5 * M) },
         0,
         "2024-01",
         (month) => (month === 1 ? 5000 : 0)
@@ -127,8 +133,10 @@ describe("mortgage-calculator", () => {
     it("returns 0 when userA already at or above target equity", () => {
       const params: MortgageParams = {
         ...baseParams,
-        userA: { deposit: 500_000, baseSplitPct: 0.5, monthlyCap: null },
-        userB: { deposit: 100_000, baseSplitPct: 0.5, monthlyCap: null },
+        people: [
+          { userId: A, deposit: 500_000, baseSplitPct: 0.5, monthlyCap: null },
+          { userId: B, deposit: 100_000, baseSplitPct: 0.5, monthlyCap: null },
+        ],
       };
       const topUp = calculateTopUp(params, "2024-01", 0.5);
       expect(topUp).toBe(0);
@@ -137,8 +145,10 @@ describe("mortgage-calculator", () => {
     it("returns positive when userA needs more equity share", () => {
       const params: MortgageParams = {
         ...baseParams,
-        userA: { deposit: 50_000, baseSplitPct: 0.5, monthlyCap: null },
-        userB: { deposit: 200_000, baseSplitPct: 0.5, monthlyCap: null },
+        people: [
+          { userId: A, deposit: 50_000, baseSplitPct: 0.5, monthlyCap: null },
+          { userId: B, deposit: 200_000, baseSplitPct: 0.5, monthlyCap: null },
+        ],
       };
       const topUp = calculateTopUp(params, "2024-01", 0.5);
       expect(topUp).toBeGreaterThanOrEqual(0);
@@ -152,14 +162,16 @@ describe("mortgage-calculator", () => {
       expect(result.monthlyTopUp).toBeGreaterThanOrEqual(0);
       expect(result.projectedMonths).toBeGreaterThan(0);
       expect(result.schedule.length).toBe(result.projectedMonths);
-      expect(result.userAFinalEquityPct + result.userBFinalEquityPct).toBeCloseTo(1, 5);
+      expect(result.finalEquityPctByUserId[A] + result.finalEquityPctByUserId[B]).toBeCloseTo(1, 5);
     });
 
     it("convergenceAchieved is true when target is 0.5 and split is even", () => {
       const params: MortgageParams = {
         ...baseParams,
-        userA: { deposit: 150_000, baseSplitPct: 0.5, monthlyCap: null },
-        userB: { deposit: 150_000, baseSplitPct: 0.5, monthlyCap: null },
+        people: [
+          { userId: A, deposit: 150_000, baseSplitPct: 0.5, monthlyCap: null },
+          { userId: B, deposit: 150_000, baseSplitPct: 0.5, monthlyCap: null },
+        ],
       };
       const result = generateSchedule(params, "2024-01", 0.5);
       expect(result.convergenceAchieved).toBe(true);
@@ -170,8 +182,10 @@ describe("mortgage-calculator", () => {
     it("returns feasible when userA deposit is at least half of total deposit", () => {
       const params: MortgageParams = {
         ...baseParams,
-        userA: { deposit: 200_000, baseSplitPct: 0, monthlyCap: null },
-        userB: { deposit: 100_000, baseSplitPct: 0.5, monthlyCap: null },
+        people: [
+          { userId: A, deposit: 200_000, baseSplitPct: 0, monthlyCap: null },
+          { userId: B, deposit: 100_000, baseSplitPct: 0.5, monthlyCap: null },
+        ],
       };
       const { feasible, bestAchievablePct } = checkConvergenceFeasibility(
         params,
@@ -198,10 +212,9 @@ describe("mortgage-calculator", () => {
         startMonth,
         startDate: "2024-01",
         M,
-        userBBase,
+        bases: { [B]: userBBase },
         topUp: 0,
-        initialUserATotal: 50_000,
-        initialUserBTotal: 50_000,
+        initialTotals: { [A]: 50_000, [B]: 50_000 },
       });
       expect(result.schedule.length).toBeGreaterThan(0);
       expect(result.schedule[0].openingBalance).toBe(startBalance);

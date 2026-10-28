@@ -68,9 +68,23 @@ export async function clearQueue(tempIds: string[]): Promise<void> {
 
 export function useOfflineQueue() {
   const [queue, setQueue] = useState<QueuedExpense[]>([]);
-  const [isOnline, setIsOnline] = useState(
-    typeof navigator !== "undefined" ? navigator.onLine : true
-  );
+  /**
+   * Starts optimistic, and is corrected on mount by the effect below.
+   *
+   * This used to read `navigator.onLine` during render, guarded by a
+   * `typeof navigator !== "undefined"` check -- which is precisely the
+   * server/client branch React's hydration error names. The server has no
+   * `navigator`, so it rendered `true` and `OfflineIndicator` returned null; a
+   * client reporting `false` rendered a span instead. One extra DOM node on the
+   * client was enough to fail hydration, tear down the shell, and leave the
+   * Suspense reveal script looking for a marker that no longer existed
+   * ("Cannot read properties of null (reading 'parentNode')").
+   *
+   * The first client render must produce what the server produced. Being
+   * briefly wrong about connectivity for one tick is the correct trade: the
+   * effect fixes it before paint settles, and nothing else reads this value.
+   */
+  const [isOnline, setIsOnline] = useState(true);
 
   const refreshQueue = useCallback(async () => {
     const q = await getQueue();

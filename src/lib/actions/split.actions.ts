@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { setRequestContext } from "@/lib/db/request-context";
+import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { SplitService } from "@/lib/services/split.service";
+import { BudgetService } from "@/lib/services/budget.service";
+import { getDefaultBudgetMonthForUser } from "@/lib/utils/budget-month-for-user";
 import { getUserRepository, getSplitSettlementRepository } from "@/lib/repositories";
 import { formatRand } from "@/lib/utils/currency";
 import { settleSplitSchema, updateSettlementSchema, deleteSettlementSchema } from "@/lib/validators/split.schema";
@@ -18,7 +20,7 @@ export async function getSplitBalance(groupId?: number): Promise<
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const splitService = new SplitService();
   const balance = await splitService.getBalance(Number(session.user.id), groupId);
   return { success: true, balance };
@@ -31,7 +33,7 @@ export async function getSplitHistory(groupId?: number): Promise<
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const splitService = new SplitService();
   const history = await splitService.getSplitHistory(Number(session.user.id), groupId);
   return { success: true, history };
@@ -42,12 +44,14 @@ export async function settleSplit(formData: {
   amountCents: number;
   date?: string;
   groupId: number;
+  /** Where the repayment lands for the recipient. Defaults to their most overspent. */
+  targetCategoryId?: number;
 }): Promise<SettleSplitResult> {
   const session = await auth();
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const payerUserId = Number(session.user.id);
   const parsed = settleSplitSchema.safeParse({
     ...formData,
@@ -86,6 +90,19 @@ export async function settleSplit(formData: {
 
   const date = parsed.data.date ?? new Date().toISOString().slice(0, 10);
 
+  // Where does the recipient's money land? Their choice when they made one,
+  // otherwise the category they are furthest over on -- that is the hole the
+  // repayment is most likely meant to fill.
+  let targetCategoryId = parsed.data.targetCategoryId;
+  if (targetCategoryId == null) {
+    const month = await getDefaultBudgetMonthForUser(parsed.data.recipientUserId);
+    const overview = await new BudgetService().getOverview(month, parsed.data.recipientUserId);
+    const mostOverspent = overview.categories
+      .filter((c) => c.available < 0)
+      .sort((a, b) => a.available - b.available)[0];
+    targetCategoryId = mostOverspent?.categoryId;
+  }
+
   try {
     await splitService.settle(
       payerUserId,
@@ -94,7 +111,8 @@ export async function settleSplit(formData: {
       date,
       payer.name,
       recipient.name,
-      parsed.data.groupId
+      parsed.data.groupId,
+      targetCategoryId
     );
   } catch (err) {
     return {
@@ -120,7 +138,7 @@ export async function updateSettlement(formData: {
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const payerUserId = Number(session.user.id);
   const parsed = updateSettlementSchema.safeParse(formData);
   if (!parsed.success) {
@@ -170,7 +188,7 @@ export async function deleteSettlement(settlementId: number): Promise<SettleSpli
   if (!session?.user?.id) {
     return { success: false, error: "Unauthorized" };
   }
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const payerUserId = Number(session.user.id);
   const parsed = deleteSettlementSchema.safeParse({ settlementId });
   if (!parsed.success) {

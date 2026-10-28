@@ -3,8 +3,9 @@ import {
   getRecurringExpenseRepository,
   getIncomeRepository,
   getExpenseRepository,
-  getUserRepository,
+  getExpenseParticipantRepository,
 } from "@/lib/repositories";
+import { budgetMonthStartDayForUser } from "@/lib/utils/budget-month-for-user";
 import { dateForMonthAndDay, nextMonth } from "@/lib/utils/date";
 
 export interface PopulateMonthResult {
@@ -21,7 +22,7 @@ export class PopulationService {
     private recurringExpenseRepo = getRecurringExpenseRepository(),
     private incomeRepo = getIncomeRepository(),
     private expenseRepo = getExpenseRepository(),
-    private userRepo = getUserRepository()
+    private participantRepo = getExpenseParticipantRepository()
   ) {}
 
   /**
@@ -68,7 +69,7 @@ export class PopulationService {
         const exists = await this.expenseRepo.hasExpenseFromRecurring(rec.id, month);
         if (exists) continue;
         const date = await this.getRecurringDateForBudgetMonth(month, rec.userId, rec.dayOfMonth);
-        await this.expenseRepo.create({
+        const { id } = await this.expenseRepo.create({
           userId: rec.userId,
           categoryId: rec.categoryId,
           amount: rec.amount,
@@ -77,6 +78,14 @@ export class PopulationService {
           month,
           recurringExpenseId: rec.id,
         });
+        // A template belongs to one person for the whole amount, but it still
+        // needs the participant row every other write path produces. Without
+        // it a recurring expense is only counted by the pre-backfill fallback,
+        // and the reconciliation invariant -- spent equals the sum of your own
+        // shares -- holds by luck rather than by construction.
+        await this.participantRepo.createMany(id, [
+          { userId: rec.userId, shareMinor: rec.amount },
+        ]);
         result.expensesCreated += 1;
       } catch (e) {
         result.errors.push(
@@ -101,7 +110,7 @@ export class PopulationService {
   private async getBudgetMonthStartDay(userId: number): Promise<number> {
     const cached = this.budgetStartDayByUserId.get(userId);
     if (cached != null) return cached;
-    const startDay = await this.userRepo.getBudgetMonthStartDay(userId);
+    const startDay = await budgetMonthStartDayForUser(userId);
     this.budgetStartDayByUserId.set(userId, startDay);
     return startDay;
   }

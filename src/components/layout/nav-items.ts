@@ -15,7 +15,10 @@ import {
   GitCompare,
   Sparkles,
   ReceiptText,
+  Shield,
 } from "lucide-react";
+import { NAV_HREF_FEATURE, type FeatureKey } from "@/lib/features/registry";
+import type { HomeMode } from "@/lib/features/home-mode";
 
 export interface NavItem {
   href: string;
@@ -23,13 +26,26 @@ export interface NavItem {
   icon: LucideIcon;
 }
 
-/** Mobile bottom bar: Home, Calendar, [center Add], Lists, Budget */
+/** Mobile bottom bar (budget mode): Home, Calendar, [center Add], Lists, Budget */
 export const bottomNavItemsMobile: NavItem[] = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/lists", label: "Lists", icon: ListTodo },
   { href: "/budget", label: "Budget", icon: PiggyBank },
 ];
+
+/** Tracker mode has no Budget page, so that slot becomes Accounts. */
+const bottomNavItemsTracker: NavItem[] = [
+  { href: "/dashboard", label: "Home", icon: LayoutDashboard },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/lists", label: "Lists", icon: ListTodo },
+  { href: "/accounts", label: "Accounts", icon: CreditCard },
+];
+
+/** The mobile bottom bar for a user's home mode. */
+export function bottomNavItemsFor(homeMode: HomeMode): NavItem[] {
+  return homeMode === "tracker" ? bottomNavItemsTracker : bottomNavItemsMobile;
+}
 
 /** Desktop sidebar and mobile hamburger: all pages in one list */
 export const fullNavItems: NavItem[] = [
@@ -38,28 +54,81 @@ export const fullNavItems: NavItem[] = [
   { href: "/add", label: "Add", icon: Plus },
   { href: "/lists", label: "Lists", icon: ListTodo },
   { href: "/expenses", label: "Transactions", icon: Receipt },
-  { href: "/recon", label: "Recon", icon: GitCompare },
-  { href: "/splits", label: "Splits", icon: SplitSquareVertical },
-  { href: "/what-i-owe", label: "What I owe", icon: ReceiptText },
+  { href: "/recon", label: "From your bank", icon: GitCompare },
+  { href: "/splits", label: "Shared costs", icon: SplitSquareVertical },
+  { href: "/what-i-owe", label: "Statement", icon: ReceiptText },
   { href: "/budget", label: "Budget", icon: PiggyBank },
   { href: "/budget-ai-report", label: "Budget AI report", icon: Sparkles },
   { href: "/accounts", label: "Accounts", icon: CreditCard },
   { href: "/mortgage", label: "Mortgage", icon: Wallet },
   { href: "/goals", label: "Goals", icon: Target },
-  { href: "/summary", label: "Summary", icon: BarChart3 },
+  { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-/** Sidebar / hamburger: hide Recon, Budget AI report, and What I owe when those features are off for the user. */
-export function navItemsForUserPreferences(
+/**
+ * Desktop grouping. The flat list of fifteen was a wall; these four headings
+ * are how people actually think about the app -- what they touch daily, the
+ * money, the long view, and the bits you set up once.
+ *
+ * Hrefs not listed here still render, under "Bigger picture", so adding a page
+ * cannot silently drop it from the sidebar.
+ */
+export const sidebarGroups: Array<{ name: string; items: string[] }> = [
+  { name: "Every day", items: ["/dashboard", "/calendar", "/lists", "/recon"] },
+  { name: "Money", items: ["/budget", "/expenses", "/accounts", "/splits", "/what-i-owe"] },
+  { name: "Bigger picture", items: ["/mortgage", "/goals", "/reports", "/budget-ai-report"] },
+  { name: "Setup", items: ["/settings"] },
+];
+
+/** Groups `items` by `sidebarGroups`, dropping empty groups. */
+export function groupNavItems(items: NavItem[]): Array<{ name: string; items: NavItem[] }> {
+  const byHref = new Map(items.map((i) => [i.href, i]));
+  const claimed = new Set(sidebarGroups.flatMap((g) => g.items));
+  const groups = sidebarGroups.map((g) => ({
+    name: g.name,
+    items: g.items.map((h) => byHref.get(h)).filter((i): i is NavItem => i != null),
+  }));
+  const leftovers = items.filter((i) => !claimed.has(i.href));
+  if (leftovers.length > 0) {
+    const bigger = groups.find((g) => g.name === "Bigger picture");
+    if (bigger) bigger.items.push(...leftovers);
+  }
+  return groups.filter((g) => g.items.length > 0);
+}
+
+/** Admin portal link — shown only to super-admins. */
+export const adminNavItem: NavItem = { href: "/admin", label: "Admin", icon: Shield };
+
+/**
+ * Nav hrefs that belong to the budget layer and are hidden in tracker mode.
+ * Goals is a view of the budget and Budget AI report analyses it, so both go
+ * dark alongside the Budget page itself when a user switches budgeting off.
+ */
+export const BUDGET_MODE_HREFS: ReadonlySet<string> = new Set([
+  "/budget",
+  "/budget-ai-report",
+  "/goals",
+]);
+
+/** Drop budget-only nav items when the user runs in tracker mode. */
+export function navItemsForHomeMode(items: NavItem[], homeMode: HomeMode): NavItem[] {
+  if (homeMode !== "tracker") return items;
+  return items.filter((item) => !BUDGET_MODE_HREFS.has(item.href));
+}
+
+/** Filter nav items by household entitlements (catalogue-driven). */
+export function navItemsForFeatures(
   items: NavItem[],
-  reconEnabled: boolean,
-  aiFeatureAllowed: boolean,
-  owedToMeEnabled: boolean
+  features: ReadonlySet<FeatureKey>,
+  options?: { includeAdmin?: boolean }
 ): NavItem[] {
-  let out = items;
-  if (!reconEnabled) out = out.filter((i) => i.href !== "/recon");
-  if (!aiFeatureAllowed) out = out.filter((i) => i.href !== "/budget-ai-report");
-  if (!owedToMeEnabled) out = out.filter((i) => i.href !== "/what-i-owe");
+  let out = items.filter((item) => {
+    const gate = NAV_HREF_FEATURE.get(item.href);
+    return gate == null || features.has(gate);
+  });
+  if (options?.includeAdmin) {
+    out = [...out, adminNavItem];
+  }
   return out;
 }

@@ -10,9 +10,14 @@ import { toast } from "sonner";
 
 interface BudgetMonthRangeSettingsProps {
   currentStartDay: number;
+  /** Extra line under the heading. Used to say the day is household-wide. */
+  description?: string;
 }
 
-export function BudgetMonthRangeSettings({ currentStartDay }: BudgetMonthRangeSettingsProps) {
+export function BudgetMonthRangeSettings({
+  currentStartDay,
+  description,
+}: BudgetMonthRangeSettingsProps) {
   const router = useRouter();
   const [value, setValue] = useState(String(currentStartDay));
   const [message, setMessage] = useState<string | null>(null);
@@ -45,6 +50,9 @@ export function BudgetMonthRangeSettings({ currentStartDay }: BudgetMonthRangeSe
     <section className="rounded-lg border bg-card p-4 space-y-3">
       <div>
         <h2 className="text-sm font-medium">Budget month range</h2>
+        {description ? (
+          <p className="text-xs font-medium text-foreground mt-1">{description}</p>
+        ) : null}
         <p className="text-xs text-muted-foreground mt-1">
           Choose which day each budget month starts. The period runs from that day until the day before the
           same calendar day next month (e.g. 25th to 24th). Day 1 means a normal calendar month. Days are

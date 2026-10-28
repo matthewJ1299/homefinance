@@ -1,4 +1,5 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
+import { requireHouseholdId } from "@/lib/db/request-context";
 import type {
   ISplitSettlementRepository,
   SplitSettlementRow,
@@ -41,8 +42,9 @@ export class SplitSettlementRepository implements ISplitSettlementRepository {
     incomeId?: number | null;
     splitExpenseGroupId?: number | null;
   }): Promise<{ id: number }> {
+    const hid = requireHouseholdId();
     await run(
-      "INSERT INTO split_settlements (payer_user_id, recipient_user_id, amount, date, expense_id, income_id, split_expense_group_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO split_settlements (payer_user_id, recipient_user_id, amount, date, expense_id, income_id, split_expense_group_id, household_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       [
         data.payerUserId,
         data.recipientUserId,
@@ -51,6 +53,7 @@ export class SplitSettlementRepository implements ISplitSettlementRepository {
         data.expenseId ?? null,
         data.incomeId ?? null,
         data.splitExpenseGroupId ?? null,
+        hid,
       ]
     );
     return { id: await lastInsertId() };
@@ -65,13 +68,14 @@ export class SplitSettlementRepository implements ISplitSettlementRepository {
   }
 
   async findAllForUser(userId: number, groupId?: number): Promise<SplitSettlementWithNames[]> {
+    const hid = requireHouseholdId();
     let sql = `SELECT ss.id, ss.payer_user_id, ss.recipient_user_id, ss.amount, ss.date, ss.expense_id, ss.income_id, ss.split_expense_group_id,
               p.name AS payer_name, r.name AS recipient_name
        FROM split_settlements ss
-       INNER JOIN users p ON ss.payer_user_id = p.id
-       INNER JOIN users r ON ss.recipient_user_id = r.id
-       WHERE (ss.payer_user_id = ? OR ss.recipient_user_id = ?)`;
-    const params: (string | number | boolean | null)[] = [userId, userId];
+       INNER JOIN users p ON ss.payer_user_id = p.id AND p.household_id = ss.household_id
+       INNER JOIN users r ON ss.recipient_user_id = r.id AND r.household_id = ss.household_id
+       WHERE ss.household_id = ? AND (ss.payer_user_id = ? OR ss.recipient_user_id = ?)`;
+    const params: (string | number | boolean | null)[] = [hid, userId, userId];
     if (groupId != null) {
       sql += " AND ss.split_expense_group_id = ?";
       params.push(groupId);
@@ -106,9 +110,10 @@ export class SplitSettlementRepository implements ISplitSettlementRepository {
   }
 
   async findByExpenseId(expenseId: number): Promise<SplitSettlementRow | null> {
+    const hid = requireHouseholdId();
     const row = await get<SettlementRow>(
-      "SELECT id, payer_user_id, recipient_user_id, amount, date, expense_id, income_id, split_expense_group_id FROM split_settlements WHERE expense_id = ? LIMIT 1",
-      [expenseId]
+      "SELECT id, payer_user_id, recipient_user_id, amount, date, expense_id, income_id, split_expense_group_id FROM split_settlements WHERE household_id = ? AND expense_id = ? LIMIT 1",
+      [hid, expenseId]
     );
     return row ? toRow(row) : null;
   }
@@ -138,6 +143,7 @@ export class SplitSettlementRepository implements ISplitSettlementRepository {
   }
 
   async delete(id: number): Promise<void> {
-    await run("DELETE FROM split_settlements WHERE id = ?", [id]);
+    const hid = requireHouseholdId();
+    await run("DELETE FROM split_settlements WHERE id = ? AND household_id = ?", [id, hid]);
   }
 }

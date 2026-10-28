@@ -1,4 +1,5 @@
-import { all, get, run, lastInsertId } from "@/lib/db";
+import { all, run, lastInsertId } from "@/lib/db";
+import { requireHouseholdId } from "@/lib/db/request-context";
 import type { PushSubscriptionRecord } from "../interfaces/push-subscription.repository";
 import type {
   IPushSubscriptionRepository,
@@ -32,29 +33,34 @@ function toRecord(r: PushSubscriptionRow): PushSubscriptionRecord {
 
 export class PushSubscriptionRepository implements IPushSubscriptionRepository {
   async create(userId: number, data: CreatePushSubscriptionInput): Promise<{ id: number }> {
+    const hid = requireHouseholdId();
     await run(
-      `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth) VALUES (?, ?, ?, ?)`,
-      [userId, data.endpoint, data.p256dh, data.auth]
+      `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, household_id) VALUES (?, ?, ?, ?, ?)`,
+      [userId, data.endpoint, data.p256dh, data.auth, hid]
     );
     return { id: await lastInsertId() };
   }
 
   async findByUserId(userId: number): Promise<PushSubscriptionRecord[]> {
+    const hid = requireHouseholdId();
     const rows = await all<PushSubscriptionRow>(
-      `${SELECT_FIELDS} WHERE user_id = ? ORDER BY id ASC`,
-      [userId]
+      `${SELECT_FIELDS} WHERE user_id = ? AND household_id = ? ORDER BY id ASC`,
+      [userId, hid]
     );
     return rows.map(toRecord);
   }
 
   async deleteByEndpoint(endpoint: string): Promise<void> {
-    await run("DELETE FROM push_subscriptions WHERE endpoint = ?", [endpoint]);
+    const hid = requireHouseholdId();
+    await run("DELETE FROM push_subscriptions WHERE endpoint = ? AND household_id = ?", [endpoint, hid]);
   }
 
   async deleteByEndpointAndUserId(endpoint: string, userId: number): Promise<void> {
-    await run("DELETE FROM push_subscriptions WHERE endpoint = ? AND user_id = ?", [
+    const hid = requireHouseholdId();
+    await run("DELETE FROM push_subscriptions WHERE endpoint = ? AND user_id = ? AND household_id = ?", [
       endpoint,
       userId,
+      hid,
     ]);
   }
 }

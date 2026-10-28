@@ -1,3 +1,4 @@
+import type { HouseholdMember } from "@/lib/types/household-member";
 import { auth } from "@/lib/auth";
 import {
   getCategoryRepository,
@@ -18,14 +19,14 @@ export default async function AddPage() {
     getSplitGroupRepository().findAll(),
     getSharedListRepository().findAll(),
   ]);
-  const otherUserName = otherUsers[0]?.name;
+  const members: HouseholdMember[] = otherUsers.map((u) => ({ id: u.id, name: u.name }));
 
   return (
     <div className="p-4">
       <AddHubClient
         categories={categories}
         userId={userId}
-        otherUserName={otherUserName}
+        members={members}
         splitGroups={splitGroups}
         lists={lists}
       />

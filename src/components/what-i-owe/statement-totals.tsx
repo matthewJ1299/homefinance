@@ -12,6 +12,8 @@ interface StatementTotalsProps {
   splitNet: number;
   mortgageAmount: number;
   mortgageLabel: string;
+  /** False when this person is not on the bond -- the row is left out entirely. */
+  showMortgage?: boolean;
 }
 
 export function StatementTotals({
@@ -23,8 +25,9 @@ export function StatementTotals({
   splitNet,
   mortgageAmount,
   mortgageLabel,
+  showMortgage = true,
 }: StatementTotalsProps) {
-  const total = splitNet + mortgageAmount;
+  const total = splitNet + (showMortgage ? mortgageAmount : 0);
   const hasContra = contraTotal > 0;
 
   return (
@@ -100,10 +103,12 @@ export function StatementTotals({
           )}
         </div>
       </details>
-      <div className="flex items-center justify-between gap-2 border-t px-4 py-3 text-sm">
-        <span className="font-medium">{mortgageLabel}</span>
-        <span className="tabular-nums font-medium">{formatRand(mortgageAmount)}</span>
-      </div>
+      {showMortgage ? (
+        <div className="flex items-center justify-between gap-2 border-t px-4 py-3 text-sm">
+          <span className="font-medium">{mortgageLabel}</span>
+          <span className="tabular-nums font-medium">{formatRand(mortgageAmount)}</span>
+        </div>
+      ) : null}
       <div className="flex items-center justify-between gap-2 border-t px-4 py-4 text-base font-semibold">
         <span>Total</span>
         <span className="tabular-nums">{formatRand(total)}</span>

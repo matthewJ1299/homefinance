@@ -85,8 +85,9 @@ export function TransferMoneyModal({
       <DialogHeader>Transfer Money</DialogHeader>
       <div className="space-y-3">
         <div>
-          <Label>From account</Label>
+          <Label htmlFor="transfer-from">From account</Label>
           <select
+            id="transfer-from"
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
             value={fromAccountId ?? ""}
             onChange={(e) => setFromAccountId(e.target.value ? Number(e.target.value) : null)}
@@ -100,8 +101,9 @@ export function TransferMoneyModal({
           </select>
         </div>
         <div>
-          <Label>To account</Label>
+          <Label htmlFor="transfer-to">To account</Label>
           <select
+            id="transfer-to"
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
             value={toAccountId ?? ""}
             onChange={(e) => setToAccountId(e.target.value ? Number(e.target.value) : null)}
@@ -115,8 +117,9 @@ export function TransferMoneyModal({
           </select>
         </div>
         <div>
-          <Label>Amount (R)</Label>
+          <Label htmlFor="transfer-amount">Amount (R)</Label>
           <Input
+            id="transfer-amount"
             type="text"
             inputMode="decimal"
             placeholder="0.00"
@@ -125,8 +128,9 @@ export function TransferMoneyModal({
           />
         </div>
         <div>
-          <Label>Note (optional)</Label>
+          <Label htmlFor="transfer-note">Note (optional)</Label>
           <Input
+            id="transfer-note"
             type="text"
             placeholder="e.g. Monthly savings"
             value={note}

@@ -1,0 +1,1 @@
+ALTER TABLE shared_lists ADD COLUMN IF NOT EXISTS category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL;

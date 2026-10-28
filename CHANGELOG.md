@@ -2,8 +2,215 @@
 
 ## [Unreleased]
 
+### Added — recon Out vs In, and the bank message on a decision row
+
+**Need a decision** treated every bank line as a spend and opened the Add sheet immediately, so you could not see the email and you could not tell a deposit from a purchase. A tap now opens the same **Fetched mail detail** dialog as the Description cell on the pending table (from, subject, received, full body). **File it** is on that dialog; it opens the Add sheet on **Spend** or **Income** according to the sign.
+
+Amounts are labelled **Out** or **In**, not only coloured. The parsers used to store an absolute value, so every historical row stays Out until you re-sync. New inflows (deposit / credited / salary, and similar) are stored negative. A minus on the amount line is still a debit (Out) — that is how ABSA writes purchases. Expense rules do not auto-place inflows, and inflows are not matched as expense duplicates. Filing still writes a positive amount into expenses or income.
+
+### Added — edit recon merchant rules
+
+**Your rules** was a list with only Remove. A rule you cannot correct is one you delete. Tapping a rule now opens a sheet for the three things it actually stores: how it matches (exact or contains), the merchant text, the category, and who shares the next matching spend. Contains is a first-class choice there — that is how "Woolworths Claremont 4471" becomes "woolworths" without SQL. Remove lives in the same sheet, behind a confirm, because it is not the default job of the list.
+
+Edit is an `UPDATE` of that row. If the new merchant+kind pair already belongs to another of your rules, it is refused rather than merged — `times_used` would otherwise mean two histories. Creating from **Do this every time** is still an upsert on the same pair, which is the right behaviour when you are re-teaching the same merchant from an accept.
+
+Writes go through `ReconRuleService` so the action is not doing roster and category checks itself.
+
+### Fixed — recon "Do this every time" crashed after the rule was already written
+
+Accepting a bank row and saving a merchant rule ran `INSERT recon_rules … ON CONFLICT DO UPDATE`, then asked `lastInsertId()` for the new id. The Postgres client treated every `ON CONFLICT` as having nothing to return, so it never attached `RETURNING id`, and `lastInsertId()` threw `No previous INSERT in this context`. The row was committed; the server action was not wrapped, so Next reported it as an unhandled error and bulk accept stopped. Upserts that update a row now return their id the same way a plain INSERT does. The recon-rule actions go through `authedAction`, so a later repository failure is a toast rather than a crash.
+
+### Fixed — Coolify / standalone boot (`Cannot find module …/lib/db/index`)
+
+Production `instrumentation.ts` used `webpackIgnore` and a relative `./lib/db/index` import. Next compiles that file to `.next/server/instrumentation.js`, so Node looked for `/app/.next/server/lib/db/index`, which standalone never copies. The image printed Ready, then looped `Failed to prepare server`. Node boot work is now `src/instrumentation-node.ts`, loaded at runtime with `tsx` (`webpackIgnore` still keeps `pg` / `web-push` out of the Edge instrumentation compiler — bundling that graph is what fails the production build). The runner image copies `src/` and `tsconfig.json` so `@/*` resolves. Schema push in the entrypoint was already succeeding; this only unblocks the Next process.
+
+### Added — in-app feedback
+
+People can say what is wrong without leaving the screen it happened on, and a
+super-admin reads it in one place.
+
+- **"Send feedback" in the nav** (desktop sidebar and the mobile menu) opens a
+  modal with free text. A button rather than a route: navigating to a feedback
+  page would lose the screen the person wants to talk about, which is the one
+  thing the report needs.
+- **Failures offer to become a report.** A genuine failure shows a toast with a
+  **"Tell us"** action; taking it opens the same modal with the error text shown
+  read-only and "what were you trying to do" already filled in — asking someone
+  to remember what they just did is how you get "it broke".
+- **`/admin/feedback`** lists everything across every household, newest first,
+  with a **New** marker on what arrived since that admin last looked, and an
+  unread count on the Admin nav item. Per-admin: one super-admin reading the
+  list does not clear the badge for another. The count is read *before* the
+  marker moves, so the screen says "1 new" on the visit that clears it rather
+  than the visit after.
+- **Stored per report:** the text, the person and their household, what they
+  were attempting, the route they were on, the error that prompted it, and
+  whether it came from the menu or a failure — an error-raised report is a bug
+  report, a menu-raised one is usually a suggestion, and that is worth knowing
+  before reading.
+
+Migration `0052_feedback_pg.sql`, following the conventions added earlier in this
+release: a composite tenant foreign key on `(user_id, household_id)`, CHECK
+constraints on `source` and on non-empty body, and indexes for both read shapes.
+
+**Which failures offer to become a report.** `authedAction` now marks a failure
+`reportable` when it came from an exception rather than a rule the person broke.
+Validation ("Pick a day between 1 and 28") gets a plain toast; an unexpected
+failure gets the affordance. Deciding this on the server is the only place it is
+actually known — a call site cannot tell the two apart from `{ success: false }`.
+Crashes contained by an `ErrorBoundary` and uncaught promise rejections raise it
+automatically, so the coverage does not depend on remembering.
+
+**One thing worth knowing:** the toast is published a task late, because Sonner
+does not replay toasts created before its `<Toaster>` subscribes — an error
+caught during hydration fires in the same commit that mounts it, and the first
+version of this was silently dropping exactly the toasts it existed to show.
+
+### Fixed — the shell's hydration crash
+
+- **`useOfflineQueue` read `navigator.onLine` during render.** Guarded by
+  `typeof navigator !== "undefined"`, which is exactly the server/client branch
+  React's hydration error names: the server has no `navigator` so it rendered
+  `true` and `OfflineIndicator` returned `null`, while a client reporting `false`
+  rendered a span. One extra DOM node on the client failed hydration, tore down
+  the shell, and left React's Suspense reveal script looking for a marker that no
+  longer existed — surfacing as `Cannot read properties of null (reading
+  'parentNode')`. Both errors had this single cause. The initial state is now the
+  server-safe `true`, corrected by the effect that was already there.
+  Next's dev overlay pointed at `mobile-nav-menu.tsx`, which is the *next*
+  element after the missing node rather than the culprit.
+
+### Added — errors are contained instead of fatal
+
+- **`ErrorBoundary`** (`src/components/ui/error-boundary.tsx`) — a named,
+  logging React error boundary with an optional fallback (defaulting to nothing,
+  because replacing the header with an error card is worse than the header being
+  briefly absent).
+- **The shell's chrome is individually contained** — `Header`, `DesktopSidebar`,
+  `BottomNav`, `PushSubscriptionRepair` and the `AddSheet` each sit in their own
+  boundary. These render from the *layout*, above the page segment, so an
+  uncaught throw skipped `(app)/error.tsx` entirely and replaced the whole app
+  with the full-page `global-error` fallback. Verified by injecting a throw into
+  the `Header` server component: the header vanished and every other part of the
+  app kept working, with `[Header] crashed and was contained` in the console.
+
+### Added — the database now enforces its own rules
+
+Three structural migrations. Each was dry-run against real data first; two of the
+checks would have failed as originally written, and the validation is what caught
+them.
+
+- **Tenancy is a database guarantee** (`0048_tenant_composite_fks_pg.sql`) — every
+  tenant-scoped foreign key was two independent constraints: a pointer to a parent
+  row, and separately a `household_id`. Nothing stopped an expense in household A
+  referencing a category in household B; only `requireHouseholdId()` did, and one
+  query was found skipping it. **57 composite foreign keys** on
+  `(fk_column, household_id)` make the cross-tenant reference unrepresentable.
+  `ON DELETE SET NULL (col)` (Postgres 15+ column lists) so `household_id` is never
+  nulled. Excluded on purpose: `household_features.granted_by_user_id`, which points
+  at the granting super-admin and is legitimately cross-household — 56 rows would
+  have failed.
+- **The ledger's polymorphic pointer got real foreign keys**
+  (`0049_ledger_typed_references_pg.sql`, tightened by `0051`) — `reference_type` /
+  `reference_id` carried no FK, so the database could not cascade a delete and every
+  call site had to remember. It didn't: deleting a spend, deleting an income, and
+  editing either amount each desynced the account balance a different way. Typed
+  `expense_id` / `income_id` / `transfer_id` columns with `ON DELETE CASCADE` make
+  the invariant hold whether or not a call site remembers. Backfilled 135 / 21 / 30
+  rows, none orphaned; 5 untyped rows (opening balances, balance-check adjustments)
+  are legitimate and permitted.
+- **Domain constraints** (`0050_domain_check_constraints_pg.sql`) — **9 → 33 CHECK
+  constraints**. Thirteen TEXT columns carried a closed set of values with nothing
+  enforcing it. Each set is the *union* of what the code writes and what the rows
+  hold, because those differ: the code writes `notes.linked_type = 'shared_list_item'`
+  which no row has yet, and rows hold `recon_import_items.parse_type = 'debit'` which
+  the code no longer writes. A constraint built from either source alone would have
+  rejected valid writes. Also: ISO date/month formats, `budget_month_start_day`
+  between 1 and 28, positive transfer amounts, and a transfer's two accounts being
+  distinct.
+
+Date format checks use `[0-9]` rather than `\d`: `\d` matched **zero** of 147
+correctly-formatted rows on this server, so the constraint as first written would
+have rejected every row and failed the migration.
+
+### Fixed — the same ledger bug in three more places
+
+Found by tracing the money paths the original audit missed.
+
+- **`IncomeService` had the identical defect to `ExpenseService`** — `create` was
+  not atomic, and `delete` left the ledger credit behind, inflating the account
+  permanently.
+- **Neither expense nor income synced the ledger on edit** — correcting an amount
+  moved the row on screen and left the account on the old figure, so the balance
+  drifted by the difference on every correction. New
+  `updateAmountByReference` on the repository, called inside the update transaction.
+- **`transferBetweenAccounts` wrote three rows with no transaction** — a failure
+  between the debit and the credit destroys money outright. It is the one operation
+  where a partial write breaks conservation.
+- **`withTransaction` is now re-entrant** — `BudgetAiApplyService` wraps a loop that
+  calls `BudgetService.transfer`, which opened its own transaction: the inner writes
+  took a second pooled client, committed independently, and survived a rollback of
+  the outer. A nested call now joins the open transaction.
+- **The integration fixture never cleaned up `transfers`**, so any test creating one
+  broke teardown on `transfers_from_account_id_fkey` — the asymmetric cascade policy
+  (`account_transactions` cascades, `transfers` blocks) made real.
+
+### Fixed
+
+- **Deleting a spend left its ledger row, so account balances stayed wrong forever** — `ExpenseService.create` writes an `account_transactions` debit when a spend is filed against an account; nothing removed it, and the repository had no delete method at all. Because `reference_type`/`reference_id` is a polymorphic pointer with no foreign key, the database could not cascade it either. New `deleteByReference`, called from `ExpenseService.delete` inside the same transaction as the delete. To count existing orphans: `SELECT count(*), sum(amount) FROM account_transactions at WHERE at.reference_type = 'expense' AND NOT EXISTS (SELECT 1 FROM expenses e WHERE e.id = at.reference_id);`
+- **Account balances were strings wearing a `number` type** — `SUM()` over a `BIGINT` column returns `NUMERIC`, which node-pg hands back as a string. Home's cash-on-hand concatenated its accounts instead of adding them, available credit came out as `"50000-20000"`, and the delete button's `balance !== 0` guard never matched. `getBalance` now runs through `coerceBigInt`.
+- **Core mutations were not atomic** — `ExpenseService.create` was four sequential writes followed by three best-effort compensating deletes, each swallowed with `.catch(() => {})`, so a failed compensation left a half-written spend and said nothing. Creation, deletion, and the settlement delete path now run in `withTransaction`.
+- **`deleteBySplitGroupId` deleted one row** — `LIMIT 1`, which was only correct because the current model writes one expense per split UUID. Replaced with `findIdsBySplitGroupId` plus `ExpenseService.deleteBySplitGroup`, which removes every row in the group and each one's ledger entry.
+- **The cron endpoint was public when `CRON_SECRET` was unset** — `if (secret) { ...check... }` skipped the check entirely rather than refusing. It now returns 503.
+- **A database blip could kill the process** — `new Pool({ connectionString })` had no `error` listener, and node-pg emits `error` on the Pool when an idle client fails (a Postgres restart or failover). Added, along with `max`, `connectionTimeoutMillis`, `idleTimeoutMillis`, `statement_timeout` and optional SSL, all env-tunable.
+- **One repository query failed open** — `findOwedToPayerInPeriod` was the only method in the SQL layer that neither called `requireHouseholdId()` nor filtered `household_id`. `BudgetService.getUserNamesForTransfers` had the same shape in raw SQL; it moved to `UserRepository.namesByIds`, tenant-scoped.
+- **Every query logged its parameters to stdout** — expense notes, names, email addresses and amounts, unconditionally, on every page render. Gated by `DB_LOG` (`off` / `summary` / `verbose`); production defaults to `summary`, which never prints values.
+- **Half the server actions could throw** — ten of twenty action files had no `try`, so a repository error surfaced as an opaque Next.js error instead of a toast and skipped the optimistic rollback. New `authedAction` wrapper does auth, request context and the failure contract in one place, and keeps raw Postgres text out of the browser in production.
+- **`updateSetupWizardStatusAction` had no runtime check** — the TypeScript union is erased, and a server action is a public HTTP surface. Added `isSetupWizardStatus`.
+- **Two buttons shared one accessible name on Home** — the quick-add launcher and the bottom bar's centre button both announced "Add a spend". Both `<nav>` landmarks are now named, which also unblocked three E2E specs failing on a strict-mode locator violation.
+
 ### Added
 
+- **Hot-path indexes** (`0046_hot_path_indexes_pg.sql`) — `expenses`, `income`, `split_allocations`, `split_settlements`, `calendar_events`, `shared_lists`, `shared_list_items`, `mortgage_payments`, `recurring_*`, `budget_transfers` and `users` had **zero** indexes beyond their primary keys, while every query leads with `household_id`. 22 indexes drawn from the actual predicates in `src/lib/repositories/sql/*`. Plain `CREATE INDEX`, because `push.ts` is transactional and `CONCURRENTLY` cannot run inside a transaction — the lock is milliseconds at current row counts and would not be later.
+- **`categories.semantic_key`** (`0047_category_semantic_key_pg.sql`) — behaviour was keyed off the display name (`category.name === "Splits"` routed a spend into settlement logic), so renaming a category silently disabled the feature with no error. `splits` / `mortgage` / `unaccounted` are now stable identities, backfilled from the names the code matched on, with a name fallback for rows the backfill cannot reach.
+- **`GET /api/health`** — unauthenticated readiness probe reporting whether the process can reach Postgres. 200 or 503, and nothing about the schema or the data.
+- **`global-error.tsx`** — the route-group boundaries cannot catch a failure in the root layout; that case previously fell through to Next's stock page.
+- **Advisory locks** (`src/lib/db/advisory-lock.ts`) — every replica runs the in-process scheduler, so `runDailySummary` sent N copies of the 9am summary from N containers (the per-event reminders were already protected by the `sent_reminders` unique index). Both jobs now take a try-lock per tick and the loser skips. `db:push` takes a blocking one, so containers starting together queue rather than race on DDL.
+- **Migration manifest drift test** — `MIGRATION_FILES` is the sole ordering authority and deliberately not numeric, so a forgotten entry meant the migration simply never ran and surfaced later as a missing column in production. Now a failing unit test.
+- **Ledger and atomicity integration tests** — `src/__tests__/integration/expense-ledger.integration.test.ts`, including a guard for `lastInsertId` inside a transaction.
+
+### Changed
+
+- **The budget read path no longer writes** — `getOverview` persisted allocation rows on every call, and it is called from Home, Budget, Goals and the AI service, so two concurrent page loads raced on the same rows. Materialising is now `openMonth`'s job, in one transaction. `openMonth` also stopped running a second full `getOverview` purely for that side effect.
+- **The budget month start day is resolved once per request** — it was re-queried five to eight times per render. Memoised on `RequestContext`, which covers RSC renders, route handlers, actions and background jobs alike.
+- **Split balances and history are one query each** — `findAllForBalance` ran two `SELECT name FROM users` per allocation row (1,001 queries for 500 allocations) on every Home render; `getSplitHistory` ran a three-table join per split expense. Account listings had the same shape via `getBalance` per account.
+- **Every INSERT is one round trip** — `RETURNING id` replaces the follow-up `SELECT lastval()`, which also drops a dependency on session-scoped sequence state.
+- **The AI rate limit counts `ai_analysis_runs`** — it was a module-level `Map`, so two replicas gave twice the allowance, a deploy reset every quota to zero, and entries were never evicted. It guards a metered paid API.
+- **bcrypt work factor 10 → 12**, in one shared constant. Existing hashes keep verifying; measured at ~210ms.
+- **Password SQL moved out of the service and the action** — `getPasswordHash` / `setPasswordHash` on `UserRepository`. `BudgetService` and `SplitService` now import `withTransaction` from `@/lib/db` rather than reaching into `postgres-client`.
+
+### Removed
+
+- **The retired goals model** — goals became categories with a target in `0043`, and the old model's ten `/api/goals/*` routes, five services, `credit-strategy.service`, and the dead `analyzeGoalsAndDebt` AI method were unreachable from the UI. The `goals` and `goal_contributions` **tables stay** (migrations here are additive); nothing reads them. The credit-payoff planning has no replacement — its pure maths survives in `finance/credit.ts`, `goals.ts` and `projections.ts`, test-covered and imported by nothing, so a debt-payoff view can be built on it. See [docs/goals.md](./docs/goals.md).
+- **Fifteen never-imported components** (~2,000 LOC), including `quick-add-form.tsx` (558), `goal-controls-section.tsx` (437) and `calendar-client.tsx` (395, shadowed by `calendar-client-custom.tsx`).
+- **Tracked build artefacts** — a JVM crash dump, `e2e-run.log` (121KB), `debug.log`, two scratch text files, and the legacy `client/` Vite output. `.gitignore` now covers `*.log`.
+- **Dead feature-flag columns are no longer written** — `households.ai_feature_allowed` / `recon_feature_allowed` were superseded by `household_features` in `0030` but three seed scripts kept writing them. The columns stay (additive-only); nothing reads or writes them now.
+
+### Added
+
+- **Playwright E2E suite (headed by default)**: `e2e/` — auth/admin/onboarding plus finance mutations (expenses, income, accounts/transfers, splits/settle, mortgage extra payment, goals, budget/summary, lists, calendar, What I owe). Run `npm run test:e2e`. See [docs/e2e-playwright.md](./docs/e2e-playwright.md).
+- **Manual QA plan for `multi-tenant-admin`**: [docs/test-plan-multi-tenant-admin.md](./docs/test-plan-multi-tenant-admin.md) — P0–P2 screen walkthrough + tickable checklist (auth, admin, onboarding, feature gates, tenant isolation, core smoke).
+- **Stage 3 — Password management**: `users.must_change_password`, `users.password_changed_at`, `users.setup_wizard_step` (migration `0031_user_password_management_pg.sql`). `PasswordService`, forced change at `/change-password`, Settings > Profile change password, admin reset on `/admin/users`. See [docs/passwords.md](./docs/passwords.md).
+- **Stage 3b — Self-registration with approval**: `households.approval_status` (`pending` / `active` / `rejected`, migration `0032_household_approval_pg.sql`). Public `/register`, holding page `/pending-approval`, super-admin approve/reject on `/admin/houses/[id]`. Middleware + layouts enforce gates via `getAuthState`.
+- **Stage 2 admin portal rebuild**: `/admin/houses` lists member count, approval status, and entitlement chips; `/admin/houses/[id]` edits catalogue checkboxes and AI tier; `/admin/features` shows household counts and server config; `/admin/users` supports search, household filter, move user, and super-admin (no per-user AI/Recon columns). Admin actions use `requireSuperAdminSession()`, zod validation, `{ success, error }` results, and `revalidatePath`. Legacy `/api/admin/*` route handlers removed. Settings no longer exposes AI/Recon/What I owe toggles — entitlements are household-only via admin.
+- **Multi-household tenancy (separate households)**: New `households` table; `users.household_id` (required); `household_id` on tenant-owned tables including **categories** (categories are no longer global). Request context and NextAuth session/JWT carry `householdId`; SQL repositories enforce `household_id` on reads/writes (child tables without their own column — `account_transactions`, `shared_list_items`, `sent_reminders`, `mortgage_rate_periods`, `ai_analysis_run_messages`/`_applications` — isolate via a parent join). Households + users are provisioned from the admin portal (`bcrypt`; `bootstrapHouseholdDefaults` adds a default split group + categories). Migration `drizzle/0027_households_pg.sql` (applied by `db:push` via the migration ledger) backfills existing data. See [docs/multi-household.md](./docs/multi-household.md).
+- **Admin portal (foundation)**: Added protected `/admin/*` area for a **global super-admin** to manage houses and users, and to run **read-only allowlisted** operational queries. New schema/migrations include `users.is_super_admin` plus household-level feature policy columns `households.ai_feature_allowed` and `households.recon_feature_allowed` (migration `drizzle/0028_super_admin_and_household_feature_policy_pg.sql`). *(Superseded: admin mutations now use server actions; legacy `/api/admin/*` route handlers removed in Stage 2 rebuild.)*
+- **Onboarding (`/welcome`)**: Full-page setup (accounts, payday, income, categories, budget allocation), resumable via `users.setup_wizard_step`, dashboard progress banner. Replaces modal wizard. See [docs/onboarding.md](./docs/onboarding.md).
+- **Tenant isolation integration test**: `src/__tests__/integration/tenant-isolation.integration.test.ts` asserts category reads are household-scoped and fail closed without context.
+- **Unit tests (Stage 6)**: `catalogue.test.ts`, `request-context.test.ts`, `password.service.test.ts`.
+- **Setup wizard (legacy modal)**: Superseded by `/welcome`; see [docs/setup-wizard.md](./docs/setup-wizard.md).
+- **Household feature policy is enforced**: `getAiFeatureAllowed` / `getReconFeatureAllowed` now resolve `households.*_feature_allowed` **AND** `users.*_feature_allowed`, so the admin `/admin/features` and `/admin/houses` toggles actually gate AI/Recon (previously the household columns were written but never read). Seeds set both household and user flags for dev users.
+- **Background jobs are tenant-aware**: the in-process `NotificationScheduler` and `GET /api/cron/daily-calendar-notification` iterate `households` and bind `setRequestContext({ householdId })` per household. Before this they called household-scoped repositories with no context and silently sent **no** daily summaries or per-event reminders. New `HouseholdRepository.listAllHouseholdIds()` (system use).
 - **Multiple calendar reminders**: Events can have up to 10 reminders (`calendar_event_reminders`: offset + optional send time). Day/week offsets fire at a chosen clock time; sub-day offsets still need an event start time. Legacy `calendar_events.reminder_minutes` is backfilled once and no longer written. Migration `drizzle/0027_calendar_event_reminders_pg.sql`. See [docs/calendar.md](./docs/calendar.md).
 - **What I owe (`/what-i-owe`)**: Printable statement of what you owe the other person (default), or what they owe you (`?view=owed`). Split **balance** is net (their share of your payments minus your share of theirs) since the day after the last **full** settlement, plus this budget month’s mortgage share. Gated by `users.owed_to_me_enabled`. `/owed-to-me` redirects here. See [docs/mortgage.md](./docs/mortgage.md).
 
@@ -17,6 +224,24 @@
 
 ### Changed
 
+- **One mortgage solver, any number of people** — `buildParams` sorted the user configs, took the first two and discarded the rest, so a third person on the bond did not exist to the schedule. `MortgageParams.people[]` replaces `userA`/`userB` end to end; rows carry `paymentByUserId` and `equityPctByUserId`. The two-person arithmetic is unchanged — verified byte-identical across 722 schedule rows in three scenarios before and after. A one-person bond is now simply their own schedule instead of an error.
+- **The recon parser console is admin-only** — Graph ids, batch offsets and parse-failure reasons sit behind a super-admin check. Everyone else gets a connection bar: connected state, last checked, and one "Check for new transactions" button.
+- **Settings has a Household section** — Rename the house and see who is in it, which was previously only visible during onboarding. The budget month start day moves here from Preferences and states that it is shared: it has been household-level since migration 0042.
+- **Reports** — Legend and a "the faded month is still running" label under the in/out bars (`title` tooltips do not exist on touch). Categories cap at twelve rows with an "Everything else" remainder row.
+- **Onboarding assigns through the budget screen's own row** — `onboarding-budget-step` was the last consumer of `budget-category-card.tsx`, so the first budget anyone ever set used an interaction that existed nowhere else in the app. It now uses `BudgetCategoryRow` plus the amount keypad from `budget-category-sheet`; the old card is deleted.
+- **`solveShares` renamed to `solveMortgageShares`** in `finance/mortgage-plan.ts` — it collided with the unrelated participants solver of the same name.
+
+- **Hygiene (validation)**: Removed orphaned modal setup-wizard files (kept `setup-wizard-accounts-step.tsx` for `/welcome`), dead settings toggle components, legacy `/api/admin/*` routes, and `recon-enabled.ts`.
+- **Seed fix**: Corrected split expense INSERT column count in `seed/finance.ts` (was failing mid-`db:seed`). Grouped into Profile, Preferences, Household data, and Data & export. List items load on first expand via `loadSettingsListItemsAction` instead of eager N+1 on page load.
+- **Dashboard tiles (Stage 5)**: Removed dead toggles (`accounts`, `goalsSummary`, `creditSummary`, `goalAlerts`, `populateMonth`) that had no wired tiles; storage key bumped to `v2`.
+- **Recon (Stage 5)**: Extracted Outlook connect/disconnect and mailbox sync controls into `ReconGraphPanel`.
+- **Dashboard list tasks**: `countOpenItemsByListIds` replaces per-list queries on Home.
+- **Onboarding (Stage 4)**: Modal `SetupWizardHost` removed; `not_started` users redirect to `/welcome`. `EmptyState` optional `title`/`action`; `BudgetCategoryCard` plain-language cost hints; `bootstrapHouseholdDefaults` null category default amounts.
+- **DB reset and user seeding flow**: `db:reset` now performs only **reset + schema push** and does not insert seed data. Added `db:seed:users` for a **users-only**, env-driven provisioning path that creates or updates the two login users without loading demo data, and `db:seed:minimal` as an explicit alias for the existing minimal categories/split-group seed. README and DEPLOY now document the safer Coolify/server flow: `db:push` + `db:seed:users`.
+- **Production error debugging (Server Components)**: The in-app error boundary now renders the error **digest** and can optionally show full error details when `NEXT_PUBLIC_DEBUG_ERRORS=true` is set for a temporary debug deployment.
+- **App color scheme refresh (cool + tinted dark)**: Updated global design tokens in `src/app/globals.css` to match the new reference palette: cool light surfaces (`#F4F6FA`, `#FAFBFD`, `#DDE3EE`), blue brand accents (`#2563EB` light, `#5B8DEF` dark), and a tinted navy dark mode (`#0F1117` background, `#161B27` surfaces) instead of pure black.
+- **Seed data (`db:seed`, `seed-categories`)**: Refactored into `src/lib/db/seed/*` modules. Full seed (`db:seed`) wipes app data then loads **one** demo household — **Jordaan household** — with Matt (super-admin) and Sydney, all five `household_features` enabled, `ai_tier` free, `approval_status` active, realistic ZAR-cent amounts (Matt R42,500 / Sydney R38,000 salary), shared splits, calendar, lists, notes, recon queue (no Graph token), AI analysis sample, shared mortgage with two user configs, goals, and recurring rows. `db:seed:users` and `db:seed:minimal` provision the same single household.
+- **Self-registration restored**: public `/register` creates a pending household (`RegistrationService`); login links to register; admin provisioning still available on `/admin/users` with optional auto-generated temp passwords (`must_change_password`).
 - **What I owe** — Nav and route renamed from **Owed to me** / `/owed-to-me` to **What I owe** / `/what-i-owe`. Default view is what you owe; `?view=owed` is the other direction. Old URL redirects.
 - **Split math** — Equal splits use tested `splitExpense()` helper (odd-cent remainder). Per-person balances are netted before totals. Over-settlement on Splits page is rejected (not silently capped).
 - **BIGINT coercion** — Shared `coerceBigInt` for account/transfer/goal repositories (node-pg string BIGINTs).
@@ -26,14 +251,27 @@
 
 ### Fixed
 
+- **Corrected figures on upgrade (read this one)** — Two changes move numbers you have already seen. Some categories' **assigned** and **carried-over** figures are corrected on upgrade, for allocations a transfer bug had stored as negative (migration `0045_repair_negative_allocations_pg.sql`; the money moves back into carry-in, so the envelope total is unchanged). And months that were never opened now show **carry-in that was previously missing**, so `available` can jump the first time the app loads — that is the skipped-month fix landing, and the month-open card says so.
+- **Recon accepts explicit participant shares** — `acceptAdd` took `split` as a boolean, and `true` meant everyone in the house, evenly: the last surviving instance of the behaviour Phase 4 retired everywhere else, because recon was never part of Phase 3. It now takes solved shares, and rule-driven accepts use the rule's own participants instead of the whole household.
+- **Recon rows a rule cannot place are a decision list** — `matchRules` returned `unmatched` and the page threw it away, leaving a parser table as the only way to act on them. Each row now opens the Add sheet, with the same category pills, participant picker and consequence panel as every other spend.
+- **Mortgage figures are attributed to the right person** — The mortgage page mapped over the whole household positionally (`i === 0 ? A : B`), so a third member saw the second person's payment, equity and share of this month's interest as their own; `what-i-owe` re-sorted the user configs to guess who was who, and anyone who was neither fell through to the first person's payment. Both read by user id now, and someone not on the bond gets no mortgage line rather than a wrong one.
+- **Budget month is resolved from the household everywhere** — Migration 0042 moved `budget_month_start_day` to `households`, but nine call sites still read `users.budget_month_start_day`: an expense was filed into a month framed by the user's day while Budget and Home framed it by the household's, so a category total stopped matching the rows behind it. `budgetMonthStartDayForUser()` is now the single resolver and every reader goes through it, including the labelling on Home, the shell, What I owe, the AI report, and Settings — which showed the reader's own stale column while the save action wrote the household's.
+- **Transfers no longer drive an assignment negative** — `transfer()` validated against `available` (which includes carry-in) then wrote `assigned - amount`, so a category with nothing assigned and R500 carried in permitted a R300 transfer and stored `assigned = -300`. `totalAssigned` fell by 300 and `unassigned` rose by the same 300: money appearing from nothing. The debit now comes off this month's assignment first and carry-in second, and the three writes run in one transaction. **Existing data:** rows already written negative are not repaired by the fix — run `node scripts/repair-negative-allocations.mjs` (dry run; `--apply` to write) to zero them and move the difference back into `carried_in_minor`. The envelope total is unchanged by the repair.
+- **A skipped month no longer breaks the carry chain** — `openMonth(M)` reads M−1's availables, and M−1's carry-in is zero if M−1 was never opened, so anyone who did not open the app for a month silently lost the leftover from two months back. `openMonthBacklog()` now opens every unopened month oldest-first, and the month-open card names the months it is opening alongside this one. **Existing data:** the first load after this lands writes carry-in for months that have been sitting unopened, so `available` figures can jump — that is the correction, and the card says so.
+- **Shared accounts actually work** — `AccountService.createAccount`/`updateAccount` declared `isShared` and never passed it to the repository, so every account was written private no matter what the switch in Settings said, and the `is_shared` branch in the expense query had never fired. With the flag persisted, `findAllVisibleToUser` / `listAccountsVisibleToUser` also make a shared account visible where a spend is filed (it was previously visible as rows but not as an account, so a partner could not select it). Renaming, sharing and deleting stay owner-scoped, and the balance check stays with the owner — one real bank balance and two people accepting two gaps would write two adjustment rows for one truth.
+- **Month-open card stated the wrong figure** — "{new month} starts with {x} already assigned" rendered the *previous* month's assignment total, correct only while nothing had changed. It now reads the new month's own overview, and names the carried overspend it is about to deduct.
+- **One add surface** — `QuickAddForm`, the pre-redesign two-person dialog, was still the entry point on Home and the transactions page. It has no participant picker, so in a 3+ household `equal` silently meant everyone and `exact` returned an error the dialog could not resolve. Both now open the Add sheet.
+- **Integration tests were silently skipping** — `npm run test:integration` reported all 69 tests as skipped: the config loaded `.env.local` in Vite's process, not in the worker where `HAS_DB` is evaluated. Loaded in a setup file now. The reconcile and rollover suites also gained guardrails for the four bugs above.
+
 - **What I owe split total** — Accordion and **Total** used the sum of one direction’s split allocations. They now use the net still owed (`their share of what you paid` minus `your share of what they paid`) since the last settlement, matching Splits-page netting for that period.
 - **Login Sign in button** — Shared `Button` now uses `cursor-pointer` (and `disabled:cursor-not-allowed`) so the login submit control is clearly clickable.
 - **Calendar reminder save** — Updating an event keeps matching reminder rows (same offset + send time) instead of delete-all/insert, so `sent_reminders` is not cascaded away and the same occurrence is not pushed again.
 - **Calendar reminder offsets** — Restored **5 minutes** and **15 minutes** from the previous single-reminder picker. Day-offset reminders with a null send time keep the old “event start minus offset” behaviour.
 - **`db:reset` guard** — Requires `ALLOW_DB_RESET=1` before `DROP SCHEMA public CASCADE`.
-- **Migration numbering** — `0019_ai_analysis_runs_output_json` renumbered to `0024_…`; `shared_lists` visibility columns moved to `0025_shared_lists_visibility_owner_pg.sql`.
+- **Migration numbering** — `0019_ai_analysis_runs_output_json` renumbered to `0024_…`; `shared_lists` visibility columns moved to `0025_shared_lists_visibility_owner_pg.sql`. Multi-household migrations renumbered to `0027`–`0029` on merge to sit after master's `0022`–`0026`.
 - **Mortgage config** — `target_equity_user_a_pct` null preserved on read (no forced `0.5`).
 - **Split settlement repository** — `splitExpenseGroupId` included on reads; `findByIncomeId` / `update` added.
+- **Tenant scoping on merged-in tables** — `mortgage_rate_periods` reads/writes now join `mortgage_configs` and check `household_id`; `ai_analysis_run_messages` / `ai_analysis_run_applications` reads join `ai_analysis_runs` on `household_id`. `budget-ai-report` / `push` / `income` / `mortgage` / `split` entry points that master added with a bare `setRequestContext({userId})` now use `setRequestContextFromSession` so `householdId` is bound.
 
 - **AI budget report: apply suggestions and feedback chat**: On `/budget-ai-report`, select **allocation changes** or **recommended moves** and **Apply selected** (confirm dialog; writes to the report month’s budget in one transaction). Each apply is audited in `ai_analysis_run_applications`. **Ask about this report** adds a persisted plain-text thread in `ai_analysis_run_messages` (user message saved before the LLM call). New reports use prompt version **6** with `allocation_changes[]`. Migrations `0022_ai_analysis_run_messages_pg.sql`, `0023_ai_analysis_run_applications_pg.sql`. See [docs/ai-budget-analysis.md](./docs/ai-budget-analysis.md).
 
@@ -45,7 +283,7 @@
 - **Clickable URLs in list notes**: `http(s)` and `www.` URLs in the note subtitle and expanded preview (`LinkifiedText`) open in a new tab; link clicks use `stopPropagation` so the row accordion does not toggle.
 - **Polymorphic notes (DB + repository)**: New `notes` table (`drizzle/0021_notes_pg.sql`, wired in `db:push`) with `owner_user_id`, `linked_type`, `linked_id`, `body`, timestamps; `INoteRepository` / `NoteRepository` and `getNoteRepository()` for CRUD scoped per user. Target links are app-defined string keys plus row id (no per-entity note tables).
 
-- **README**: Documented the full Postgres schema as a **Database ERD** (Mermaid), aligned with `drizzle/*_pg.sql`, including caveats for non-FK recurring columns and polymorphic `account_transactions` references.
+- **README**: Documented the full Postgres schema as a **Database ERD** (Mermaid), aligned with `drizzle/*_pg.sql`, including caveats for non-FK recurring columns and polymorphic `account_transactions` references. Updated for **`households`** / **`household_id`** (migration `0022`) and multi-household onboarding.
 
 - **AI spending analysis: extra free-text context**: Dashboard, Summary, and the Budget AI report page now include an optional **Extra AI context** box. Any text entered is appended to the AI prompt as supporting budget context, without replacing the structured JSON payload. Stored runs now use `prompt_version` **5**.
 - **Per-user feature access (AI and Recon)**: Added `users.ai_feature_allowed` and `users.recon_feature_allowed` (migration `0020_users_feature_access_pg.sql`, wired in `db:push`). Both must be true **and** the existing Settings toggles must be on for the corresponding feature. Migration grants both flags only to **`users.id = 1`** by default (edit the migration or use SQL / a future admin UI for other users). See [docs/feature-access.md](./docs/feature-access.md).
@@ -61,10 +299,17 @@
 
 ### Fixed
 
-- **Push notifications (Android PWA / Pixel)**: `PushSubscriptionRepair` in the app shell re-subscribes after service worker updates (`PUSH_SW_ACTIVATED` / `controllerchange`), resume, bfcache restore, and going online—with a short delay on Android installed PWAs so the active worker is ready. `waitForPushServiceWorkerRegistration` avoids reading `pushManager` before the SW is active. Settings shows an Android PWA hint when permission is granted but no browser subscription. Logs include `androidPwa` / `standalone` context (`[PushClient]`).
-
 - **Dashboard income section regression**: Restored the **Income this month** card on the dashboard, including the inline income list and quick-add form. The dashboard quick-add once again supports both **Salary** and **Other income** (`ad_hoc`) instead of forcing salary-only entries.
 
+- **Auth/session household context after tenancy migration**: NextAuth now normalizes `householdId` before storing it in JWT/session state, so invalid values like `"null"` no longer poison tenant-scoped requests and crash the dashboard. The authenticated app layout also repairs a missing/invalid session `householdId` from the database before binding request context, and `UserRepository.getHouseholdId()` now throws a direct migration error if a user row still has `household_id = NULL`.
+
+- **`db:push` household migration idempotency**: `drizzle/0027_households_pg.sql` drops the legacy `calendar_categories_name_key` as a **constraint** instead of trying to drop its backing index, and the additive statements use `IF NOT EXISTS` where safe so the ledger-wrapped migration can resume after a failure point. Legacy installs default existing users into a single **`Default household`** instead of creating one household per user, and singleton upgrades no longer clone then delete categories, split groups, calendar categories, or mortgage configs.
+
+- **Account APIs and stale tenant session context**: Account routes now bind request context from the authenticated session before using tenant-scoped repositories, preventing `/api/accounts` and related account endpoints from failing with missing `householdId`. Existing JWT sessions also backfill `householdId` from the database when it is absent, reducing post-migration sign-out/sign-in breakage for server-rendered pages and APIs.
+
+- **Coolify parallel deploy port collision**: `docker-compose.yml` no longer publishes `3000:3000` for the production `app` service. The app is now internal-only (`expose: 3000`) so multiple stacks/domains can run on one host behind a reverse proxy without `port is already allocated` failures.
+
+- **Push notifications (Android PWA / Pixel)**: `PushSubscriptionRepair` in the app shell re-subscribes after service worker updates (`PUSH_SW_ACTIVATED` / `controllerchange`), resume, bfcache restore, and going online—with a short delay on Android installed PWAs so the active worker is ready. `waitForPushServiceWorkerRegistration` avoids reading `pushManager` before the SW is active. Settings shows an Android PWA hint when permission is granted but no browser subscription. Logs include `androidPwa` / `standalone` context (`[PushClient]`).
 - **List item notes not showing (Postgres)**: `node-pg` returns `BIGINT` columns as strings; note rows were grouped in a `Map` with string keys while lookups used numeric item ids, so subtitles stayed empty. Numeric ids are coerced in `NoteRepository` `toNote()`.
 
 - **`db:push` vs `ai_analysis_runs.output_json`**: `npm run db:push` now applies `drizzle/0019_ai_analysis_runs_output_json_pg.sql` when the `output_json` column is missing. Previously only migrations through `0018` were wired, so existing databases could hit **column "output_json" does not exist** on the Budget AI report page even after a successful push.

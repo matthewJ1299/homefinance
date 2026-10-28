@@ -1,3 +1,4 @@
+import type { CategorySemanticKey } from "@/lib/categories/semantic-key";
 export type { Note } from "./note";
 export { NOTE_LINKED_TYPE_SHARED_LIST_ITEM } from "./note-linked-types";
 
@@ -32,6 +33,18 @@ export interface Category {
   isActive?: boolean;
   costType: CostType;
   defaultAmount: number | null;
+  /** Whether an unspent balance carries into next month. See BudgetService.openMonth. */
+  rollover: boolean;
+  /** Set makes this category a goal: money assigned to it is money saved. */
+  targetMinor: number | null;
+  /** yyyy-MM-dd the target should be reached by. */
+  targetDate: string | null;
+  /**
+   * Stable identity for the categories the app behaves differently around
+   * (Splits, Mortgage, Unaccounted). Null for ordinary categories.
+   * See src/lib/categories/semantic-key.ts.
+   */
+  semanticKey: CategorySemanticKey | null;
 }
 
 export type CategoryWithActive = Category & { isActive: boolean };
@@ -59,6 +72,8 @@ export interface ExpenseWithDetails {
   paidByUserId?: number | null;
   splitExpenseGroupId?: number | null;
   accountId?: number | null;
+  /** The viewer's own share. Equals `amount` when unsplit. */
+  myShare?: number;
 }
 
 export type SplitType = "equal" | "full" | "exact";
@@ -106,6 +121,8 @@ export interface Account {
   type: AccountType;
   ownerUserId: number;
   creditLimit: number | null;
+  /** Shared accounts' rows are visible to every household member. */
+  isShared: boolean;
   createdAt: string;
 }
 

@@ -4,11 +4,13 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { createReconRule } from "@/lib/actions/recon-rule.actions";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter, DialogHeader } from "@/components/ui/dialog";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Label } from "@/components/ui/label";
 import { SectionHeader } from "@/components/ui/section-header";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatRand, fromMinorUnits, toMinorUnits } from "@/lib/utils/currency";
 import { cn } from "@/lib/utils";
 import { parseAccountsApiPayload } from "@/lib/utils/accounts-api";
@@ -18,6 +20,12 @@ import {
   RECON_TYPE_A_FROM_SUBSTRINGS,
   RECON_TYPE_B_FROM_SUBSTRINGS,
 } from "@/lib/services/recon/parsers";
+import { ReconGraphPanel } from "@/components/recon/recon-graph-panel";
+import {
+  ReconMailDetailDialog,
+  type ReconMailDetail,
+} from "@/components/recon/recon-mail-detail-dialog";
+import { flowFromStoredAmount, flowLabel } from "@/lib/services/recon/recon-flow";
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { ...init, headers: { "Content-Type": "application/json", ...init?.headers } });
@@ -92,7 +100,11 @@ function defaultExpenseNoteForReconItem(item: ReconPendingListItem): string {
 }
 
 function defaultAmountRandForItem(item: ReconPendingListItem): string {
-  return fromMinorUnits(item.amount).toFixed(2);
+  return fromMinorUnits(Math.abs(item.amount)).toFixed(2);
+}
+
+function defaultEntryKind(item: ReconPendingListItem): "expense" | "income" {
+  return flowFromStoredAmount(item.amount) === "in" ? "income" : "expense";
 }
 
 /** Parses ZAR text to minor units; rejects non-positive or invalid input. */
@@ -164,6 +176,7 @@ export function ReconPageClient() {
   /** Editable ZAR text per row; parsed with `parseRandInputToMinor` for accept-add. */
   const [amountRandByItemId, setAmountRandByItemId] = useState<Record<number, string>>({});
   const [splitByItemId, setSplitByItemId] = useState<Record<number, boolean>>({});
+  const [ruleByItemId, setRuleByItemId] = useState<Record<number, boolean>>({});
   const [accountId, setAccountId] = useState<number | "">("");
   const [syncSince, setSyncSince] = useState<string>("");
   const [syncTop, setSyncTop] = useState<number>(50);
@@ -175,26 +188,12 @@ export function ReconPageClient() {
   const [debugPage, setDebugPage] = useState(1);
   const debugPageSize = 25;
 
-  const filteredSyncMessages = useMemo(() => {
-    if (!syncDebug?.messages.length) return [];
-    return syncDebug.messages.filter((m) =>
-      filterFetchedMailRow(m, debugBankSendersOnly, debugOutcomeFilter)
-    );
-  }, [syncDebug, debugBankSendersOnly, debugOutcomeFilter]);
-
-  useEffect(() => {
-    setDebugPage(1);
-  }, [debugBankSendersOnly, debugOutcomeFilter, syncDebug?.messages]);
-  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
-  const [messageLoading, setMessageLoading] = useState(false);
+  // A fetched row you have since accepted or ignored is no longer work. Hide
+  // those by default so the list tracks what is left, not what the last sync
+  // saw. `filteredSyncMessages` is defined below, once the live pending set is.
+  const [hideHandled, setHideHandled] = useState(true);
   const [messageSyncMeta, setMessageSyncMeta] = useState<FetchedMailDebugRow | null>(null);
-  const [messageDetail, setMessageDetail] = useState<null | {
-    id: string;
-    subject: string;
-    fromAddress: string;
-    receivedDateTime: string;
-    bodyContent: string;
-  }>(null);
+  const [messageDetail, setMessageDetail] = useState<ReconMailDetail | null>(null);
   const [bulkIntentByItemId, setBulkIntentByItemId] = useState<Record<number, ReconBulkIntent>>({});
   const [entryKindByItemId, setEntryKindByItemId] = useState<Record<number, "expense" | "income">>({});
   const [incomeTypeByItemId, setIncomeTypeByItemId] = useState<Record<number, "salary" | "ad_hoc">>({});
@@ -250,6 +249,34 @@ export function ReconPageClient() {
     [categoriesQuery.data?.categories]
   );
   const { accounts, primaryAccountId } = accountsQuery.data ?? { accounts: [], primaryAccountId: null };
+
+  // Graph ids of everything still awaiting a decision. A fetched mail that was
+  // imported but is no longer here has been accepted or ignored since the sync.
+  const pendingGraphIds = useMemo(() => new Set(items.map((i) => i.graphMessageId)), [items]);
+  // Only trust "not pending" once we actually have the pending list; before the
+  // first load `pendingGraphIds` is empty and would hide every imported row.
+  const itemsLoaded = itemsQuery.isSuccess;
+  const isHandledFetchedRow = useCallback(
+    (m: FetchedMailDebugRow): boolean => {
+      if (!itemsLoaded) return false;
+      const wasImported =
+        m.outcome === "imported_pending_add" || m.outcome === "imported_pending_duplicate";
+      return wasImported && !pendingGraphIds.has(m.graphMessageId);
+    },
+    [itemsLoaded, pendingGraphIds]
+  );
+  const filteredSyncMessages = useMemo(() => {
+    if (!syncDebug?.messages.length) return [];
+    return syncDebug.messages.filter((m) => {
+      if (!filterFetchedMailRow(m, debugBankSendersOnly, debugOutcomeFilter)) return false;
+      if (hideHandled && isHandledFetchedRow(m)) return false;
+      return true;
+    });
+  }, [syncDebug, debugBankSendersOnly, debugOutcomeFilter, hideHandled, isHandledFetchedRow]);
+
+  useEffect(() => {
+    setDebugPage(1);
+  }, [debugBankSendersOnly, debugOutcomeFilter, hideHandled, syncDebug?.messages]);
 
   useEffect(() => {
     if (primaryAccountId != null && accountId === "") {
@@ -479,7 +506,7 @@ export function ReconPageClient() {
         ignored++;
         processedIds.push(item.id);
         processedDates.push(item.txnDate);
-        ignoredMinor += item.amount;
+        ignoredMinor += Math.abs(item.amount);
       }
       for (const item of toAccept) {
         if (item.status === "pending_duplicate") {
@@ -489,11 +516,11 @@ export function ReconPageClient() {
           duped++;
           processedIds.push(item.id);
           processedDates.push(item.txnDate);
-          duplicateMinor += item.amount;
+          duplicateMinor += Math.abs(item.amount);
           continue;
         }
         const postKind =
-          item.status === "pending_add" ? entryKindByItemId[item.id] ?? "expense" : "expense";
+          item.status === "pending_add" ? entryKindByItemId[item.id] ?? defaultEntryKind(item) : "expense";
         const expenseNote = noteByItemId[item.id] ?? defaultExpenseNoteForReconItem(item);
         const rawAmt = amountRandByItemId[item.id] ?? defaultAmountRandForItem(item);
         const parsedAmt = parseRandInputToMinor(rawAmt);
@@ -546,6 +573,15 @@ export function ReconPageClient() {
           }
         );
         added++;
+        if (ruleByItemId[item.id]) {
+          const ruleResult = await createReconRule({
+            matchKind: "merchant_exact",
+            matchValue: item.merchantKeyNormalized || item.vendor,
+            categoryId: cat,
+            splitWithHousehold: split,
+          });
+          if (!ruleResult.success) toast.error(ruleResult.error);
+        }
         if (split) {
           splitAdded++;
           splitAddMinor += amountMinor;
@@ -648,6 +684,7 @@ export function ReconPageClient() {
     items,
     bulkIntentByItemId,
     bulkProcessing,
+    ruleByItemId,
     accountId,
     splitByItemId,
     effectiveCategory,
@@ -659,37 +696,18 @@ export function ReconPageClient() {
     incomeTypeByItemId,
   ]);
 
-  const openMessage = useCallback(async (row: FetchedMailDebugRow) => {
-    const meta: FetchedMailDebugRow = {
+  const openMessage = useCallback((row: FetchedMailDebugRow) => {
+    setMessageDetail(null);
+    setMessageSyncMeta({
       ...row,
       descriptionLine: row.descriptionLine ?? (row.bodyPreview?.trim() || row.subject?.trim() || "—"),
-    };
-    setMessageSyncMeta(meta);
-    setMessageDialogOpen(true);
-    setMessageLoading(true);
-    setMessageDetail(null);
-    try {
-      const data = await fetchJson<{ message: { id: string; subject: string; fromAddress: string; receivedDateTime: string; bodyContent: string } }>(
-        `/api/recon/messages/${encodeURIComponent(row.graphMessageId)}`
-      );
-      setMessageDetail(data.message);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to load email body.");
-      setMessageDetail({
-        id: row.graphMessageId,
-        subject: row.subject,
-        fromAddress: row.fromAddress,
-        receivedDateTime: row.receivedDateTime,
-        bodyContent: "",
-      });
-    } finally {
-      setMessageLoading(false);
-    }
+    });
   }, []);
 
-  const openMessageFromPendingItem = useCallback(async (item: ReconPendingListItem) => {
+  const openMessageFromPendingItem = useCallback((item: ReconPendingListItem) => {
     const descriptionLine = item.rawSubject?.trim() || item.rawBodyPreview?.trim() || "—";
-    const meta: FetchedMailDebugRow = {
+    setMessageDetail(null);
+    setMessageSyncMeta({
       graphMessageId: item.graphMessageId,
       receivedDateTime: "",
       fromAddress: "",
@@ -699,30 +717,7 @@ export function ReconPageClient() {
       outcome: item.status === "pending_duplicate" ? "imported_pending_duplicate" : "imported_pending_add",
       parseType: item.parseType,
       matchedExpenseCount: item.matchedExpenseIds?.length ?? undefined,
-    };
-    setMessageSyncMeta(meta);
-    setMessageDialogOpen(true);
-    setMessageLoading(true);
-    setMessageDetail(null);
-    try {
-      const data = await fetchJson<{ message: { id: string; subject: string; fromAddress: string; receivedDateTime: string; bodyContent: string } }>(
-        `/api/recon/messages/${encodeURIComponent(item.graphMessageId)}`
-      );
-      setMessageDetail(data.message);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to load email body.");
-      setMessageDetail({
-        id: item.graphMessageId,
-        subject: item.rawSubject ?? "",
-        fromAddress: "",
-        receivedDateTime: "",
-        bodyContent: item.rawBodyPreview
-          ? `${item.rawBodyPreview}\n\n(Unable to load full body from mailbox.)`
-          : "",
-      });
-    } finally {
-      setMessageLoading(false);
-    }
+    });
   }, []);
 
   const copyMessageDebugBundle = useCallback(async () => {
@@ -762,135 +757,32 @@ export function ReconPageClient() {
         </p>
       </div>
 
-      <section className="rounded-xl border border-border bg-card p-4 space-y-3">
-        <SectionHeader title="Outlook connection" />
-        {statusQuery.isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : (
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
-            {connected ? (
-              <>
-                <p className="text-sm">
-                  Connected{msEmail ? ` as ${msEmail}` : ""}.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <a
-                    href="/api/recon/graph/connect"
-                    className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent"
-                  >
-                    Reconnect
-                  </a>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => disconnectMutation.mutate()}
-                    disabled={disconnectMutation.isPending}
-                  >
-                    Disconnect
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <a
-                href="/api/recon/graph/connect"
-                className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-              >
-                Connect Outlook
-              </a>
-            )}
-          </div>
-        )}
-      </section>
-
-      <section className="rounded-xl border border-border bg-card p-4 space-y-3">
-        <SectionHeader
-          title="Sync"
-          action={
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => syncMutation.mutate({ skip: 0 })}
-                disabled={!connected || syncMutation.isPending}
-              >
-                {syncMutation.isPending ? "Syncing…" : "Sync from mailbox"}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  if (nextBatchSkip == null) return;
-                  syncMutation.mutate({ skip: nextBatchSkip });
-                }}
-                disabled={!connected || syncMutation.isPending || nextBatchSkip == null}
-                title={
-                  nextBatchSkip == null
-                    ? "Run Sync from mailbox first to set the starting offset."
-                    : `Fetch the next ${syncTop} messages (skip ${nextBatchSkip})`
-                }
-              >
-                {syncMutation.isPending ? "Syncing…" : `Fetch next ${syncTop}`}
-              </Button>
-            </div>
-          }
-        />
-        <p className="text-sm text-muted-foreground">
-          Fetches recent messages and parses bank templates (see docs). No transactions are added until you accept them below.
-        </p>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="recon-sync-since">Sync from (optional)</Label>
-            <input
-              id="recon-sync-since"
-              type="date"
-              className="h-9 w-full max-w-[220px] rounded-md border border-input bg-background px-2 text-sm"
-              value={syncSince}
-              onChange={(e) => setSyncSince(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="recon-sync-top">Max emails to scan</Label>
-            <input
-              id="recon-sync-top"
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={1000}
-              className="h-9 w-full max-w-[160px] rounded-md border border-input bg-background px-2 text-sm"
-              value={String(syncTop)}
-              onChange={(e) => {
-                const n = Number(e.target.value);
-                setSyncTop(Number.isFinite(n) ? Math.min(Math.max(1, Math.floor(n)), 1000) : 200);
-              }}
-            />
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Limits mailbox scanning to messages received on/after this date.
-          </p>
-        </div>
-        {nextBatchSkip != null ? (
-          <p className="text-xs text-muted-foreground">
-            Next &quot;Fetch next {syncTop}&quot; uses Graph skip {nextBatchSkip} (older mail).
-          </p>
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            Run <strong>Sync from mailbox</strong> once to enable <strong>Fetch next {syncTop}</strong> for older messages.
-          </p>
-        )}
-      </section>
+      <ReconGraphPanel
+        connected={connected}
+        msAccountEmail={msEmail}
+        statusLoading={statusQuery.isLoading}
+        syncSince={syncSince}
+        syncTop={syncTop}
+        nextBatchSkip={nextBatchSkip}
+        syncPending={syncMutation.isPending}
+        disconnectPending={disconnectMutation.isPending}
+        onSyncSinceChange={setSyncSince}
+        onSyncTopChange={setSyncTop}
+        onSync={(skip) => syncMutation.mutate({ skip })}
+        onDisconnect={() => disconnectMutation.mutate()}
+      />
 
       {syncDebug ? (
         <CollapsibleSection
           title={`Fetched emails (${
-            debugBankSendersOnly || debugOutcomeFilter !== "all"
+            filteredSyncMessages.length !== syncDebug.messages.length
               ? `${filteredSyncMessages.length} of ${syncDebug.messages.length}${syncDebug.truncated ? "+" : ""}`
               : `${syncDebug.messages.length}${syncDebug.truncated ? "+" : ""}`
           })`}
         >
           <p className="text-xs text-muted-foreground mb-3">
             Highlighting: green = imported, amber = imported + duplicate, red = matched bank template but parse failed.
+            Rows you have since accepted or ignored are hidden by default and shown greyed when included.
             {syncDebug.truncated ? " (List is truncated.)" : ""}
           </p>
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end mb-3">
@@ -920,6 +812,15 @@ export function ReconPageClient() {
                 <option value="not_bank">Not bank</option>
               </select>
             </div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="h-4 w-4 shrink-0 rounded border-input"
+                checked={hideHandled}
+                onChange={(e) => setHideHandled(e.target.checked)}
+              />
+              <span>Hide handled (accepted or ignored since sync)</span>
+            </label>
           </div>
           {(() => {
             const total = filteredSyncMessages.length;
@@ -935,7 +836,9 @@ export function ReconPageClient() {
                   <p className="text-sm text-muted-foreground py-2">
                     {syncDebug.messages.length === 0
                       ? "No messages in this sync batch."
-                      : "No messages match the current filters."}
+                      : hideHandled
+                        ? "Nothing left to review — everything fetched has been handled or filtered out. Untick Hide handled to see it."
+                        : "No messages match the current filters."}
                   </p>
                 ) : (
                   <>
@@ -980,13 +883,15 @@ export function ReconPageClient() {
                         </thead>
                         <tbody>
                           {pageRows.map((m) => {
-                        const cls =
-                          m.outcome === "imported_pending_duplicate"
-                            ? "bg-amber-500/10"
+                        const handled = isHandledFetchedRow(m);
+                        const cls = handled
+                          ? "opacity-60"
+                          : m.outcome === "imported_pending_duplicate"
+                            ? "bg-warning-surface"
                             : m.outcome === "imported_pending_add"
-                              ? "bg-emerald-500/10"
+                              ? "bg-success-surface"
                               : m.outcome === "parse_failed"
-                                ? "bg-red-500/10"
+                                ? "bg-destructive-surface"
                                 : "";
                         const outcomeLabel =
                           m.outcome === "not_bank"
@@ -1022,7 +927,18 @@ export function ReconPageClient() {
                                 </span>
                               </button>
                             </td>
-                            <td className="py-2">{outcomeLabel}</td>
+                            <td className="py-2">
+                              {handled ? (
+                                <span className="inline-flex flex-wrap items-center gap-1.5">
+                                  <span className="text-muted-foreground line-through">{outcomeLabel}</span>
+                                  <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                                    Handled
+                                  </span>
+                                </span>
+                              ) : (
+                                outcomeLabel
+                              )}
+                            </td>
                           </tr>
                         );
                           })}
@@ -1070,7 +986,10 @@ export function ReconPageClient() {
         {itemsQuery.isLoading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No pending recon items. Sync after connecting Outlook.</p>
+          <EmptyState
+            title="Nothing from your bank yet"
+            message="Sync after connecting Outlook."
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse min-w-[1040px]">
@@ -1092,7 +1011,7 @@ export function ReconPageClient() {
                 {items.map((item) => {
                   const cat = effectiveCategory(item);
                   const postKind =
-                    item.status === "pending_add" ? entryKindByItemId[item.id] ?? "expense" : "expense";
+                    item.status === "pending_add" ? entryKindByItemId[item.id] ?? defaultEntryKind(item) : "expense";
                   const acc =
                     accountId === "" ? undefined : typeof accountId === "number" ? accountId : undefined;
                   const split = splitByItemId[item.id] ?? false;
@@ -1170,6 +1089,9 @@ export function ReconPageClient() {
                         </button>
                       </td>
                       <td className="py-3 pr-3 min-w-[7.5rem]">
+                        <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                          {flowLabel(flowFromStoredAmount(item.amount))}
+                        </p>
                         <label htmlFor={`recon-amt-${item.id}`} className="sr-only">
                           Amount (ZAR) for recon item {item.id}
                         </label>
@@ -1181,7 +1103,7 @@ export function ReconPageClient() {
                           className="w-full min-w-[6.5rem] rounded-md border border-input bg-background px-2 py-1.5 text-sm tabular-nums"
                           value={amountRand}
                           onChange={(e) => setAmountRand(item.id, e.target.value)}
-                          placeholder={fromMinorUnits(item.amount).toFixed(2)}
+                          placeholder={fromMinorUnits(Math.abs(item.amount)).toFixed(2)}
                           title="Amount in ZAR for the posted row (defaults from parsed bank amount)"
                         />
                       </td>
@@ -1281,7 +1203,25 @@ export function ReconPageClient() {
                             onChange={(e) => setSplit(item.id, e.target.checked)}
                           />
                           <Label htmlFor={`recon-split-${item.id}`} className="text-sm">
-                            Split 50/50
+                            Who&rsquo;s in on this
+                          </Label>
+                        </div>
+                        {/* Written from the row you are already accepting -- the
+                            step that makes rules beat manual entry on effort
+                            rather than matching it. */}
+                        <div className="mt-2 flex items-center gap-2">
+                          <input
+                            id={`recon-rule-${item.id}`}
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-input disabled:opacity-50"
+                            disabled={postKind === "income" || typeof cat !== "number"}
+                            checked={ruleByItemId[item.id] ?? false}
+                            onChange={(ev) =>
+                              setRuleByItemId((prev) => ({ ...prev, [item.id]: ev.target.checked }))
+                            }
+                          />
+                          <Label htmlFor={`recon-rule-${item.id}`} className="text-xs text-muted-foreground">
+                            Do this every time
                           </Label>
                         </div>
                       </td>
@@ -1349,109 +1289,62 @@ export function ReconPageClient() {
         )}
       </section>
 
-      <Dialog
-        open={messageDialogOpen}
+      <ReconMailDetailDialog
+        source={
+          messageSyncMeta
+            ? {
+                graphMessageId: messageSyncMeta.graphMessageId,
+                descriptionLine:
+                  messageSyncMeta.descriptionLine?.trim() ||
+                  messageSyncMeta.bodyPreview?.trim() ||
+                  messageSyncMeta.subject?.trim() ||
+                  "—",
+                fallbackSubject: messageSyncMeta.subject,
+                fallbackPreview: messageSyncMeta.bodyPreview,
+                fallbackFrom: messageSyncMeta.fromAddress,
+                fallbackReceived: messageSyncMeta.receivedDateTime,
+              }
+            : null
+        }
         onOpenChange={(open) => {
-          setMessageDialogOpen(open);
           if (!open) {
-            setMessageLoading(false);
             setMessageDetail(null);
             setMessageSyncMeta(null);
           }
         }}
-        className="max-w-3xl"
-      >
-        <DialogHeader>Fetched mail detail</DialogHeader>
-        {messageSyncMeta ? (
-          <div className="mb-3 rounded-md border border-border bg-muted/20 p-3 text-sm">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
-            <p className="whitespace-pre-wrap break-words">
-              {messageSyncMeta.descriptionLine?.trim() ||
-                messageSyncMeta.bodyPreview?.trim() ||
-                messageSyncMeta.subject?.trim() ||
-                "—"}
-            </p>
-          </div>
-        ) : null}
-        {messageSyncMeta?.outcome === "parse_failed" ? (
-          <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm space-y-2">
-            <p className="font-medium text-destructive">Parse failed</p>
-            <p className="text-muted-foreground">
-              Reasons:{" "}
-              {messageSyncMeta.parseFailedReasons?.length
-                ? messageSyncMeta.parseFailedReasons.join(", ")
-                : "unknown"}
-            </p>
-            {messageSyncMeta.parseType ? (
-              <p className="text-muted-foreground">Template attempted: {messageSyncMeta.parseType}</p>
-            ) : null}
-            {messageSyncMeta.parseAttempt ? (
-              <pre className="text-xs rounded-md border border-border bg-muted/40 p-2 overflow-auto">
-                {JSON.stringify(messageSyncMeta.parseAttempt, null, 2)}
-              </pre>
-            ) : null}
-          </div>
-        ) : null}
-        {messageLoading ? (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">Loading body from mailbox…</p>
-            {messageSyncMeta ? (
-              <div className="rounded-md border border-border p-3 space-y-1 text-sm">
-                <p>
-                  <span className="text-muted-foreground">From (email): </span>
-                  {messageSyncMeta.fromAddress || "—"}
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Subject: </span>
-                  {messageSyncMeta.subject || "—"}
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Received: </span>
-                  {messageSyncMeta.receivedDateTime || "—"}
-                </p>
-              </div>
-            ) : null}
-          </div>
-        ) : messageDetail ? (
-          <div className="space-y-3">
-            <div className="rounded-md border border-border p-3 space-y-1 text-sm">
-              <p>
-                <span className="text-muted-foreground">From (email): </span>
-                <span className="select-all">{messageDetail.fromAddress || "—"}</span>
+        onLoaded={setMessageDetail}
+        extraBeforeBody={
+          messageSyncMeta?.outcome === "parse_failed" ? (
+            <div className="mb-3 space-y-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
+              <p className="font-medium text-destructive">Parse failed</p>
+              <p className="text-muted-foreground">
+                Reasons:{" "}
+                {messageSyncMeta.parseFailedReasons?.length
+                  ? messageSyncMeta.parseFailedReasons.join(", ")
+                  : "unknown"}
               </p>
-              <p>
-                <span className="text-muted-foreground">Subject: </span>
-                <span className="select-all">{messageDetail.subject || "—"}</span>
-              </p>
-              <p>
-                <span className="text-muted-foreground">Received: </span>
-                <span className="select-all">{messageDetail.receivedDateTime || "—"}</span>
-              </p>
+              {messageSyncMeta.parseType ? (
+                <p className="text-muted-foreground">Template attempted: {messageSyncMeta.parseType}</p>
+              ) : null}
+              {messageSyncMeta.parseAttempt ? (
+                <pre className="overflow-auto rounded-md border border-border bg-muted/40 p-2 text-xs">
+                  {JSON.stringify(messageSyncMeta.parseAttempt, null, 2)}
+                </pre>
+              ) : null}
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">Body</p>
-              <pre className="whitespace-pre-wrap text-sm rounded-md border border-border bg-muted/30 p-3 max-h-[50vh] overflow-auto select-all">
-                {messageDetail.bodyContent || "—"}
-              </pre>
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">No data.</p>
-        )}
-        <DialogFooter>
+          ) : null
+        }
+        footerStart={
           <Button
             type="button"
             variant="secondary"
             onClick={() => void copyMessageDebugBundle()}
-            disabled={!messageSyncMeta || !messageDetail || messageLoading}
+            disabled={!messageSyncMeta || !messageDetail}
           >
             Copy debug text
           </Button>
-          <Button type="button" variant="secondary" onClick={() => setMessageDialogOpen(false)}>
-            Close
-          </Button>
-        </DialogFooter>
-      </Dialog>
+        }
+      />
 
       <Dialog
         open={processMarkedSummaryOpen}
@@ -1497,12 +1390,12 @@ export function ReconPageClient() {
                 <span className="font-semibold tabular-nums">{processMarkedSummary.ignoredCount}</span>
               </span>
               {processMarkedSummary.skippedNoCategory > 0 ? (
-                <span className="text-amber-700 dark:text-amber-500">
+                <span className="text-warning">
                   Skipped (expense rows with no category) {processMarkedSummary.skippedNoCategory}
                 </span>
               ) : null}
               {processMarkedSummary.skippedInvalidAmount > 0 ? (
-                <span className="text-amber-700 dark:text-amber-500">
+                <span className="text-warning">
                   Skipped (invalid amount) {processMarkedSummary.skippedInvalidAmount}
                 </span>
               ) : null}

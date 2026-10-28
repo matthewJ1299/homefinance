@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<style>
+  body { margin:0; background:#e9edf4; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color:#2563eb; text-decoration:none; }
+  a:hover { text-decoration:underline; }
+</style>
+</helmet>
+
+<section style="padding:48px 56px 96px; display:flex; flex-direction:column; gap:40px">
+  <div style="max-width:820px; display:flex; flex-direction:column; gap:10px">
+    <div style="font-size:11px; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:#4d5f7a">Recreation · from source</div>
+    <h1 style="margin:0; font-size:32px; font-weight:600; letter-spacing:-0.02em; color:#0f1520">HomeFinance today</h1>
+    <p style="margin:0; font-size:15px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">Screens rebuilt from <code style="font-size:13px">src/app/(app)/*</code> and <code style="font-size:13px">src/components/*</code> using the tokens in <code style="font-size:13px">globals.css</code> (light theme). Demo values stand in for real data; layout, type sizes, spacing and colour are as coded.</p>
+  </div>
+
+  <div style="display:flex; flex-wrap:wrap; gap:32px; align-items:flex-start">
+
+    <!-- ============ DASHBOARD ============ -->
+    <div style="display:flex; flex-direction:column; gap:10px">
+      <div style="font-size:12px; font-weight:600; color:#0f1520">Home <span style="color:#4d5f7a; font-weight:400">/dashboard</span></div>
+      <div style="width:390px; border:1px solid #cdd5e3; border-radius:20px; overflow:hidden; background:#f4f6fa; box-shadow:0 10px 30px rgba(15,21,32,0.10)">
+        <!-- header h-14 -->
+        <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; background:rgba(244,246,250,0.95); border-bottom:1px solid #dde3ee">
+          <span style="font-size:16px; font-weight:600; color:#0f1520">Home</span>
+          <div style="display:flex; align-items:center; gap:8px">
+            <span style="font-size:14px; color:#4d5f7a">Matt</span>
+            <div style="width:40px; height:40px; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#4d5f7a">☾</div>
+            <div style="width:40px; height:40px; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#4d5f7a">≡</div>
+          </div>
+        </div>
+
+        <div style="padding:12px; display:flex; flex-direction:column; gap:20px">
+          <!-- greeting bar -->
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px">
+            <div style="min-width:0; display:flex; flex-direction:column; gap:4px">
+              <div style="font-size:11px; font-weight:600; letter-spacing:0.2em; color:#4d5f7a">AUGUST 2026</div>
+              <div style="font-size:12px; color:#4d5f7a">Monday, August 31</div>
+              <div style="padding-top:4px; font-size:24px; font-weight:600; letter-spacing:-0.02em; color:#0f1520">Good morning, Matt</div>
+              <p style="margin:4px 0 0; font-size:14px; color:#4d5f7a">Month balance <span style="font-weight:500; color:#0f1520; font-variant-numeric:tabular-nums">R 6 480,00</span></p>
+            </div>
+            <div style="display:flex; gap:8px; flex-shrink:0">
+              <div style="width:40px; height:40px; border-radius:9999px; background:#eef3ff; color:#1a2540; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600">M</div>
+              <div style="width:40px; height:40px; border-radius:9999px; background:#eef3ff; color:#1a2540; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600">S</div>
+            </div>
+          </div>
+
+          <!-- stats strip -->
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px">
+            <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:16px; padding:10px; box-shadow:0 1px 2px rgba(15,21,32,0.05); display:flex; flex-direction:column; align-items:center; gap:8px; min-height:84px; justify-content:center">
+              <div style="width:36px; height:36px; border-radius:9999px; background:rgba(37,99,235,0.15); color:#2563eb; display:flex; align-items:center; justify-content:center; font-size:16px">✓</div>
+              <div style="font-size:14px; font-weight:600; font-variant-numeric:tabular-nums">7</div>
+              <div style="font-size:11px; font-weight:500; color:#4d5f7a; text-transform:uppercase; letter-spacing:0.05em">Tasks</div>
+            </div>
+            <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:16px; padding:10px; box-shadow:0 1px 2px rgba(15,21,32,0.05); display:flex; flex-direction:column; align-items:center; gap:8px; min-height:84px; justify-content:center">
+              <div style="width:36px; height:36px; border-radius:9999px; background:rgba(139,92,246,0.15); color:#7c3aed; display:flex; align-items:center; justify-content:center; font-size:16px">▤</div>
+              <div style="font-size:14px; font-weight:600; font-variant-numeric:tabular-nums">2</div>
+              <div style="font-size:11px; font-weight:500; color:#4d5f7a; text-transform:uppercase; letter-spacing:0.05em">Events</div>
+            </div>
+            <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:16px; padding:10px; box-shadow:0 1px 2px rgba(15,21,32,0.05); display:flex; flex-direction:column; align-items:center; gap:8px; min-height:84px; justify-content:center">
+              <div style="width:36px; height:36px; border-radius:9999px; background:rgba(16,185,129,0.15); color:#059669; display:flex; align-items:center; justify-content:center; font-size:16px">◈</div>
+              <div style="font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">R 6 480,00</div>
+              <div style="font-size:11px; font-weight:500; color:#4d5f7a; text-transform:uppercase; letter-spacing:0.05em">Budget</div>
+            </div>
+          </div>
+
+          <!-- split balance banner -->
+          <div style="position:relative; overflow:hidden; border:1px solid #dde3ee; background:#fafbfd; border-radius:12px; padding:12px; box-shadow:0 1px 2px rgba(15,21,32,0.05)">
+            <div style="position:absolute; inset:0; opacity:0.6; background:radial-gradient(circle at 15% 30%, rgba(34,197,94,0.22), transparent 55%), radial-gradient(circle at 80% 10%, rgba(99,102,241,0.16), transparent 45%)"></div>
+            <div style="position:relative">
+              <div style="font-size:12px; color:#4d5f7a">Split balance</div>
+              <div style="margin-top:8px; font-size:18px; font-weight:600; color:#2563eb">You are owed R 1 240,00</div>
+            </div>
+          </div>
+
+          <!-- two tiles -->
+          <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px">
+            <div style="border:1px solid rgba(239,68,68,0.4); background:#fafbfd; border-radius:12px; padding:12px; font-size:14px; box-shadow:0 1px 2px rgba(15,21,32,0.05)">
+              <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px">
+                <div style="font-weight:600">Over budget</div>
+                <div style="flex-shrink:0; border-radius:9999px; padding:2px 8px; font-size:12px; font-weight:500; background:rgba(239,68,68,0.1); color:#ef4444">Alert</div>
+              </div>
+              <ul style="margin:10px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:4px">
+                <li style="display:flex; justify-content:space-between; gap:12px"><span style="color:#4d5f7a">Groceries</span><span style="color:#ef4444; font-weight:500; font-variant-numeric:tabular-nums">R 420,00</span></li>
+                <li style="display:flex; justify-content:space-between; gap:12px"><span style="color:#4d5f7a">Eating out</span><span style="color:#ef4444; font-weight:500; font-variant-numeric:tabular-nums">R 180,00</span></li>
+              </ul>
+            </div>
+            <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:16px; padding:12px; font-size:14px; box-shadow:0 1px 2px rgba(15,21,32,0.05)">
+              <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px">
+                <div>
+                  <div style="font-weight:600; letter-spacing:-0.01em">Upcoming events</div>
+                  <div style="font-size:12px; color:#4d5f7a; margin-top:4px">Today on your calendar</div>
+                </div>
+                <span style="font-size:12px; font-weight:500; color:#2563eb; flex-shrink:0">See all</span>
+              </div>
+              <div style="margin-top:10px; border:1px solid rgba(221,227,238,0.5); background:rgba(244,246,250,0.3); border-radius:12px; padding:10px; display:flex; align-items:center; justify-content:space-between; gap:8px">
+                <div style="min-width:0">
+                  <p style="margin:0; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">Dentist</p>
+                  <p style="margin:0; font-size:12px; color:#4d5f7a">Today, 14:30</p>
+                </div>
+                <span style="color:#4d5f7a; flex-shrink:0">›</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- quick add expense -->
+          <div style="display:flex; flex-direction:column; gap:12px">
+            <div style="display:flex; align-items:baseline; justify-content:space-between; gap:12px">
+              <h2 style="margin:0; font-size:14px; font-weight:600; letter-spacing:-0.01em">Quick add expense</h2>
+              <span style="font-size:12px; color:#4d5f7a">August 2026</span>
+            </div>
+            <div style="display:flex; gap:8px; align-items:flex-end">
+              <div style="flex:1; min-width:0">
+                <label style="font-size:12px; color:#4d5f7a; display:block; margin-bottom:4px">Amount (R)</label>
+                <div style="height:40px; border:1px solid #dde3ee; background:#f4f6fa; border-radius:6px; display:flex; align-items:center; padding:0 12px; font-size:18px; color:#8b97ab">0.00</div>
+              </div>
+              <div style="height:40px; padding:0 16px; border-radius:6px; background:#2563eb; color:#f8fbff; font-size:14px; font-weight:500; display:flex; align-items:center">Add</div>
+            </div>
+          </div>
+
+          <!-- recent transactions -->
+          <div style="display:flex; flex-direction:column; gap:12px">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px">
+              <h2 style="margin:0; font-size:14px; font-weight:600; letter-spacing:-0.01em">Recent transactions</h2>
+              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px; flex-shrink:0">
+                <div style="display:flex; align-items:center; gap:8px; font-size:12px; color:#4d5f7a; font-variant-numeric:tabular-nums">
+                  <span>In R 32 000,00</span><span style="color:#dde3ee">|</span><span>Out R 25 520,00</span>
+                </div>
+                <span style="font-size:12px; font-weight:500; color:#2563eb">View more</span>
+              </div>
+            </div>
+            <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:16px; padding:12px; box-shadow:0 1px 2px rgba(15,21,32,0.05)">
+              <h3 style="margin:0 0 8px; font-size:12px; font-weight:500; color:#4d5f7a">Sunday, 30 August</h3>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid rgba(221,227,238,0.5)">
+                <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1">
+                  <span style="flex-shrink:0; width:32px; height:32px; border-radius:9999px; background:#eef3ff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:500">M</span>
+                  <div style="min-width:0; flex:1">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+                      <span style="font-weight:500; font-size:14px">Groceries</span>
+                      <span style="font-size:10px; font-weight:500; text-transform:uppercase; letter-spacing:0.05em; padding:2px 6px; border-radius:4px; background:#eef3ff; color:#4d5f7a">Split</span>
+                    </div>
+                    <span style="font-size:12px; color:#4d5f7a">Checkers run</span>
+                  </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; flex-shrink:0">
+                  <span style="font-weight:500">R 842,30</span>
+                  <span style="width:32px; height:32px; display:flex; align-items:center; justify-content:center; color:#4d5f7a">✎</span>
+                  <span style="width:32px; height:32px; display:flex; align-items:center; justify-content:center; color:#4d5f7a">🗑</span>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid rgba(221,227,238,0.5)">
+                <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1">
+                  <span style="flex-shrink:0; width:32px; height:32px; border-radius:9999px; background:#eef3ff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:500">M</span>
+                  <div style="min-width:0; flex:1">
+                    <span style="font-weight:500; font-size:14px">Fuel</span>
+                    <span style="font-size:12px; color:#4d5f7a; display:block">Engen</span>
+                  </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; flex-shrink:0">
+                  <span style="font-weight:500">R 900,00</span>
+                  <span style="width:32px; height:32px; display:flex; align-items:center; justify-content:center; color:#4d5f7a">✎</span>
+                  <span style="width:32px; height:32px; display:flex; align-items:center; justify-content:center; color:#4d5f7a">🗑</span>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; font-size:14px">
+                <div style="min-width:0">
+                  <span style="font-weight:500; color:#047857">Income</span>
+                  <span style="color:#4d5f7a; display:block">Salary</span>
+                  <span style="font-size:12px; color:#4d5f7a">Matt - salary</span>
+                </div>
+                <span style="font-weight:500; font-variant-numeric:tabular-nums; flex-shrink:0">R 32 000,00</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- income section (rendered twice in source) -->
+          <div style="display:flex; flex-direction:column; gap:12px">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px">
+              <div>
+                <h2 style="margin:0; font-size:14px; font-weight:600; letter-spacing:-0.01em">Income this month</h2>
+                <p style="margin:4px 0 0; font-size:12px; color:#4d5f7a">August 2026</p>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; flex-shrink:0">
+                <span style="font-size:12px; color:#4d5f7a">R 32 000,00</span>
+                <span style="font-size:12px; font-weight:500; color:#2563eb">View more</span>
+              </div>
+            </div>
+            <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:16px; padding:12px; box-shadow:0 1px 2px rgba(15,21,32,0.05); display:flex; flex-direction:column; gap:16px">
+              <div style="display:flex; gap:8px">
+                <div style="flex:1; height:40px; border:1px solid #dde3ee; background:#f4f6fa; border-radius:6px; display:flex; align-items:center; padding:0 12px; font-size:14px; color:#8b97ab">Amount</div>
+                <div style="height:40px; padding:0 12px; border-radius:6px; background:#eef3ff; color:#1a2540; font-size:14px; font-weight:500; display:flex; align-items:center">Salary</div>
+              </div>
+              <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(244,246,250,0.7); border-radius:12px; padding:12px; font-size:14px; color:#4d5f7a">Salary · 25 Aug · R 32 000,00</div>
+            </div>
+          </div>
+          <div style="border:1px dashed #b9c4d6; border-radius:12px; padding:10px 12px; font-size:12px; color:#4d5f7a; background:rgba(255,255,255,0.5)">This whole “Income this month” block renders <strong>twice</strong> on the live dashboard — <code>DashboardIncomeSection</code> appears twice in <code>dashboard/page.tsx</code>.</div>
+        </div>
+
+        <!-- bottom nav -->
+        <div style="border-top:1px solid #dde3ee; background:rgba(244,246,250,0.95); height:52px; display:flex; justify-content:space-around; align-items:flex-end; padding-bottom:4px; position:relative">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px; color:#2563eb"><span style="font-size:16px">▣</span><span style="font-size:12px; font-weight:500">Home</span></div>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px; color:#4d5f7a"><span style="font-size:16px">▤</span><span style="font-size:12px; font-weight:500">Calendar</span></div>
+          <div style="width:56px; height:56px; border-radius:9999px; background:#2563eb; color:#f8fbff; display:flex; flex-direction:column; align-items:center; justify-content:center; margin-top:-20px; box-shadow:0 10px 20px rgba(37,99,235,0.35)"><span style="font-size:20px; line-height:1">+</span><span style="font-size:10px; font-weight:500; margin-top:2px">Add</span></div>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px; color:#4d5f7a"><span style="font-size:16px">☰</span><span style="font-size:12px; font-weight:500">Lists</span></div>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px; color:#4d5f7a"><span style="font-size:16px">◈</span><span style="font-size:12px; font-weight:500">Budget</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ BUDGET ============ -->
+    <div style="display:flex; flex-direction:column; gap:10px">
+      <div style="font-size:12px; font-weight:600; color:#0f1520">Budget <span style="color:#4d5f7a; font-weight:400">/budget</span></div>
+      <div style="width:390px; border:1px solid #cdd5e3; border-radius:20px; overflow:hidden; background:#f4f6fa; box-shadow:0 10px 30px rgba(15,21,32,0.10)">
+        <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; background:rgba(244,246,250,0.95); border-bottom:1px solid #dde3ee">
+          <span style="font-size:16px; font-weight:600">Home</span>
+          <div style="display:flex; align-items:center; gap:8px"><span style="font-size:14px; color:#4d5f7a">Matt</span><span style="color:#4d5f7a">☾ ≡</span></div>
+        </div>
+        <div style="padding:16px; display:flex; flex-direction:column; gap:24px">
+          <div style="display:flex; flex-direction:column; gap:12px">
+            <h1 style="margin:0; font-size:20px; font-weight:600; letter-spacing:-0.02em">Budget</h1>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+              <div style="width:40px; height:40px; border:1px solid #dde3ee; background:#f4f6fa; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#0f1520">‹</div>
+              <span style="font-weight:500; min-width:140px; text-align:center">August 2026</span>
+              <div style="width:40px; height:40px; border:1px solid #dde3ee; background:#f4f6fa; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#0f1520">›</div>
+            </div>
+          </div>
+
+          <!-- overview card + donut -->
+          <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:16px; padding:16px; box-shadow:0 1px 2px rgba(15,21,32,0.05); display:flex; flex-direction:column; gap:20px">
+            <div style="display:flex; flex-direction:column; gap:16px">
+              <div style="position:relative; width:128px; height:128px; margin:0 auto; flex-shrink:0">
+                <div style="width:128px; height:128px; border-radius:9999px; background:conic-gradient(#ef4444 0 72%, #2563eb 72% 100%); mask:radial-gradient(circle, transparent 0 48px, #000 48px 62px, transparent 62px); -webkit-mask:radial-gradient(circle, transparent 0 48px, #000 48px 62px, transparent 62px)"></div>
+                <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center">
+                  <div style="font-size:10px; color:#4d5f7a; line-height:1.2">Total budget</div>
+                  <div style="font-size:14px; font-weight:600; margin-top:2px">R 32 000,00</div>
+                </div>
+              </div>
+              <div style="flex:1; min-width:0; text-align:center; display:flex; flex-direction:column; gap:8px">
+                <div style="font-size:12px; font-weight:500; text-transform:uppercase; letter-spacing:0.05em; color:#4d5f7a">Overview</div>
+                <div style="font-size:24px; font-weight:600; font-variant-numeric:tabular-nums">R 32 000,00</div>
+                <div style="display:flex; flex-direction:column; gap:4px; font-size:14px">
+                  <span>Spent R 25 520,00</span>
+                  <span style="color:#2563eb; font-weight:500">Remaining R 6 480,00</span>
+                </div>
+              </div>
+            </div>
+            <div style="display:grid; gap:12px; border-top:1px solid rgba(221,227,238,0.5); padding-top:16px">
+              <div style="display:flex; justify-content:space-between; font-size:14px; gap:8px"><span style="color:#4d5f7a">Total income</span><span style="font-weight:500; font-variant-numeric:tabular-nums">R 32 000,00</span></div>
+              <div style="display:flex; justify-content:space-between; font-size:14px; gap:8px"><span style="color:#4d5f7a">Total expenses</span><span style="font-weight:500; font-variant-numeric:tabular-nums">R 25 520,00</span></div>
+              <div style="display:flex; justify-content:space-between; font-size:14px; gap:8px"><span style="color:#4d5f7a">Balance</span><span style="font-weight:500; font-variant-numeric:tabular-nums">R 6 480,00</span></div>
+              <div style="display:flex; justify-content:space-between; font-size:14px; gap:8px"><span style="color:#4d5f7a">Allocated</span><span style="font-weight:500; font-variant-numeric:tabular-nums">R 30 200,00</span></div>
+            </div>
+            <div style="border:1px solid rgba(245,158,11,0.5); background:rgba(245,158,11,0.1); border-radius:8px; padding:16px">
+              <p style="margin:0; font-weight:500; color:#92400e">R 1 800,00 still needs a job. Allocate it to categories below.</p>
+            </div>
+          </div>
+
+          <!-- spending by category tile -->
+          <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:16px; padding:16px; box-shadow:0 1px 2px rgba(15,21,32,0.05)">
+            <h2 style="margin:0 0 16px; font-size:14px; font-weight:600; letter-spacing:-0.01em">Spending by category</h2>
+            <ul style="margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:16px">
+              <li style="display:flex; flex-direction:column; gap:8px">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:14px">
+                  <div style="display:flex; align-items:center; gap:8px; min-width:0"><span style="width:10px; height:10px; border-radius:9999px; background:#ef4444"></span><span style="font-weight:500; letter-spacing:-0.01em">Groceries</span></div>
+                  <span style="font-variant-numeric:tabular-nums; font-weight:500; color:#ef4444">R 5 420,00</span>
+                </div>
+                <div style="display:flex; height:10px; width:100%; overflow:hidden; border-radius:9999px; background:#eef3ff"><div style="height:100%; width:100%; border-radius:9999px; background:#ef4444"></div></div>
+                <div style="font-size:11px; color:#4d5f7a; font-variant-numeric:tabular-nums">100% of R 5 000,00 allocated</div>
+              </li>
+              <li style="display:flex; flex-direction:column; gap:8px">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:14px">
+                  <div style="display:flex; align-items:center; gap:8px; min-width:0"><span style="width:10px; height:10px; border-radius:9999px; background:#0ea5e9"></span><span style="font-weight:500; letter-spacing:-0.01em">Fuel</span></div>
+                  <span style="font-variant-numeric:tabular-nums; font-weight:500">R 1 800,00</span>
+                </div>
+                <div style="display:flex; height:10px; width:100%; overflow:hidden; border-radius:9999px; background:#eef3ff"><div style="height:100%; width:72%; border-radius:9999px; background:#2563eb"></div></div>
+                <div style="font-size:11px; color:#4d5f7a; font-variant-numeric:tabular-nums">72% of R 2 500,00 allocated</div>
+              </li>
+              <li style="display:flex; flex-direction:column; gap:8px">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:14px">
+                  <div style="display:flex; align-items:center; gap:8px; min-width:0"><span style="width:10px; height:10px; border-radius:9999px; background:#8b5cf6"></span><span style="font-weight:500; letter-spacing:-0.01em">Eating out</span></div>
+                  <span style="font-variant-numeric:tabular-nums; font-weight:500; color:#ef4444">R 1 180,00</span>
+                </div>
+                <div style="display:flex; height:10px; width:100%; overflow:hidden; border-radius:9999px; background:#eef3ff"><div style="height:100%; width:100%; border-radius:9999px; background:#ef4444"></div></div>
+                <div style="font-size:11px; color:#4d5f7a; font-variant-numeric:tabular-nums">100% of R 1 000,00 allocated</div>
+              </li>
+            </ul>
+          </div>
+
+          <!-- sticky to-be-allocated -->
+          <div style="background:rgba(244,246,250,0.95); border-bottom:1px solid rgba(221,227,238,0.6); box-shadow:0 1px 2px rgba(15,21,32,0.05); border-radius:12px 12px 0 0; padding:12px 16px; margin:0 -16px">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap">
+              <span style="font-size:14px; color:#4d5f7a">To be allocated</span>
+              <div style="display:flex; align-items:center; gap:8px">
+                <span style="font-weight:600; font-variant-numeric:tabular-nums">R 1 800,00</span>
+                <div style="height:36px; padding:0 12px; border-radius:6px; background:#eef3ff; color:#1a2540; font-size:14px; font-weight:500; display:flex; align-items:center">Auto-allocate</div>
+              </div>
+            </div>
+            <p style="margin:4px 0 0; font-size:12px; color:#4d5f7a">Assign the remaining amount to categories.</p>
+          </div>
+
+          <!-- category cards -->
+          <div style="display:flex; flex-direction:column; gap:16px">
+            <h2 style="margin:0; font-size:16px; font-weight:600; letter-spacing:-0.01em">Categories and allocations</h2>
+            <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.8); border-radius:16px; overflow:hidden; box-shadow:0 1px 2px rgba(15,21,32,0.05); background-color:rgba(239,68,68,0.05)">
+              <div style="padding:16px; display:flex; flex-direction:column; gap:8px">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px">
+                  <div style="min-width:0">
+                    <h3 style="margin:0; font-weight:500">Groceries</h3>
+                    <p style="margin:0; font-size:12px; color:#4d5f7a">Household</p>
+                  </div>
+                  <div style="display:flex; flex-shrink:0; align-items:center; gap:8px">
+                    <div style="width:112px; height:36px; border:1px solid #dde3ee; background:#f4f6fa; border-radius:6px; display:flex; align-items:center; justify-content:flex-end; padding:0 12px; font-weight:500; font-variant-numeric:tabular-nums">5000.00</div>
+                    <span style="font-size:14px; color:#4d5f7a">R</span>
+                    <div style="height:36px; padding:0 12px; border-radius:6px; background:#2563eb; color:#f8fbff; font-size:14px; font-weight:500; display:flex; align-items:center">Save</div>
+                  </div>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:14px">
+                  <span style="color:#4d5f7a">Spent R 5 420,00</span>
+                  <span style="color:#ef4444; font-weight:500">Over by R 420,00</span>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:4px">
+                  <div style="display:flex; height:8px; width:100%; overflow:hidden; border-radius:9999px; background:#eef3ff"><div style="height:100%; width:100%; background:#ef4444"></div></div>
+                  <div style="display:flex; justify-content:space-between; font-size:12px; color:#4d5f7a"><span>Spent / Allocated</span><span style="color:#ef4444; font-weight:500">R 5 420,00 / R 5 000,00</span></div>
+                </div>
+                <div style="padding-top:8px"><div style="height:36px; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#4d5f7a; font-size:14px; font-weight:500">View transactions</div></div>
+                <div style="height:36px; border:1px solid #dde3ee; background:#f4f6fa; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:500">Move money to cover</div>
+              </div>
+            </div>
+            <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.8); border-radius:16px; overflow:hidden; box-shadow:0 1px 2px rgba(15,21,32,0.05)">
+              <div style="padding:16px; display:flex; flex-direction:column; gap:8px">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px">
+                  <div style="min-width:0">
+                    <h3 style="margin:0; font-weight:500">Rent</h3>
+                    <span style="font-size:12px; border-radius:4px; background:rgba(37,99,235,0.1); color:#2563eb; padding:2px 8px">Fixed</span>
+                    <p style="margin:0; font-size:12px; color:#4d5f7a">Housing</p>
+                  </div>
+                  <div style="display:flex; flex-shrink:0; align-items:center; gap:8px">
+                    <div style="width:112px; height:36px; border:1px solid #dde3ee; background:#f4f6fa; border-radius:6px; display:flex; align-items:center; justify-content:flex-end; padding:0 12px; font-weight:500; font-variant-numeric:tabular-nums">12000.00</div>
+                    <span style="font-size:14px; color:#4d5f7a">R</span>
+                    <div style="height:36px; padding:0 12px; border-radius:6px; background:#2563eb; color:#f8fbff; font-size:14px; font-weight:500; display:flex; align-items:center">Save</div>
+                  </div>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:14px">
+                  <span style="color:#4d5f7a">Spent R 12 000,00</span><span>Left R 0,00</span>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:4px">
+                  <div style="display:flex; height:8px; width:100%; overflow:hidden; border-radius:9999px; background:#eef3ff"><div style="height:100%; width:100%; background:#2563eb"></div></div>
+                  <div style="display:flex; justify-content:space-between; font-size:12px; color:#4d5f7a"><span>Spent / Allocated</span><span style="color:#2563eb; font-weight:500">R 12 000,00 / R 12 000,00</span></div>
+                </div>
+                <div style="padding-top:8px"><div style="height:36px; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#4d5f7a; font-size:14px; font-weight:500">View transactions</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ ADD HUB ============ -->
+    <div style="display:flex; flex-direction:column; gap:10px">
+      <div style="font-size:12px; font-weight:600; color:#0f1520">Create hub <span style="color:#4d5f7a; font-weight:400">/add</span></div>
+      <div style="width:390px; border:1px solid #cdd5e3; border-radius:20px; overflow:hidden; background:#f4f6fa; box-shadow:0 10px 30px rgba(15,21,32,0.10)">
+        <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; background:rgba(244,246,250,0.95); border-bottom:1px solid #dde3ee">
+          <span style="font-size:16px; font-weight:600">Home</span>
+          <div style="display:flex; align-items:center; gap:8px"><span style="font-size:14px; color:#4d5f7a">Matt</span><span style="color:#4d5f7a">☾ ≡</span></div>
+        </div>
+        <div style="padding:16px; display:flex; flex-direction:column; gap:24px">
+          <div style="display:grid; grid-template-columns:40px 1fr 40px; align-items:center; gap:8px">
+            <div style="width:40px; height:40px; border:1px solid #dde3ee; background:#eef3ff; border-radius:9999px; display:flex; align-items:center; justify-content:center; color:#1a2540">←</div>
+            <h1 style="margin:0; font-size:18px; font-weight:600; text-align:center; letter-spacing:-0.01em">Create new</h1>
+            <span></span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:12px">
+            <div style="display:flex; align-items:center; gap:12px; border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:16px; padding:16px; box-shadow:0 1px 2px rgba(15,21,32,0.05)">
+              <div style="width:48px; height:48px; flex-shrink:0; border-radius:12px; background:rgba(16,185,129,0.2); color:#059669; display:flex; align-items:center; justify-content:center; font-size:20px">☑</div>
+              <div style="min-width:0; flex:1"><div style="font-weight:600">New task</div><div style="font-size:14px; color:#4d5f7a">Add a to-do item to your lists</div></div>
+              <span style="color:#4d5f7a">›</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px; border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:16px; padding:16px; box-shadow:0 1px 2px rgba(15,21,32,0.05)">
+              <div style="width:48px; height:48px; flex-shrink:0; border-radius:12px; background:rgba(14,165,233,0.2); color:#0284c7; display:flex; align-items:center; justify-content:center; font-size:20px">▤</div>
+              <div style="min-width:0; flex:1"><div style="font-weight:600">New event</div><div style="font-size:14px; color:#4d5f7a">Schedule something on your calendar</div></div>
+              <span style="color:#4d5f7a">›</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px; border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:16px; padding:16px; box-shadow:0 1px 2px rgba(15,21,32,0.05)">
+              <div style="width:48px; height:48px; flex-shrink:0; border-radius:12px; background:rgba(249,115,22,0.2); color:#ea580c; display:flex; align-items:center; justify-content:center; font-size:20px">▦</div>
+              <div style="min-width:0; flex:1"><div style="font-weight:600">New expense</div><div style="font-size:14px; color:#4d5f7a">Log a purchase or bill</div></div>
+              <span style="color:#4d5f7a">›</span>
+            </div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:12px">
+            <div style="display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600"><span style="color:#2563eb">⚡</span> Quick add</div>
+            <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:16px; padding:16px; box-shadow:0 1px 2px rgba(15,21,32,0.05); display:flex; flex-direction:column; gap:12px">
+              <div style="display:flex; flex-direction:column; gap:8px">
+                <label style="font-size:14px; font-weight:500">What do you need to add?</label>
+                <div style="height:40px; border:1px solid #dde3ee; background:#f4f6fa; border-radius:6px; display:flex; align-items:center; padding:0 12px; font-size:14px; color:#8b97ab">e.g. Team standup, groceries</div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:12px">
+                <div style="display:flex; flex-direction:column; gap:8px">
+                  <label style="font-size:14px; font-weight:500">Type</label>
+                  <div style="height:40px; border:1px solid #dde3ee; background:#f4f6fa; border-radius:6px; display:flex; align-items:center; justify-content:space-between; padding:0 12px; font-size:14px"><span>Task</span><span style="color:#4d5f7a">▾</span></div>
+                </div>
+                <div style="height:40px; border-radius:6px; background:#2563eb; color:#f8fbff; font-size:14px; font-weight:500; display:flex; align-items:center; justify-content:center">+ Add</div>
+              </div>
+            </div>
+          </div>
+          <div style="border:1px dashed #b9c4d6; border-radius:12px; padding:10px 12px; font-size:12px; color:#4d5f7a; background:rgba(255,255,255,0.5)">Tapping <strong>+</strong> in the bottom bar lands here — a menu, not an entry field. Logging an expense is: <em>+ → New expense → amount → Add → category dialog → Add expense</em>.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ ADD EXPENSE DIALOG ============ -->
+    <div style="display:flex; flex-direction:column; gap:10px">
+      <div style="font-size:12px; font-weight:600; color:#0f1520">Category dialog <span style="color:#4d5f7a; font-weight:400">QuickAddForm step 2</span></div>
+      <div style="width:390px; border:1px solid #cdd5e3; border-radius:20px; overflow:hidden; background:#f4f6fa; box-shadow:0 10px 30px rgba(15,21,32,0.10)">
+        <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; background:rgba(244,246,250,0.95); border-bottom:1px solid #dde3ee; opacity:0.6">
+          <span style="font-size:16px; font-weight:600">Home</span><span style="color:#4d5f7a">☾ ≡</span>
+        </div>
+        <div style="background:rgba(15,21,32,0.35); padding:16px; display:flex; flex-direction:column; justify-content:center; min-height:640px">
+          <div style="background:#fafbfd; border:1px solid #dde3ee; border-radius:8px; padding:16px; display:flex; flex-direction:column; gap:12px; box-shadow:0 20px 40px rgba(15,21,32,0.25)">
+            <div style="font-size:16px; font-weight:600">Choose category</div>
+            <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(238,243,255,0.4); border-radius:8px; padding:8px 12px">
+              <span style="font-size:12px; color:#4d5f7a; display:block">Amount</span>
+              <span style="font-size:18px; font-weight:600; font-variant-numeric:tabular-nums; letter-spacing:-0.01em">R 842,30</span>
+            </div>
+            <div>
+              <span style="font-size:12px; color:#4d5f7a; display:block; margin-bottom:4px">Category</span>
+              <p style="margin:0 0 6px; font-size:12px; color:#4d5f7a; font-weight:500">Most used</p>
+              <div style="display:flex; gap:8px; overflow:hidden">
+                <div style="border-radius:9999px; padding:6px 12px; font-size:14px; font-weight:500; background:#2563eb; color:#f8fbff; border:1px solid #2563eb; white-space:nowrap">Groceries (R 420,00 over)</div>
+                <div style="border-radius:9999px; padding:6px 12px; font-size:14px; font-weight:500; background:#f4f6fa; border:1px solid #dde3ee; white-space:nowrap">Fuel (R 700,00 left)</div>
+              </div>
+              <div style="margin-top:12px; font-size:12px; color:#4d5f7a; font-weight:500; height:28px; display:flex; align-items:center">Show more</div>
+            </div>
+            <div style="height:40px; border:1px solid #dde3ee; background:#f4f6fa; border-radius:6px; display:flex; align-items:center; padding:0 12px; font-size:14px; color:#8b97ab">Note (optional)</div>
+            <div>
+              <label style="font-size:12px; color:#4d5f7a; display:block; margin-bottom:4px">Date</label>
+              <div style="height:40px; border:1px solid #dde3ee; background:#f4f6fa; border-radius:6px; display:flex; align-items:center; padding:0 12px; font-size:14px">2026-08-31</div>
+            </div>
+            <div>
+              <label style="font-size:12px; display:block; margin-bottom:4px">Account</label>
+              <div style="height:40px; border:1px solid #dde3ee; background:#f4f6fa; border-radius:6px; display:flex; align-items:center; justify-content:space-between; padding:0 12px; font-size:14px"><span>Cheque (bank)</span><span style="color:#4d5f7a">▾</span></div>
+            </div>
+            <label style="display:flex; align-items:center; gap:8px"><span style="width:16px; height:16px; border:1px solid #dde3ee; border-radius:4px; background:#f4f6fa"></span><span style="font-size:14px">Split this expense</span></label>
+            <div style="display:flex; justify-content:space-between; gap:8px; padding-top:8px">
+              <div style="height:40px; padding:0 16px; border:1px solid #dde3ee; background:#f4f6fa; border-radius:6px; font-size:14px; font-weight:500; display:flex; align-items:center">Cancel</div>
+              <div style="height:40px; padding:0 16px; border-radius:6px; background:#2563eb; color:#f8fbff; font-size:14px; font-weight:500; display:flex; align-items:center">Add expense</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ SPLITS ============ -->
+    <div style="display:flex; flex-direction:column; gap:10px">
+      <div style="font-size:12px; font-weight:600; color:#0f1520">Splits <span style="color:#4d5f7a; font-weight:400">/splits</span></div>
+      <div style="width:390px; border:1px solid #cdd5e3; border-radius:20px; overflow:hidden; background:#f4f6fa; box-shadow:0 10px 30px rgba(15,21,32,0.10)">
+        <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; background:rgba(244,246,250,0.95); border-bottom:1px solid #dde3ee">
+          <span style="font-size:16px; font-weight:600">Home</span><span style="color:#4d5f7a">☾ ≡</span>
+        </div>
+        <div style="padding:16px; display:flex; flex-direction:column; gap:24px">
+          <h1 style="margin:0; font-size:20px; font-weight:600; letter-spacing:-0.02em">Splits</h1>
+          <div>
+            <h2 style="margin:0 0 8px; font-size:14px; font-weight:500">Summary by group</h2>
+            <div style="display:flex; flex-wrap:wrap; gap:8px">
+              <div style="border:1px solid #2563eb; background:rgba(37,99,235,0.05); border-radius:8px; padding:12px; font-size:14px; min-width:120px">
+                <span style="font-weight:500">Default</span>
+                <div style="color:#4d5f7a; margin-top:4px">You are owed R 1 240,00</div>
+              </div>
+              <div style="border:1px solid #dde3ee; background:#fafbfd; border-radius:8px; padding:12px; font-size:14px; min-width:120px">
+                <span style="font-weight:500">Trip</span>
+                <div style="color:#4d5f7a; margin-top:4px">Settled up</div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <h2 style="margin:0 0 8px; font-size:14px; font-weight:500">Group</h2>
+            <div style="display:flex; flex-wrap:wrap; gap:4px">
+              <div style="border-radius:6px; padding:6px 12px; font-size:14px; background:#2563eb; color:#f8fbff">Default</div>
+              <div style="border-radius:6px; padding:6px 12px; font-size:14px; border:1px solid #dde3ee; background:#fafbfd">Trip</div>
+            </div>
+          </div>
+          <div>
+            <h2 style="margin:0 0 8px; font-size:14px; font-weight:500">How much each person owes</h2>
+            <div style="border:1px solid #dde3ee; background:#fafbfd; border-radius:8px; padding:16px; font-size:14px; display:flex; flex-direction:column; gap:8px">
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap">
+                <span>Sydney</span>
+                <div style="display:flex; align-items:center; gap:8px"><span>Sydney owes you R 1 240,00</span></div>
+              </div>
+              <div style="padding-top:8px; margin-top:8px; border-top:1px solid #dde3ee; font-weight:500">You are owed R 1 240,00</div>
+            </div>
+          </div>
+          <div>
+            <h2 style="margin:0 0 8px; font-size:14px; font-weight:500">Split history</h2>
+            <ul style="margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:12px">
+              <li style="border:1px solid #dde3ee; background:#fafbfd; border-radius:8px; padding:12px; font-size:14px; display:flex; flex-direction:column; gap:4px">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start">
+                  <div><span style="font-weight:500">Groceries</span><span style="color:#4d5f7a"> R 842,30 paid by Matt</span></div>
+                  <div style="color:#ef4444; font-size:14px; font-weight:500; padding:0 8px">Delete</div>
+                </div>
+                <div style="color:#4d5f7a; font-size:12px">30 Aug 2026 – Checkers run</div>
+                <ul style="margin:0; padding:0; list-style:none; color:#4d5f7a"><li>Matt owes R 421,15</li><li>Sydney owes R 421,15</li></ul>
+              </li>
+              <li style="border:1px solid #dde3ee; background:#fafbfd; border-radius:8px; padding:12px; font-size:14px">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px">
+                  <div style="color:#4d5f7a">You paid Sydney R 500,00<span style="font-size:12px; margin-left:8px">14 Aug 2026</span></div>
+                  <div style="display:flex; gap:4px; flex-shrink:0"><span style="font-size:14px; font-weight:500; padding:0 8px">Edit</span><span style="font-size:14px; font-weight:500; color:#ef4444; padding:0 8px">Delete</span></div>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ GOALS ============ -->
+    <div style="display:flex; flex-direction:column; gap:10px">
+      <div style="font-size:12px; font-weight:600; color:#0f1520">Goals <span style="color:#4d5f7a; font-weight:400">/goals</span></div>
+      <div style="width:390px; border:1px solid #cdd5e3; border-radius:20px; overflow:hidden; background:#f4f6fa; box-shadow:0 10px 30px rgba(15,21,32,0.10)">
+        <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; background:rgba(244,246,250,0.95); border-bottom:1px solid #dde3ee">
+          <span style="font-size:16px; font-weight:600">Home</span><span style="color:#4d5f7a">☾ ≡</span>
+        </div>
+        <div style="padding:16px; display:flex; flex-direction:column; gap:24px">
+          <div>
+            <h1 style="margin:0; font-size:20px; font-weight:600; letter-spacing:-0.02em">Goals</h1>
+            <p style="margin:4px 0 0; font-size:14px; color:#4d5f7a; text-wrap:pretty">What is happening, why, and what to do next. Actual balances and activity come from your account ledger; projections are computed live and are not stored.</p>
+          </div>
+          <div style="border:2px solid #dde3ee; background:#fafbfd; border-radius:12px; padding:16px; box-shadow:0 1px 2px rgba(15,21,32,0.05)">
+            <h2 style="margin:0; font-size:14px; font-weight:500; color:#4d5f7a">Overview</h2>
+            <p style="margin:4px 0 0; font-size:18px; font-weight:600">Emergency fund</p>
+            <p style="margin:8px 0 0; font-size:24px; font-weight:600; font-variant-numeric:tabular-nums">R 42 000,00 / R 90 000,00</p>
+            <p style="margin:4px 0 0; font-size:12px; color:#4d5f7a">47% of target</p>
+            <div style="margin-top:12px; display:flex; flex-wrap:wrap; gap:8px; font-size:14px">
+              <span style="border-radius:6px; background:rgba(245,158,11,0.15); padding:4px 8px; color:#92400e">Behind by R 1 500,00 this month</span>
+            </div>
+            <p style="margin:12px 0 0; font-size:14px; color:#4d5f7a">Estimated completion: <span style="font-weight:500; color:#0f1520">2029-04</span></p>
+          </div>
+          <div style="border:2px solid #dde3ee; background:#fafbfd; border-radius:12px; padding:16px; box-shadow:0 1px 2px rgba(15,21,32,0.05)">
+            <h2 style="margin:0; font-size:14px; font-weight:500; color:#4d5f7a">Overview</h2>
+            <p style="margin:4px 0 0; font-size:18px; font-weight:600">Credit card payoff</p>
+            <p style="margin:8px 0 0; font-size:14px; color:#4d5f7a">Credit goal</p>
+            <p style="margin:8px 0 0; font-size:20px; font-weight:600; font-variant-numeric:tabular-nums">Debt: R 18 400,00</p>
+            <p style="margin:4px 0 0; font-size:14px; color:#4d5f7a">Interest rate (APR): 19.5%</p>
+            <div style="margin-top:12px; display:grid; gap:8px; font-size:14px">
+              <div style="border:1px solid #dde3ee; background:rgba(244,246,250,0.5); border-radius:8px; padding:8px"><p style="margin:0; font-size:12px; color:#4d5f7a">Suggested payment (plan)</p><p style="margin:0; font-weight:500; font-variant-numeric:tabular-nums">R 2 500,00</p></div>
+              <div style="border:1px solid #dde3ee; background:rgba(244,246,250,0.5); border-radius:8px; padding:8px"><p style="margin:0; font-size:12px; color:#4d5f7a">You paid this month</p><p style="margin:0; font-weight:500; font-variant-numeric:tabular-nums">R 1 800,00</p></div>
+            </div>
+            <p style="margin:12px 0 0; font-size:14px; color:#92400e">Short by R 700,00 vs plan this month</p>
+            <p style="margin:8px 0 0; font-size:14px; color:#4d5f7a">At plan payment: about 8 month(s) to payoff, roughly R 1 320,00 interest (estimate)</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ CALENDAR ============ -->
+    <div style="display:flex; flex-direction:column; gap:10px">
+      <div style="font-size:12px; font-weight:600; color:#0f1520">Calendar <span style="color:#4d5f7a; font-weight:400">/calendar</span></div>
+      <div style="width:390px; border:1px solid #cdd5e3; border-radius:20px; overflow:hidden; background:#f4f6fa; box-shadow:0 10px 30px rgba(15,21,32,0.10)">
+        <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; background:rgba(244,246,250,0.95); border-bottom:1px solid #dde3ee">
+          <span style="font-size:16px; font-weight:600">Home</span><span style="color:#4d5f7a">☾ ≡</span>
+        </div>
+        <div style="padding:16px; display:flex; flex-direction:column; gap:16px">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+            <div style="width:40px; height:40px; border:1px solid #dde3ee; background:#f4f6fa; border-radius:6px; display:flex; align-items:center; justify-content:center">‹</div>
+            <span style="font-weight:500">August 2026</span>
+            <div style="width:40px; height:40px; border:1px solid #dde3ee; background:#f4f6fa; border-radius:6px; display:flex; align-items:center; justify-content:center">›</div>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(7,1fr); font-size:11px; font-weight:500; text-transform:uppercase; letter-spacing:0.05em; color:#4d5f7a; text-align:center">
+            <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px">
+            <sc-for list="{{ calendarWeeks }}" as="week" hint-placeholder-count="5">
+              <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:2px">
+                <sc-for list="{{ week }}" as="day" hint-placeholder-count="7">
+                  <div style="height:52px; display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius:12px">
+                    <span style="width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600; border-radius:9999px; color:{{ day.color }}; background:{{ day.bg }}">{{ day.n }}</span>
+                    <div style="margin-top:2px; height:6px; display:flex; align-items:center; gap:2px">
+                      <sc-for list="{{ day.dots }}" as="dot" hint-placeholder-count="0">
+                        <span style="height:6px; width:6px; border-radius:9999px; background:{{ dot }}"></span>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+          <div style="border:1px solid #dde3ee; background:#fafbfd; border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:8px">
+            <div style="font-size:14px; font-weight:600">Monday, 31 August</div>
+            <div style="display:flex; gap:12px; font-size:14px; align-items:flex-start">
+              <span style="color:#4d5f7a; font-variant-numeric:tabular-nums; width:48px; flex-shrink:0">14:30</span>
+              <div><div style="font-weight:500">Dentist</div><div style="font-size:12px; color:#4d5f7a">Shared · Health</div></div>
+            </div>
+            <div style="display:flex; gap:12px; font-size:14px; align-items:flex-start">
+              <span style="color:#4d5f7a; font-variant-numeric:tabular-nums; width:48px; flex-shrink:0">18:00</span>
+              <div><div style="font-weight:500">Gym</div><div style="font-size:12px; color:#4d5f7a">Personal</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ LISTS ============ -->
+    <div style="display:flex; flex-direction:column; gap:10px">
+      <div style="font-size:12px; font-weight:600; color:#0f1520">Lists <span style="color:#4d5f7a; font-weight:400">/lists</span></div>
+      <div style="width:390px; border:1px solid #cdd5e3; border-radius:20px; overflow:hidden; background:#f4f6fa; box-shadow:0 10px 30px rgba(15,21,32,0.10)">
+        <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; background:rgba(244,246,250,0.95); border-bottom:1px solid #dde3ee">
+          <span style="font-size:16px; font-weight:600">Home</span><span style="color:#4d5f7a">☾ ≡</span>
+        </div>
+        <div style="padding:16px; display:flex; flex-direction:column; gap:20px">
+          <h1 style="margin:0; font-size:20px; font-weight:600; letter-spacing:-0.02em">My lists</h1>
+          <div style="display:flex; flex-wrap:wrap; gap:8px">
+            <div style="border-radius:9999px; padding:6px 12px; font-size:14px; font-weight:500; background:#2563eb; color:#f8fbff">All</div>
+            <div style="border-radius:9999px; padding:6px 12px; font-size:14px; font-weight:500; background:rgba(238,243,255,0.6); color:#4d5f7a">Shopping</div>
+            <div style="border-radius:9999px; padding:6px 12px; font-size:14px; font-weight:500; background:rgba(238,243,255,0.6); color:#4d5f7a">House</div>
+          </div>
+          <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:16px; padding:16px; box-shadow:0 1px 2px rgba(15,21,32,0.05); display:flex; flex-direction:column; gap:12px">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px">
+              <div style="min-width:0"><h2 style="margin:0; font-size:16px; font-weight:600; letter-spacing:-0.01em">Shopping</h2><p style="margin:2px 0 0; font-size:12px; color:#4d5f7a">2/5 done</p></div>
+              <span style="font-size:12px; font-weight:500; color:#2563eb; flex-shrink:0">Open</span>
+            </div>
+            <div style="height:8px; width:100%; overflow:hidden; border-radius:9999px; background:#eef3ff"><div style="height:100%; width:40%; border-radius:9999px; background:#2563eb"></div></div>
+            <ul style="margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:8px">
+              <li style="display:flex; align-items:center; gap:12px; font-size:14px"><span style="width:20px; height:20px; border:1px solid #dde3ee; border-radius:4px; background:#f4f6fa"></span><span style="flex:1">Milk</span><span style="color:#4d5f7a; font-size:12px">Aug 30</span><span style="color:#4d5f7a">⠿</span></li>
+              <li style="display:flex; align-items:center; gap:12px; font-size:14px"><span style="width:20px; height:20px; border:1px solid #dde3ee; border-radius:4px; background:#f4f6fa"></span><span style="flex:1">Dog food ×2</span><span style="color:#4d5f7a; font-size:12px">Aug 29</span><span style="color:#4d5f7a">⠿</span></li>
+              <li style="display:flex; align-items:center; gap:12px; font-size:14px; color:#4d5f7a"><span style="width:20px; height:20px; border:1px solid #2563eb; border-radius:4px; background:#2563eb; color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px">✓</span><span style="flex:1; text-decoration:line-through">Bread</span><span style="font-size:12px">Aug 28</span><span>⠿</span></li>
+            </ul>
+          </div>
+          <p style="margin:0; font-size:12px; color:#4d5f7a">Scope: Shared lists. Switch above or in <a href="#">Settings</a> to manage lists.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ MORTGAGE ============ -->
+    <div style="display:flex; flex-direction:column; gap:10px">
+      <div style="font-size:12px; font-weight:600; color:#0f1520">Mortgage <span style="color:#4d5f7a; font-weight:400">/mortgage</span></div>
+      <div style="width:390px; border:1px solid #cdd5e3; border-radius:20px; overflow:hidden; background:#f4f6fa; box-shadow:0 10px 30px rgba(15,21,32,0.10)">
+        <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; background:rgba(244,246,250,0.95); border-bottom:1px solid #dde3ee">
+          <span style="font-size:16px; font-weight:600">Home</span><span style="color:#4d5f7a">☾ ≡</span>
+        </div>
+        <div style="padding:16px; display:flex; flex-direction:column; gap:24px">
+          <h1 style="margin:0; font-size:20px; font-weight:600; letter-spacing:-0.02em">Mortgage</h1>
+          <div style="border:1px solid #dde3ee; border-radius:8px; padding:16px; display:flex; flex-direction:column; gap:12px; background:#fafbfd">
+            <h2 style="margin:0; font-size:16px; font-weight:600">At a glance</h2>
+            <div style="font-size:14px"><p style="margin:0; font-weight:500">R 1 842 000,00</p><p style="margin:0; font-size:12px; color:#4d5f7a">What you still owe (amount left on the loan)</p></div>
+            <div style="font-size:14px">
+              <p style="margin:0; font-weight:500">R 21 400,00</p>
+              <p style="margin:0; font-size:12px; color:#4d5f7a">Total you pay per month (next payment)</p>
+              <p style="margin:2px 0 0; font-size:12px; color:#4d5f7a">Month 43 rate: 11% — minimum R 19 400,00</p>
+              <p style="margin:2px 0 0; font-size:12px; color:#4d5f7a">Minimum: R 19 400,00 + extra: R 2 000,00</p>
+            </div>
+            <div style="font-size:14px">
+              <p style="margin:0; font-weight:500">March 2044</p>
+              <p style="margin:0; font-size:12px; color:#4d5f7a">When you'll be done paying</p>
+              <p style="margin:2px 0 0; font-size:12px; color:#2563eb; font-weight:500">Months saved vs original term: 31</p>
+            </div>
+            <div style="display:flex; gap:16px; padding-top:8px; border-top:1px solid #dde3ee">
+              <div style="flex:1"><p style="margin:0; font-size:12px; color:#4d5f7a">Matt</p><p style="margin:0; font-weight:500">58%</p><p style="margin:0; font-size:12px; color:#4d5f7a">Your share of the home</p></div>
+              <div style="flex:1"><p style="margin:0; font-size:12px; color:#4d5f7a">Sydney</p><p style="margin:0; font-weight:500">42%</p><p style="margin:0; font-size:12px; color:#4d5f7a">Your share of the home</p></div>
+            </div>
+            <div style="padding-top:8px; border-top:1px solid #dde3ee; font-size:14px">
+              <p style="margin:0 0 4px; font-size:12px; color:#4d5f7a">To keep ownership fair (so you each end up with the share you agreed):</p>
+              <p style="margin:0"><span style="color:#4d5f7a">Matt: </span><span style="font-weight:500">R 12 412,00</span></p>
+              <p style="margin:0"><span style="color:#4d5f7a">Sydney: </span><span style="font-weight:500">R 8 988,00</span></p>
+            </div>
+          </div>
+          <div style="border:1px solid #dde3ee; border-radius:8px; padding:16px; background:#fafbfd; font-size:14px; font-weight:500; display:flex; justify-content:space-between"><span>More details</span><span style="color:#4d5f7a">▾</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ SUMMARY (desktop-ish) ============ -->
+    <div style="display:flex; flex-direction:column; gap:10px">
+      <div style="font-size:12px; font-weight:600; color:#0f1520">Summary <span style="color:#4d5f7a; font-weight:400">/summary</span></div>
+      <div style="width:390px; border:1px solid #cdd5e3; border-radius:20px; overflow:hidden; background:#f4f6fa; box-shadow:0 10px 30px rgba(15,21,32,0.10)">
+        <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; background:rgba(244,246,250,0.95); border-bottom:1px solid #dde3ee">
+          <span style="font-size:16px; font-weight:600">Home</span><span style="color:#4d5f7a">☾ ≡</span>
+        </div>
+        <div style="padding:16px; display:flex; flex-direction:column; gap:24px">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+            <div style="width:40px; height:40px; border:1px solid #dde3ee; background:#f4f6fa; border-radius:6px; display:flex; align-items:center; justify-content:center">‹</div>
+            <span style="font-weight:500">August 2026</span>
+            <div style="width:40px; height:40px; border:1px solid #dde3ee; background:#f4f6fa; border-radius:6px; display:flex; align-items:center; justify-content:center">›</div>
+          </div>
+          <div>
+            <h1 style="margin:0; font-size:20px; font-weight:600">Summary</h1>
+            <p style="margin:4px 0 0; font-size:14px; color:#4d5f7a">High-level view of your income, expenses, budgets, and accounts.</p>
+            <div style="margin-top:12px; height:40px; padding:0 16px; border-radius:6px; background:#2563eb; color:#f8fbff; font-size:14px; font-weight:500; display:inline-flex; align-items:center">Analyze spending</div>
+          </div>
+          <div style="display:grid; gap:16px">
+            <div style="border:1px solid #dde3ee; border-radius:8px; padding:16px; background:#fafbfd"><p style="margin:0; font-size:14px; color:#4d5f7a">Total income</p><p style="margin:0; font-size:24px; font-weight:600">R 32 000,00</p></div>
+            <div style="border:1px solid #dde3ee; border-radius:8px; padding:16px; background:#fafbfd"><p style="margin:0; font-size:14px; color:#4d5f7a">Total expenses</p><p style="margin:0; font-size:24px; font-weight:600">R 25 520,00</p></div>
+            <div style="border:1px solid #dde3ee; border-radius:8px; padding:16px; background:#fafbfd"><p style="margin:0; font-size:14px; color:#4d5f7a">Net position</p><p style="margin:0; font-size:24px; font-weight:600; color:#2563eb">R 6 480,00</p></div>
+            <div style="border:1px solid #dde3ee; border-radius:8px; padding:16px; background:#fafbfd"><p style="margin:0; font-size:14px; color:#4d5f7a">Savings rate</p><p style="margin:0; font-size:24px; font-weight:600">20.3%</p></div>
+            <div style="border:1px solid #dde3ee; border-radius:8px; padding:16px; background:#fafbfd">
+              <p style="margin:0 0 8px; font-size:14px; font-weight:500">By user</p>
+              <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px; font-size:14px">
+                <div><span style="color:#4d5f7a">Matt: </span><span style="font-weight:500">R 32 000,00 income</span><span style="display:block; color:#4d5f7a">R 25 520,00 expenses</span></div>
+                <div><span style="color:#4d5f7a">Sydney: </span><span style="font-weight:500">R 28 000,00 income</span><span style="display:block; color:#4d5f7a">R 19 200,00 expenses</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ LOGIN ============ -->
+    <div style="display:flex; flex-direction:column; gap:10px">
+      <div style="font-size:12px; font-weight:600; color:#0f1520">Login <span style="color:#4d5f7a; font-weight:400">/login</span></div>
+      <div style="width:390px; height:560px; border:1px solid #cdd5e3; border-radius:20px; overflow:hidden; background:#f4f6fa; box-shadow:0 10px 30px rgba(15,21,32,0.10); display:flex; align-items:center; justify-content:center; padding:16px">
+        <div style="width:100%; max-width:384px; border:1px solid #dde3ee; background:#fafbfd; border-radius:8px; box-shadow:0 1px 2px rgba(15,21,32,0.05)">
+          <div style="padding:24px; display:flex; flex-direction:column; gap:6px"><h3 style="margin:0; font-weight:600; letter-spacing:-0.01em">HomeFinance</h3></div>
+          <div style="padding:0 24px 24px; display:flex; flex-direction:column; gap:16px">
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <label style="font-size:14px; font-weight:500">Email</label>
+              <div style="height:40px; border:1px solid #dde3ee; background:#f4f6fa; border-radius:6px; display:flex; align-items:center; padding:0 12px; font-size:14px; color:#8b97ab">you@example.com</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <label style="font-size:14px; font-weight:500">Password</label>
+              <div style="height:40px; border:1px solid #dde3ee; background:#f4f6fa; border-radius:6px; padding:0 12px"></div>
+            </div>
+            <div style="height:40px; border-radius:6px; background:#2563eb; color:#f8fbff; font-size:14px; font-weight:500; display:flex; align-items:center; justify-content:center">Sign in</div>
+            <p style="margin:0; font-size:14px; color:#4d5f7a; text-align:center">Accounts are created by an administrator.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ============ DESKTOP DASHBOARD ============ -->
+  <div style="display:flex; flex-direction:column; gap:10px">
+    <div style="font-size:12px; font-weight:600; color:#0f1520">Desktop shell <span style="color:#4d5f7a; font-weight:400">md: sidebar at 20% on the right, content max-w-4xl</span></div>
+    <div style="width:1280px; border:1px solid #cdd5e3; border-radius:14px; overflow:hidden; background:#f4f6fa; box-shadow:0 10px 30px rgba(15,21,32,0.10)">
+      <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; background:rgba(244,246,250,0.95); border-bottom:1px solid #dde3ee">
+        <span style="font-size:16px; font-weight:600">Home</span>
+        <div style="display:flex; align-items:center; gap:8px"><span style="font-size:14px; color:#4d5f7a">Matt</span><span style="color:#4d5f7a">☾</span></div>
+      </div>
+      <div style="display:flex; min-height:620px">
+        <div style="flex:1; padding:16px 24px">
+          <div style="max-width:896px; display:flex; flex-direction:column; gap:20px">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px">
+              <div>
+                <div style="font-size:11px; font-weight:600; letter-spacing:0.2em; color:#4d5f7a">AUGUST 2026</div>
+                <div style="font-size:12px; color:#4d5f7a">Monday, August 31</div>
+                <div style="padding-top:4px; font-size:30px; font-weight:600; letter-spacing:-0.02em">Good morning, Matt</div>
+                <p style="margin:4px 0 0; font-size:14px; color:#4d5f7a">Month balance <span style="font-weight:500; color:#0f1520">R 6 480,00</span></p>
+              </div>
+              <div style="display:flex; gap:8px"><div style="width:40px; height:40px; border-radius:9999px; background:#eef3ff; display:flex; align-items:center; justify-content:center; font-weight:600">M</div><div style="width:40px; height:40px; border-radius:9999px; background:#eef3ff; display:flex; align-items:center; justify-content:center; font-weight:600">S</div></div>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px">
+              <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:16px; padding:12px; min-height:88px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px"><div style="width:40px; height:40px; border-radius:9999px; background:rgba(37,99,235,0.15); color:#2563eb; display:flex; align-items:center; justify-content:center">✓</div><div style="font-size:16px; font-weight:600">7</div><div style="font-size:11px; color:#4d5f7a; text-transform:uppercase; letter-spacing:0.05em">Tasks</div></div>
+              <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:16px; padding:12px; min-height:88px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px"><div style="width:40px; height:40px; border-radius:9999px; background:rgba(139,92,246,0.15); color:#7c3aed; display:flex; align-items:center; justify-content:center">▤</div><div style="font-size:16px; font-weight:600">2</div><div style="font-size:11px; color:#4d5f7a; text-transform:uppercase; letter-spacing:0.05em">Events</div></div>
+              <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:16px; padding:12px; min-height:88px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px"><div style="width:40px; height:40px; border-radius:9999px; background:rgba(16,185,129,0.15); color:#059669; display:flex; align-items:center; justify-content:center">◈</div><div style="font-size:16px; font-weight:600">R 6 480,00</div><div style="font-size:11px; color:#4d5f7a; text-transform:uppercase; letter-spacing:0.05em">Budget</div></div>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:12px">
+              <div style="border:1px solid rgba(239,68,68,0.4); background:#fafbfd; border-radius:12px; padding:16px; font-size:14px"><div style="display:flex; justify-content:space-between"><span style="font-weight:600">Over budget</span><span style="border-radius:9999px; padding:4px 10px; font-size:12px; background:rgba(239,68,68,0.1); color:#ef4444">Alert</span></div><ul style="margin:12px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:4px"><li style="display:flex; justify-content:space-between"><span style="color:#4d5f7a">Groceries</span><span style="color:#ef4444; font-weight:500">R 420,00</span></li><li style="display:flex; justify-content:space-between"><span style="color:#4d5f7a">Eating out</span><span style="color:#ef4444; font-weight:500">R 180,00</span></li></ul></div>
+              <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:16px; padding:16px; font-size:14px"><div style="display:flex; justify-content:space-between"><div><div style="font-weight:600">Upcoming events</div><div style="font-size:12px; color:#4d5f7a; margin-top:4px">Today on your calendar</div></div><span style="font-size:12px; color:#2563eb">See all</span></div><div style="margin-top:12px; border:1px solid rgba(221,227,238,0.5); background:rgba(244,246,250,0.3); border-radius:12px; padding:12px; display:flex; justify-content:space-between"><div><p style="margin:0; font-weight:500">Dentist</p><p style="margin:0; font-size:12px; color:#4d5f7a">Today, 14:30</p></div><span style="color:#4d5f7a">›</span></div></div>
+            </div>
+            <div style="border:1px solid rgba(221,227,238,0.6); background:rgba(250,251,253,0.9); border-radius:16px; padding:16px; color:#4d5f7a; font-size:14px">Quick add expense · Recent transactions · Income this month (×2) continue below — same single-column stack as mobile, capped at 896px with empty space to the right of the content column.</div>
+          </div>
+        </div>
+        <div style="width:256px; border-left:1px solid #dde3ee; background:rgba(244,246,250,0.95); padding:8px; display:flex; flex-direction:column; gap:4px">
+          <sc-for list="{{ sidebarItems }}" as="item" hint-placeholder-count="14">
+            <div style="display:flex; align-items:center; gap:8px; border-radius:6px; padding:8px 16px; font-size:12px; font-weight:500; color:{{ item.color }}; background:{{ item.bg }}">
+              <span style="width:20px; height:20px; display:flex; align-items:center; justify-content:center">{{ item.icon }}</span>
+              <span>{{ item.label }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const weeks = [];
+    // August 2026 starts on a Saturday; grid starts Monday 27 July.
+    let n = 27, month = 7;
+    for (let w = 0; w < 5; w++) {
+      const week = [];
+      for (let d = 0; d < 7; d++) {
+        const inMonth = month === 8;
+        const isSelected = month === 8 && n === 31;
+        const dots = [];
+        if (inMonth && [4, 12, 19, 31].includes(n)) dots.push("#2563eb");
+        if (inMonth && [12, 22].includes(n)) dots.push("#8b5cf6");
+        week.push({
+          n: String(n),
+          dots,
+          color: isSelected ? "#f8fbff" : inMonth ? "#0f1520" : "rgba(77,95,122,0.45)",
+          bg: isSelected ? "#2563eb" : "transparent",
+        });
+        n += 1;
+        if (month === 7 && n > 31) { n = 1; month = 8; }
+        else if (month === 8 && n > 31) { n = 1; month = 9; }
+      }
+      weeks.push(week);
+    }
+    const nav = [
+      ["▣", "Home"], ["▤", "Calendar"], ["＋", "Add"], ["☰", "Lists"], ["▦", "Transactions"],
+      ["⇄", "Recon"], ["⑃", "Splits"], ["◈", "Budget"], ["✦", "Budget AI report"], ["▭", "Accounts"],
+      ["⌂", "Mortgage"], ["◎", "Goals"], ["▥", "Summary"], ["⚙", "Settings"],
+    ];
+    return {
+      calendarWeeks: weeks,
+      sidebarItems: nav.map(([icon, label], i) => ({
+        icon, label,
+        color: i === 0 ? "#2563eb" : "#4d5f7a",
+        bg: i === 0 ? "rgba(37,99,235,0.1)" : "transparent",
+      })),
+    };
+  }
+}
+</script>
+</body>
+</html>

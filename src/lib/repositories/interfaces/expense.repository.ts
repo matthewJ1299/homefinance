@@ -29,7 +29,9 @@ export interface IExpenseRepository {
     month: string,
     userId?: number,
     accountId?: number,
-    period?: BudgetMonthPeriod
+    period?: BudgetMonthPeriod,
+    /** Own rows plus rows on a shared account. Transactions list only. */
+    includeSharedAccounts?: boolean
   ): Promise<ExpenseWithDetails[]>;
   findByMonthPaginated(
     month: string,
@@ -37,9 +39,18 @@ export interface IExpenseRepository {
     offset: number,
     userId?: number,
     accountId?: number,
-    period?: BudgetMonthPeriod
+    period?: BudgetMonthPeriod,
+    /** Own rows plus rows on a shared account. Transactions list only. */
+    includeSharedAccounts?: boolean
   ): Promise<ExpenseWithDetails[]>;
-  countByMonth(month: string, userId?: number, accountId?: number, period?: BudgetMonthPeriod): Promise<number>;
+  countByMonth(
+    month: string,
+    userId?: number,
+    accountId?: number,
+    period?: BudgetMonthPeriod,
+    /** Own rows plus rows on a shared account. Must match the paginated fetch. */
+    includeSharedAccounts?: boolean
+  ): Promise<number>;
   findById(id: number): Promise<ExpenseWithDetails | null>;
   /** Loads expenses that belong to the user; ignores unknown ids. */
   findByIdsForUser(ids: number[], userId: number): Promise<ExpenseWithDetails[]>;
@@ -54,7 +65,8 @@ export interface IExpenseRepository {
   create(data: CreateExpenseInput): Promise<{ id: number }>;
   update(id: number, data: UpdateExpenseInput): Promise<void>;
   delete(id: number): Promise<void>;
-  deleteBySplitGroupId(splitGroupId: string): Promise<void>;
+  /** Ids of every expense in a split group, oldest first. */
+  findIdsBySplitGroupId(splitGroupId: string): Promise<number[]>;
   findSplitExpenses(groupId?: number): Promise<ExpenseWithDetails[]>;
   hasExpenseFromRecurring(recurringExpenseId: number, month: string): Promise<boolean>;
   /** Same calendar day and exact amount (minor units). Used for recon duplicate detection. */

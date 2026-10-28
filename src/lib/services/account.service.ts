@@ -9,11 +9,13 @@ interface CreateAccountOptions {
   name: string;
   type: AccountType;
   creditLimit?: number | null;
+  isShared?: boolean;
 }
 
 interface UpdateAccountOptions {
   name?: string;
   creditLimit?: number | null;
+  isShared?: boolean;
 }
 
 export class AccountService {
@@ -33,21 +35,48 @@ export class AccountService {
     return this.accountRepo.findMainAccountIdForUser(userId);
   }
 
+  /**
+   * Accounts a spend can be filed against: your own, plus the household's shared
+   * ones. Ownership still decides who can rename, share, or delete -- this is a
+   * read for the surfaces that need to name an account.
+   */
+  async listAccountsVisibleToUser(
+    userId: number
+  ): Promise<{ accounts: AccountWithBalance[]; primaryAccountId: number | null }> {
+    await this.ensurePrimaryAccountCoherence(userId);
+    const primaryAccountId = await this.userRepo.getPrimaryAccountId(userId);
+    const accounts = await this.accountRepo.findAllVisibleToUser(userId);
+    // One query for every balance, not one per account.
+    const balances = await this.txRepo.getBalances(accounts.map((a) => a.id));
+    const results: AccountWithBalance[] = accounts.map((acc) => {
+      const balance = balances.get(acc.id) ?? 0;
+      return {
+        ...acc,
+        balance,
+        availableCredit:
+          acc.type === "credit" && acc.creditLimit != null ? acc.creditLimit + balance : undefined,
+      };
+    });
+    return { accounts: results, primaryAccountId };
+  }
+
+  /** Owner-scoped. Backs Settings, where renaming, sharing and deleting live. */
   async listAccountsForUser(
     userId: number
   ): Promise<{ accounts: AccountWithBalance[]; primaryAccountId: number | null }> {
     await this.ensurePrimaryAccountCoherence(userId);
     const primaryAccountId = await this.userRepo.getPrimaryAccountId(userId);
     const accounts = await this.accountRepo.findAllForUser(userId);
-    const results: AccountWithBalance[] = [];
-    for (const acc of accounts) {
-      const balance = await this.txRepo.getBalance(acc.id);
-      const availableCredit =
-        acc.type === "credit" && acc.creditLimit != null
-          ? acc.creditLimit + balance
-          : undefined;
-      results.push({ ...acc, balance, availableCredit });
-    }
+    const balances = await this.txRepo.getBalances(accounts.map((a) => a.id));
+    const results: AccountWithBalance[] = accounts.map((acc) => {
+      const balance = balances.get(acc.id) ?? 0;
+      return {
+        ...acc,
+        balance,
+        availableCredit:
+          acc.type === "credit" && acc.creditLimit != null ? acc.creditLimit + balance : undefined,
+      };
+    });
     const pid = primaryAccountId;
     const byName = (a: AccountWithBalance, b: AccountWithBalance) =>
       a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
@@ -78,6 +107,7 @@ export class AccountService {
       name: data.name,
       type: data.type,
       creditLimit: data.creditLimit ?? null,
+      isShared: data.isShared ?? false,
     });
     const account = await this.accountRepo.findById(id, userId);
     if (!account) {
@@ -97,9 +127,13 @@ export class AccountService {
     accountId: number,
     data: UpdateAccountOptions
   ): Promise<void> {
+    // `update` ignores `undefined` per field, so a rename still leaves sharing
+    // alone -- but dropping the flag entirely meant no account could ever be
+    // shared, whatever the switch in Settings said.
     await this.accountRepo.update(accountId, userId, {
       name: data.name,
       creditLimit: data.creditLimit,
+      isShared: data.isShared,
     });
   }
 

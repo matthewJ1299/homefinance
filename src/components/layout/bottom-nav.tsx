@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { BottomNavAddButton } from "./bottom-nav-add-button";
 import { usePathname } from "next/navigation";
-import { bottomNavItemsMobile, type NavItem } from "./nav-items";
+import { bottomNavItemsFor, type NavItem } from "./nav-items";
+import type { HomeMode } from "@/lib/features/home-mode";
 import { cn } from "@/lib/utils";
-
-const mobileLeftItems = bottomNavItemsMobile.slice(0, 2);
-const mobileRightItems = bottomNavItemsMobile.slice(2, 4);
 
 function NavLinks({
   items,
@@ -43,28 +42,29 @@ function NavLinks({
   );
 }
 
-export function BottomNav() {
+export function BottomNav({
+  hasAddSheet = false,
+  homeMode,
+}: {
+  hasAddSheet?: boolean;
+  homeMode: HomeMode;
+}) {
   const pathname = usePathname();
   const addActive = pathname === "/add" || pathname.startsWith("/add/");
 
+  const items = bottomNavItemsFor(homeMode);
+  const mobileLeftItems = items.slice(0, 2);
+  const mobileRightItems = items.slice(2, 4);
+
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm md:hidden">
+    <nav
+      aria-label="Primary"
+      className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur-sm md:hidden"
+    >
       <div className="flex h-[calc(3.25rem+env(safe-area-inset-bottom))] justify-around">
         <div className="flex flex-1 justify-around items-end pb-[env(safe-area-inset-bottom)]">
           <NavLinks items={mobileLeftItems} pathname={pathname} />
-          <Link
-            href="/add"
-            className={cn(
-              "flex flex-col items-center justify-center -mt-5 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-xl text-xl font-medium",
-              "cursor-pointer transition-transform duration-200 hover:opacity-95 active:scale-95 touch-manipulation",
-              addActive && "ring-2 ring-primary/40 ring-offset-2 ring-offset-background"
-            )}
-            aria-label="Create new"
-            aria-current={addActive ? "page" : undefined}
-          >
-            <span className="leading-none">+</span>
-            <span className="text-[10px] font-medium mt-0.5 leading-none">Add</span>
-          </Link>
+          <BottomNavAddButton active={addActive} hasAddSheet={hasAddSheet} />
           <NavLinks items={mobileRightItems} pathname={pathname} />
         </div>
       </div>

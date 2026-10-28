@@ -5,9 +5,11 @@ import type { ExpenseWithDetails, AccountType } from "@/lib/types";
 import type { IncomeEntry } from "@/lib/repositories/interfaces/income.repository";
 import type { Category, SplitGroup } from "@/lib/types";
 import type { UserSummary } from "@/lib/repositories/interfaces/user.repository";
-import { ExpensesViewToggle, viewToUserId, type ExpensesView } from "./expenses-view-toggle";
+import { INCOME_KINDS, type IncomeKind } from "@/lib/types/income-type";
 import { ExpenseList } from "./expense-list";
-import { QuickAddForm } from "./quick-add-form";
+import { IncomeList } from "@/components/income/income-list";
+import { Button } from "@/components/ui/button";
+import { useAddSheet } from "@/components/add/add-sheet-context";
 import { formatRand, fromMinorUnits } from "@/lib/utils/currency";
 import { parseAccountsApiPayload } from "@/lib/utils/accounts-api";
 import { usePropSyncedState } from "@/hooks/use-prop-synced-state";
@@ -20,17 +22,8 @@ interface ExpensesPageClientProps {
   splitGroups?: SplitGroup[];
   expenses: ExpenseWithDetails[];
   incomeEntries: IncomeEntry[];
-  initialView: ExpensesView;
-}
-
-function filterByView<T extends { userId: number }>(
-  items: T[],
-  view: ExpensesView,
-  currentUserId: number
-): T[] {
-  const userId = viewToUserId(view, currentUserId);
-  if (userId == null) return items;
-  return items.filter((e) => e.userId === userId);
+  /** Preselects the income filter, so /income can redirect here. */
+  initialType?: "all" | "expense" | "income";
 }
 
 function sumAmount(items: { amount: number }[]): number {
@@ -45,10 +38,14 @@ export function ExpensesPageClient({
   splitGroups = [],
   expenses,
   incomeEntries,
-  initialView,
+  initialType = "all",
 }: ExpensesPageClientProps) {
   const searchFieldId = useId();
-  const [view, setView] = useState<ExpensesView>(initialView);
+  // The my/theirs/combined toggle is gone: you see your own rows plus rows on
+  // shared accounts, which is the honest answer to "whose money is this?".
+  const addSheet = useAddSheet();
+  const [typeFilter, setTypeFilter] = useState(initialType);
+  const [incomeKind, setIncomeKind] = useState<IncomeKind | "all">("all");
   const [accountId, setAccountId] = useState<number | null>(null);
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -86,10 +83,10 @@ export function ExpensesPageClient({
   }
 
   const filteredExpenses = useMemo(() => {
-    const byView = filterByView(expensesState, view, currentUserId);
-    const byAccount = filterByAccount(byView, accountId);
+    if (typeFilter === "income") return [];
+    const byAccount = filterByAccount(expensesState, accountId);
     return filterByCategory(byAccount, categoryId);
-  }, [expensesState, view, currentUserId, accountId, categoryId]);
+  }, [expensesState, typeFilter, accountId, categoryId]);
 
   const searchFilteredExpenses = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -108,10 +105,11 @@ export function ExpensesPageClient({
       return hay.includes(q);
     });
   }, [filteredExpenses, searchQuery]);
-  const filteredIncome = useMemo(
-    () => filterByView(incomeEntries, view, currentUserId),
-    [incomeEntries, view, currentUserId]
-  );
+  const filteredIncome = useMemo(() => {
+    if (typeFilter === "expense") return [];
+    if (incomeKind === "all") return incomeEntries;
+    return incomeEntries.filter((i) => i.incomeKind === incomeKind);
+  }, [incomeEntries, typeFilter, incomeKind]);
   const expenseTotal = useMemo(() => sumAmount(filteredExpenses), [filteredExpenses]);
   const incomeTotal = useMemo(() => sumAmount(filteredIncome), [filteredIncome]);
   const balance = incomeTotal - expenseTotal;
@@ -170,12 +168,38 @@ export function ExpensesPageClient({
             autoComplete="off"
           />
         </div>
-        <ExpensesViewToggle
-          currentView={view}
-          currentUserId={currentUserId}
-          users={users}
-          onViewChange={setView}
-        />
+        <div className="flex flex-wrap gap-2">
+          {(["all", "expense", "income"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTypeFilter(t)}
+              aria-pressed={typeFilter === t}
+              className={`min-h-11 rounded-full border px-3.5 text-sm font-medium cursor-pointer ${
+                typeFilter === t
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-muted text-foreground"
+              }`}
+            >
+              {t === "all" ? "Everything" : t === "expense" ? "Money out" : "Money in"}
+            </button>
+          ))}
+          {typeFilter === "income" ? (
+            <select
+              value={incomeKind}
+              onChange={(ev) => setIncomeKind(ev.target.value as IncomeKind | "all")}
+              aria-label="Income type"
+              className="min-h-11 rounded-full border border-border bg-muted px-3 text-sm cursor-pointer"
+            >
+              <option value="all">All types</option>
+              {INCOME_KINDS.map((k) => (
+                <option key={k.value} value={k.value}>
+                  {k.label}
+                </option>
+              ))}
+            </select>
+          ) : null}
+        </div>
         <div className="flex flex-wrap gap-4 text-sm items-center">
           <span>
             <span className="text-muted-foreground">Income: </span>
@@ -231,24 +255,38 @@ export function ExpensesPageClient({
       </div>
       <section>
         <h2 className="sr-only">Add expense</h2>
-        <QuickAddForm
-          categories={categories}
-          userId={currentUserId}
-          currentUserName={currentUserName}
-          month={month}
-          splitGroups={splitGroups}
-          onOptimisticUpsertExpense={optimisticUpsertExpense}
-          onOptimisticReplaceExpenseId={optimisticReplaceExpenseId}
-        />
+        {/* One entry surface. The old inline form split with one other person
+            and could not express a 3-person spend at all. */}
+        <Button
+          type="button"
+          onClick={() => addSheet?.open()}
+          disabled={!addSheet}
+          className="h-12 w-full rounded-xl text-base"
+        >
+          Add a spend
+        </Button>
       </section>
-      <ExpenseList
-        expenses={searchFilteredExpenses}
-        showOwner={view === "combined"}
-        categories={categories}
-        otherUserName={users.find((u) => u.id !== currentUserId)?.name}
-        onOptimisticRemoveExpense={optimisticRemoveExpense}
-        onOptimisticUpsertExpense={optimisticUpsertExpense}
-      />
+      {/* Money in and money out in one list, which is the point of folding
+          /income into this page. Without this the income filter showed a total
+          and nothing to look at. */}
+      {typeFilter !== "income" ? (
+        <ExpenseList
+          expenses={searchFilteredExpenses}
+          showOwner
+          categories={categories}
+          otherUserName={users.find((u) => u.id !== currentUserId)?.name}
+          onOptimisticRemoveExpense={optimisticRemoveExpense}
+          onOptimisticUpsertExpense={optimisticUpsertExpense}
+        />
+      ) : null}
+      {typeFilter !== "expense" ? (
+        <section className="space-y-2">
+          {typeFilter === "all" ? (
+            <h2 className="text-sm font-semibold text-muted-foreground">Money in</h2>
+          ) : null}
+          <IncomeList entries={filteredIncome} />
+        </section>
+      ) : null}
     </div>
   );
 }

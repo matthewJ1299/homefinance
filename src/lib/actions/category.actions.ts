@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { setRequestContext } from "@/lib/db/request-context";
+import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { getCategoryRepository } from "@/lib/repositories";
 import { createCategorySchema, updateCategorySchema } from "@/lib/validators/category.schema";
 
@@ -18,7 +18,7 @@ export async function createCategory(formData: {
 }): Promise<CategoryActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const parsed = createCategorySchema.safeParse(formData);
   if (!parsed.success) return { success: false, error: parsed.error.message };
   const repo = getCategoryRepository();
@@ -48,11 +48,14 @@ export async function updateCategory(
     sortOrder?: number;
     costType?: "fixed" | "variable";
     defaultAmount?: number | null;
+    rollover?: boolean;
+    targetMinor?: number | null;
+    targetDate?: string | null;
   }
 ): Promise<CategoryActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const parsed = updateCategorySchema.safeParse(formData);
   if (!parsed.success) return { success: false, error: parsed.error.message };
   const updates = parsed.data;
@@ -81,7 +84,7 @@ export async function reorderCategory(
 ): Promise<CategoryActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const repo = getCategoryRepository();
   const list = await repo.findAllIncludingInactive();
   const index = list.findIndex((c) => c.id === id);
@@ -114,7 +117,7 @@ export async function reorderCategories(
 ): Promise<CategoryActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   if (orderedCategoryIds.length === 0) return { success: true };
   const repo = getCategoryRepository();
   const all = await repo.findAllIncludingInactive();
@@ -149,7 +152,7 @@ export async function reorderCategories(
 export async function deleteCategory(id: number): Promise<CategoryActionResult> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Unauthorized" };
-  setRequestContext({ userId: session.user.id, userName: session.user.name ?? undefined });
+  setRequestContextFromSession(session);
   const repo = getCategoryRepository();
   const exists = await repo.findById(id);
   if (!exists) return { success: false, error: "Category not found" };

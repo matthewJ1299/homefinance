@@ -1,22 +1,28 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { format } from "date-fns";
 import { auth } from "@/lib/auth";
 import { getUserRepository } from "@/lib/repositories";
+import { hasFeature } from "@/lib/features/access";
+import { FeatureUnavailable } from "@/components/ui/feature-unavailable";
 import { SplitService } from "@/lib/services/split.service";
 import { MortgageService } from "@/lib/services/mortgage.service";
-import { getDefaultBudgetMonthForUser } from "@/lib/utils/budget-month-for-user";
+import {
+  budgetMonthStartDayForUser,
+  getDefaultBudgetMonthForUser,
+} from "@/lib/utils/budget-month-for-user";
 import { formatBudgetMonthLabel, formatDisplayDate } from "@/lib/utils/date";
 import { MonthNavigator } from "@/components/layout/month-navigator";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { PrintButton } from "@/components/what-i-owe/print-button";
-import { WhatIOweDisabledPlaceholder } from "@/components/what-i-owe/disabled-placeholder";
 import { StatementViewToggle } from "@/components/what-i-owe/view-toggle";
 import { StatementTotals } from "@/components/what-i-owe/statement-totals";
 import { parseOwedStatementView } from "@/components/what-i-owe/statement-view";
+import { StatementPersonTabs } from "@/components/what-i-owe/person-tabs";
 
 interface WhatIOwePageProps {
-  searchParams: Promise<{ month?: string; view?: string }>;
+  searchParams: Promise<{ month?: string; view?: string; with?: string }>;
 }
 
 export default async function WhatIOwePage({ searchParams }: WhatIOwePageProps) {
@@ -25,20 +31,24 @@ export default async function WhatIOwePage({ searchParams }: WhatIOwePageProps) 
   const userId = Number(session.user.id);
 
   const userRepo = getUserRepository();
-  const enabled = await userRepo.getOwedToMeEnabled(userId);
-  if (!enabled) {
-    return <WhatIOweDisabledPlaceholder />;
+  if (!hasFeature("what_i_owe")) {
+    return <FeatureUnavailable feature="what_i_owe" />;
   }
 
-  const { month: monthParam, view: viewParam } = await searchParams;
+  const { month: monthParam, view: viewParam, with: withParam } = await searchParams;
   const view = parseOwedStatementView(viewParam);
   const month = monthParam ?? (await getDefaultBudgetMonthForUser(userId));
 
   const [others, startDay] = await Promise.all([
     userRepo.findAllExcept(userId),
-    userRepo.getBudgetMonthStartDay(userId),
+    budgetMonthStartDayForUser(userId),
   ]);
-  const them = others[0];
+  // Whose statement? Explicit when chosen, otherwise the first housemate. With
+  // three people there is no "the other person", so the tabs below do the
+  // choosing -- this page no longer decides silently on the reader's behalf.
+  const requestedId = Number(withParam);
+  const [firstMember] = others;
+  const them = others.find((u) => u.id === requestedId) ?? firstMember;
   const monthLabel = formatBudgetMonthLabel(month, startDay);
 
   if (!them) {
@@ -61,13 +71,16 @@ export default async function WhatIOwePage({ searchParams }: WhatIOwePageProps) 
     asOfDate
   );
 
-  const mortgageService = new MortgageService();
-  const [schedule, { userConfigs }] = await Promise.all([
-    mortgageService.getSchedule(),
-    mortgageService.getConfig(),
-  ]);
+  // The schedule names its own two people now, so the config read that existed
+  // only to guess them is gone.
+  const schedule = await new MortgageService().getSchedule();
   const subjectUserId = view === "owed" ? them.id : userId;
-  const mortgageAmount = mortgageShareForUser(subjectUserId, month, schedule, userConfigs);
+  const mortgageAmount = mortgageShareForUser(subjectUserId, month, schedule);
+  // Someone not on the bond has no mortgage line at all -- a R0.00 row reads
+  // as "your share is nothing this month", which is a different claim.
+  const subjectOnBond =
+    schedule != null &&
+    schedule.equitySummary.people.some((p) => p.userId === subjectUserId);
 
   const isOwedView = view === "owed";
   const lineItems = isOwedView ? statement.owedItems : statement.owingItems;
@@ -92,6 +105,9 @@ export default async function WhatIOwePage({ searchParams }: WhatIOwePageProps) 
     <div className="p-4 space-y-6 pb-24 md:pb-6">
       <MonthNavigator className="print:hidden" />
       <Suspense fallback={null}>
+        <StatementPersonTabs people={others} selectedId={them.id} />
+      </Suspense>
+      <Suspense fallback={null}>
         <StatementViewToggle current={view} />
       </Suspense>
       <PageHeader
@@ -108,21 +124,35 @@ export default async function WhatIOwePage({ searchParams }: WhatIOwePageProps) 
         splitNet={splitNet}
         mortgageAmount={mortgageAmount}
         mortgageLabel={mortgageLabel}
+        showMortgage={subjectOnBond}
       />
+      <p className="text-xs text-muted-foreground print:hidden">
+        The mortgage line is this budget month&rsquo;s share.{" "}
+        <Link href="/how-this-works/equity" className="font-semibold text-primary">
+          How your share of the house works
+        </Link>
+      </p>
     </div>
   );
 }
 
+/**
+ * This person's share of the bond for `month`, or 0 if they are not on it.
+ *
+ * It used to re-sort `userConfigs` by `baseSplitPct` to guess which person was
+ * A and which was B -- not how the service chose them -- and anyone who was
+ * neither fell through to A's payment, so a third member's statement claimed
+ * someone else's bond share. The schedule is keyed by user id now, so there is
+ * nothing left to guess.
+ */
 function mortgageShareForUser(
   userId: number,
   month: string,
-  schedule: Awaited<ReturnType<MortgageService["getSchedule"]>>,
-  userConfigs: { userId: number; baseSplitPct: number }[]
+  schedule: Awaited<ReturnType<MortgageService["getSchedule"]>>
 ): number {
-  if (!schedule || userConfigs.length < 2) return 0;
-  const sorted = [...userConfigs].sort((a, b) => b.baseSplitPct - a.baseSplitPct);
-  const isUserB = sorted[1]?.userId === userId;
+  if (!schedule) return 0;
+  if (!schedule.equitySummary.people.some((p) => p.userId === userId)) return 0;
   const row = schedule.schedule.find((r) => r.date === month);
-  if (row) return isUserB ? row.userBPayment : row.userAPayment;
-  return isUserB ? schedule.monthlyPaymentUserB : schedule.monthlyPaymentUserA;
+  if (row) return row.paymentByUserId[userId] ?? 0;
+  return schedule.monthlyPaymentByUserId[userId] ?? 0;
 }

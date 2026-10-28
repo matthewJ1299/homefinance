@@ -1,64 +1,70 @@
-import { addDays, format } from "date-fns";
+import { redirect } from "next/navigation";
+import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 import { auth } from "@/lib/auth";
 import {
   getCategoryRepository,
   getUserRepository,
-  getSplitGroupRepository,
   getSharedListRepository,
   getSharedListItemRepository,
+  getHouseholdRepository,
 } from "@/lib/repositories";
 import { BudgetService } from "@/lib/services/budget.service";
-import { isAIConfiguredForTier } from "@/lib/services/ai.service";
 import { resolveAiInteractiveEnabled } from "@/lib/services/feature-access.service";
-import {
-  CalendarService,
-  type CalendarEventOccurrence,
-} from "@/lib/services/calendar.service";
-import { occurrenceCoversDate, occurrenceSegmentEnd } from "@/lib/utils/calendar-occurrence";
+import { CalendarService } from "@/lib/services/calendar.service";
+import { occurrenceCoversDate } from "@/lib/utils/calendar-occurrence";
 import { AccountService } from "@/lib/services/account.service";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { IncomeService } from "@/lib/services/income.service";
 import { SplitService } from "@/lib/services/split.service";
+import { buildGoalRows, goalsBehind } from "@/lib/services/finance/goal-categories";
 import { formatBudgetMonthLabel } from "@/lib/utils/date";
 import {
+  budgetMonthStartDayForUser,
   getDefaultBudgetMonthForUser,
   getBudgetPeriodForUserMonth,
 } from "@/lib/utils/budget-month-for-user";
-import { pickQuickAddDateForBudgetPeriod } from "@/lib/utils/date";
-import { formatRand } from "@/lib/utils/currency";
+import { soleOtherMemberName, type HouseholdMember } from "@/lib/types/household-member";
 import { AiAnalysisButton } from "@/components/dashboard/ai-analysis-button";
-import { BudgetWarningTile } from "@/components/dashboard/budget-warning-tile";
-import { TodayCalendarTile } from "@/components/dashboard/today-calendar-tile";
 import { WhenDashboardTileEnabled } from "@/components/dashboard/when-dashboard-tile-enabled";
 import { HomeGreetingBar } from "@/components/dashboard/home-greeting-bar";
-import { SplitBalanceBanner } from "@/components/dashboard/split-balance-banner";
-import { HomeStatsStrip } from "@/components/dashboard/home-stats-strip";
+import { EnvelopeHeroSection } from "@/components/dashboard/envelope-hero-section";
+import { TrackerHero } from "@/components/dashboard/tracker-hero";
+import { NeedsYouStream } from "@/components/dashboard/needs-you-stream";
+import { buildNeedsYou } from "@/components/dashboard/needs-you-list";
+import { CategoryRemaining } from "@/components/dashboard/category-remaining";
+import { CategorySpend } from "@/components/dashboard/category-spend";
 import { DashboardExpensesClient } from "@/components/dashboard/dashboard-expenses-client";
-import { DashboardIncomeSection } from "@/components/dashboard/dashboard-income-section";
-
-async function countOpenListTasks(): Promise<number> {
-  const listRepo = getSharedListRepository();
-  const itemRepo = getSharedListItemRepository();
-  const lists = await listRepo.findAll();
-  if (lists.length === 0) return 0;
-  const nested = await Promise.all(lists.map((l) => itemRepo.findByListId(l.id)));
-  return nested.flat().filter((i) => !i.completed).length;
-}
+import { SetupProgressBanner } from "@/components/onboarding/setup-progress-banner";
+import { BudgetMonthNotice } from "@/components/dashboard/budget-month-notice";
 
 /** Fetched for merging with income on the transactions tile; display count is capped in the client. */
 const DASHBOARD_TRANSACTIONS_EXPENSE_FETCH = 28;
 const DASHBOARD_TRANSACTIONS_DISPLAY_LIMIT = 8;
 
-function isOccurrenceUpcoming(
-  o: CalendarEventOccurrence,
-  today: string,
-  nowTime: string
-): boolean {
-  const last = occurrenceSegmentEnd(o);
-  if (last < today) return false;
-  if (o.date > today) return true;
-  if (o.time == null || String(o.time).trim() === "") return true;
-  return o.time >= nowTime;
+async function loadOpenTasks(): Promise<{ count: number; listName: string }> {
+  const lists = await getSharedListRepository().findAll();
+  if (lists.length === 0) return { count: 0, listName: "" };
+  const counts = await getSharedListItemRepository().countOpenItemsByListIds(
+    lists.map((l) => l.id)
+  );
+  let bestId: number | null = null;
+  let total = 0;
+  for (const [listId, n] of counts) {
+    total += n;
+    if (bestId == null || n > (counts.get(bestId) ?? 0)) bestId = listId;
+  }
+  return {
+    count: total,
+    listName: lists.find((l) => l.id === bestId)?.name ?? lists[0].name,
+  };
+}
+
+/** How far through the budget period today is, 0-100. */
+function elapsedPctFor(period: { start: string; end: string }, today: string): number {
+  const total = differenceInCalendarDays(parseISO(period.end), parseISO(period.start)) + 1;
+  if (total <= 0) return 0;
+  const gone = differenceInCalendarDays(parseISO(today), parseISO(period.start)) + 1;
+  return Math.max(0, Math.min(100, (gone / total) * 100));
 }
 
 interface DashboardPageProps {
@@ -69,130 +75,246 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const session = await auth();
   if (!session?.user?.id) return null;
   const userId = Number(session.user.id);
+  // Budgeting is per-user and can be switched off (tracker mode). When off, Home
+  // drops the envelope layer: no month-open gate, a cash/owed hero, and spend by
+  // category instead of remaining. See src/lib/features/home-mode.ts.
+  const isTracker = (session.user.homeMode ?? "budget") === "tracker";
   const { month: monthParam } = await searchParams;
   const month = monthParam ?? (await getDefaultBudgetMonthForUser(userId));
   const today = format(new Date(), "yyyy-MM-dd");
-  const budgetPeriodForQuickAdd = await getBudgetPeriodForUserMonth(month, userId);
-  const quickAddExpenseDate = pickQuickAddDateForBudgetPeriod(today, budgetPeriodForQuickAdd);
+  const period = await getBudgetPeriodForUserMonth(month, userId);
 
-  const categoryRepo = getCategoryRepository();
+  // Onboarding is gated here for the same reason the month is, below: a
+  // `redirect()` out of the shell layout into a route that shares that layout
+  // leaves the client with nothing to render, so /welcome came up blank and
+  // the client re-fetched it forever. Home is where every login lands.
+  //
+  // Read once: the progress banner further down wants the same row, and used to
+  // fetch it a second time.
+  const setup = await getUserRepository().getSetupWizardState(userId);
+  if (session.user.householdApprovalStatus !== "pending" && setup.status === "not_started") {
+    redirect("/welcome");
+  }
+
+  // The month-open gate lives here rather than in the shell.
+  //
+  // A layout cannot see its own pathname -- it reads an x-pathname header the
+  // middleware sets -- and after the layout's own redirect that header still
+  // named the page we came FROM, so /new-month failed its own exemption test
+  // and redirected to itself forever. Home is where the design says this fires
+  // anyway, and a page redirecting away has no such problem.
+  if (monthParam == null && !isTracker) {
+    const monthPending = await new BudgetService().needsMonthOpen(userId);
+    if (monthPending) redirect("/new-month");
+  }
+
   const userRepo = getUserRepository();
-  const splitGroupRepo = getSplitGroupRepository();
   const expenseService = new ExpenseService();
   const incomeService = new IncomeService();
   const accountService = new AccountService();
-  const calendarService = new CalendarService();
-  const nowTime = format(new Date(), "HH:mm");
   const nextRangeEnd = format(addDays(new Date(), 30), "yyyy-MM-dd");
-  const budgetService = new BudgetService();
-
-  const mainAccountId = await accountService.getMainAccountId(userId);
 
   const [
     categories,
     otherUsers,
-    splitGroups,
     expensePage,
     incomeResult,
-    splitBalance,
+    balances,
     calendarOccurrences,
     budgetOverview,
-    openTaskCount,
+    openTasks,
+    accountsResult,
   ] = await Promise.all([
-    categoryRepo.findAll(),
+    getCategoryRepository().findAll(),
     userRepo.findAllExcept(userId),
-    splitGroupRepo.findAll(),
+    // The recent-transactions tile is a preview of the /expenses list it links
+    // to: the viewer's own rows plus rows on shared accounts, across every
+    // account. It used to be scoped to the main account, which hid every spend
+    // filed with "No account" or on another account.
     expenseService.getByMonthPaginated(
       month,
       1,
       DASHBOARD_TRANSACTIONS_EXPENSE_FETCH,
       userId,
-      mainAccountId ?? undefined
+      undefined,
+      true
     ),
     incomeService.getByMonth(month, userId),
-    new SplitService().getBalance(userId),
-    calendarService.getByDateRange(today, nextRangeEnd, userId),
-    budgetService.getOverview(month, userId),
-    countOpenListTasks(),
+    new SplitService().getBalances(userId),
+    new CalendarService().getByDateRange(today, nextRangeEnd, userId),
+    new BudgetService().getOverview(month, userId),
+    loadOpenTasks(),
+    accountService.listAccountsForUser(userId),
   ]);
+  const household = await getHouseholdRepository().getCurrent();
+
+  const members: HouseholdMember[] = otherUsers.map((u) => ({ id: u.id, name: u.name }));
+  const otherUserName = soleOtherMemberName(members);
+  const budgetMonthStartDay = await budgetMonthStartDayForUser(userId);
+  const monthLabelPretty = formatBudgetMonthLabel(month, budgetMonthStartDay);
+
+  const overspent = budgetOverview.categories.filter((c) => c.available < 0);
+  const spare = [...budgetOverview.categories]
+    .filter((c) => c.available > 0)
+    .sort((a, b) => b.available - a.available)[0];
+
+  const owedToYou = balances.reduce((s, b) => s + Math.max(0, b.net), 0);
+  const owedByNames = balances.filter((b) => b.net > 0).map((b) => b.userName);
+  // Signed overall position for the tracker hero tile: positive means others owe
+  // you on net, negative means you owe. `owedToYou` above stays the gross
+  // others-owe-you figure the envelope hero and breakdown sheet already show.
+  const owedNet = balances.reduce((s, b) => s + b.net, 0);
+  const youOweNames = balances.filter((b) => b.net < 0).map((b) => b.userName);
+  const cashOnHand = accountsResult.accounts.reduce((s, a) => s + a.balance, 0);
+  const accountsCount = accountsResult.accounts.length;
+  // Only the negative case is a row: your share of a shared shop has already
+  // left the envelope, so cash sitting *above* the envelopes is not news.
+  const cashShortfall = Math.max(0, budgetOverview.envelopeLeft - cashOnHand);
 
   const todayOccurrences = calendarOccurrences.filter((o) => occurrenceCoversDate(o, today));
 
-  const nextOccurrence =
-    calendarOccurrences
-      .filter((o) => isOccurrenceUpcoming(o, today, nowTime))
-      .sort((a, b) => {
-        const c = a.date.localeCompare(b.date);
-        if (c !== 0) return c;
-        return (a.time ?? "").localeCompare(b.time ?? "");
-      })[0] ?? null;
+  // Tracker mode omits every budget-derived row (overspend, unassigned, cash
+  // shortfall, goals behind); the non-budget rows -- owed, today's events, open
+  // tasks -- stay. buildNeedsYou is untouched: we just feed it empties.
+  const needsYou = buildNeedsYou({
+    overspentCategories: isTracker
+      ? []
+      : overspent.map((c) => ({
+          categoryId: c.categoryId,
+          categoryName: c.categoryName,
+          available: c.available,
+        })),
+    spareCategory:
+      isTracker || !spare
+        ? undefined
+        : { categoryName: spare.categoryName, available: spare.available },
+    unassigned: isTracker ? 0 : budgetOverview.unassigned,
+    carriedOverspend: isTracker ? 0 : budgetOverview.carriedOverspend,
+    owedToYou: balances.map((b) => ({ userName: b.userName, net: b.net })),
+    todayEvents: todayOccurrences.map((o) => ({
+      id: o.eventId,
+      title: o.name,
+      time: o.time ?? "",
+      ownerName: o.createdByName,
+    })),
+    openTasks,
+    // Balance checks land in Phase 8; until an account carries a checked-at
+    // date there is nothing honest to say here.
+    uncheckedAccounts: [],
+    // Derived from the same figures /goals shows, not from a separate table.
+    // Two sources for one number is how they end up disagreeing.
+    goalsBehind: isTracker
+      ? []
+      : goalsBehind(
+          buildGoalRows(
+            budgetOverview.categories.map((c) => {
+              const meta = categories.find((x) => x.id === c.categoryId);
+              return {
+                categoryId: c.categoryId,
+                categoryName: c.categoryName,
+                available: c.available,
+                assigned: c.assigned,
+                targetMinor: meta?.targetMinor ?? null,
+                targetDate: meta?.targetDate ?? null,
+              };
+            }),
+            month
+          )
+        ),
+    cashShortfall: isTracker ? 0 : cashShortfall,
+  });
 
-  const overspentCategories = budgetOverview.categories.filter((c) => c.isOverspent);
-  const budgetByCategory = new Map(
-    budgetOverview.categories.map((c) => [c.categoryId, { remaining: c.remaining, isOverspent: c.isOverspent }])
+  const daysLeft = Math.max(
+    0,
+    differenceInCalendarDays(parseISO(period.end), parseISO(today)) + 1
   );
-  const otherUserName = otherUsers[0]?.name;
-  const budgetMonthStartDay = await userRepo.getBudgetMonthStartDay(userId);
-  const aiUsePaid = await userRepo.getAiUsePaid(userId);
-  const aiConfigured = aiUsePaid ? isAIConfiguredForTier("paid") : isAIConfiguredForTier("free");
-  const aiEnabled = await resolveAiInteractiveEnabled(userId, aiConfigured);
-  const monthLabelPretty = formatBudgetMonthLabel(month, budgetMonthStartDay);
+
   return (
     <div className="p-3 sm:p-4 space-y-5 sm:space-y-6 pb-24 md:pb-6">
+      <SetupProgressBanner status={setup.status} storedStep={setup.step} />
+
+      {household?.budgetMonthNoticePending && !isTracker ? (
+        <BudgetMonthNotice startDay={household.budgetMonthStartDay} />
+      ) : null}
+
       <HomeGreetingBar
         month={month}
         budgetMonthStartDay={budgetMonthStartDay}
         userName={String(session.user.name ?? session.user.email ?? "")}
-        otherUserName={otherUserName}
-        monthBalanceCents={budgetOverview.balance}
+        members={members}
+        nowIso={new Date().toISOString()}
       />
 
-      <HomeStatsStrip
-        tasksOpen={openTaskCount}
-        eventsToday={todayOccurrences.length}
-        budgetBalanceLabel={formatRand(budgetOverview.balance)}
-      />
+      {isTracker ? (
+        <TrackerHero
+          cashOnHand={cashOnHand}
+          accountsCount={accountsCount}
+          owedNet={owedNet}
+          owedByNames={owedByNames}
+          owedToNames={youOweNames}
+        />
+      ) : (
+        <EnvelopeHeroSection
+          envelopeLeft={budgetOverview.envelopeLeft}
+          envelopeTotal={budgetOverview.envelopeTotal}
+          spent={budgetOverview.totalExpenses}
+          daysLeft={daysLeft}
+          periodLabel={monthLabelPretty}
+          elapsedPct={elapsedPctFor(period, today)}
+          figures={{
+            totalAssigned: budgetOverview.totalAssigned,
+            totalCarriedIn: budgetOverview.categories.reduce((s, c) => s + c.carriedIn, 0),
+            envelopeTotal: budgetOverview.envelopeTotal,
+            spent: budgetOverview.totalExpenses,
+            envelopeLeft: budgetOverview.envelopeLeft,
+            owedToYou,
+            unassigned: budgetOverview.unassigned,
+            owedByNames,
+          }}
+        />
+      )}
 
-      <WhenDashboardTileEnabled tile="splitBalance">
-        <SplitBalanceBanner splitBalance={splitBalance} otherUserName={otherUserName} />
-      </WhenDashboardTileEnabled>
+      <NeedsYouStream items={needsYou} />
 
-      <div className="grid grid-cols-2 gap-2 sm:gap-3">
-        <WhenDashboardTileEnabled tile="budgetWarning">
-          <BudgetWarningTile overspentCategories={overspentCategories} />
-        </WhenDashboardTileEnabled>
-        <WhenDashboardTileEnabled tile="today">
-          <TodayCalendarTile todayOccurrences={todayOccurrences} nextOccurrence={nextOccurrence} />
-        </WhenDashboardTileEnabled>
-      </div>
+      {isTracker ? (
+        <CategorySpend
+          categories={budgetOverview.categories.map((c) => ({
+            categoryId: c.categoryId,
+            categoryName: c.categoryName,
+            spent: c.spent,
+          }))}
+        />
+      ) : (
+        <CategoryRemaining
+          categories={budgetOverview.categories.map((c) => ({
+            categoryId: c.categoryId,
+            categoryName: c.categoryName,
+            available: c.available,
+            assigned: c.assigned,
+            carriedIn: c.carriedIn,
+            spent: c.spent,
+            rollover: c.rollover,
+            groupName: c.groupName,
+          }))}
+        />
+      )}
 
       <DashboardExpensesClient
         userId={userId}
-        userName={String(session.user.name ?? session.user.email ?? "")}
         month={month}
         monthLabelPretty={monthLabelPretty}
         categories={categories}
-        splitGroups={splitGroups}
         otherUserName={otherUserName}
-        budgetByCategory={budgetByCategory}
-        primaryAccountId={mainAccountId}
-        expenseDate={quickAddExpenseDate}
         initialExpenses={expensePage.expenses}
         incomeEntries={incomeResult.entries}
         mergedTransactionsDisplayLimit={DASHBOARD_TRANSACTIONS_DISPLAY_LIMIT}
       />
 
-      <DashboardIncomeSection
-        month={month}
-        monthLabelPretty={monthLabelPretty}
-        defaultDate={quickAddExpenseDate}
-        entries={incomeResult.entries}
-        total={incomeResult.totals.overall}
-      />
-
-      <WhenDashboardTileEnabled tile="aiAnalysis">
-        <AiAnalysisButton month={month} enabled={aiEnabled} />
-      </WhenDashboardTileEnabled>
+      {!isTracker ? (
+        <WhenDashboardTileEnabled tile="aiAnalysis">
+          <AiAnalysisButton month={month} enabled={resolveAiInteractiveEnabled()} />
+        </WhenDashboardTileEnabled>
+      ) : null}
     </div>
   );
 }

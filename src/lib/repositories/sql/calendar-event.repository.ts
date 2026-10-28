@@ -1,4 +1,5 @@
 import { all, get, run, lastInsertId, withTransaction } from "@/lib/db";
+import { requireHouseholdId } from "@/lib/db/request-context";
 import type { CalendarEvent, EventReminder } from "../interfaces/calendar-event.repository";
 import type {
   ICalendarEventRepository,
@@ -19,10 +20,13 @@ const SELECT_FIELDS = `
     c.reminder_minutes AS "reminderMinutes",
     c.category_id AS "categoryId",
     cat.name AS "categoryName", cat.color AS "categoryColor",
-    c.is_shared AS "isShared", c.priority
+    c.is_shared AS "isShared", c.priority,
+    c.expected_cost_minor AS "expectedCostMinor",
+    c.expense_category_id AS "expenseCategoryId",
+    c.logged_expense_id AS "loggedExpenseId"
   FROM calendar_events c
-  INNER JOIN users u ON c.created_by_user_id = u.id
-  LEFT JOIN calendar_categories cat ON c.category_id = cat.id
+  INNER JOIN users u ON c.created_by_user_id = u.id AND u.household_id = c.household_id
+  LEFT JOIN calendar_categories cat ON c.category_id = cat.id AND cat.household_id = c.household_id
 `;
 
 interface CalendarEventRow {
@@ -45,6 +49,9 @@ interface CalendarEventRow {
   categoryColor: string | null;
   isShared: boolean;
   priority: number;
+  expectedCostMinor: number | null;
+  expenseCategoryId: number | null;
+  loggedExpenseId: number | null;
 }
 
 interface ReminderRow {
@@ -76,10 +83,13 @@ function toCalendarEvent(r: CalendarEventRow): CalendarEvent {
     categoryColor: r.categoryColor ?? null,
     isShared: r.isShared !== false,
     priority: typeof r.priority === "number" ? r.priority : 2,
+    expectedCostMinor: r.expectedCostMinor ?? null,
+    expenseCategoryId: r.expenseCategoryId ?? null,
+    loggedExpenseId: r.loggedExpenseId ?? null,
   };
 }
 
-const RANGE_WHERE = `WHERE ((c.recurrence_type = 'none' AND c.date <= ? AND COALESCE(c.end_date, c.date) >= ?)
+const RANGE_FILTER = `((c.recurrence_type = 'none' AND c.date <= ? AND COALESCE(c.end_date, c.date) >= ?)
      OR (c.recurrence_type != 'none'))`;
 
 export class CalendarEventRepository implements ICalendarEventRepository {
@@ -88,38 +98,50 @@ export class CalendarEventRepository implements ICalendarEventRepository {
     end: string,
     viewerUserId: number
   ): Promise<CalendarEvent[]> {
+    const hid = requireHouseholdId();
     const sql = `${SELECT_FIELDS}
-      ${RANGE_WHERE}
+      WHERE c.household_id = ? AND ${RANGE_FILTER}
         AND (c.is_shared = true OR c.created_by_user_id = ?)
       ORDER BY c.date, c.time`;
-    const rows = await all<CalendarEventRow>(sql, [end, start, viewerUserId]);
+    const rows = await all<CalendarEventRow>(sql, [hid, end, start, viewerUserId]);
     return this.attachReminders(rows.map(toCalendarEvent));
   }
 
   async findByDateRangeAll(start: string, end: string): Promise<CalendarEvent[]> {
+    const hid = requireHouseholdId();
     const sql = `${SELECT_FIELDS}
-      ${RANGE_WHERE}
+      WHERE c.household_id = ? AND ${RANGE_FILTER}
       ORDER BY c.date, c.time`;
-    const rows = await all<CalendarEventRow>(sql, [end, start]);
+    const rows = await all<CalendarEventRow>(sql, [hid, end, start]);
     return this.attachReminders(rows.map(toCalendarEvent));
   }
 
   async findById(id: number): Promise<CalendarEvent | null> {
-    const row = await get<CalendarEventRow>(`${SELECT_FIELDS} WHERE c.id = ?`, [id]);
+    const hid = requireHouseholdId();
+    const row = await get<CalendarEventRow>(`${SELECT_FIELDS} WHERE c.id = ? AND c.household_id = ?`, [
+      id,
+      hid,
+    ]);
     if (!row) return null;
     const [event] = await this.attachReminders([toCalendarEvent(row)]);
     return event;
   }
 
+  /**
+   * `calendar_event_reminders` carries no `household_id`; it is isolated by joining
+   * `calendar_events`, so a caller cannot read another tenant's reminders by event id.
+   */
   async findRemindersByEventIds(eventIds: number[]): Promise<EventReminder[]> {
     if (eventIds.length === 0) return [];
+    const hid = requireHouseholdId();
     const placeholders = eventIds.map(() => "?").join(",");
     const rows = await all<ReminderRow>(
-      `SELECT id, event_id AS "eventId", offset_minutes AS "offsetMinutes", send_time AS "sendTime"
-       FROM calendar_event_reminders
-       WHERE event_id IN (${placeholders})
-       ORDER BY event_id, offset_minutes`,
-      eventIds
+      `SELECT r.id, r.event_id AS "eventId", r.offset_minutes AS "offsetMinutes", r.send_time AS "sendTime"
+       FROM calendar_event_reminders r
+       INNER JOIN calendar_events c ON c.id = r.event_id
+       WHERE r.event_id IN (${placeholders}) AND c.household_id = ?
+       ORDER BY r.event_id, r.offset_minutes`,
+      [...eventIds, hid]
     );
     return rows.map((r) => ({
       id: r.id,
@@ -130,6 +152,7 @@ export class CalendarEventRepository implements ICalendarEventRepository {
   }
 
   async replaceReminders(eventId: number, reminders: ReminderSpec[]): Promise<void> {
+    const hid = requireHouseholdId();
     const wantedByKey = new Map<string, ReminderSpec>();
     for (const r of reminders) {
       const sendTime = normalizeReminderSendTime(r.sendTime);
@@ -140,6 +163,14 @@ export class CalendarEventRepository implements ICalendarEventRepository {
     }
 
     await withTransaction(async () => {
+      // Reject up front rather than per-statement: an event outside this household
+      // must not have its reminders replaced.
+      const owned = await get<{ id: number }>(
+        "SELECT id FROM calendar_events WHERE id = ? AND household_id = ? LIMIT 1",
+        [eventId, hid]
+      );
+      if (!owned) return;
+
       const existing = await this.findRemindersByEventIds([eventId]);
       const keptKeys = new Set<string>();
       for (const row of existing) {
@@ -164,14 +195,16 @@ export class CalendarEventRepository implements ICalendarEventRepository {
   }
 
   async create(data: CreateCalendarEventInput): Promise<{ id: number }> {
+    const hid = requireHouseholdId();
     await run(
       `INSERT INTO calendar_events (
-        created_by_user_id, name, location, date, end_date, time, end_time, notes,
+        created_by_user_id, household_id, name, location, date, end_date, time, end_time, notes,
         recurrence_type, recurrence_day_of_month, reminder_minutes,
         category_id, is_shared, priority
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.createdByUserId,
+        hid,
         data.name,
         data.location ?? null,
         data.date,
@@ -246,16 +279,22 @@ export class CalendarEventRepository implements ICalendarEventRepository {
       params.push(data.priority);
     }
     if (updates.length > 0) {
-      params.push(id);
-      await run(`UPDATE calendar_events SET ${updates.join(", ")} WHERE id = ?`, params);
+      const hid = requireHouseholdId();
+      params.push(id, hid);
+      await run(
+        `UPDATE calendar_events SET ${updates.join(", ")} WHERE id = ? AND household_id = ?`,
+        params
+      );
     }
     if (data.reminders !== undefined) {
+      // Scopes to the household itself; a foreign event id is a no-op.
       await this.replaceReminders(id, data.reminders);
     }
   }
 
   async delete(id: number): Promise<void> {
-    await run("DELETE FROM calendar_events WHERE id = ?", [id]);
+    const hid = requireHouseholdId();
+    await run("DELETE FROM calendar_events WHERE id = ? AND household_id = ?", [id, hid]);
   }
 
   private async attachReminders(events: CalendarEvent[]): Promise<CalendarEvent[]> {

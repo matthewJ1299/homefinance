@@ -16,9 +16,31 @@ vi.mock("@/lib/repositories", () => ({
   getCategoryRepository: vi.fn(),
   getIncomeRepository: vi.fn(),
   getExpenseRepository: vi.fn(),
+  getExpenseParticipantRepository: vi.fn().mockReturnValue({
+    createMany: vi.fn(),
+    replaceForExpense: vi.fn(),
+    findByExpenseId: vi.fn().mockResolvedValue([]),
+    getSharesForExpenses: vi.fn().mockResolvedValue(new Map()),
+    deleteByExpenseId: vi.fn(),
+  }),
+  getSplitAllocationRepository: vi.fn().mockReturnValue({
+    create: vi.fn(),
+  }),
+  getSplitGroupRepository: vi.fn().mockReturnValue({
+    findDefault: vi.fn().mockResolvedValue(null),
+  }),
   getUserRepository: vi.fn().mockReturnValue({
     getBudgetMonthStartDay: vi.fn().mockResolvedValue(1),
     updateBudgetMonthStartDay: vi.fn().mockResolvedValue(undefined),
+    // Transfer display names, batched and tenant-scoped (was raw SQL in the service).
+    namesByIds: vi.fn().mockResolvedValue(new Map()),
+  }),
+  // The budget month start day is a household setting since migration 0042.
+  getHouseholdRepository: vi.fn().mockReturnValue({
+    getBudgetMonthStartDay: vi.fn().mockResolvedValue(1),
+    setBudgetMonthStartDay: vi.fn().mockResolvedValue(undefined),
+    clearBudgetMonthNotice: vi.fn().mockResolvedValue(undefined),
+    getCurrent: vi.fn().mockResolvedValue(null),
   }),
   getAccountTransactionRepository: vi.fn().mockReturnValue({
     create: vi.fn(),
@@ -29,6 +51,8 @@ vi.mock("@/lib/repositories", () => ({
 
 vi.mock("@/lib/db", () => ({
   all: vi.fn().mockResolvedValue([]),
+  // getOverview no longer writes; materialiseAllocationsForMonth (openMonth only) does.
+  withTransaction: vi.fn(async (fn: () => Promise<unknown>) => fn()),
 }));
 
 describe("budget calculations", () => {
@@ -57,6 +81,10 @@ describe("budget calculations", () => {
       getAllocationsForMonths: vi.fn().mockResolvedValue([]),
       getAllocationsForMonth: vi.fn().mockResolvedValue([]),
       getTransfersForMonth: vi.fn().mockResolvedValue([]),
+      getCarriedInForMonth: vi.fn().mockResolvedValue(new Map()),
+      setCarriedIn: vi.fn().mockResolvedValue(undefined),
+      getMonthOpenState: vi.fn().mockResolvedValue(null),
+      recordMonthOpen: vi.fn().mockResolvedValue(undefined),
       upsertAllocation: vi.fn().mockResolvedValue(undefined),
     } as never);
 
@@ -91,6 +119,10 @@ describe("budget calculations", () => {
         { categoryId: 1, allocatedAmount: 5_000 },
       ]),
       getTransfersForMonth: vi.fn().mockResolvedValue([]),
+      getCarriedInForMonth: vi.fn().mockResolvedValue(new Map()),
+      setCarriedIn: vi.fn().mockResolvedValue(undefined),
+      getMonthOpenState: vi.fn().mockResolvedValue(null),
+      recordMonthOpen: vi.fn().mockResolvedValue(undefined),
       upsertAllocation: vi.fn().mockResolvedValue(undefined),
     } as never);
 
@@ -118,6 +150,7 @@ describe("budget calculations", () => {
       totalExpenses: 3_000,
       categories: [{ id: 1, name: "Food", groupName: "Living", costType: "variable" }],
       allocationMap: new Map([[1, 5_000]]),
+      carriedInMap: new Map(),
       expenses: [{ userId: 1, categoryId: 1, amount: 3_000 }],
       spentByCategory: { 1: 3_000 },
     });
@@ -146,6 +179,10 @@ describe("budget calculations", () => {
         { categoryId: 1, allocatedAmount: 2_000 },
       ]),
       getTransfersForMonth: vi.fn().mockResolvedValue([]),
+      getCarriedInForMonth: vi.fn().mockResolvedValue(new Map()),
+      setCarriedIn: vi.fn().mockResolvedValue(undefined),
+      getMonthOpenState: vi.fn().mockResolvedValue(null),
+      recordMonthOpen: vi.fn().mockResolvedValue(undefined),
       upsertAllocation: vi.fn().mockResolvedValue(undefined),
     } as never);
 
@@ -187,6 +224,10 @@ describe("budget calculations", () => {
         { categoryId: 2, allocatedAmount: 7_000 },
       ]),
       getTransfersForMonth: vi.fn().mockResolvedValue([]),
+      getCarriedInForMonth: vi.fn().mockResolvedValue(new Map()),
+      setCarriedIn: vi.fn().mockResolvedValue(undefined),
+      getMonthOpenState: vi.fn().mockResolvedValue(null),
+      recordMonthOpen: vi.fn().mockResolvedValue(undefined),
       upsertAllocation: vi.fn().mockResolvedValue(undefined),
     } as never);
 
@@ -236,7 +277,7 @@ describe("summary calculations", () => {
     expect(snapshot.netPosition).toBe(30_000 - 22_000);
   });
 
-  it("adherencePct = (spent / allocated) * 100 when allocated > 0", async () => {
+  it("adherencePct = (spent / assigned) * 100 when assigned > 0", async () => {
     const { getIncomeRepository, getBudgetRepository } = await import("@/lib/repositories");
     vi.mocked(getIncomeRepository).mockReturnValue({
       findByMonth: vi.fn().mockResolvedValue([{ userId: 1, amount: 10_000 }]),
@@ -262,7 +303,7 @@ describe("summary calculations", () => {
 
     const adherence = snapshot.budgetAdherence.find((a) => a.categoryName === "Food");
     expect(adherence).toBeDefined();
-    expect(adherence!.allocated).toBe(4_000);
+    expect(adherence!.assigned).toBe(4_000);
     expect(adherence!.spent).toBe(3_000);
     expect(adherence!.adherencePct).toBe((3_000 / 4_000) * 100);
 

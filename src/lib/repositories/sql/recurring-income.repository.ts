@@ -1,4 +1,5 @@
 import { all, get, run, lastInsertId } from "@/lib/db";
+import { requireHouseholdId } from "@/lib/db/request-context";
 import type { RecurringIncome } from "@/lib/types";
 import type { IRecurringIncomeRepository } from "../interfaces/recurring-income.repository";
 
@@ -24,24 +25,28 @@ function toRecurringIncome(r: Row): RecurringIncome {
 
 export class RecurringIncomeRepository implements IRecurringIncomeRepository {
   async findAll(): Promise<RecurringIncome[]> {
+    const hid = requireHouseholdId();
     const rows = await all<Row>(
-      "SELECT id, user_id, amount, type, description, day_of_month FROM recurring_income ORDER BY user_id, id"
+      "SELECT id, user_id, amount, type, description, day_of_month FROM recurring_income WHERE household_id = ? ORDER BY user_id, id",
+      [hid]
     );
     return rows.map(toRecurringIncome);
   }
 
   async findByUserId(userId: number): Promise<RecurringIncome[]> {
+    const hid = requireHouseholdId();
     const rows = await all<Row>(
-      "SELECT id, user_id, amount, type, description, day_of_month FROM recurring_income WHERE user_id = ? ORDER BY id",
-      [userId]
+      "SELECT id, user_id, amount, type, description, day_of_month FROM recurring_income WHERE user_id = ? AND household_id = ? ORDER BY id",
+      [userId, hid]
     );
     return rows.map(toRecurringIncome);
   }
 
   async findById(id: number): Promise<RecurringIncome | null> {
+    const hid = requireHouseholdId();
     const row = await get<Row>(
-      "SELECT id, user_id, amount, type, description, day_of_month FROM recurring_income WHERE id = ?",
-      [id]
+      "SELECT id, user_id, amount, type, description, day_of_month FROM recurring_income WHERE id = ? AND household_id = ?",
+      [id, hid]
     );
     return row ? toRecurringIncome(row) : null;
   }
@@ -53,10 +58,12 @@ export class RecurringIncomeRepository implements IRecurringIncomeRepository {
     description?: string | null;
     dayOfMonth: number;
   }): Promise<RecurringIncome> {
+    const hid = requireHouseholdId();
     await run(
-      "INSERT INTO recurring_income (user_id, amount, type, description, day_of_month) VALUES (?, ?, ?, ?, ?)",
+      "INSERT INTO recurring_income (user_id, household_id, amount, type, description, day_of_month) VALUES (?, ?, ?, ?, ?, ?)",
       [
         data.userId,
+        hid,
         data.amount,
         data.type,
         data.description ?? null,
@@ -65,8 +72,8 @@ export class RecurringIncomeRepository implements IRecurringIncomeRepository {
     );
     const id = await lastInsertId();
     const row = (await get<Row>(
-      "SELECT id, user_id, amount, type, description, day_of_month FROM recurring_income WHERE id = ?",
-      [id]
+      "SELECT id, user_id, amount, type, description, day_of_month FROM recurring_income WHERE id = ? AND household_id = ?",
+      [id, hid]
     ))!;
     return toRecurringIncome(row);
   }
@@ -99,11 +106,13 @@ export class RecurringIncomeRepository implements IRecurringIncomeRepository {
       params.push(Math.min(31, Math.max(1, data.dayOfMonth)));
     }
     if (updates.length === 0) return;
-    params.push(id);
-    await run(`UPDATE recurring_income SET ${updates.join(", ")} WHERE id = ?`, params);
+    const hid = requireHouseholdId();
+    params.push(id, hid);
+    await run(`UPDATE recurring_income SET ${updates.join(", ")} WHERE id = ? AND household_id = ?`, params);
   }
 
   async delete(id: number): Promise<void> {
-    await run("DELETE FROM recurring_income WHERE id = ?", [id]);
+    const hid = requireHouseholdId();
+    await run("DELETE FROM recurring_income WHERE id = ? AND household_id = ?", [id, hid]);
   }
 }

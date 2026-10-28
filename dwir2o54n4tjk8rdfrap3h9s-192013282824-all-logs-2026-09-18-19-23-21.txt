@@ -1,0 +1,150 @@
+Applied migration: 0027_households_pg.sql
+Applied migration: 0028_super_admin_and_household_feature_policy_pg.sql
+Applied migration: 0029_users_setup_wizard_state_pg.sql
+Applied migration: 0030_household_features_pg.sql
+Applied migration: 0031_user_password_management_pg.sql
+Applied migration: 0032_household_approval_pg.sql
+Applied migration: 0033_budgets_per_user_pg.sql
+Applied migration: 0034_expense_participants_pg.sql
+Applied migration: 0035_category_rollover_pg.sql
+Applied migration: 0036_account_sharing_pg.sql
+Applied migration: 0037_income_types_pg.sql
+Applied migration: 0038_mortgage_plan_pg.sql
+Applied migration: 0039_recon_rules_pg.sql
+Applied migration: 0040_shared_list_category_pg.sql
+Applied migration: 0041_calendar_event_cost_pg.sql
+Applied migration: 0042_household_budget_month_pg.sql
+Applied migration: 0043_goals_as_categories_pg.sql
+Applied migration: 0044_established_users_skip_onboarding_pg.sql
+Applied migration: 0045_repair_negative_allocations_pg.sql
+Applied migration: 0046_hot_path_indexes_pg.sql
+Applied migration: 0047_category_semantic_key_pg.sql
+Applied migration: 0048_tenant_composite_fks_pg.sql
+Applied migration: 0049_ledger_typed_references_pg.sql
+Applied migration: 0050_domain_check_constraints_pg.sql
+Applied migration: 0051_ledger_reference_required_pg.sql
+Applied migration: 0052_feedback_pg.sql
+Database schema is up to date.
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 12.0.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2
+npm notice To update run:<REDACTED>@12.0.2
+npm notice
+   ▲ Next.js 15.5.12
+   - Local:        http://localhost:3000
+   - Network:      http://0.0.0.0:3000
+
+ ✓ Starting...
+ ✓ Ready in 275ms
+Failed to prepare server [Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+ ⨯ unhandledRejection:  [Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+Failed to prepare server [Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}
+[Error: An error occurred while loading instrumentation hook: Cannot find module '/app/.next/server/lib/db/index' imported from /app/.next/server/instrumentation.js] {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///app/.next/server/lib/db/index'
+}

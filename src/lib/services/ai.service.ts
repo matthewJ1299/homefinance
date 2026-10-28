@@ -3,7 +3,6 @@ import OpenAI from "openai";
 import { BudgetService, type BudgetOverviewResult } from "@/lib/services/budget.service";
 import { ExpenseService } from "@/lib/services/expense.service";
 import { IncomeService } from "@/lib/services/income.service";
-import { GoalProjectionService } from "@/lib/services/goal-projection.service";
 import { formatRand } from "@/lib/utils/currency";
 import { prevMonth } from "@/lib/utils/date";
 import { getAIAnalysisRunMessageRepository, getAIAnalysisRunRepository } from "@/lib/repositories";
@@ -128,11 +127,13 @@ function buildBudgetAnalysisModelPayload(params: {
   includeTransactions: boolean;
 }): BudgetAnalysisModelPayload {
   const categories = params.overview.categories
-    .filter((c) => c.allocated > 0 || c.spent > 0)
+    .filter((c) => c.assigned > 0 || c.carriedIn !== 0 || c.spent > 0)
     .map((c) => ({
       name: c.categoryName,
-      allocated_cents: c.allocated,
+      assigned_cents: c.assigned,
+      carried_in_cents: c.carriedIn,
       spent_cents: c.spent,
+      available_cents: c.available,
       prev_month_spent_cents: params.prevMonthSpentByCategory[c.categoryId] ?? 0,
       is_overspent: c.isOverspent,
     }));
@@ -152,30 +153,19 @@ function buildBudgetAnalysisModelPayload(params: {
     currency: "ZAR",
     income_cents: params.incomeCents,
     expenses_cents: params.overview.totalExpenses,
-    allocated_cents: params.overview.totalAllocated,
-    unallocated_cents: params.overview.unallocated,
+    assigned_cents: params.overview.totalAssigned,
+    unassigned_cents: params.overview.unassigned,
+    // Leftovers stay in the category and overspends come off next month's
+    // unassigned, so state both or the model reasons about the old model.
+    envelope_left_cents: params.overview.envelopeLeft,
+    overspent_cents: params.overview.overspentTotal,
+    carried_overspend_cents: params.overview.carriedOverspend,
     categories,
     transactions_included: params.includeTransactions,
     transactions,
   };
 }
 
-function buildGoalsAndDebtAnalysisPrompt(data: unknown): string {
-  return `You are a personal finance advisor. Respond in plain text (no markdown). Keep it concise (under 300 words).
-
-IMPORTANT RULES:
-- Do NOT compute balances, projections, or payoff math yourself.
-- Treat the provided numbers as the source of truth.
-- Your job is to suggest actions and trade-offs (budget shifts, payment adjustments) and explain them clearly.
-
-Questions to answer:
-1) Am I on track for my savings goals? If not, what should I adjust this month?
-2) Am I paying down debt fast enough? What single change would help most?
-3) Suggest 2-3 concrete budget shifts (with tradeoffs) to improve outcomes.
-
-Data (amounts in ZAR):
-${JSON.stringify(data, null, 2)}`;
-}
 
 function isMissingDbObjectError(error: unknown): boolean {
   return (
@@ -445,96 +435,6 @@ export class AIService {
     });
   }
 
-  async analyzeGoalsAndDebt(
-    month: string,
-    userId: number,
-    tier: AITier = "free"
-  ): Promise<AnalyzeGoalsOutcome> {
-    const apiKey = getApiKeyForTier(tier);
-    if (!apiKey) {
-      return {
-        success: false,
-        error:
-          tier === "paid"
-            ? "Paid AI is not configured. Set GEMINI_PAID_API_KEY."
-            : "AI is not configured. Set GEMINI_FREE_API_KEY (or GEMINI_API_KEY).",
-      };
-    }
-
-    const budgetService = new BudgetService();
-    const incomeService = new IncomeService();
-    const goalsService = new GoalProjectionService();
-
-    const [overview, incomeResult, goalsSummary] = await Promise.all([
-      budgetService.getOverview(month, userId),
-      incomeService.getByMonth(month, userId),
-      goalsService.getDashboardSummary(userId, month),
-    ]);
-
-    const data = {
-      month,
-      totals: {
-        totalIncome: formatRand(incomeResult.totals.overall),
-        totalExpenses: formatRand(overview.totalExpenses),
-        balance: formatRand(overview.balance),
-        unallocated: formatRand(overview.unallocated),
-      },
-      savingsGoals: goalsSummary.savings.map((s) => ({
-        name: s.goal.name,
-        progress: `${Math.round(s.progressPct * 100)}%`,
-        current: formatRand(s.current),
-        target: formatRand(s.target),
-        monthlyTarget: formatRand(s.monthlyTarget),
-        monthlyActual: formatRand(s.monthlyActual),
-        projectedCompletionMonth: s.projectedCompletionMonth,
-      })),
-      creditGoals: goalsSummary.credit.map((c) => ({
-        name: c.goal.name,
-        balance: formatRand(c.balance),
-        debt: formatRand(c.debt),
-        monthlyTarget: formatRand(c.monthlyTarget),
-        payoffMonths: c.payoffMonths,
-        totalInterest: formatRand(c.totalInterest),
-        recommendedStrategy: c.recommendedStrategy.best,
-      })),
-      budgetCategories: overview.categories
-        .filter((c) => c.allocated > 0 || c.spent > 0)
-        .map((c) => ({
-          name: c.categoryName,
-          allocated: formatRand(c.allocated),
-          spent: formatRand(c.spent),
-          remaining: formatRand(c.remaining),
-          isOverspent: c.isOverspent,
-        })),
-    };
-
-    const prompt = buildGoalsAndDebtAnalysisPrompt(data);
-
-    try {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: getModelForTier(tier) });
-      const result = await model.generateContent(prompt);
-      const text = result.response?.text() ?? "";
-      if (typeof text !== "string" || !text.trim()) {
-        return { success: false, error: "No analysis was returned." };
-      }
-      const analysisText = text.trim();
-      await persistAIAnalysisRun({
-        userId,
-        analysisType: "goals_and_debt_monthly",
-        month,
-        promptTemplateId: "goals_and_debt_monthly",
-        promptVersion: 1,
-        inputJson: data,
-        inputText: undefined,
-        outputText: analysisText,
-      });
-      return { success: true, analysis: analysisText, inputText: prompt };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "AI request failed.";
-      return { success: false, error: message };
-    }
-  }
 
   async replyToBudgetReport(
     runId: number,

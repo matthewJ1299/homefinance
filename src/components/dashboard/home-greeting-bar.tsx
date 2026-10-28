@@ -1,3 +1,4 @@
+import type { HouseholdMember } from "@/lib/types/household-member";
 import { formatBudgetMonthLabel } from "@/lib/utils/date";
 import { AvatarCircle } from "@/components/ui/avatar-circle";
 import { formatRand } from "@/lib/utils/currency";
@@ -40,18 +41,28 @@ export function HomeGreetingBar({
   month,
   budgetMonthStartDay = 1,
   userName,
-  otherUserName,
-  monthBalanceCents,
+  members = [],
+  envelopeLeftCents,
+  nowIso,
 }: {
   month: string;
   /** Matches Settings > Budget month range (default 1 = calendar month). */
   budgetMonthStartDay?: number;
   userName: string;
-  otherUserName?: string;
+  /** Everyone else in the household, shown as the avatar strip. */
+  members?: HouseholdMember[];
   /** Optional: month-to-date balance hint under the greeting. */
-  monthBalanceCents?: number;
+  /** Sum of every category's available -- what is actually left to spend. */
+  envelopeLeftCents?: number;
+  /**
+   * The server's instant, as ISO. Calling `new Date()` here instead means the
+   * server and the client can land on different minutes -- or different
+   * greetings across an hour boundary -- and React throws out the whole tree
+   * as a hydration mismatch.
+   */
+  nowIso?: string;
 }) {
-  const now = new Date();
+  const now = nowIso ? new Date(nowIso) : new Date();
   const monthLabel = formatBudgetMonthLabel(month, budgetMonthStartDay).toUpperCase();
   const firstName = getFirstName(userName);
   const todayLine = formatDashboardDateLine(now, DASHBOARD_TIMEZONE);
@@ -69,18 +80,20 @@ export function HomeGreetingBar({
           <div className="pt-1 text-2xl sm:text-3xl font-semibold tracking-tight">
             {greeting}, {firstName}
           </div>
-          {monthBalanceCents != null ? (
+          {envelopeLeftCents != null ? (
             <p className="text-sm text-muted-foreground pt-1">
-              Month balance{" "}
+              Left in your categories{" "}
               <span className="font-medium text-foreground tabular-nums">
-                {formatRand(monthBalanceCents)}
+                {formatRand(envelopeLeftCents)}
               </span>
             </p>
           ) : null}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <AvatarCircle name={userName} size={40} />
-          {otherUserName ? <AvatarCircle name={otherUserName} size={40} /> : null}
+          {members.slice(0, 3).map((m) => (
+            <AvatarCircle key={m.id} name={m.name} size={40} />
+          ))}
         </div>
       </div>
     </section>

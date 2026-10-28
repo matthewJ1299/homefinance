@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<style>
+  body { margin:0; background:#e9edf4; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color:#2563eb; text-decoration:none; }
+  a:hover { text-decoration:underline; }
+</style>
+</helmet>
+
+<section style="padding:48px 56px 96px; display:flex; flex-direction:column; gap:56px">
+
+  <div style="max-width:900px; display:flex; flex-direction:column; gap:12px">
+    <div style="font-size:11px; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:#4d5f7a">Turn 3 · design pass, part two</div>
+    <h1 style="margin:0; font-size:34px; font-weight:600; letter-spacing:-0.025em; color:#0f1520">The rest of the app, and the seams between</h1>
+    <p style="margin:0; font-size:16px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">Lists, Calendar, Transactions, the mortgage in her view, and setting a household up together. The first section is the one that decides whether this feels like one app or three: what happens where two features touch.</p>
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:18px">
+    <div style="max-width:800px; display:flex; flex-direction:column; gap:8px">
+      <h2 style="margin:0; font-size:22px; font-weight:600; letter-spacing:-0.02em">The seams</h2>
+      <p style="margin:0; font-size:15px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">Three apps stitched together is what you were escaping. What makes one app feel like one app is that finishing something in one place offers the obvious next thing in another, with no menu in between.</p>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(350px,1fr)); gap:14px; max-width:1180px">
+      <sc-for list="{{ seams }}" as="s" hint-placeholder-count="8">
+        <div style="border:1px solid #dde3ee; background:#fafbfd; border-radius:16px; padding:16px 18px; display:flex; flex-direction:column; gap:9px">
+          <div style="display:flex; align-items:center; gap:7px; font-size:11px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:#4d5f7a">
+            <span>{{ s.from }}</span><span style="color:#2563eb">→</span><span>{{ s.to }}</span>
+          </div>
+          <div style="font-size:15px; font-weight:600; color:#0f1520; text-wrap:pretty">{{ s.title }}</div>
+          <p style="margin:0; font-size:13px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">{{ s.body }}</p>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:20px">
+    <div style="max-width:800px; display:flex; flex-direction:column; gap:8px">
+      <h2 style="margin:0; font-size:22px; font-weight:600; letter-spacing:-0.02em">Lists · the shop, start to finish</h2>
+      <p style="margin:0; font-size:15px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">The biggest missing seam is here. You take a shopping list to the shop and come home with a receipt, but today those are unrelated jobs on unrelated screens. Ticking items off should offer to log the spend, with the category and the people already filled in.</p>
+    </div>
+
+    <div style="display:flex; gap:32px; flex-wrap:wrap; align-items:flex-start">
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <div style="font-size:12px; font-weight:600; color:#2563eb">LISTS</div>
+        <div style="width:390px; border:1px solid #cdd5e3; border-radius:22px; overflow:hidden; background:#f4f6fa; box-shadow:0 14px 40px rgba(15,21,32,0.14)">
+          <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid #dde3ee; background:rgba(244,246,250,0.95)">
+            <span style="font-size:16px; font-weight:600">Lists</span>
+            <span style="font-size:13px; font-weight:600; color:#2563eb">New list</span>
+          </div>
+          <div style="padding:16px; display:flex; flex-direction:column; gap:14px">
+            <div style="display:flex; gap:7px; flex-wrap:wrap">
+              <sc-for list="{{ listTabs }}" as="t" hint-placeholder-count="3">
+                <div style="border-radius:9999px; padding:7px 13px; font-size:13px; font-weight:600; background:{{ t.bg }}; color:{{ t.fg }}">{{ t.label }}</div>
+              </sc-for>
+            </div>
+            <sc-for list="{{ lists }}" as="l" hint-placeholder-count="3">
+              <div style="border:1px solid #dde3ee; background:#fafbfd; border-radius:16px; padding:15px; display:flex; flex-direction:column; gap:11px">
+                <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px">
+                  <div style="min-width:0">
+                    <div style="font-size:16px; font-weight:600; letter-spacing:-0.01em">{{ l.name }}</div>
+                    <div style="font-size:12px; color:#4d5f7a; margin-top:2px">{{ l.meta }}</div>
+                  </div>
+                  <div style="display:flex; flex-shrink:0; padding-left:6px">
+                    <sc-for list="{{ l.people }}" as="p" hint-placeholder-count="2">
+                      <span style="width:26px; height:26px; border-radius:9999px; background:#eef3ff; color:#1a2540; font-size:11px; font-weight:600; display:flex; align-items:center; justify-content:center; border:2px solid #fafbfd; margin-left:-6px">{{ p }}</span>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="height:7px; border-radius:9999px; background:#eef3ff; overflow:hidden"><div style="height:100%; width:{{ l.pct }}; background:#2563eb; border-radius:9999px"></div></div>
+                <sc-for list="{{ l.preview }}" as="i" hint-placeholder-count="2">
+                  <div style="display:flex; align-items:center; gap:10px; font-size:14px; color:{{ i.tone }}">
+                    <span style="width:18px; height:18px; flex-shrink:0; border:1px solid {{ i.boxBorder }}; border-radius:5px; background:{{ i.boxBg }}; color:#fff; font-size:11px; display:flex; align-items:center; justify-content:center">{{ i.tick }}</span>
+                    <span style="flex:1; text-decoration:{{ i.strike }}">{{ i.label }}</span>
+                    <span style="font-size:11px; color:#4d5f7a">{{ i.by }}</span>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ l.showLog }}" hint-placeholder-val="{{ false }}">
+                  <div style="border-top:1px solid rgba(221,227,238,0.7); padding-top:11px; display:flex; align-items:center; gap:11px">
+                    <div style="min-width:0; flex:1">
+                      <div style="font-size:13px; font-weight:600; color:#0f1520">4 things ticked off</div>
+                      <div style="font-size:12px; color:#4d5f7a">Log what it cost?</div>
+                    </div>
+                    <span style="flex-shrink:0; height:34px; padding:0 14px; border-radius:9999px; background:#0f1520; color:#fafbfd; font-size:13px; font-weight:600; display:flex; align-items:center">Log the shop</span>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <div style="font-size:12px; font-weight:600; color:#2563eb">LIST · open</div>
+        <div style="width:390px; border:1px solid #cdd5e3; border-radius:22px; overflow:hidden; background:#f4f6fa; box-shadow:0 14px 40px rgba(15,21,32,0.14)">
+          <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid #dde3ee; background:rgba(244,246,250,0.95)">
+            <div style="display:flex; align-items:center; gap:10px"><span style="color:#4d5f7a">←</span><span style="font-size:16px; font-weight:600">Shopping</span></div>
+            <span style="font-size:15px; color:#4d5f7a">⋯</span>
+          </div>
+          <div style="padding:16px; display:flex; flex-direction:column; gap:14px">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px">
+              <div style="font-size:13px; color:#4d5f7a">4 of 7 done · shared with Sydney</div>
+              <span style="font-size:13px; font-weight:600; color:#2563eb">Clear done</span>
+            </div>
+            <div style="height:44px; border:1px solid #dde3ee; background:#fafbfd; border-radius:12px; display:flex; align-items:center; gap:10px; padding:0 14px">
+              <span style="color:#2563eb; font-size:16px">+</span><span style="font-size:14px; color:#8b97ab">Add an item</span>
+            </div>
+            <div style="border:1px solid #dde3ee; background:#fafbfd; border-radius:16px; padding:4px 14px">
+              <sc-for list="{{ listItems }}" as="i" hint-placeholder-count="7">
+                <div style="padding:12px 0; border-bottom:1px solid rgba(221,227,238,0.5); display:flex; align-items:center; gap:11px">
+                  <span style="width:22px; height:22px; flex-shrink:0; border:1px solid {{ i.boxBorder }}; border-radius:6px; background:{{ i.boxBg }}; color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center">{{ i.tick }}</span>
+                  <div style="min-width:0; flex:1">
+                    <div style="font-size:15px; color:{{ i.tone }}; text-decoration:{{ i.strike }}">{{ i.label }}</div>
+                    <sc-if value="{{ i.hasNote }}" hint-placeholder-val="{{ false }}">
+                      <div style="font-size:12px; color:#4d5f7a">{{ i.note }}</div>
+                    </sc-if>
+                  </div>
+                  <span style="flex-shrink:0; width:24px; height:24px; border-radius:9999px; background:#eef3ff; color:#1a2540; font-size:10px; font-weight:600; display:flex; align-items:center; justify-content:center">{{ i.by }}</span>
+                  <span style="color:#b9c4d6; flex-shrink:0">⠿</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="border:1px solid rgba(37,99,235,0.35); background:rgba(37,99,235,0.06); border-radius:16px; padding:15px; display:flex; flex-direction:column; gap:11px">
+              <div style="font-size:14px; font-weight:600; color:#0f1520">Done shopping?</div>
+              <p style="margin:0; font-size:13px; line-height:1.5; color:#4d5f7a; text-wrap:pretty">Log what you spent and we'll clear the ticked items. Groceries has R 420 left.</p>
+              <div style="height:44px; border-radius:12px; background:#2563eb; color:#f8fbff; font-size:15px; font-weight:600; display:flex; align-items:center; justify-content:center">Log the shop</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <div style="font-size:12px; font-weight:600; color:#2563eb">LOG THE SHOP · prefilled</div>
+        <div style="width:390px; border:1px solid #cdd5e3; border-radius:22px; overflow:hidden; background:#f4f6fa; box-shadow:0 14px 40px rgba(15,21,32,0.14)">
+          <div style="height:110px; background:rgba(15,21,32,0.25)"></div>
+          <div style="background:#fafbfd; border-radius:24px 24px 0 0; padding:16px 16px 20px; display:flex; flex-direction:column; gap:14px">
+            <div style="width:40px; height:4px; border-radius:9999px; background:#dde3ee; margin:0 auto"></div>
+            <div style="font-size:16px; font-weight:600">Add</div>
+            <div style="text-align:center"><div style="font-size:46px; line-height:1; font-weight:600; letter-spacing:-0.03em; font-variant-numeric:tabular-nums; color:#8b97ab">R 0</div></div>
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.1em; color:#4d5f7a">Category</div>
+              <div style="display:flex; flex-wrap:wrap; gap:7px">
+                <div style="border-radius:9999px; padding:7px 13px; font-size:14px; font-weight:500; background:#2563eb; border:1px solid #2563eb; color:#f8fbff; display:flex; gap:6px"><span>Groceries</span><span style="font-size:11px; opacity:0.8">420 left</span></div>
+                <div style="border-radius:9999px; padding:7px 13px; font-size:14px; border:1px solid #dde3ee; background:#f4f6fa; color:#4d5f7a">Change</div>
+              </div>
+              <div style="font-size:12px; color:#4d5f7a">Picked because this list is tagged Groceries.</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:7px">
+              <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.1em; color:#4d5f7a">Who's in on this</div>
+              <div style="display:flex; gap:8px">
+                <sc-for list="{{ shopPeople }}" as="p" hint-placeholder-count="3">
+                  <div style="display:flex; flex-direction:column; align-items:center; gap:4px; width:58px">
+                    <span style="width:42px; height:42px; border-radius:9999px; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:600; border:2px solid {{ p.border }}; background:{{ p.bg }}; color:{{ p.fg }}">{{ p.initial }}</span>
+                    <span style="font-size:11px; color:{{ p.labelTone }}; font-weight:{{ p.labelWeight }}">{{ p.name }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="font-size:12px; color:#4d5f7a">Sydney shares this list, so she's already in. Tap to take her out.</div>
+            </div>
+            <div style="border:1px solid #dde3ee; background:rgba(238,243,255,0.5); border-radius:14px; padding:12px 13px">
+              <div style="font-size:13px; font-weight:600; margin-bottom:5px">Clearing 4 items</div>
+              <div style="font-size:12px; color:#4d5f7a; line-height:1.6">Milk, bread, dog food ×2, coffee — they come off the list when you save.</div>
+            </div>
+            <div style="height:48px; border-radius:14px; background:#9db4e8; color:#f8fbff; font-size:16px; font-weight:600; display:flex; align-items:center; justify-content:center">Enter an amount</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="width:330px; display:flex; flex-direction:column; gap:12px; padding-top:26px">
+        <sc-for list="{{ listNotes }}" as="n" hint-placeholder-count="5">
+          <div style="border-left:2px solid #2563eb; padding:2px 0 2px 14px">
+            <div style="font-size:14px; font-weight:600; color:#0f1520; text-wrap:pretty">{{ n.title }}</div>
+            <p style="margin:4px 0 0; font-size:13px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">{{ n.body }}</p>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:20px">
+    <div style="max-width:800px; display:flex; flex-direction:column; gap:8px">
+      <h2 style="margin:0; font-size:22px; font-weight:600; letter-spacing:-0.02em">Calendar · whose day is it</h2>
+      <p style="margin:0; font-size:15px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">The month grid works. What it doesn't answer at a glance is <em>whose</em> — which is the reason you needed a shared calendar across two platforms in the first place. Dots become initials, and the day sits under the grid instead of on another screen.</p>
+    </div>
+
+    <div style="display:flex; gap:32px; flex-wrap:wrap; align-items:flex-start">
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <div style="font-size:12px; font-weight:600; color:#2563eb">CALENDAR</div>
+        <div style="width:390px; border:1px solid #cdd5e3; border-radius:22px; overflow:hidden; background:#f4f6fa; box-shadow:0 14px 40px rgba(15,21,32,0.14)">
+          <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid #dde3ee; background:rgba(244,246,250,0.95)">
+            <div style="display:flex; align-items:center; gap:10px; font-size:15px"><span style="color:#4d5f7a">‹</span><span style="font-weight:600">September 2026</span><span style="color:#4d5f7a">›</span></div>
+            <span style="font-size:13px; font-weight:600; color:#2563eb">Today</span>
+          </div>
+          <div style="padding:14px 12px 16px; display:flex; flex-direction:column; gap:12px">
+            <div style="display:flex; gap:6px">
+              <sc-for list="{{ calFilters }}" as="f" hint-placeholder-count="3">
+                <div style="border-radius:9999px; padding:6px 12px; font-size:12px; font-weight:600; background:{{ f.bg }}; color:{{ f.fg }}; display:flex; align-items:center; gap:6px">
+                  <span style="width:7px; height:7px; border-radius:9999px; background:{{ f.dot }}"></span>{{ f.label }}
+                </div>
+              </sc-for>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(7,1fr); font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:#4d5f7a; text-align:center">
+              <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:3px">
+              <sc-for list="{{ calWeeks }}" as="week" hint-placeholder-count="5">
+                <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:2px">
+                  <sc-for list="{{ week }}" as="day" hint-placeholder-count="7">
+                    <div style="height:54px; display:flex; flex-direction:column; align-items:center; gap:3px; padding-top:3px">
+                      <span style="width:30px; height:30px; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600; border-radius:9999px; color:{{ day.color }}; background:{{ day.bg }}">{{ day.n }}</span>
+                      <div style="display:flex; gap:2px; height:18px">
+                        <sc-for list="{{ day.who }}" as="w" hint-placeholder-count="0">
+                          <span style="width:17px; height:17px; border-radius:9999px; background:{{ w.bg }}; color:{{ w.fg }}; font-size:9px; font-weight:700; display:flex; align-items:center; justify-content:center">{{ w.initial }}</span>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:9px; padding-top:4px">
+              <div style="display:flex; align-items:baseline; justify-content:space-between">
+                <div style="font-size:14px; font-weight:600">Monday 14 September</div>
+                <span style="font-size:12px; font-weight:600; color:#2563eb">Add event</span>
+              </div>
+              <sc-for list="{{ dayEvents }}" as="e" hint-placeholder-count="3">
+                <div style="border:1px solid {{ e.border }}; background:{{ e.bg }}; border-radius:14px; padding:12px 13px; display:flex; gap:12px; align-items:flex-start">
+                  <span style="font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; color:#4d5f7a; width:44px; flex-shrink:0">{{ e.time }}</span>
+                  <div style="min-width:0; flex:1">
+                    <div style="font-size:14px; font-weight:600; color:{{ e.tone }}">{{ e.title }}</div>
+                    <div style="font-size:12px; color:#4d5f7a">{{ e.meta }}</div>
+                    <sc-if value="{{ e.cost }}" hint-placeholder-val="{{ false }}">
+                      <div style="margin-top:8px; display:flex; align-items:center; gap:9px">
+                        <span style="font-size:12px; font-weight:600; color:#92400e">{{ e.costLine }}</span>
+                        <span style="font-size:12px; font-weight:600; padding:4px 10px; border-radius:9999px; background:#0f1520; color:#fafbfd">Log it</span>
+                      </div>
+                    </sc-if>
+                  </div>
+                  <span style="font-size:11px; color:#4d5f7a; flex-shrink:0">{{ e.who }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="width:330px; display:flex; flex-direction:column; gap:12px; padding-top:26px">
+        <sc-for list="{{ calNotes }}" as="n" hint-placeholder-count="5">
+          <div style="border-left:2px solid #2563eb; padding:2px 0 2px 14px">
+            <div style="font-size:14px; font-weight:600; color:#0f1520; text-wrap:pretty">{{ n.title }}</div>
+            <p style="margin:4px 0 0; font-size:13px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">{{ n.body }}</p>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <div style="font-size:12px; font-weight:600; color:#2563eb">TRANSACTIONS · money in and out together</div>
+        <div style="width:390px; border:1px solid #cdd5e3; border-radius:22px; overflow:hidden; background:#f4f6fa; box-shadow:0 14px 40px rgba(15,21,32,0.14)">
+          <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid #dde3ee; background:rgba(244,246,250,0.95)">
+            <span style="font-size:16px; font-weight:600">Transactions</span>
+            <span style="font-size:15px; color:#4d5f7a">⌕</span>
+          </div>
+          <div style="padding:16px; display:flex; flex-direction:column; gap:14px">
+            <div style="display:flex; gap:7px">
+              <sc-for list="{{ txnMonths }}" as="m" hint-placeholder-count="3">
+                <div style="border-radius:9999px; padding:6px 13px; font-size:13px; font-weight:600; background:rgba(238,243,255,0.8); color:#4d5f7a">{{ m.label }}</div>
+              </sc-for>
+            </div>
+            <div style="display:flex; gap:7px; flex-wrap:wrap">
+              <div style="border-radius:9999px; padding:6px 12px; font-size:12px; font-weight:600; border:1px solid #dde3ee; background:#fafbfd; color:#0f1520">Everything ▾</div>
+              <div style="border-radius:9999px; padding:6px 12px; font-size:12px; font-weight:600; border:1px solid #dde3ee; background:#fafbfd; color:#0f1520">All accounts ▾</div>
+              <div style="border-radius:9999px; padding:6px 12px; font-size:12px; font-weight:600; border:1px solid #dde3ee; background:#fafbfd; color:#0f1520">All categories ▾</div>
+            </div>
+            <sc-for list="{{ txnGroups }}" as="g" hint-placeholder-count="3">
+              <div style="display:flex; flex-direction:column; gap:7px">
+                <div style="display:flex; align-items:baseline; justify-content:space-between; gap:10px">
+                  <span style="font-size:12px; font-weight:600; color:#4d5f7a">{{ g.day }}</span>
+                  <span style="font-size:12px; font-weight:600; font-variant-numeric:tabular-nums; color:#4d5f7a">{{ g.total }}</span>
+                </div>
+                <div style="border:1px solid #dde3ee; background:#fafbfd; border-radius:16px; padding:4px 14px">
+                  <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="3">
+                    <div style="padding:12px 0; border-bottom:1px solid rgba(221,227,238,0.5); display:flex; align-items:center; justify-content:space-between; gap:12px">
+                      <div style="min-width:0">
+                        <div style="display:flex; align-items:center; gap:7px; flex-wrap:wrap">
+                          <span style="font-size:14px; font-weight:500; color:#0f1520">{{ r.title }}</span>
+                          <sc-if value="{{ r.chip }}" hint-placeholder-val="{{ false }}">
+                            <span style="font-size:10px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; padding:2px 7px; border-radius:5px; background:{{ r.chipBg }}; color:{{ r.chipFg }}">{{ r.chip }}</span>
+                          </sc-if>
+                        </div>
+                        <div style="font-size:12px; color:#4d5f7a">{{ r.meta }}</div>
+                      </div>
+                      <span style="font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; flex-shrink:0; color:{{ r.tone }}">{{ r.amount }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div style="width:330px; display:flex; flex-direction:column; gap:12px; padding-top:26px">
+        <sc-for list="{{ txnNotes }}" as="n" hint-placeholder-count="5">
+          <div style="border-left:2px solid #2563eb; padding:2px 0 2px 14px">
+            <div style="font-size:14px; font-weight:600; color:#0f1520; text-wrap:pretty">{{ n.title }}</div>
+            <p style="margin:4px 0 0; font-size:13px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">{{ n.body }}</p>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:20px">
+    <div style="max-width:800px; display:flex; flex-direction:column; gap:8px">
+      <h2 style="margin:0; font-size:22px; font-weight:600; letter-spacing:-0.02em">Mortgage · her view</h2>
+      <p style="margin:0; font-size:15px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">The thing you had to explain out loud, on a screen. She put down R 780 000, you earn more, so you pay more, and you both land on half. Everything technical stays where it is — this is the version that answers what I pay, what I own, and am I on track.</p>
+    </div>
+
+    <div style="display:flex; gap:32px; flex-wrap:wrap; align-items:flex-start">
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <div style="font-size:12px; font-weight:600; color:#2563eb">MORTGAGE · what I own</div>
+        <div style="width:390px; border:1px solid #cdd5e3; border-radius:22px; overflow:hidden; background:#f4f6fa; box-shadow:0 14px 40px rgba(15,21,32,0.14)">
+          <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid #dde3ee; background:rgba(244,246,250,0.95)">
+            <span style="font-size:16px; font-weight:600">Our house</span>
+            <span style="font-size:13px; color:#4d5f7a">More details</span>
+          </div>
+          <div style="padding:16px; display:flex; flex-direction:column; gap:16px">
+            <div style="border:1px solid rgba(37,99,235,0.25); background:linear-gradient(180deg,#ffffff,#f7f9ff); border-radius:20px; padding:20px; display:flex; flex-direction:column; gap:13px">
+              <div style="font-size:13px; font-weight:600; color:#4d5f7a">Yours, of what's paid for so far</div>
+              <div style="display:flex; align-items:baseline; gap:10px">
+                <div style="font-size:44px; line-height:1; font-weight:600; letter-spacing:-0.03em; font-variant-numeric:tabular-nums">86%</div>
+                <div style="font-size:14px; color:#4d5f7a">R 888 360 of R 1 038 000</div>
+              </div>
+              <div style="display:flex; height:12px; border-radius:9999px; overflow:hidden; background:#eef3ff">
+                <sc-for list="{{ equityBars }}" as="b" hint-placeholder-count="3">
+                  <div style="height:100%; width:{{ b.pct }}; background:{{ b.tone }}"></div>
+                </sc-for>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:5px">
+                <sc-for list="{{ equityBars }}" as="b" hint-placeholder-count="3">
+                  <div style="display:flex; align-items:center; gap:8px; font-size:12px">
+                    <span style="width:9px; height:9px; border-radius:9999px; background:{{ b.tone }}; flex-shrink:0"></span>
+                    <span style="flex:1; color:#4d5f7a">{{ b.label }}</span>
+                    <span style="font-weight:600; font-variant-numeric:tabular-nums">{{ b.value }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="border-top:1px solid rgba(221,227,238,0.8); padding-top:11px; font-size:13px; line-height:1.5; color:#0f1520; text-wrap:pretty">Your deposit is most of what's been paid so far, so you're well ahead early. As Matt's larger payments add up you'll level out at <strong>half each by March 2044</strong>. On track.</div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:9px">
+              <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.1em; color:#4d5f7a">This month</div>
+              <div style="border:1px solid #dde3ee; background:#fafbfd; border-radius:16px; padding:4px 15px">
+                <sc-for list="{{ herMonth }}" as="m" hint-placeholder-count="4">
+                  <div style="padding:12px 0; border-bottom:1px solid rgba(221,227,238,0.5); display:flex; align-items:baseline; justify-content:space-between; gap:12px">
+                    <div style="min-width:0">
+                      <div style="font-size:14px; font-weight:500; color:#0f1520">{{ m.label }}</div>
+                      <div style="font-size:12px; color:#4d5f7a; text-wrap:pretty">{{ m.note }}</div>
+                    </div>
+                    <span style="font-size:16px; font-weight:600; font-variant-numeric:tabular-nums; flex-shrink:0">{{ m.value }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="border:1px solid #dde3ee; background:rgba(238,243,255,0.5); border-radius:16px; padding:15px; display:flex; flex-direction:column; gap:9px">
+              <div style="font-size:13px; font-weight:600">Both of you</div>
+              <sc-for list="{{ ownership }}" as="o" hint-placeholder-count="2">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:10px">
+                  <div style="min-width:0"><span style="font-size:14px; font-weight:500">{{ o.name }}</span><span style="font-size:12px; color:#4d5f7a; display:block">{{ o.note }}</span></div>
+                  <div style="text-align:right; flex-shrink:0; font-size:13px"><span style="font-weight:600; font-variant-numeric:tabular-nums">{{ o.now }}</span><span style="color:#4d5f7a"> → {{ o.end }}</span></div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <div style="font-size:12px; font-weight:600; color:#2563eb">HOW THIS WORKS · the story</div>
+        <div style="width:390px; border:1px solid #cdd5e3; border-radius:22px; overflow:hidden; background:#f4f6fa; box-shadow:0 14px 40px rgba(15,21,32,0.14)">
+          <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid #dde3ee; background:rgba(244,246,250,0.95)">
+            <div style="display:flex; align-items:center; gap:10px"><span style="color:#4d5f7a">←</span><span style="font-size:16px; font-weight:600">How this works</span></div>
+          </div>
+          <div style="padding:20px 16px; display:flex; flex-direction:column; gap:18px">
+            <div>
+              <div style="font-size:22px; font-weight:600; letter-spacing:-0.02em; text-wrap:pretty">Why your shares aren't equal</div>
+              <p style="margin:8px 0 0; font-size:14px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">Four short steps, no jargon. This screen never expires — it's linked from the mortgage card and from Settings.</p>
+            </div>
+            <sc-for list="{{ story }}" as="s" hint-placeholder-count="4">
+              <div style="display:flex; gap:13px; align-items:flex-start">
+                <span style="width:28px; height:28px; flex-shrink:0; border-radius:9999px; background:#eef3ff; color:#2563eb; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center">{{ s.n }}</span>
+                <div>
+                  <div style="font-size:15px; font-weight:600; color:#0f1520; text-wrap:pretty">{{ s.title }}</div>
+                  <p style="margin:4px 0 0; font-size:14px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">{{ s.body }}</p>
+                </div>
+              </div>
+            </sc-for>
+            <div style="border:1px solid rgba(16,185,129,0.35); background:rgba(16,185,129,0.07); border-radius:14px; padding:14px; font-size:14px; line-height:1.6; color:#0f1520; text-wrap:pretty">
+              If you'd both paid half and half, Sydney would end up owning 69% because of the deposit. The uneven split is what makes it fair.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="width:330px; display:flex; flex-direction:column; gap:12px; padding-top:26px">
+        <sc-for list="{{ mortgageNotes }}" as="n" hint-placeholder-count="5">
+          <div style="border-left:2px solid #2563eb; padding:2px 0 2px 14px">
+            <div style="font-size:14px; font-weight:600; color:#0f1520; text-wrap:pretty">{{ n.title }}</div>
+            <p style="margin:4px 0 0; font-size:13px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">{{ n.body }}</p>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:20px">
+    <div style="max-width:800px; display:flex; flex-direction:column; gap:8px">
+      <h2 style="margin:0; font-size:22px; font-weight:600; letter-spacing:-0.02em">Getting set up, together</h2>
+      <p style="margin:0; font-size:15px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">Your five-step flow is sound; what it's missing is the other person. Inviting them comes first, so the shared half of the app means something before any numbers exist.</p>
+    </div>
+
+    <div style="display:flex; gap:32px; flex-wrap:wrap; align-items:flex-start">
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <div style="font-size:12px; font-weight:600; color:#2563eb">SETUP · step 1</div>
+        <div style="width:390px; border:1px solid #cdd5e3; border-radius:22px; overflow:hidden; background:#f4f6fa; box-shadow:0 14px 40px rgba(15,21,32,0.14)">
+          <div style="height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid #dde3ee; background:rgba(244,246,250,0.95)">
+            <span style="font-size:16px; font-weight:600">Set up</span>
+            <span style="font-size:13px; color:#4d5f7a">Skip for now</span>
+          </div>
+          <div style="padding:20px 16px; display:flex; flex-direction:column; gap:18px">
+            <div style="display:flex; gap:5px">
+              <div style="flex:1; height:4px; border-radius:9999px; background:#2563eb"></div>
+              <div style="flex:1; height:4px; border-radius:9999px; background:#dde3ee"></div>
+              <div style="flex:1; height:4px; border-radius:9999px; background:#dde3ee"></div>
+              <div style="flex:1; height:4px; border-radius:9999px; background:#dde3ee"></div>
+              <div style="flex:1; height:4px; border-radius:9999px; background:#dde3ee"></div>
+            </div>
+            <div>
+              <div style="font-size:22px; font-weight:600; letter-spacing:-0.02em">Who's in the house?</div>
+              <p style="margin:8px 0 0; font-size:14px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">Most of this app is better with someone else in it — shared costs, the calendar, lists. You can add people later, but now is easier.</p>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <label style="font-size:12px; font-weight:600; color:#4d5f7a">House name</label>
+              <div style="height:46px; border:1px solid #dde3ee; background:#fafbfd; border-radius:12px; display:flex; align-items:center; padding:0 14px; font-size:15px">Jordaan house</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:9px">
+              <label style="font-size:12px; font-weight:600; color:#4d5f7a">Invite someone</label>
+              <div style="border:1px solid #dde3ee; background:#fafbfd; border-radius:14px; padding:13px; display:flex; align-items:center; gap:11px">
+                <span style="width:34px; height:34px; flex-shrink:0; border-radius:9999px; background:#eef3ff; color:#1a2540; font-size:13px; font-weight:600; display:flex; align-items:center; justify-content:center">S</span>
+                <div style="min-width:0; flex:1"><div style="font-size:14px; font-weight:500">sydney@example.com</div><div style="font-size:12px; color:#4d5f7a">Invited · waiting for her to join</div></div>
+                <span style="font-size:12px; color:#4d5f7a; flex-shrink:0">✕</span>
+              </div>
+              <div style="height:46px; border:1px dashed #b9c4d6; border-radius:12px; display:flex; align-items:center; gap:9px; padding:0 14px; font-size:14px; color:#4d5f7a">
+                <span style="color:#2563eb; font-size:16px">+</span>Add another person
+              </div>
+              <div style="height:44px; border:1px solid #dde3ee; background:#fafbfd; border-radius:12px; display:flex; align-items:center; justify-content:center; gap:9px; font-size:14px; font-weight:600">Share a join link instead</div>
+            </div>
+            <div style="border:1px solid #dde3ee; background:rgba(238,243,255,0.5); border-radius:14px; padding:13px; font-size:13px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">
+              <strong style="color:#0f1520">What they'll see:</strong> the calendar, lists, shared costs, the mortgage, account balances and household totals. <strong style="color:#0f1520">Not:</strong> your budget or what you earn.
+            </div>
+            <div style="height:50px; border-radius:14px; background:#2563eb; color:#f8fbff; font-size:16px; font-weight:600; display:flex; align-items:center; justify-content:center">Next · when you get paid</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <div style="font-size:12px; font-weight:600; color:#2563eb">SETUP · progress</div>
+        <div style="width:390px; border:1px solid #cdd5e3; border-radius:22px; overflow:hidden; background:#f4f6fa; box-shadow:0 14px 40px rgba(15,21,32,0.14)">
+          <div style="height:56px; display:flex; align-items:center; padding:0 16px; border-bottom:1px solid #dde3ee; background:rgba(244,246,250,0.95)">
+            <span style="font-size:16px; font-weight:600">Set up</span>
+          </div>
+          <div style="padding:20px 16px; display:flex; flex-direction:column; gap:14px">
+            <div>
+              <div style="font-size:20px; font-weight:600; letter-spacing:-0.02em">Two down, three to go</div>
+              <p style="margin:6px 0 0; font-size:14px; line-height:1.6; color:#4d5f7a">Stop any time — we'll keep your place and remind you on Home.</p>
+            </div>
+            <sc-for list="{{ setupSteps }}" as="s" hint-placeholder-count="5">
+              <div style="border:1px solid #dde3ee; background:#fafbfd; border-radius:14px; padding:14px; display:flex; align-items:flex-start; gap:12px">
+                <span style="width:26px; height:26px; flex-shrink:0; border-radius:9999px; background:{{ s.circleBg }}; border:1px solid {{ s.circleBorder }}; color:{{ s.circleFg }}; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center">{{ s.tick }}</span>
+                <div style="min-width:0; flex:1">
+                  <div style="font-size:15px; font-weight:600; color:#0f1520">{{ s.title }}</div>
+                  <p style="margin:3px 0 0; font-size:13px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">{{ s.body }}</p>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div style="width:330px; display:flex; flex-direction:column; gap:12px; padding-top:26px">
+        <sc-for list="{{ inviteNotes }}" as="n" hint-placeholder-count="5">
+          <div style="border-left:2px solid #2563eb; padding:2px 0 2px 14px">
+            <div style="font-size:14px; font-weight:600; color:#0f1520; text-wrap:pretty">{{ n.title }}</div>
+            <p style="margin:4px 0 0; font-size:13px; line-height:1.6; color:#4d5f7a; text-wrap:pretty">{{ n.body }}</p>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <!-- MORE-SECTIONS-ANCHOR -->
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const BLUE = "#2563eb", FG = "#0f1520", MUTED = "#4d5f7a", RED = "#ef4444", GREEN = "#047857";
+
+const item = (label, done, by, note) => ({
+  label, by,
+  tick: done ? "✓" : "",
+  boxBg: done ? BLUE : "#f4f6fa",
+  boxBorder: done ? BLUE : "#dde3ee",
+  tone: done ? MUTED : FG,
+  strike: done ? "line-through" : "none",
+  hasNote: Boolean(note),
+  note: note || "",
+});
+
+const person = (initial, name, on) => ({
+  initial, name,
+  border: on ? BLUE : "#dde3ee",
+  bg: on ? "rgba(37,99,235,0.1)" : "#f4f6fa",
+  fg: on ? BLUE : MUTED,
+  labelTone: on ? FG : MUTED,
+  labelWeight: on ? "600" : "400",
+});
+
+class Component extends DCLogic {
+  seamVals() {
+    return {
+      seams: [
+        { from: "Lists", to: "Budget", title: "Ticking off a shopping list offers to log the spend", body: "Category from the list's tag, people from whoever the list is shared with, and the ticked items cleared on save. This is the single biggest integration the app is missing." },
+        { from: "Calendar", to: "Budget", title: "An event can carry an expected cost", body: "Dentist on the 14th, R 850, Health. It shows on the day, counts as a heads-up on Home in the week before, and one tap turns it into a real spend when it happens." },
+        { from: "Budget", to: "Splits", title: "Settling picks the category it repairs", body: "Money coming back lands where you choose, defaulting to whichever category is over. The repayment becomes the fix rather than a separate transaction." },
+        { from: "Mortgage", to: "What I owe", title: "This month's share is one line on the statement", body: "Already true in the code. What's missing is the other direction: the statement should link back to the story of why her share is that number." },
+        { from: "Accounts", to: "Budget", title: "The balance check explains the gap in budget terms", body: "Not \"you're out by R 250\" but \"there's a spend you haven't logged\" — with the option to accept it as one Unaccounted line." },
+        { from: "Recon", to: "Add", title: "A parsed bank email arrives as a half-filled spend", body: "Amount and merchant known, category and people not. It should land in the same sheet you'd have used by hand, not a separate accept-or-ignore list." },
+        { from: "Anything", to: "Home", title: "One stream, one shape of row", body: "Overspend, appointment, list item, unassigned money and a goal falling behind all render as the same row with one action. Adding a feature adds a row type, not a tile." },
+        { from: "Recurring", to: "New month", title: "Starting a month is one confirmation", body: "Rollover, recurring bills and last month's amounts land together on the month-end screen. \"Populate this month\" stops being a button in Settings you have to know about." },
+      ],
+    };
+  }
+
+  listVals() {
+    return {
+      listTabs: [
+        { label: "All", bg: BLUE, fg: "#f8fbff" },
+        { label: "Shared", bg: "rgba(238,243,255,0.8)", fg: MUTED },
+        { label: "Just mine", bg: "rgba(238,243,255,0.8)", fg: MUTED },
+      ],
+      lists: [
+        {
+          name: "Shopping", meta: "4 of 7 done · tagged Groceries", pct: "57%", people: ["M", "S"], showLog: true,
+          preview: [item("Coffee beans", true, "S"), item("Washing powder", false, "M")],
+        },
+        {
+          name: "House jobs", meta: "1 of 5 done · shared", pct: "20%", people: ["M", "S"], showLog: false,
+          preview: [item("Fix the gate latch", false, "M"), item("Call the plumber", false, "S")],
+        },
+        {
+          name: "Braai Saturday", meta: "0 of 4 done · shared with 3", pct: "0%", people: ["M", "S", "T"], showLog: false,
+          preview: [item("Charcoal", false, "T"), item("Chops and wors", false, "M")],
+        },
+      ],
+      listItems: [
+        item("Milk", true, "M"),
+        item("Bread", true, "S"),
+        item("Dog food ×2", true, "M", "The big bag, not the small one"),
+        item("Coffee beans", true, "S"),
+        item("Washing powder", false, "M"),
+        item("Bin bags", false, "S"),
+        item("Lightbulbs ×4", false, "M", "Warm white"),
+      ],
+      shopPeople: [person("M", "You", true), person("S", "Sydney", true), person("T", "Thabo", false)],
+      listNotes: [
+        { title: "Log the shop is the whole point", body: "It appears on the list card and in the list itself once anything is ticked. The receipt is the natural end of a shopping list, and no other app in your original three could join those halves." },
+        { title: "A list carries a category tag", body: "Shopping is tagged Groceries, so the spend sheet opens with it chosen. One setting on the list removes a decision from every shop." },
+        { title: "Sharing a list implies who's in on it", body: "The people already on the list are pre-picked in the spend sheet. It's the one place where a default beats your \"just me\" rule, because the list has already told us." },
+        { title: "Initials, not just counts", body: "Who added an item and who ticked it off matters in a household. It's cheap to show and it stops the \"did you get the milk\" conversation." },
+        { title: "Quantity stays inline", body: "\"Dog food ×2\" and a note under the item, rather than a separate quantity field — the same shape as the existing per-user note support." },
+      ],
+    };
+  }
+
+  calendarVals() {
+    const weeks = [];
+    let n = 31, month = 8;
+    for (let w = 0; w < 5; w++) {
+      const week = [];
+      for (let d = 0; d < 7; d++) {
+        const inMonth = month === 9;
+        const selected = inMonth && n === 14;
+        const who = [];
+        if (inMonth && [2, 9, 14, 23].includes(n)) who.push({ initial: "M", bg: "rgba(37,99,235,0.15)", fg: BLUE });
+        if (inMonth && [9, 18, 25].includes(n)) who.push({ initial: "S", bg: "rgba(139,92,246,0.15)", fg: "#7c3aed" });
+        if (inMonth && [14].includes(n)) who.push({ initial: "◈", bg: "rgba(245,158,11,0.18)", fg: "#92400e" });
+        week.push({
+          n: String(n), who,
+          color: selected ? "#f8fbff" : inMonth ? FG : "rgba(77,95,122,0.4)",
+          bg: selected ? BLUE : "transparent",
+        });
+        n += 1;
+        if (month === 8 && n > 31) { n = 1; month = 9; }
+        else if (month === 9 && n > 30) { n = 1; month = 10; }
+      }
+      weeks.push(week);
+    }
+    return {
+      calWeeks: weeks,
+      calFilters: [
+        { label: "Everyone", bg: BLUE, fg: "#f8fbff", dot: "#f8fbff" },
+        { label: "Matt", bg: "rgba(238,243,255,0.8)", fg: MUTED, dot: BLUE },
+        { label: "Sydney", bg: "rgba(238,243,255,0.8)", fg: MUTED, dot: "#7c3aed" },
+      ],
+      dayEvents: [
+        { time: "09:00", title: "Bin day", meta: "Repeats weekly", who: "Shared", tone: FG, border: "#dde3ee", bg: "#fafbfd", cost: false, costLine: "" },
+        { time: "14:30", title: "Dentist", meta: "Health · reminder 1 hour before", who: "Matt", tone: FG, border: "rgba(245,158,11,0.4)", bg: "rgba(245,158,11,0.07)", cost: true, costLine: "Expected R 850 · Health" },
+        { time: "18:00", title: "Gym", meta: "Personal", who: "Matt", tone: FG, border: "#dde3ee", bg: "#fafbfd", cost: false, costLine: "" },
+      ],
+      calNotes: [
+        { title: "Initials instead of coloured dots", body: "Colour categories stay, but the grid answers \"whose\" first. With two phones on two platforms, that was the original reason you needed this at all." },
+        { title: "The day lives under the grid", body: "Tapping a date scrolls the day into view rather than pushing a screen. Fewer places to be, and the month stays as context." },
+        { title: "Events can carry an expected cost", body: "A dentist appointment with R 850 against it turns into a heads-up before it happens and a one-tap spend after. It's the calendar-to-budget seam, and no separate feature is needed for it." },
+        { title: "Filter by person, not just by category", body: "Everyone, Matt, Sydney. In a four-person house this becomes the primary filter and the category colours become secondary." },
+        { title: "Swipe stays", body: "The existing narrow-screen month swipe is right; nothing here changes it." },
+      ],
+      txnMonths: [
+        { label: "September", active: true },
+        { label: "August", active: false },
+        { label: "July", active: false },
+      ],
+      txnGroups: [
+        {
+          day: "Today · Monday 14 September", total: "−R 1 042,30",
+          rows: [
+            { title: "Groceries", meta: "Checkers · your half of R 900", amount: "−R 450,00", tone: FG, chip: "Split", chipBg: "#eef3ff", chipFg: MUTED },
+            { title: "Coffee", meta: "Eating out · just you", amount: "−R 62,30", tone: FG, chip: "", chipBg: "", chipFg: "" },
+            { title: "Petrol", meta: "Fuel · just you", amount: "−R 530,00", tone: FG, chip: "", chipBg: "", chipFg: "" },
+          ],
+        },
+        {
+          day: "Sunday 13 September", total: "−R 980,00",
+          rows: [
+            { title: "Vet", meta: "Household · your half of R 980", amount: "−R 490,00", tone: FG, chip: "Split", chipBg: "#eef3ff", chipFg: MUTED },
+            { title: "Unaccounted", meta: "Balance check on Cheque", amount: "−R 250,00", tone: FG, chip: "Adjustment", chipBg: "rgba(245,158,11,0.15)", chipFg: "#92400e" },
+            { title: "Braai supplies", meta: "Groceries · your third of R 900", amount: "−R 300,00", tone: FG, chip: "Split ×3", chipBg: "#eef3ff", chipFg: MUTED },
+          ],
+        },
+        {
+          day: "Friday 11 September", total: "+R 32 000,00",
+          rows: [
+            { title: "Salary", meta: "Income · Cheque", amount: "+R 32 000,00", tone: GREEN, chip: "", chipBg: "", chipFg: "" },
+          ],
+        },
+      ],
+      txnNotes: [
+        { title: "One list, income included", body: "Today there's a Transactions page, an Income page and a dashboard income block. Money in and money out belong in one chronological list with a filter, which is what every banking app has taught people to expect." },
+        { title: "Every row says whose share it was", body: "\"Your half of R 900\" rather than R 900 with a split badge. The number shown is always the number that hit your budget, so the list reconciles with the category totals." },
+        { title: "Adjustments are visible rows", body: "The balance check's Unaccounted line appears here like anything else. Nothing is corrected behind your back." },
+        { title: "Only ever your own transactions", body: "The my / theirs / combined switch goes. Line items are private, the same wall as budgets — household spending totals are shared on Summary, individual rows are not." },
+        { title: "Day totals", body: "A running per-day figure gives the list a shape, and makes an unusual day findable without reading every row." },
+      ],
+    };
+  }
+
+  mortgageVals() {
+    return {
+      equityBars: [
+        { label: "Your deposit", pct: "27%", tone: "#7c3aed", value: "R 780 000" },
+        { label: "Paid off since, between you", pct: "9%", tone: BLUE, value: "R 258 000" },
+        { label: "Still owed to the bank", pct: "64%", tone: "#dde3ee", value: "R 1 842 000" },
+      ],
+      ownership: [
+        { name: "Sydney", now: "86%", end: "50%", note: "Deposit, plus 42% of what's been paid" },
+        { name: "Matt", now: "14%", end: "50%", note: "58% of what's been paid" },
+      ],
+      herMonth: [
+        { label: "Your share this month", value: "R 8 988", note: "Of the R 21 400 total payment", strong: true },
+        { label: "Matt's share", value: "R 12 412", note: "He earns more, so he pays more", strong: false },
+        { label: "Of yours, interest", value: "R 7 092", note: "The bank's cut — buys you nothing", strong: false },
+        { label: "Of yours, into the house", value: "R 1 896", note: "This is what buys your share", strong: false },
+      ],
+      story: [
+        { n: "1", title: "You put in R 780 000", body: "R 1 038 000 of the house is paid for so far, and R 888 360 of that is yours. That's why your share starts at 86% — the deposit is almost all of it." },
+        { n: "2", title: "Matt earns more, so he pays more", body: "R 12 412 a month against your R 8 988. Not equal payments, proportional ones." },
+        { n: "3", title: "Your 86% comes down to 50%, on purpose", body: "As his larger payments add up, his share catches yours. The payments were set so you meet exactly in the middle at the end of the term, not so you stay ahead." },
+        { n: "4", title: "You're on track", body: "86% now, 50% by March 2044. If either of you pays differently this moves, and we'll tell you." },
+      ],
+      mortgageNotes: [
+        { title: "This is the screen no competitor has", body: "Splitwise can't model equity and YNAB can't model a joint bond. The deposit-versus-income question is real, emotionally loaded, and currently explained by you, verbally." },
+        { title: "Her question is \"am I on track\"", body: "So the answer is a number, a target, and a sentence about why. Amortisation, rate periods and extra payments stay behind More details for the person who wants them." },
+        { title: "Interest versus equity, stated plainly", body: "\"R 7 120 is the bank's cut, R 1 868 buys your share\" is the single most clarifying line you can show someone who finds this jargon opaque." },
+        { title: "The bar is the story", body: "Her deposit, what's been paid off, what's still owed. One picture that makes the deposit visible as ownership rather than as history." },
+        { title: "It links to what she actually uses", body: "You said she mostly tracks costs and checks what she owes. So the statement's mortgage line links here, and this screen links back to the statement." },
+      ],
+      setupSteps: [
+        { title: "Who's in the house", body: "Name it, invite by email or a share link. Each person picks their own password.", tick: "✓", circleBg: BLUE, circleBorder: BLUE, circleFg: "#f8fbff" },
+        { title: "When you get paid", body: "Sets the budget month for the household, not per person, so nobody argues about which month a spend is in.", tick: "✓", circleBg: BLUE, circleBorder: BLUE, circleFg: "#f8fbff" },
+        { title: "Your accounts", body: "Just names and balances. Private to you.", tick: "3", circleBg: "#eef3ff", circleBorder: "#dde3ee", circleFg: MUTED },
+        { title: "What you earn", body: "Private. Only totals are shared.", tick: "4", circleBg: "#eef3ff", circleBorder: "#dde3ee", circleFg: MUTED },
+        { title: "Where it goes", body: "Pick from common categories, adjust later. We suggest amounts from what you told us.", tick: "5", circleBg: "#eef3ff", circleBorder: "#dde3ee", circleFg: MUTED },
+      ],
+      inviteNotes: [
+        { title: "Invite is step one, not a settings screen", body: "A household of one is a worse app than a household of two. Getting the second person in before any numbers exist is what makes the shared parts make sense on day one." },
+        { title: "Budget month belongs to the household", body: "It's per-user today, which means two people can be looking at different months and disagreeing about the same figure. One setting removes a whole class of confusion." },
+        { title: "Say what's private as you collect it", body: "Income and categories are private; totals, calendar, lists, shared costs and balances are shared. Stated at the moment of asking, not buried in a policy." },
+        { title: "The approval wait needs content", body: "Registration creates a pending household. That screen should explain what happens next and roughly when, otherwise it reads as broken." },
+        { title: "How this works, reachable forever", body: "Two concepts genuinely need explaining: envelope rollover and mortgage equity. One screen each, linked from the places they bite and from Settings." },
+      ],
+    };
+  }
+
+  renderVals() {
+    return Object.assign({}, this.seamVals(), this.listVals(), this.calendarVals(), this.mortgageVals());
+  }
+}
+</script>
+</body>
+</html>

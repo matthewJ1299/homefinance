@@ -27,6 +27,9 @@ export interface CalendarEventOccurrence {
   /** @deprecated superseded by `reminders`. */
   reminderMinutes: number | null;
   reminders: EventReminder[];
+  expectedCostMinor: number | null;
+  expenseCategoryId: number | null;
+  loggedExpenseId: number | null;
   categoryId: number | null;
   categoryName: string | null;
   categoryColor: string | null;
@@ -175,6 +178,9 @@ export class CalendarService {
           recurrenceType: event.recurrenceType,
           reminderMinutes: event.reminderMinutes ?? null,
           reminders: event.reminders,
+          expectedCostMinor: event.expectedCostMinor,
+          expenseCategoryId: event.expenseCategoryId,
+          loggedExpenseId: event.loggedExpenseId,
           categoryId: event.categoryId,
           categoryName: event.categoryName,
           categoryColor: event.categoryColor,
