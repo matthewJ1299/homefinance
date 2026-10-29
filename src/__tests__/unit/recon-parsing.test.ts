@@ -11,6 +11,7 @@ import {
 } from "@/lib/services/recon/parsers/parse-helpers";
 import { parseTypeA } from "@/lib/services/recon/parsers/parse-type-a";
 import { parseTypeB } from "@/lib/services/recon/parsers/parse-type-b";
+import { normalizeMerchantKey } from "@/lib/services/recon/parsers/parse-helpers";
 
 describe("recon flow helpers", () => {
   it("reads direction from the stored sign, defaulting positive to Out", () => {
@@ -135,5 +136,92 @@ describe("bank parsers store signed amounts", () => {
     );
     expect(parsed?.amountMinorUnits).toBe(-500000);
     expect(flowFromStoredAmount(parsed!.amountMinorUnits)).toBe("in");
+  });
+});
+
+describe("type A folds the Reference (payee/biller) into the merchant", () => {
+  const easyPayBody = [
+    "Account    : CHEQ1446",
+    "Date       : 27/10/2026",
+    "Transaction: SETTLEMENT CENTRE - DIGITAL PMT DT",
+    "Reference  : EasyPay 9111555963",
+    "Amount     : -R2,861.30",
+    "Available  : R31,246.41",
+  ].join("\n");
+
+  it("uses the payee reference as the vendor, dropping the generic descriptor", () => {
+    const parsed = parseTypeA(easyPayBody, "ABSA NotifyMe");
+    expect(parsed).not.toBeNull();
+    // Just the payee -- no "SETTLEMENT CENTRE - DIGITAL PMT DT" prefix.
+    expect(parsed?.vendor).toBe("EasyPay 9111555963");
+    expect(normalizeMerchantKey(parsed!.vendor)).toContain("9111555963");
+  });
+
+  it("two settlement-centre payments to different payees get different keys", () => {
+    const a = parseTypeA(easyPayBody, "ABSA NotifyMe");
+    const b = parseTypeA(easyPayBody.replace("9111555963", "8002224412"), "ABSA NotifyMe");
+    expect(normalizeMerchantKey(a!.vendor)).not.toBe(normalizeMerchantKey(b!.vendor));
+  });
+
+  it("applies to any generic payment, not just EasyPay (e.g. debit orders)", () => {
+    const debitOrder = [
+      "Transaction: DEBIT ORDER",
+      "Reference  : MULTICHOICE DSTV 4471",
+      "Amount     : -R899.00",
+      "Date       : 27/10/2026",
+    ].join("\n");
+    const parsed = parseTypeA(debitOrder, "ABSA NotifyMe");
+    expect(parsed?.vendor).toContain("MULTICHOICE DSTV 4471");
+    expect(normalizeMerchantKey(parsed!.vendor)).toContain("multichoice dstv 4471");
+  });
+
+  it("a contains rule on the reference can match it", () => {
+    const parsed = parseTypeA(easyPayBody, "ABSA NotifyMe");
+    expect(normalizeMerchantKey(parsed!.vendor).includes("9111555963")).toBe(true);
+  });
+
+  it("leaves a card purchase (real Merchant line) untouched", () => {
+    const parsed = parseTypeA(
+      "Amount : -R99.00\nMerchant : SHELL CLAREMONT\nReference : 004471\nDate: 2026-09-10",
+      "ABSA NotifyMe"
+    );
+    expect(parsed?.vendor).toBe("SHELL CLAREMONT");
+  });
+
+  // Real ABSA NotifyMe samples: all three share the generic "SETTLEMENT CENTRE"
+  // transaction family but name different payees in the Reference line.
+  const angorBody = [
+    "Transaction: SETTLEMENT CENTRE - DIGITAL PAYMENT DT",
+    "Reference  : ABSA BANK angor",
+    "Amount     : -R2,712.73",
+    "Date       : 27/10/2026",
+  ].join("\n");
+  const supersonicBody = [
+    "Transaction: SETTLEMENT CENTRE - ACB DEBIT:EXTERNAL",
+    "Reference  : SUPERSONIC440482185 NETCASH",
+    "Amount     : -R999.01",
+    "Date       : 26/10/2026",
+  ].join("\n");
+
+  it("real sample: a DIGITAL PAYMENT uses its payee reference", () => {
+    const parsed = parseTypeA(angorBody, "ABSA NotifyMe");
+    expect(parsed?.vendor).toBe("ABSA BANK angor");
+    expect(normalizeMerchantKey(parsed!.vendor)).toContain("absa bank angor");
+  });
+
+  it("real sample: an ACB external debit uses its payee reference", () => {
+    const parsed = parseTypeA(supersonicBody, "ABSA NotifyMe");
+    expect(parsed?.vendor).toBe("SUPERSONIC440482185 NETCASH");
+    const key = normalizeMerchantKey(parsed!.vendor);
+    expect(key).toContain("supersonic440482185");
+    // A `contains "supersonic"` rule stays robust even if the number changes.
+    expect(key).toContain("supersonic");
+  });
+
+  it("the three real settlement-centre payees each get a distinct key", () => {
+    const keys = [easyPayBody, angorBody, supersonicBody].map(
+      (b) => normalizeMerchantKey(parseTypeA(b, "ABSA NotifyMe")!.vendor)
+    );
+    expect(new Set(keys).size).toBe(3);
   });
 });
