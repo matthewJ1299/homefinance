@@ -74,6 +74,8 @@ Two templates are implemented in code:
 
 Edit the `FROM_SUBSTRINGS`, `SUBJECT_SUBSTRINGS`, and body regex patterns to match your bank’s notification emails. **Sync** only ingests messages that pass one of the type matchers and then parse successfully.
 
+For **type A** (ABSA NotifyMe), a payment with no `Merchant:` line — EasyPay, debit orders, EFTs — carries only a generic `Transaction:` descriptor (e.g. `SETTLEMENT CENTRE - DIGITAL PMT DT`), which would collapse every payee to one merchant. The parser folds the `Reference:` line (the actual payee/biller, stable for recurring payments) into the vendor, so the merchant key is distinct per payee and a rule targets just that one. Card purchases (which have a real `Merchant:` line) are untouched.
+
 Amounts are stored **signed**. The figure’s magnitude comes from the rand text. Direction: a minus on the amount line is treated as **Out** (ABSA `Amount : -R…` is a debit); otherwise words such as deposit / credited / salary / payment received mark **In**. Unsigned purchases stay **Out**, which is also how every historical row was written. Re-sync rewrites pending amounts, so an old deposit that was stored unsigned becomes In after the next fetch.
 
 Shared helper `parse-helpers.ts` **`parseDateToYyyyMmDd`** resolves yearless **DDMon** strings (e.g. `8Apr 15:52`) by scanning **all** such tokens in the combined subject/body and taking the first where the day is 1–31 and the letters are a known month. That skips accidental matches on amounts like **`.00 paid`** before the real bank timestamp.
