@@ -149,12 +149,11 @@ describe("type A folds the Reference (payee/biller) into the merchant", () => {
     "Available  : R31,246.41",
   ].join("\n");
 
-  it("makes a generic settlement-centre payment distinct per biller", () => {
+  it("uses the payee reference as the vendor, dropping the generic descriptor", () => {
     const parsed = parseTypeA(easyPayBody, "ABSA NotifyMe");
     expect(parsed).not.toBeNull();
-    expect(parsed?.vendor).toContain("EasyPay 9111555963");
-    // The generic descriptor is kept for readability, but the key now carries the
-    // biller reference, so a rule targets just this biller.
+    // Just the payee -- no "SETTLEMENT CENTRE - DIGITAL PMT DT" prefix.
+    expect(parsed?.vendor).toBe("EasyPay 9111555963");
     expect(normalizeMerchantKey(parsed!.vendor)).toContain("9111555963");
   });
 
@@ -204,15 +203,15 @@ describe("type A folds the Reference (payee/biller) into the merchant", () => {
     "Date       : 26/10/2026",
   ].join("\n");
 
-  it("real sample: a DIGITAL PAYMENT folds its payee reference", () => {
+  it("real sample: a DIGITAL PAYMENT uses its payee reference", () => {
     const parsed = parseTypeA(angorBody, "ABSA NotifyMe");
-    expect(parsed?.vendor).toContain("ABSA BANK angor");
+    expect(parsed?.vendor).toBe("ABSA BANK angor");
     expect(normalizeMerchantKey(parsed!.vendor)).toContain("absa bank angor");
   });
 
-  it("real sample: an ACB external debit folds its payee reference", () => {
+  it("real sample: an ACB external debit uses its payee reference", () => {
     const parsed = parseTypeA(supersonicBody, "ABSA NotifyMe");
-    expect(parsed?.vendor).toContain("SUPERSONIC440482185 NETCASH");
+    expect(parsed?.vendor).toBe("SUPERSONIC440482185 NETCASH");
     const key = normalizeMerchantKey(parsed!.vendor);
     expect(key).toContain("supersonic440482185");
     // A `contains "supersonic"` rule stays robust even if the number changes.

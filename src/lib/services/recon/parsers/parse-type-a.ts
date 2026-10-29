@@ -49,17 +49,18 @@ export function parseTypeA(body: string, subject: string): ParsedBankEmail | nul
   // A card purchase carries its real merchant in the Merchant line and is already
   // specific. Every other kind of payment -- EasyPay, debit orders, EFTs --
   // shares a generic Transaction descriptor ("SETTLEMENT CENTRE - DIGITAL PMT DT",
-  // "DEBIT ORDER", "IMMEDIATE PAYMENT"), so on its own it collapses to one
-  // merchant and any rule over-matches every payee. The Reference line names the
-  // actual payee/biller and is stable for recurring payments, so when there is no
-  // Merchant line we fold the Reference into the merchant identity -- a rule can
-  // then target just that payee, and the others stay separate.
+  // "... ACB DEBIT:EXTERNAL"), which carries no payee and would collapse every
+  // payment to one merchant. The Reference line names the actual payee/biller and
+  // is stable for recurring payments, so when there is no Merchant line we use the
+  // Reference *in place of* the generic descriptor: a rule then targets just that
+  // payee, the others stay separate, and the rules list reads as the payee rather
+  // than "SETTLEMENT CENTRE ...".
   const hasMerchantLine = /merchant\s*:/i.test(combined);
   if (!hasMerchantLine) {
     const referenceLine = combined.match(/reference\s*:\s*([^\n\r]+)/i);
     const reference = referenceLine?.[1]?.trim();
     if (reference && reference.length >= 3) {
-      vendor = vendor && vendor !== "Unknown" ? `${vendor} · ${reference}` : reference;
+      vendor = reference;
     }
   }
   return {
