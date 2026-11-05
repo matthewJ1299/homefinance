@@ -30,6 +30,13 @@ export const acceptAddSchema = z
     note: z.string().max(500).optional(),
     entryKind: z.enum(["expense", "income"]).optional().default("expense"),
     incomeType: z.enum(["salary", "ad_hoc"]).optional().default("ad_hoc"),
+    /**
+     * `false` suppresses the per-filing push. The bulk console sets it so a run
+     * of twenty rows sends one summary (via notifyReconSplitsFiledAction)
+     * instead of twenty pings. Omitted means push, which is what a single
+     * "File it" wants.
+     */
+    notify: z.boolean().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.entryKind === "expense") {

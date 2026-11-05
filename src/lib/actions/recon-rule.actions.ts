@@ -15,6 +15,7 @@ import { matchRules } from "@/lib/services/recon/match-rules";
 import { flowFromStoredAmount } from "@/lib/services/recon/recon-flow";
 import { ReconService } from "@/lib/services/recon/recon.service";
 import { ReconRuleService } from "@/lib/services/recon/recon-rule.service";
+import { notifyReconSplitsFiled } from "@/lib/services/recon/recon-split-notify";
 import { reconRuleWriteSchema } from "@/lib/validators/recon-rule.schema";
 
 export type ReconRuleResult = { success: true } | { success: false; error: string };
@@ -132,7 +133,7 @@ export async function acceptAllRuleMatched(): Promise<
   { success: true; accepted: number; failed: number } | { success: false; error: string }
 > {
   return authedAction<{ success: true; accepted: number; failed: number }>(
-    async ({ userId }) => {
+    async ({ session, userId }) => {
       const [rules, pending] = await Promise.all([
         getReconRuleRepository().findByOwner(userId),
         getReconImportItemRepository().findPendingByUserId(userId),
@@ -147,6 +148,9 @@ export async function acceptAllRuleMatched(): Promise<
       let accepted = 0;
       let failed = 0;
       const usedRuleIds = new Set<number>();
+      // Collected for one summary push per person after the run, rather than
+      // a ping per row.
+      const filedExpenseIds: number[] = [];
       for (const { item, rule } of matched) {
         try {
           // The rule knows who was in on it; an even split across those people is
@@ -154,7 +158,7 @@ export async function acceptAllRuleMatched(): Promise<
           // in the house", which is not what the rule said.
           const ids = rule.participantUserIds.length > 0 ? rule.participantUserIds : [userId];
           const even = divideEqually(item.amount, ids);
-          await service.acceptAdd(
+          const filed = await service.acceptAdd(
             userId,
             item.id,
             rule.categoryId ?? undefined,
@@ -164,6 +168,7 @@ export async function acceptAllRuleMatched(): Promise<
             undefined,
             "expense"
           );
+          if (filed.expenseId != null) filedExpenseIds.push(filed.expenseId);
           accepted += 1;
           usedRuleIds.add(rule.id);
         } catch {
@@ -172,6 +177,11 @@ export async function acceptAllRuleMatched(): Promise<
         }
       }
       await getReconRuleRepository().incrementTimesUsed([...usedRuleIds]);
+      await notifyReconSplitsFiled({
+        userId,
+        adderName: session.user.name ?? "Someone",
+        expenseIds: filedExpenseIds,
+      });
 
       revalidatePath("/recon");
       revalidatePath("/dashboard");

@@ -39,6 +39,23 @@ export class ExpenseParticipantRepository implements IExpenseParticipantReposito
     }));
   }
 
+  async findByExpenseIds(expenseIds: number[]): Promise<ExpenseParticipantRow[]> {
+    if (expenseIds.length === 0) return [];
+    const hid = requireHouseholdId();
+    const placeholders = expenseIds.map(() => "?").join(",");
+    const rows = await all<{ id: number; expense_id: number; user_id: number; share_minor: number; name: string }>(
+      `SELECT p.id, p.expense_id, p.user_id, p.share_minor, u.name
+       FROM expense_participants p JOIN users u ON u.id = p.user_id
+       WHERE p.household_id = ? AND p.expense_id IN (${placeholders})
+       ORDER BY p.expense_id, p.user_id`,
+      [hid, ...expenseIds]
+    );
+    return rows.map((r) => ({
+      id: r.id, expenseId: r.expense_id, userId: r.user_id,
+      shareMinor: r.share_minor, userName: r.name,
+    }));
+  }
+
   async getSharesForExpenses(expenseIds: number[], userId: number): Promise<Map<number, number>> {
     if (expenseIds.length === 0) return new Map();
     const hid = requireHouseholdId();

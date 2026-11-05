@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { createReconRule } from "@/lib/actions/recon-rule.actions";
+import { notifyReconSplitsFiledAction } from "@/lib/actions/recon.actions";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter, DialogHeader } from "@/components/ui/dialog";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
@@ -494,6 +495,9 @@ export function ReconPageClient() {
     let skippedInvalidAmount = 0;
     const processedIds: number[] = [];
     const processedDates: string[] = [];
+    // Each accept-add below is told not to push; these feed one summary per
+    // person at the end instead of a ping per row.
+    const filedSplitExpenseIds: number[] = [];
     let ignoredMinor = 0;
     let duplicateMinor = 0;
     let addMinor = 0;
@@ -558,7 +562,7 @@ export function ReconPageClient() {
           continue;
         }
         const split = splitByItemId[item.id] ?? false;
-        await fetchJson<{ expenseId?: number; incomeId?: number }>(
+        const filed = await fetchJson<{ expenseId?: number; incomeId?: number }>(
           `/api/recon/items/${item.id}/accept-add`,
           {
             method: "POST",
@@ -569,9 +573,11 @@ export function ReconPageClient() {
               note: expenseNote,
               amount: amountMinor,
               entryKind: "expense",
+              notify: false,
             }),
           }
         );
+        if (split && filed.expenseId != null) filedSplitExpenseIds.push(filed.expenseId);
         added++;
         if (ruleByItemId[item.id]) {
           const ruleResult = await createReconRule({
@@ -595,6 +601,10 @@ export function ReconPageClient() {
           count: prev.count + 1,
           totalMinor: prev.totalMinor + amountMinor,
         });
+      }
+      if (filedSplitExpenseIds.length > 0) {
+        const notified = await notifyReconSplitsFiledAction(filedSplitExpenseIds);
+        if (!notified.success) toast.message(notified.error);
       }
       void queryClient.invalidateQueries({ queryKey: ["recon-items"] });
       setBulkIntentByItemId((prev) => {
