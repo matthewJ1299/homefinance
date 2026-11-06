@@ -30,6 +30,7 @@ import { splitExpenseWithRatios } from "@/lib/services/finance/accounts";
 import { divideEqually, validateParticipantShares } from "@/lib/services/finance/participants";
 import { formatRand } from "@/lib/utils/currency";
 import { categoryHasSemanticKey } from "@/lib/categories/semantic-key";
+import { splitAddedPayload, splitPushRecipients } from "@/lib/push/split-notification";
 
 export type ExpenseActionResult =
   | {
@@ -44,6 +45,47 @@ export type ExpenseActionResult =
       myShare?: number;
     }
   | { success: false; error: string };
+
+/**
+ * Push "X added a shared spend" to everyone else in the split, each with their
+ * own share. Best-effort: the save has already gone through, and a push that
+ * fails (keys missing, a stale device) must never turn it into an error.
+ *
+ * This is the one place a split notification is sent from, so every entry
+ * point that writes a shared spend says the same thing. It used to live only
+ * in `addSplitExpense`, which nothing calls -- the Add sheet goes through
+ * `addExpenseWithParticipants` -- so no shared spend ever notified anyone.
+ */
+async function notifySplitParticipants(input: {
+  adderUserId: number;
+  adderName: string;
+  amountMinor: number;
+  note: string | null | undefined;
+  participants: { userId: number; shareMinor: number }[];
+}): Promise<void> {
+  const recipients = splitPushRecipients(input.adderUserId, input.participants);
+  if (recipients.length === 0) return;
+  try {
+    const { NotificationService, isNotificationConfigured } = await import(
+      "@/lib/services/notification.service"
+    );
+    if (!isNotificationConfigured()) return;
+    const notificationService = new NotificationService();
+    for (const r of recipients) {
+      await notificationService.sendToUser(
+        r.userId,
+        splitAddedPayload({
+          adderName: input.adderName,
+          amountMinor: input.amountMinor,
+          note: input.note,
+          shareMinor: r.shareMinor,
+        })
+      );
+    }
+  } catch {
+    // Notification failure must not affect the primary operation
+  }
+}
 
 /**
  * The Add sheet's save path. One action for solo and shared spends: the caller
@@ -87,6 +129,16 @@ export async function addExpenseWithParticipants(formData: {
   for (const path of ["/dashboard", "/expenses", "/budget", "/splits", "/what-i-owe"]) {
     revalidatePath(path);
   }
+
+  // A solo spend is a one-person list, so this is a no-op for it: only the
+  // other people in a shared spend hear about it.
+  await notifySplitParticipants({
+    adderUserId: userId,
+    adderName: session.user.name ?? "Someone",
+    amountMinor: parsed.data.amount,
+    note: parsed.data.note,
+    participants: parsed.data.participants,
+  });
 
   return {
     success: true,
@@ -523,25 +575,13 @@ export async function addSplitExpense(formData: {
     revalidatePath("/dashboard");
     revalidatePath("/expenses");
     revalidatePath("/splits");
-    try {
-      const { NotificationService, isNotificationConfigured } = await import(
-        "@/lib/services/notification.service"
-      );
-      if (isNotificationConfigured()) {
-        const notificationService = new NotificationService();
-        const userName = session.user.name ?? "Someone";
-        const amountRands = (parsed.data.totalAmountCents / 100).toFixed(2);
-        const note = parsed.data.note?.trim() ? `: ${parsed.data.note}` : "";
-        await notificationService.sendToAllExcept(userId, {
-          title: "HomeFinance",
-          body: `${userName} added a split expense${note} (R${amountRands})`,
-          url: "/splits",
-          kind: "split",
-        });
-      }
-    } catch {
-      // Notification failure must not affect the primary operation
-    }
+    await notifySplitParticipants({
+      adderUserId: userId,
+      adderName: session.user.name ?? "Someone",
+      amountMinor: total,
+      note: parsed.data.note,
+      participants,
+    });
     return { success: true, id };
   } catch (err) {
     return {

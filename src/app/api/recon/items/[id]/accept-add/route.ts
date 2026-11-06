@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { setRequestContextFromSession } from "@/lib/auth/set-session-request-context";
 import { featureDeniedResponse } from "@/lib/api/feature-gate";
 import { ReconService } from "@/lib/services/recon/recon.service";
+import { notifyReconSplitsFiled } from "@/lib/services/recon/recon-split-notify";
 import { acceptAddSchema } from "@/lib/validators/recon.schema";
 
 export async function POST(
@@ -39,6 +40,16 @@ export async function POST(
       parsed.data.entryKind,
       parsed.data.incomeType
     );
+    // Tell the other people in the split. Silent for an unsplit row (no other
+    // participant) and when the bulk console has asked to send one summary
+    // itself instead.
+    if (parsed.data.notify !== false && result.expenseId != null) {
+      await notifyReconSplitsFiled({
+        userId,
+        adderName: session.user.name ?? "Someone",
+        expenseIds: [result.expenseId],
+      });
+    }
     return NextResponse.json(result);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "failed";
