@@ -1,3 +1,5 @@
+import type { BudgetMonthPeriod } from "@/lib/types/budget-month";
+
 export interface SplitSettlementRow {
   id: number;
   payerUserId: number;
@@ -26,6 +28,8 @@ export interface ISplitSettlementRepository {
   }): Promise<{ id: number }>;
   findById(id: number): Promise<SplitSettlementRow | null>;
   findAllForUser(userId: number, groupId?: number): Promise<SplitSettlementWithNames[]>;
+  /** Every household settlement dated inside the period, oldest first. Household export only. */
+  findInPeriodForHousehold(period: BudgetMonthPeriod): Promise<SplitSettlementWithNames[]>;
   /** Latest settlement between these two users, any direction. */
   findLatestBetween(
     userIdA: number,

@@ -1,3 +1,5 @@
+import type { BudgetMonthPeriod } from "@/lib/types/budget-month";
+
 export type AccountTransactionType =
   | "income"
   | "expense"
@@ -26,6 +28,15 @@ export interface AccountTransaction {
   referenceId?: number;
   note: string | null;
   createdAt: string;
+}
+
+/**
+ * A ledger row with the date it belongs to: the linked expense or income date
+ * where there is one, else the row's own creation date in app time.
+ */
+export interface AccountTransactionWithEffectiveDate extends AccountTransaction {
+  /** yyyy-MM-dd. */
+  effectiveDate: string;
 }
 
 export interface IAccountTransactionRepository {
@@ -64,5 +75,10 @@ export interface IAccountTransactionRepository {
     limit: number,
     offset: number
   ): Promise<AccountTransaction[]>;
+  /**
+   * Every household ledger row whose effective date falls inside the period,
+   * oldest first. Read-only; used by the household export.
+   */
+  findInPeriodForHousehold(period: BudgetMonthPeriod): Promise<AccountTransactionWithEffectiveDate[]>;
 }
 

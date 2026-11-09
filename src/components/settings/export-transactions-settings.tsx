@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { downloadExport } from "./download-export";
 
 export function ExportTransactionsSettings() {
   const [pending, setPending] = useState(false);
@@ -11,25 +12,10 @@ export function ExportTransactionsSettings() {
     setMessage(null);
     setPending(true);
     try {
-      const res = await fetch("/api/export/transactions", { method: "GET", credentials: "include" });
-      if (!res.ok) {
-        setMessage(res.status === 401 ? "Sign in again to export." : "Export failed. Try again.");
-        return;
-      }
-      const blob = await res.blob();
-      const cd = res.headers.get("Content-Disposition");
-      const match = cd?.match(/filename="([^"]+)"/);
-      const filename = match?.[1] ?? "homefinance-transactions.csv";
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.rel = "noopener";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      setMessage("Download started.");
+      const result = await downloadExport("/api/export/transactions", "homefinance-transactions.csv");
+      if (result === "unauthorized") setMessage("Sign in again to export.");
+      else if (result === "failed") setMessage("Export failed. Try again.");
+      else setMessage("Download started.");
     } catch {
       setMessage("Export failed. Check your connection and try again.");
     } finally {

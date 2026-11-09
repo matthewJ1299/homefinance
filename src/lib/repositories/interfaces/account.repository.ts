@@ -17,6 +17,8 @@ export interface IAccountRepository {
   findById(id: number, ownerUserId: number): Promise<Account | null>;
   /** Own accounts plus household accounts flagged shared. Read-only for the non-owner. */
   findAllVisibleToUser(userId: number): Promise<Account[]>;
+  /** Every account in the household, private ones included. Household export only. */
+  findAllInHousehold(): Promise<Account[]>;
   findAllForUser(ownerUserId: number): Promise<Account[]>;
   /** Oldest bank account (primary spending), else oldest account by id. */
   findMainAccountIdForUser(ownerUserId: number): Promise<number | null>;

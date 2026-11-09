@@ -5,8 +5,11 @@ import type {
   IAccountTransactionRepository,
   AccountTransaction,
   AccountTransactionReferenceType,
+  AccountTransactionWithEffectiveDate,
   CreateAccountTransactionInput,
 } from "../interfaces/account-transaction.repository";
+import type { BudgetMonthPeriod } from "@/lib/types/budget-month";
+import { APP_TIME_ZONE } from "@/lib/utils/app-timezone";
 
 interface AccountTransactionRow {
   id: number;
@@ -188,5 +191,30 @@ export class AccountTransactionRepository
       [accountId, hid, limit, offset]
     );
     return rows.map(toAccountTransaction);
+  }
+
+  async findInPeriodForHousehold(
+    period: BudgetMonthPeriod
+  ): Promise<AccountTransactionWithEffectiveDate[]> {
+    const hid = requireHouseholdId();
+    // A ledger row has no date of its own. The spend or income it was raised
+    // for does, and that is the date a reader means; a transfer or adjustment
+    // falls back to the moment it was recorded, read in app time so a late
+    // evening entry does not slip into the next day.
+    const effectiveDate = `COALESCE(e.date, i.date, to_char(at.created_at AT TIME ZONE ?, 'YYYY-MM-DD'))`;
+    const rows = await all<AccountTransactionRow & { effective_date: string }>(
+      `SELECT at.id, at.account_id, at.amount, at.transaction_type, at.reference_type, at.reference_id,
+              at.note, at.created_at, ${effectiveDate} AS effective_date
+         FROM account_transactions at
+        INNER JOIN accounts a ON at.account_id = a.id
+         LEFT JOIN expenses e ON e.id = at.expense_id AND e.household_id = a.household_id
+         LEFT JOIN income i ON i.id = at.income_id AND i.household_id = a.household_id
+        WHERE a.household_id = ?
+          AND ${effectiveDate} >= ?
+          AND ${effectiveDate} <= ?
+        ORDER BY effective_date, at.id`,
+      [APP_TIME_ZONE, hid, APP_TIME_ZONE, period.start, APP_TIME_ZONE, period.end]
+    );
+    return rows.map((r) => ({ ...toAccountTransaction(r), effectiveDate: r.effective_date }));
   }
 }

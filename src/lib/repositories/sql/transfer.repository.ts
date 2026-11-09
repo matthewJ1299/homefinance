@@ -6,6 +6,8 @@ import type {
   CreateTransferInput,
   Transfer,
 } from "../interfaces/transfer.repository";
+import type { BudgetMonthPeriod } from "@/lib/types/budget-month";
+import { APP_TIME_ZONE } from "@/lib/utils/app-timezone";
 
 interface TransferRow {
   id: number;
@@ -56,6 +58,19 @@ export class TransferRepository implements ITransferRepository {
     const rows = await all<TransferRow>(
       "SELECT id, from_account_id, to_account_id, amount, note, created_at FROM transfers WHERE household_id = ? AND (from_account_id = ? OR to_account_id = ?) ORDER BY created_at DESC LIMIT ? OFFSET ?",
       [hid, accountId, accountId, limit, offset]
+    );
+    return rows.map(toTransfer);
+  }
+
+  async findInPeriodForHousehold(period: BudgetMonthPeriod): Promise<Transfer[]> {
+    const hid = requireHouseholdId();
+    const localDate = `to_char(created_at AT TIME ZONE ?, 'YYYY-MM-DD')`;
+    const rows = await all<TransferRow>(
+      `SELECT id, from_account_id, to_account_id, amount, note, created_at
+         FROM transfers
+        WHERE household_id = ? AND ${localDate} >= ? AND ${localDate} <= ?
+        ORDER BY created_at, id`,
+      [hid, APP_TIME_ZONE, period.start, APP_TIME_ZONE, period.end]
     );
     return rows.map(toTransfer);
   }

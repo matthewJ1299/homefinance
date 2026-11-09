@@ -5,6 +5,7 @@ import type {
   SplitSettlementRow,
   SplitSettlementWithNames,
 } from "../interfaces/split-settlement.repository";
+import type { BudgetMonthPeriod } from "@/lib/types/budget-month";
 
 interface SettlementRow {
   id: number;
@@ -65,6 +66,25 @@ export class SplitSettlementRepository implements ISplitSettlementRepository {
       [id]
     );
     return row ? toRow(row) : null;
+  }
+
+  async findInPeriodForHousehold(period: BudgetMonthPeriod): Promise<SplitSettlementWithNames[]> {
+    const hid = requireHouseholdId();
+    const rows = await all<SettlementRow>(
+      `SELECT ss.id, ss.payer_user_id, ss.recipient_user_id, ss.amount, ss.date, ss.expense_id, ss.income_id, ss.split_expense_group_id,
+              p.name AS payer_name, r.name AS recipient_name
+         FROM split_settlements ss
+        INNER JOIN users p ON ss.payer_user_id = p.id AND p.household_id = ss.household_id
+        INNER JOIN users r ON ss.recipient_user_id = r.id AND r.household_id = ss.household_id
+        WHERE ss.household_id = ? AND ss.date >= ? AND ss.date <= ?
+        ORDER BY ss.date, ss.id`,
+      [hid, period.start, period.end]
+    );
+    return rows.map((r) => ({
+      ...toRow(r),
+      payerUserName: r.payer_name ?? "",
+      recipientUserName: r.recipient_name ?? "",
+    }));
   }
 
   async findAllForUser(userId: number, groupId?: number): Promise<SplitSettlementWithNames[]> {

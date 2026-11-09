@@ -26,6 +26,7 @@ import { AccountsManage } from "@/components/accounts/accounts-manage";
 import { BudgetMonthRangeSettings } from "@/components/settings/budget-month-range-settings";
 import { HouseholdMembersPanel } from "@/components/household/household-members-panel";
 import { ExportTransactionsSettings } from "@/components/settings/export-transactions-settings";
+import { ExportHouseholdSettings } from "@/components/settings/export-household-settings";
 import { BudgetMaintenanceSettings } from "@/components/settings/budget-maintenance-settings";
 import { OnboardingLauncherCard } from "@/components/onboarding/onboarding-launcher-card";
 import { ProfileSettings } from "@/components/settings/profile-settings";
@@ -138,7 +139,11 @@ export default async function SettingsPage() {
         <SettingsListsSection lists={sharedLists} />
       </SettingsSection>
 
-      <SettingsSection title="Data and export" description="Download your transactions.">
+      <SettingsSection
+        title="Data and export"
+        description="Download your transactions, or a household file to hand to an AI assistant."
+      >
+        <ExportHouseholdSettings />
         <ExportTransactionsSettings />
       </SettingsSection>
 
